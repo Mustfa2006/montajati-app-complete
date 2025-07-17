@@ -140,7 +140,7 @@ class OrderStatusSyncService {
         timeout: 30000,
         maxRedirects: 0,
         validateStatus: function (status) {
-          return status < 400;
+          return status < 500; // قبول إعادة التوجيه
         }
       });
 
@@ -149,11 +149,34 @@ class OrderStatusSyncService {
       const allCookies = [...cookies, ...newCookies];
       const finalCookieString = allCookies.map(cookie => cookie.split(';')[0]).join('; ');
 
+      // فحص إعادة التوجيه (علامة نجاح)
+      if (loginResponse.status === 303 || loginResponse.status === 302 || loginResponse.status === 301) {
+        const location = loginResponse.headers['location'];
+        console.log('🔄 إعادة توجيه إلى:', location);
+
+        if (location && !location.includes('login')) {
+          this.waseetConfig.token = finalCookieString;
+          this.waseetConfig.tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+          console.log('✅ تم تسجيل الدخول المباشر بنجاح (إعادة توجيه)');
+
+          // تسجيل في النظام
+          await this.logSystemEvent('waseet_direct_login_success', {
+            timestamp: new Date().toISOString(),
+            token_expiry: this.waseetConfig.tokenExpiry,
+            redirect_location: location
+          });
+
+          return this.waseetConfig.token;
+        }
+      }
+
+      // فحص وجود PHPSESSID (طريقة بديلة)
       if (finalCookieString && finalCookieString.includes('PHPSESSID')) {
         this.waseetConfig.token = finalCookieString;
         this.waseetConfig.tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-        console.log('✅ تم تسجيل الدخول المباشر بنجاح');
+        console.log('✅ تم تسجيل الدخول المباشر بنجاح (PHPSESSID)');
 
         // تسجيل في النظام
         await this.logSystemEvent('waseet_direct_login_success', {
@@ -164,6 +187,7 @@ class OrderStatusSyncService {
         return this.waseetConfig.token;
       }
 
+      console.log('⚠️ لم يتم التعرف على نجاح تسجيل الدخول');
       return null;
     } catch (error) {
       console.error('❌ خطأ في تسجيل الدخول المباشر:', error.message);

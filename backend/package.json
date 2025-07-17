@@ -4,9 +4,10 @@
   "description": "Backend API لتطبيق منتجاتي - نظام إدارة الدروب شيبنگ",
   "main": "server.js",
   "scripts": {
-    "start": "node production_server.js",
+    "start": "node render-start.js",
     "dev": "nodemon server.js",
-    "production": "NODE_ENV=production node production_server.js",
+    "production": "NODE_ENV=production node render-start.js",
+    "local": "node production_server.js",
     "proxy": "node flexible_delivery_proxy.js",
     "proxy:dev": "nodemon flexible_delivery_proxy.js",
     "monitor": "node order_status_monitor.js",

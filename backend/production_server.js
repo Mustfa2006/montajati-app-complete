@@ -21,8 +21,8 @@ const uploadRoutes = require('./routes/upload');
 const usersRoutes = require('./routes/users');
 
 // استيراد الخدمات
-const orderStatusSyncService = require('./sync/order_status_sync_service');
-const orderStatusWatcher = require('./services/order_status_watcher');
+const OrderStatusSyncService = require('./sync/order_status_sync_service');
+const OrderStatusWatcher = require('./services/order_status_watcher');
 const InventoryMonitorService = require('./inventory_monitor_service');
 const TelegramNotificationService = require('./telegram_notification_service');
 
@@ -398,11 +398,26 @@ async function startServer() {
 
     // تهيئة خدمة مزامنة حالة الطلبات
     console.log('🔄 تهيئة خدمة مزامنة الطلبات...');
-    await orderStatusSyncService.initialize();
+    try {
+      const orderStatusSyncService = new OrderStatusSyncService();
+      await orderStatusSyncService.initialize();
+
+      // بدء المزامنة التلقائية
+      orderStatusSyncService.startAutoSync();
+      console.log('✅ تم تهيئة خدمة مزامنة الطلبات بنجاح');
+    } catch (error) {
+      console.warn('⚠️ تحذير: فشل في تهيئة خدمة مزامنة الطلبات:', error.message);
+    }
 
     // تشغيل مراقب حالة الطلبات للإشعارات
     console.log('👁️ تشغيل مراقب حالة الطلبات...');
-    orderStatusWatcher.startWatching();
+    try {
+      const orderStatusWatcher = new OrderStatusWatcher();
+      orderStatusWatcher.startWatching();
+      console.log('✅ تم تشغيل مراقب حالة الطلبات بنجاح');
+    } catch (error) {
+      console.warn('⚠️ تحذير: فشل في تشغيل مراقب الطلبات:', error.message);
+    }
 
     // تهيئة وتشغيل نظام مراقبة المخزون والتلغرام
     console.log('📱 تهيئة نظام التلغرام ومراقبة المخزون...');

@@ -93,8 +93,24 @@ class FirebaseConfig {
     const privateKey = process.env.FIREBASE_PRIVATE_KEY;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 
-    // تنظيف المفتاح الخاص (إزالة escape characters)
-    const cleanPrivateKey = privateKey.replace(/\\n/g, '\n');
+    // تنظيف المفتاح الخاص (معالجة خاصة لـ Render)
+    let cleanPrivateKey = privateKey;
+
+    // إزالة escape characters
+    if (cleanPrivateKey) {
+      cleanPrivateKey = cleanPrivateKey.replace(/\\n/g, '\n');
+
+      // إضافة header و footer إذا لم يكونا موجودين
+      if (!cleanPrivateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        cleanPrivateKey = `-----BEGIN PRIVATE KEY-----\n${cleanPrivateKey}\n-----END PRIVATE KEY-----`;
+      }
+
+      // تنظيف إضافي للمسافات والأسطر الفارغة
+      cleanPrivateKey = cleanPrivateKey
+        .replace(/\s+-----BEGIN PRIVATE KEY-----/g, '-----BEGIN PRIVATE KEY-----')
+        .replace(/-----END PRIVATE KEY-----\s+/g, '-----END PRIVATE KEY-----')
+        .trim();
+    }
 
     return {
       project_id: projectId,
