@@ -35,52 +35,52 @@ class NotificationService {
   // ===================================
   initializeFirebase() {
     try {
-      // تهيئة Firebase Admin إذا لم يتم تهيئته بالفعل
-      if (admin.apps.length === 0) {
-        let credential;
+      // استخدام Firebase المهيأ مسبقاً من config/firebase.js
+      if (admin.apps.length > 0) {
+        console.log('ℹ️ Firebase Admin مهيأ مسبقاً');
+        this.messaging = admin.messaging();
+        this.initialized = true;
+        return;
+      }
 
-        // استخدام نفس طريقة config/firebase.js
-        if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
-          console.log('🔥 استخدام Firebase Service Account من متغيرات البيئة');
+      // إذا لم يكن مهيأ، استخدم نفس طريقة config/firebase.js
+      if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+        console.log('🔥 استخدام Firebase Service Account من متغيرات البيئة');
 
-          // تنظيف المفتاح الخاص
-          let cleanPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-          if (cleanPrivateKey) {
-            cleanPrivateKey = cleanPrivateKey.replace(/\\n/g, '\n');
-          }
-
-          const serviceAccount = {
-            type: 'service_account',
-            project_id: process.env.FIREBASE_PROJECT_ID,
-            private_key: cleanPrivateKey,
-            client_email: process.env.FIREBASE_CLIENT_EMAIL
-          };
-
-          credential = admin.credential.cert(serviceAccount);
-        } else {
-          // تعطيل Firebase إذا لم تكن المتغيرات متوفرة
-          console.log('⚠️ متغيرات Firebase غير متوفرة - سيتم تعطيل الإشعارات');
-          this.initialized = false;
-          return;
+        // تنظيف المفتاح الخاص
+        let cleanPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+        if (cleanPrivateKey) {
+          cleanPrivateKey = cleanPrivateKey.replace(/\\n/g, '\n');
         }
 
+        const serviceAccount = {
+          type: 'service_account',
+          project_id: process.env.FIREBASE_PROJECT_ID,
+          private_key: cleanPrivateKey,
+          client_email: process.env.FIREBASE_CLIENT_EMAIL
+        };
+
         admin.initializeApp({
-          credential: credential,
+          credential: admin.credential.cert(serviceAccount),
           projectId: process.env.FIREBASE_PROJECT_ID || 'withdrawal-notifications'
         });
 
         console.log('✅ تم تهيئة Firebase Admin بنجاح');
+        this.messaging = admin.messaging();
+        this.initialized = true;
       } else {
-        console.log('ℹ️ Firebase Admin مهيأ مسبقاً');
+        // تعطيل Firebase إذا لم تكن المتغيرات متوفرة
+        console.log('⚠️ متغيرات Firebase غير متوفرة - سيتم تعطيل الإشعارات');
+        this.initialized = false;
+        return;
       }
-
-      this.messaging = admin.messaging();
     } catch (error) {
       console.warn('⚠️ تحذير: فشل في تهيئة Firebase Admin:', error.message);
       console.warn('📱 الإشعارات ستكون معطلة');
       if (this.notificationConfig) {
         this.notificationConfig.enabled = false;
       }
+      this.initialized = false;
     }
   }
 

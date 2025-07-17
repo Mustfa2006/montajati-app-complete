@@ -389,12 +389,17 @@ async function startServer() {
     console.log(`📊 البيئة: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 المنفذ: ${PORT}`);
 
-    // تهيئة Firebase
-    console.log('🔥 تهيئة Firebase...');
-    try {
-      await firebaseConfig.initialize();
-    } catch (error) {
-      console.warn('⚠️ تحذير: فشل في تهيئة Firebase - سيتم المتابعة بدون إشعارات');
+    // تهيئة Firebase (إذا لم يكن مهيأ مسبقاً)
+    const admin = require('firebase-admin');
+    if (admin.apps.length === 0) {
+      console.log('🔥 تهيئة Firebase...');
+      try {
+        await firebaseConfig.initialize();
+      } catch (error) {
+        console.warn('⚠️ تحذير: فشل في تهيئة Firebase - سيتم المتابعة بدون إشعارات');
+      }
+    } else {
+      console.log('ℹ️ Firebase مهيأ مسبقاً - تخطي التهيئة');
     }
 
     // تهيئة خدمة مزامنة حالة الطلبات

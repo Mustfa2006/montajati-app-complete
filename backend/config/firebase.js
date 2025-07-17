@@ -1,6 +1,9 @@
 // إعداد Firebase Admin SDK للإنتاج
 const admin = require('firebase-admin');
 
+// تحميل متغيرات البيئة
+require('dotenv').config();
+
 class FirebaseConfig {
   constructor() {
     this.initialized = false;
