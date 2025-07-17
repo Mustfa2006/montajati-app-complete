@@ -94,6 +94,17 @@ class FirebaseConfig {
       console.log(`  FIREBASE_PROJECT_ID: ${process.env.FIREBASE_PROJECT_ID ? 'موجود' : 'مفقود'}`);
       console.log(`  FIREBASE_PRIVATE_KEY: ${process.env.FIREBASE_PRIVATE_KEY ? `موجود (${process.env.FIREBASE_PRIVATE_KEY.length} حرف)` : 'مفقود'}`);
       console.log(`  FIREBASE_CLIENT_EMAIL: ${process.env.FIREBASE_CLIENT_EMAIL ? 'موجود' : 'مفقود'}`);
+
+      // فحص إضافي للـ Private Key
+      if (process.env.FIREBASE_PRIVATE_KEY) {
+        const key = process.env.FIREBASE_PRIVATE_KEY;
+        console.log(`🔍 تفاصيل Private Key:`);
+        console.log(`  - الطول: ${key.length} حرف`);
+        console.log(`  - يبدأ بـ: "${key.substring(0, 30)}..."`);
+        console.log(`  - ينتهي بـ: "...${key.substring(key.length - 30)}"`);
+        console.log(`  - يحتوي على BEGIN: ${key.includes('BEGIN PRIVATE KEY')}`);
+        console.log(`  - يحتوي على END: ${key.includes('END PRIVATE KEY')}`);
+      }
     }
 
     return hasVars && hasValidValues;

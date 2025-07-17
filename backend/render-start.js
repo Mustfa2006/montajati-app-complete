@@ -69,25 +69,38 @@ console.log('🚀 بدء تشغيل الخادم على Render...');
 console.log(`📊 البيئة: ${process.env.NODE_ENV}`);
 console.log(`🌐 المنفذ: ${process.env.PORT || 3003}`);
 
-// فحص Firebase النهائي في Render
+// فحص Firebase النهائي في Render مع تشخيص مفصل
 console.log('\n🔥 فحص Firebase النهائي في Render:');
-const hasFirebaseVars = !!(
-  process.env.FIREBASE_PROJECT_ID &&
-  process.env.FIREBASE_PRIVATE_KEY &&
-  process.env.FIREBASE_CLIENT_EMAIL
-);
+console.log('🔍 تشخيص مفصل لكل متغير:');
+
+// فحص كل متغير بشكل منفصل
+const projectId = process.env.FIREBASE_PROJECT_ID;
+const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+
+console.log(`📋 FIREBASE_PROJECT_ID: ${projectId ? `"${projectId}"` : 'غير موجود'}`);
+console.log(`📋 FIREBASE_CLIENT_EMAIL: ${clientEmail ? `"${clientEmail}"` : 'غير موجود'}`);
+console.log(`📋 FIREBASE_PRIVATE_KEY: ${privateKey ? `موجود (${privateKey.length} حرف)` : 'غير موجود'}`);
+
+if (privateKey) {
+  console.log(`🔍 أول 50 حرف من Private Key: "${privateKey.substring(0, 50)}..."`);
+  console.log(`🔍 آخر 50 حرف من Private Key: "...${privateKey.substring(privateKey.length - 50)}"`);
+}
+
+// فحص جميع متغيرات البيئة التي تبدأ بـ FIREBASE
+console.log('\n🔍 جميع متغيرات Firebase في البيئة:');
+Object.keys(process.env).filter(key => key.startsWith('FIREBASE')).forEach(key => {
+  const value = process.env[key];
+  console.log(`  ${key}: ${value ? `موجود (${value.length} حرف)` : 'غير موجود'}`);
+});
+
+const hasFirebaseVars = !!(projectId && privateKey && clientEmail);
 
 if (hasFirebaseVars) {
-  console.log('✅ متغيرات Firebase موجودة في Render');
-  console.log(`📋 Project ID: ${process.env.FIREBASE_PROJECT_ID}`);
-  console.log(`📋 Client Email: ${process.env.FIREBASE_CLIENT_EMAIL}`);
-  console.log(`📋 Private Key Length: ${process.env.FIREBASE_PRIVATE_KEY?.length || 0} chars`);
+  console.log('\n✅ جميع متغيرات Firebase موجودة في Render');
 } else {
-  console.log('❌ متغيرات Firebase مفقودة في Render!');
-  console.log('💡 يجب إضافة المتغيرات في Render Environment Variables:');
-  console.log('   - FIREBASE_PROJECT_ID');
-  console.log('   - FIREBASE_PRIVATE_KEY');
-  console.log('   - FIREBASE_CLIENT_EMAIL');
+  console.log('\n❌ بعض متغيرات Firebase مفقودة في Render!');
+  console.log('💡 يجب إضافة المتغيرات في Render Environment Variables');
 }
 
 // تحسينات خاصة بـ Render
