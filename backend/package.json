@@ -16,6 +16,8 @@
     "test-inventory": "node test_inventory_monitor.js",
     "test-firebase": "node test_firebase_connection.js",
     "test-health": "curl http://localhost:3003/health",
+    "firebase-check": "node render_firebase_check.js",
+    "firebase-extract": "node extract_firebase_vars.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

@@ -66,6 +66,27 @@ console.log('🚀 بدء تشغيل الخادم على Render...');
 console.log(`📊 البيئة: ${process.env.NODE_ENV}`);
 console.log(`🌐 المنفذ: ${process.env.PORT || 3003}`);
 
+// فحص Firebase في Render
+console.log('\n🔥 فحص Firebase في Render:');
+const hasFirebaseVars = !!(
+  process.env.FIREBASE_PROJECT_ID &&
+  process.env.FIREBASE_PRIVATE_KEY &&
+  process.env.FIREBASE_CLIENT_EMAIL
+);
+
+if (hasFirebaseVars) {
+  console.log('✅ متغيرات Firebase موجودة في Render');
+  console.log(`📋 Project ID: ${process.env.FIREBASE_PROJECT_ID}`);
+  console.log(`📋 Client Email: ${process.env.FIREBASE_CLIENT_EMAIL}`);
+  console.log(`📋 Private Key Length: ${process.env.FIREBASE_PRIVATE_KEY?.length || 0} chars`);
+} else {
+  console.log('❌ متغيرات Firebase مفقودة في Render!');
+  console.log('💡 يجب إضافة المتغيرات في Render Environment Variables:');
+  console.log('   - FIREBASE_PROJECT_ID');
+  console.log('   - FIREBASE_PRIVATE_KEY');
+  console.log('   - FIREBASE_CLIENT_EMAIL');
+}
+
 // تحسينات خاصة بـ Render
 if (process.env.NODE_ENV === 'production') {
   console.log('⚡ تطبيق تحسينات الإنتاج:');
