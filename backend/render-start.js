@@ -68,6 +68,7 @@ process.env.RENDER = 'true'; // للتعرف على بيئة Render
 console.log('🚀 بدء تشغيل الخادم على Render...');
 console.log(`📊 البيئة: ${process.env.NODE_ENV}`);
 console.log(`🌐 المنفذ: ${process.env.PORT || 3003}`);
+console.log('🔍 معرف الإصدار: 0a82b90 (آخر تحديث مع التشخيص المفصل)');
 
 // فحص Firebase النهائي في Render مع تشخيص مفصل
 console.log('\n🔥 فحص Firebase النهائي في Render:');
@@ -85,6 +86,26 @@ console.log(`📋 FIREBASE_PRIVATE_KEY: ${privateKey ? `موجود (${privateKey
 if (privateKey) {
   console.log(`🔍 أول 50 حرف من Private Key: "${privateKey.substring(0, 50)}..."`);
   console.log(`🔍 آخر 50 حرف من Private Key: "...${privateKey.substring(privateKey.length - 50)}"`);
+
+  // تشخيص إضافي للمفتاح
+  console.log('\n🔬 تحليل تفصيلي للمفتاح:');
+  console.log(`📏 الطول الكامل: ${privateKey.length} حرف`);
+  console.log(`🔤 يبدأ بـ BEGIN: ${privateKey.includes('-----BEGIN PRIVATE KEY-----') ? '✅' : '❌'}`);
+  console.log(`🔤 ينتهي بـ END: ${privateKey.includes('-----END PRIVATE KEY-----') ? '✅' : '❌'}`);
+  console.log(`📝 عدد الأسطر: ${privateKey.split('\n').length}`);
+
+  // فحص تنسيق المفتاح
+  const lines = privateKey.split('\n');
+  console.log(`📋 السطر الأول: "${lines[0]}"`);
+  console.log(`📋 السطر الأخير: "${lines[lines.length - 1]}"`);
+
+  // فحص المحتوى
+  const keyContent = privateKey
+    .replace('-----BEGIN PRIVATE KEY-----', '')
+    .replace('-----END PRIVATE KEY-----', '')
+    .replace(/\s/g, '');
+  console.log(`🔐 محتوى المفتاح (بدون headers): ${keyContent.length} حرف`);
+  console.log(`🔍 أول 20 حرف من المحتوى: "${keyContent.substring(0, 20)}"`);
 }
 
 // فحص جميع متغيرات البيئة التي تبدأ بـ FIREBASE
@@ -98,9 +119,27 @@ const hasFirebaseVars = !!(projectId && privateKey && clientEmail);
 
 if (hasFirebaseVars) {
   console.log('\n✅ جميع متغيرات Firebase موجودة في Render');
+  console.log('🧪 محاولة إنشاء Service Account للاختبار...');
+
+  try {
+    const testServiceAccount = {
+      project_id: projectId,
+      private_key: privateKey,
+      client_email: clientEmail,
+      type: 'service_account'
+    };
+    console.log('✅ تم إنشاء Service Account بنجاح');
+    console.log(`📋 Project ID: ${testServiceAccount.project_id}`);
+    console.log(`📧 Client Email: ${testServiceAccount.client_email}`);
+  } catch (error) {
+    console.log(`❌ خطأ في إنشاء Service Account: ${error.message}`);
+  }
 } else {
   console.log('\n❌ بعض متغيرات Firebase مفقودة في Render!');
-  console.log('💡 يجب إضافة المتغيرات في Render Environment Variables');
+  console.log('💡 يجب إضافة المتغيرات في Render Environment Variables:');
+  if (!projectId) console.log('   - FIREBASE_PROJECT_ID');
+  if (!privateKey) console.log('   - FIREBASE_PRIVATE_KEY');
+  if (!clientEmail) console.log('   - FIREBASE_CLIENT_EMAIL');
 }
 
 // تحسينات خاصة بـ Render
