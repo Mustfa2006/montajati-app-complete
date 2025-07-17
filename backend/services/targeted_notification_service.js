@@ -112,16 +112,16 @@ class TargetedNotificationService {
   getOrderStatusNotificationData(customerName, status) {
     const notifications = {
       'in_delivery': {
-        title: `${customerName} - قيد التوصيل`,
-        body: `طلبك للعميل ${customerName} قيد التوصيل الآن 🚚`
+        title: '🚚',
+        body: `${customerName} - قيد التوصيل`
       },
       'delivered': {
-        title: `${customerName} - تم التوصيل`,
-        body: `تم توصيل طلبك للعميل ${customerName} بنجاح 😊`
+        title: '😊',
+        body: `${customerName} - طلبك وصل`
       },
       'cancelled': {
-        title: `${customerName} - ملغي`,
-        body: `تم إلغاء طلبك للعميل ${customerName} 😔`
+        title: '😢',
+        body: `${customerName} - ملغي`
       }
     };
 

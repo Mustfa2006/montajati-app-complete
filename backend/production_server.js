@@ -22,6 +22,7 @@ const usersRoutes = require('./routes/users');
 
 // استيراد الخدمات
 const orderStatusSyncService = require('./sync/order_status_sync_service');
+const orderStatusWatcher = require('./services/order_status_watcher');
 const InventoryMonitorService = require('./inventory_monitor_service');
 const TelegramNotificationService = require('./telegram_notification_service');
 
@@ -227,7 +228,7 @@ app.post('/api/inventory/monitor-all', async (req, res) => {
   }
 });
 
-// إرسال تقرير يومي
+// إرسال تقرير يومي - معطل (القناة مخصصة للتجار فقط)
 app.post('/api/inventory/daily-report', async (req, res) => {
   try {
     const result = await inventoryMonitor.sendDailyReport();
@@ -394,6 +395,10 @@ async function startServer() {
     // تهيئة خدمة مزامنة حالة الطلبات
     console.log('🔄 تهيئة خدمة مزامنة الطلبات...');
     await orderStatusSyncService.initialize();
+
+    // تشغيل مراقب حالة الطلبات للإشعارات
+    console.log('👁️ تشغيل مراقب حالة الطلبات...');
+    orderStatusWatcher.startWatching();
 
     // تهيئة وتشغيل نظام مراقبة المخزون والتلغرام
     console.log('📱 تهيئة نظام التلغرام ومراقبة المخزون...');
