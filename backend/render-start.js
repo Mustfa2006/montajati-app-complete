@@ -76,8 +76,23 @@ console.log('🔍 تشخيص مفصل لكل متغير:');
 
 // فحص كل متغير بشكل منفصل
 const projectId = process.env.FIREBASE_PROJECT_ID;
-const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+let privateKey = process.env.FIREBASE_PRIVATE_KEY;
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+
+// فحص إضافي للمتغير البديل
+const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+if (!privateKey && serviceAccount) {
+  console.log('🔄 تم العثور على FIREBASE_SERVICE_ACCOUNT بدلاً من FIREBASE_PRIVATE_KEY');
+  try {
+    const parsedAccount = JSON.parse(serviceAccount);
+    if (parsedAccount.private_key) {
+      privateKey = parsedAccount.private_key;
+      console.log('✅ تم استخراج private_key من FIREBASE_SERVICE_ACCOUNT');
+    }
+  } catch (error) {
+    console.log('❌ خطأ في تحليل FIREBASE_SERVICE_ACCOUNT:', error.message);
+  }
+}
 
 console.log(`📋 FIREBASE_PROJECT_ID: ${projectId ? `"${projectId}"` : 'غير موجود'}`);
 console.log(`📋 FIREBASE_CLIENT_EMAIL: ${clientEmail ? `"${clientEmail}"` : 'غير موجود'}`);

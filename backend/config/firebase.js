@@ -81,6 +81,26 @@ class FirebaseConfig {
       process.env.FIREBASE_CLIENT_EMAIL
     );
 
+    // فحص إضافي للـ Service Account
+    const hasServiceAccount = !!(process.env.FIREBASE_SERVICE_ACCOUNT);
+
+    if (!hasVars && hasServiceAccount) {
+      console.log('🔄 محاولة استخدام FIREBASE_SERVICE_ACCOUNT...');
+      try {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        if (serviceAccount.project_id && serviceAccount.private_key && serviceAccount.client_email) {
+          // تعيين المتغيرات من Service Account
+          process.env.FIREBASE_PROJECT_ID = serviceAccount.project_id;
+          process.env.FIREBASE_PRIVATE_KEY = serviceAccount.private_key;
+          process.env.FIREBASE_CLIENT_EMAIL = serviceAccount.client_email;
+          console.log('✅ تم استخراج متغيرات Firebase من FIREBASE_SERVICE_ACCOUNT');
+          return true;
+        }
+      } catch (error) {
+        console.log('❌ خطأ في تحليل FIREBASE_SERVICE_ACCOUNT:', error.message);
+      }
+    }
+
     // التحقق من أن القيم ليست وهمية
     const hasValidValues = !!(
       process.env.FIREBASE_PROJECT_ID !== 'your-firebase-project-id' &&
