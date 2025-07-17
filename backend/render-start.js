@@ -87,27 +87,11 @@ if (!privateKey && serviceAccount) {
     const parsedAccount = JSON.parse(serviceAccount);
     if (parsedAccount.private_key) {
       privateKey = parsedAccount.private_key;
-      // تحديث المتغيرات الأخرى أيضاً
-      if (parsedAccount.project_id && !projectId) {
-        process.env.FIREBASE_PROJECT_ID = parsedAccount.project_id;
-      }
-      if (parsedAccount.client_email && !clientEmail) {
-        process.env.FIREBASE_CLIENT_EMAIL = parsedAccount.client_email;
-      }
-      process.env.FIREBASE_PRIVATE_KEY = parsedAccount.private_key;
-      console.log('✅ تم استخراج جميع بيانات Firebase من FIREBASE_SERVICE_ACCOUNT');
+      console.log('✅ تم استخراج private_key من FIREBASE_SERVICE_ACCOUNT');
     }
   } catch (error) {
     console.log('❌ خطأ في تحليل FIREBASE_SERVICE_ACCOUNT:', error.message);
   }
-}
-
-// إذا لم يوجد أي متغير، اقترح الحل البديل
-if (!privateKey) {
-  console.log('\n💡 حلول بديلة:');
-  console.log('1. تأكد من أن اسم المتغير في Render هو: FIREBASE_PRIVATE_KEY');
-  console.log('2. أو أضف متغير FIREBASE_SERVICE_ACCOUNT بمحتوى ملف JSON كاملاً');
-  console.log('3. تأكد من عدم وجود مسافات في اسم المتغير');
 }
 
 console.log(`📋 FIREBASE_PROJECT_ID: ${projectId ? `"${projectId}"` : 'غير موجود'}`);
