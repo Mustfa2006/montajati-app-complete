@@ -15,7 +15,8 @@ class OrderStatusWatcher {
   constructor() {
     this.isWatching = false;
     this.watchInterval = null;
-    this.checkIntervalMs = 30000; // فحص كل 30 ثانية
+    // تقليل التكرار في الإنتاج لتوفير موارد Render
+    this.checkIntervalMs = process.env.NODE_ENV === 'production' ? 300000 : 30000; // 5 دقائق في الإنتاج، 30 ثانية في التطوير
     this.lastNoOrdersLog = 0; // لتقليل الرسائل المكررة
 
     console.log('👁️ تم تهيئة مراقب حالة الطلبات');

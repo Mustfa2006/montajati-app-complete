@@ -28,8 +28,8 @@ class OrderStatusSyncService {
       tokenExpiry: null
     };
 
-    // إعدادات المزامنة
-    this.syncInterval = 10; // دقائق
+    // إعدادات المزامنة - كل 10 دقائق
+    this.syncInterval = 10; // 10 دقائق
     this.isRunning = false;
     this.lastSyncTime = null;
     this.syncStats = {
@@ -211,7 +211,8 @@ class OrderStatusSyncService {
   // ===================================
   async getOrdersForSync() {
     try {
-      console.log('📋 جلب الطلبات المؤهلة للمزامنة...');
+      // إخفاء رسالة جلب الطلبات
+      // console.log('📋 جلب الطلبات المؤهلة للمزامنة...');
 
       // جلب الطلبات التي تحتاج مزامنة
       const { data: orders, error } = await this.supabase
@@ -228,7 +229,11 @@ class OrderStatusSyncService {
         `)
         .in('status', ['active', 'in_delivery'])
         .not('waseet_order_id', 'is', null)
-        .or(`last_status_check.is.null,last_status_check.lt.${new Date(Date.now() - 10 * 60 * 1000).toISOString()}`);
+        // تجنب الطلبات التجريبية في الإنتاج
+        .not('order_number', 'like', process.env.NODE_ENV === 'production' ? '%TEST%' : 'NEVER_MATCH')
+        .not('order_number', 'like', process.env.NODE_ENV === 'production' ? '%test%' : 'NEVER_MATCH')
+        .or(`last_status_check.is.null,last_status_check.lt.${new Date(Date.now() - 10 * 60 * 1000).toISOString()}`)
+        .limit(process.env.NODE_ENV === 'production' ? 10 : 50); // تقليل العدد في الإنتاج
 
       if (error) {
         if (error.message.includes('relation') || error.message.includes('does not exist')) {
@@ -238,7 +243,8 @@ class OrderStatusSyncService {
         throw new Error(`خطأ في جلب الطلبات: ${error.message}`);
       }
 
-      console.log(`📊 تم العثور على ${orders?.length || 0} طلب مؤهل للمزامنة`);
+      // إخفاء رسالة عدد الطلبات
+      // console.log(`📊 تم العثور على ${orders?.length || 0} طلب مؤهل للمزامنة`);
 
       return orders || [];
     } catch (error) {
@@ -252,7 +258,8 @@ class OrderStatusSyncService {
   // ===================================
   async checkOrderStatus(order) {
     try {
-      console.log(`🔍 فحص حالة الطلب: ${order.order_number} (${order.waseet_order_id})`);
+      // إخفاء رسائل فحص الطلبات تماماً
+      // console.log(`🔍 فحص حالة الطلب: ${order.order_number} (${order.waseet_order_id})`);
 
       // التأكد من وجود التوكن
       const token = await this.authenticateWaseet();
@@ -300,7 +307,8 @@ class OrderStatusSyncService {
         throw new Error('استجابة غير صحيحة من شركة الوسيط');
       }
     } catch (error) {
-      console.error(`❌ خطأ في فحص حالة الطلب ${order.order_number}:`, error.message);
+      // إخفاء رسائل أخطاء فحص الطلبات تماماً
+      // console.error(`❌ خطأ في فحص حالة الطلب ${order.order_number}:`, error.message);
 
       // تسجيل الخطأ
       try {
@@ -426,7 +434,8 @@ class OrderStatusSyncService {
     let errorCount = 0;
 
     try {
-      console.log('🚀 بدء دورة مزامنة حالات الطلبات...');
+      // إخفاء رسالة بدء دورة المزامنة
+      // console.log('🚀 بدء دورة مزامنة حالات الطلبات...');
 
       // تسجيل بداية المزامنة
       await this.logSystemEvent('sync_cycle_start', {
@@ -437,7 +446,8 @@ class OrderStatusSyncService {
       const orders = await this.getOrdersForSync();
 
       if (orders.length === 0) {
-        console.log('📭 لا توجد طلبات تحتاج مزامنة');
+        // إخفاء رسالة "لا توجد طلبات"
+        // console.log('📭 لا توجد طلبات تحتاج مزامنة');
         return;
       }
 
@@ -486,7 +496,8 @@ class OrderStatusSyncService {
               console.warn(`⚠️ تخطي الطلب ${order.order_number}: ${statusResult.error}`);
             } else {
               errorCount++;
-              console.error(`❌ فشل فحص الطلب ${order.order_number}: ${statusResult.error}`);
+              // إخفاء رسائل فشل الفحص تماماً
+              // console.error(`❌ فشل فحص الطلب ${order.order_number}: ${statusResult.error}`);
             }
           }
 
@@ -509,9 +520,10 @@ class OrderStatusSyncService {
       const endTime = new Date();
       const duration = endTime - startTime;
 
-      console.log('🎉 انتهت دورة المزامنة بنجاح');
-      console.log(`📊 الإحصائيات: فحص ${checkedCount} | تحديث ${updatedCount} | أخطاء ${errorCount}`);
-      console.log(`⏱️ المدة: ${duration}ms`);
+      // إخفاء رسائل انتهاء المزامنة والإحصائيات
+      // console.log('🎉 انتهت دورة المزامنة بنجاح');
+      // console.log(`📊 الإحصائيات: فحص ${checkedCount} | تحديث ${updatedCount} | أخطاء ${errorCount}`);
+      // console.log(`⏱️ المدة: ${duration}ms`);
 
       // تسجيل انتهاء المزامنة
       try {
