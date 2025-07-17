@@ -96,7 +96,35 @@ if (!privateKey && serviceAccount) {
 
 console.log(`📋 FIREBASE_PROJECT_ID: ${projectId ? `"${projectId}"` : 'غير موجود'}`);
 console.log(`📋 FIREBASE_CLIENT_EMAIL: ${clientEmail ? `"${clientEmail}"` : 'غير موجود'}`);
-console.log(`📋 FIREBASE_PRIVATE_KEY: ${privateKey ? `موجود (${privateKey.length} حرف)` : 'غير موجود'}`);
+// تشخيص مفصل للـ Private Key
+console.log('\n🔍 تشخيص مفصل للـ FIREBASE_PRIVATE_KEY:');
+const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+console.log(`📋 Raw FIREBASE_PRIVATE_KEY: ${rawPrivateKey ? `موجود (${rawPrivateKey.length} حرف)` : 'غير موجود'}`);
+
+if (rawPrivateKey) {
+  console.log(`🔍 نوع البيانات: ${typeof rawPrivateKey}`);
+  console.log(`🔍 أول 100 حرف: "${rawPrivateKey.substring(0, 100)}..."`);
+  console.log(`🔍 آخر 100 حرف: "...${rawPrivateKey.substring(rawPrivateKey.length - 100)}"`);
+  console.log(`🔍 يحتوي على BEGIN: ${rawPrivateKey.includes('BEGIN PRIVATE KEY')}`);
+  console.log(`🔍 يحتوي على END: ${rawPrivateKey.includes('END PRIVATE KEY')}`);
+  console.log(`🔍 يحتوي على \\n: ${rawPrivateKey.includes('\\n')}`);
+  console.log(`🔍 يحتوي على newlines: ${rawPrivateKey.includes('\n')}`);
+
+  // محاولة تنظيف المفتاح
+  let cleanedKey = rawPrivateKey;
+  if (cleanedKey.includes('\\n')) {
+    cleanedKey = cleanedKey.replace(/\\n/g, '\n');
+    console.log('🔧 تم تحويل \\n إلى newlines حقيقية');
+  }
+
+  // تحديث المتغير المحلي
+  privateKey = cleanedKey;
+  console.log(`✅ Private Key بعد التنظيف: موجود (${privateKey.length} حرف)`);
+} else {
+  console.log('❌ FIREBASE_PRIVATE_KEY غير موجود في process.env');
+}
+
+console.log(`📋 FIREBASE_PRIVATE_KEY النهائي: ${privateKey ? `موجود (${privateKey.length} حرف)` : 'غير موجود'}`);
 
 if (privateKey) {
   console.log(`🔍 أول 50 حرف من Private Key: "${privateKey.substring(0, 50)}..."`);

@@ -75,11 +75,22 @@ class FirebaseConfig {
     // تحميل متغيرات البيئة مرة أخرى للتأكد
     require('dotenv').config();
 
-    const hasVars = !!(
-      process.env.FIREBASE_PROJECT_ID &&
-      process.env.FIREBASE_PRIVATE_KEY &&
-      process.env.FIREBASE_CLIENT_EMAIL
-    );
+    // فحص أولي للمتغيرات
+    let projectId = process.env.FIREBASE_PROJECT_ID;
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    let clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+
+    // إصلاح مشكلة Private Key في Render
+    if (privateKey && typeof privateKey === 'string') {
+      // تحويل \\n إلى newlines حقيقية
+      if (privateKey.includes('\\n')) {
+        privateKey = privateKey.replace(/\\n/g, '\n');
+        process.env.FIREBASE_PRIVATE_KEY = privateKey; // تحديث المتغير
+        console.log('🔧 تم إصلاح تنسيق FIREBASE_PRIVATE_KEY في Firebase config');
+      }
+    }
+
+    const hasVars = !!(projectId && privateKey && clientEmail);
 
     // فحص إضافي للـ Service Account
     const hasServiceAccount = !!(process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -135,15 +146,19 @@ class FirebaseConfig {
    */
   getServiceAccountFromEnv() {
     const projectId = process.env.FIREBASE_PROJECT_ID;
-    const privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 
     // تنظيف المفتاح الخاص (معالجة خاصة لـ Render)
     let cleanPrivateKey = privateKey;
 
-    // إزالة escape characters
-    if (cleanPrivateKey) {
+    // إزالة escape characters وإصلاح التنسيق
+    if (cleanPrivateKey && typeof cleanPrivateKey === 'string') {
+      // تحويل \\n إلى newlines حقيقية
       cleanPrivateKey = cleanPrivateKey.replace(/\\n/g, '\n');
+
+      // إزالة المسافات الزائدة والأسطر الفارغة
+      cleanPrivateKey = cleanPrivateKey.trim();
 
       // إضافة header و footer إذا لم يكونا موجودين
       if (!cleanPrivateKey.includes('-----BEGIN PRIVATE KEY-----')) {
