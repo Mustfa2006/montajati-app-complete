@@ -16,6 +16,10 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
+
+# 🔐 Firebase Service Account (NEVER COMMIT!)
+backend/firebase-service-account.json
+firebase-service-account.json
 *.log
 logs/
 pids/
