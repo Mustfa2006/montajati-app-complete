@@ -3,6 +3,9 @@
 // يحل مشاكل متغيرات البيئة في Render
 // ===================================
 
+// تحميل متغيرات البيئة أولاً (مهم جداً)
+require('dotenv').config();
+
 // تحسين متغيرات Firebase لـ Render
 if (process.env.FIREBASE_PRIVATE_KEY) {
   let privateKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -66,8 +69,8 @@ console.log('🚀 بدء تشغيل الخادم على Render...');
 console.log(`📊 البيئة: ${process.env.NODE_ENV}`);
 console.log(`🌐 المنفذ: ${process.env.PORT || 3003}`);
 
-// فحص Firebase في Render
-console.log('\n🔥 فحص Firebase في Render:');
+// فحص Firebase النهائي في Render
+console.log('\n🔥 فحص Firebase النهائي في Render:');
 const hasFirebaseVars = !!(
   process.env.FIREBASE_PROJECT_ID &&
   process.env.FIREBASE_PRIVATE_KEY &&

@@ -72,6 +72,9 @@ class FirebaseConfig {
    * التحقق من وجود Environment Variables
    */
   hasEnvironmentVariables() {
+    // تحميل متغيرات البيئة مرة أخرى للتأكد
+    require('dotenv').config();
+
     const hasVars = !!(
       process.env.FIREBASE_PROJECT_ID &&
       process.env.FIREBASE_PRIVATE_KEY &&
@@ -84,6 +87,14 @@ class FirebaseConfig {
       process.env.FIREBASE_PRIVATE_KEY !== '"-----BEGIN PRIVATE KEY-----\\nYOUR_PRIVATE_KEY_HERE\\n-----END PRIVATE KEY-----"' &&
       process.env.FIREBASE_CLIENT_EMAIL !== 'firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com'
     );
+
+    // تسجيل مفصل للتشخيص في حالة الفشل
+    if (!hasVars || !hasValidValues) {
+      console.log('🔍 تشخيص متغيرات Firebase:');
+      console.log(`  FIREBASE_PROJECT_ID: ${process.env.FIREBASE_PROJECT_ID ? 'موجود' : 'مفقود'}`);
+      console.log(`  FIREBASE_PRIVATE_KEY: ${process.env.FIREBASE_PRIVATE_KEY ? `موجود (${process.env.FIREBASE_PRIVATE_KEY.length} حرف)` : 'مفقود'}`);
+      console.log(`  FIREBASE_CLIENT_EMAIL: ${process.env.FIREBASE_CLIENT_EMAIL ? 'موجود' : 'مفقود'}`);
+    }
 
     return hasVars && hasValidValues;
   }
