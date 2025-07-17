@@ -187,6 +187,12 @@ class OrderStatusWatcher {
         return;
       }
 
+      // التحقق من تهيئة خدمة الإشعارات
+      if (!targetedNotificationService || !targetedNotificationService.initialized) {
+        console.warn('⚠️ خدمة الإشعارات المستهدفة غير مهيأة - تم تخطي الإشعار');
+        return;
+      }
+
       // إرسال الإشعار المستهدف
       const result = await targetedNotificationService.sendOrderStatusNotification(
         orderId,
@@ -198,12 +204,12 @@ class OrderStatusWatcher {
 
       if (result.success) {
         console.log(`✅ تم إرسال إشعار حالة الطلب للمستخدم ${customerId} بنجاح`);
-        
+
         // تسجيل نجاح الإرسال
         await this.logNotificationSuccess(orderId, customerId, newStatus);
       } else {
         console.log(`❌ فشل إرسال إشعار حالة الطلب للمستخدم ${customerId}: ${result.error}`);
-        
+
         // تسجيل فشل الإرسال
         await this.logNotificationFailure(orderId, customerId, newStatus, result.error);
       }

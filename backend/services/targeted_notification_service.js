@@ -20,6 +20,24 @@ class TargetedNotificationService {
   // تهيئة Firebase Admin
   async initializeFirebase() {
     try {
+      // التحقق من وجود متغيرات البيئة المطلوبة
+      const requiredEnvVars = [
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_PRIVATE_KEY_ID',
+        'FIREBASE_PRIVATE_KEY',
+        'FIREBASE_CLIENT_EMAIL',
+        'FIREBASE_CLIENT_ID'
+      ];
+
+      const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+      if (missingVars.length > 0) {
+        console.warn('⚠️ متغيرات Firebase مفقودة:', missingVars.join(', '));
+        console.warn('⚠️ سيتم تعطيل خدمة الإشعارات المستهدفة');
+        this.initialized = false;
+        return;
+      }
+
       if (!admin.apps.length) {
         // استخدام متغيرات البيئة بدلاً من ملف JSON
         const serviceAccount = {
@@ -43,6 +61,7 @@ class TargetedNotificationService {
       console.log('✅ تم تهيئة Firebase Admin للإشعارات المستهدفة');
     } catch (error) {
       console.error('❌ خطأ في تهيئة Firebase Admin:', error.message);
+      console.warn('⚠️ سيتم تعطيل خدمة الإشعارات المستهدفة');
       this.initialized = false;
     }
   }

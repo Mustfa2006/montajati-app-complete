@@ -29,6 +29,11 @@ class NotificationMasterService {
 
       console.log('🚀 بدء تشغيل جميع خدمات الإشعارات المستهدفة...');
 
+      // التحقق من تهيئة Firebase أولاً
+      if (!this.services.targetedNotification || !this.services.targetedNotification.initialized) {
+        console.warn('⚠️ Firebase غير مهيأ - سيتم تشغيل الخدمات بدون إشعارات مستهدفة');
+      }
+
       // بدء مراقب حالة الطلبات
       console.log('📦 تشغيل مراقب حالة الطلبات...');
       this.services.orderWatcher.startWatching();

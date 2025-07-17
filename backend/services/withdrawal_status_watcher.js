@@ -166,6 +166,12 @@ class WithdrawalStatusWatcher {
         return;
       }
 
+      // التحقق من تهيئة خدمة الإشعارات
+      if (!targetedNotificationService || !targetedNotificationService.initialized) {
+        console.warn('⚠️ خدمة الإشعارات المستهدفة غير مهيأة - تم تخطي الإشعار');
+        return;
+      }
+
       // إرسال الإشعار المستهدف
       const result = await targetedNotificationService.sendWithdrawalStatusNotification(
         userId,
@@ -177,12 +183,12 @@ class WithdrawalStatusWatcher {
 
       if (result.success) {
         console.log(`✅ تم إرسال إشعار طلب السحب للمستخدم ${userId} بنجاح`);
-        
+
         // تسجيل نجاح الإرسال
         await this.logNotificationSuccess(requestId, userId, status, amount);
       } else {
         console.log(`❌ فشل إرسال إشعار طلب السحب للمستخدم ${userId}: ${result.error}`);
-        
+
         // تسجيل فشل الإرسال
         await this.logNotificationFailure(requestId, userId, status, amount, result.error);
       }
