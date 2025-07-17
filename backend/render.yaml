@@ -1,0 +1,59 @@
+# ===================================
+# Render.com Deployment Configuration
+# ===================================
+# ⚠️ هذا الملف للمرجع فقط - لا يحتوي على مفاتيح حقيقية
+# يجب إعداد Environment Variables في Render Dashboard
+
+services:
+  - type: web
+    name: montajati-backend
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: |
+      echo "🔧 تثبيت التبعيات..."
+      npm ci --only=production
+      echo "✅ تم تثبيت التبعيات بنجاح"
+    startCommand: npm run production
+    healthCheckPath: /health
+
+    # ⚠️ يجب إعداد هذه المتغيرات في Render Dashboard
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3003
+
+      # قاعدة البيانات - Supabase
+      - key: SUPABASE_URL
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: SUPABASE_ANON_KEY
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: "SET_IN_RENDER_DASHBOARD"
+
+      # Firebase للإشعارات
+      - key: FIREBASE_PROJECT_ID
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: FIREBASE_PRIVATE_KEY
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: FIREBASE_CLIENT_EMAIL
+        value: "SET_IN_RENDER_DASHBOARD"
+      - key: NOTIFICATIONS_ENABLED
+        value: true
+
+      # الأمان
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+      - key: CORS_ORIGINS
+        value: "SET_IN_RENDER_DASHBOARD"
+
+      # إعدادات التطبيق
+      - key: DEFAULT_DELIVERY_FEE
+        value: 5000
+      - key: ORDER_PREFIX
+        value: ORD
+      - key: AUTO_SEND_TO_DELIVERY
+        value: false

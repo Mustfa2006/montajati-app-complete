@@ -1,0 +1,52 @@
+{
+  "name": "montajati-backend",
+  "version": "1.0.0",
+  "description": "Backend API لتطبيق منتجاتي - نظام إدارة الدروب شيبنگ",
+  "main": "server.js",
+  "scripts": {
+    "start": "node production_server.js",
+    "dev": "nodemon server.js",
+    "production": "NODE_ENV=production node production_server.js",
+    "proxy": "node flexible_delivery_proxy.js",
+    "proxy:dev": "nodemon flexible_delivery_proxy.js",
+    "monitor": "node order_status_monitor.js",
+    "monitor:dev": "nodemon order_status_monitor.js",
+    "flexible": "node start_flexible_system.js",
+    "test-inventory": "node test_inventory_monitor.js",
+    "test-firebase": "node test_firebase_connection.js",
+    "test-health": "curl http://localhost:3003/health",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "dropshipping",
+    "ecommerce",
+    "api",
+    "nodejs",
+    "express"
+  ],
+  "author": "منتجاتي",
+  "license": "ISC",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.4",
+    "axios": "^1.6.0",
+    "bcryptjs": "^3.0.2",
+    "cheerio": "^1.1.0",
+    "cloudinary": "^2.6.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
+    "firebase-admin": "^12.7.0",
+    "form-data": "^4.0.3",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.15.2",
+    "multer": "^2.0.1",
+    "node-cron": "^3.0.3",
+    "pg": "^8.16.0",
+    "streamifier": "^0.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
