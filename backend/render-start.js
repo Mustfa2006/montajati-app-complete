@@ -68,10 +68,34 @@ process.env.RENDER = 'true'; // للتعرف على بيئة Render
 console.log('🚀 بدء تشغيل الخادم على Render...');
 console.log(`📊 البيئة: ${process.env.NODE_ENV}`);
 console.log(`🌐 المنفذ: ${process.env.PORT || 3003}`);
-console.log('🔍 معرف الإصدار: 0a82b90 (آخر تحديث مع التشخيص المفصل)');
+console.log('🔍 معرف الإصدار: 4090e8b (مع أدوات التشخيص الشاملة)');
+
+// فحص سريع للمتغيرات قبل البدء
+console.log('\n🔍 فحص سريع للمتغيرات:');
+const quickCheck = {
+  'FIREBASE_PROJECT_ID': !!process.env.FIREBASE_PROJECT_ID,
+  'FIREBASE_PRIVATE_KEY': !!process.env.FIREBASE_PRIVATE_KEY,
+  'FIREBASE_CLIENT_EMAIL': !!process.env.FIREBASE_CLIENT_EMAIL,
+  'NODE_ENV': process.env.NODE_ENV,
+  'RENDER': process.env.RENDER
+};
+Object.entries(quickCheck).forEach(([key, value]) => {
+  console.log(`  ${key}: ${value}`);
+});
 
 // فحص Firebase النهائي في Render مع تشخيص مفصل
 console.log('\n🔥 فحص Firebase النهائي في Render:');
+
+// تشغيل التشخيص الشامل في Render
+if (process.env.RENDER === 'true') {
+  console.log('🧪 تشغيل التشخيص الشامل في Render...');
+  try {
+    require('./debug-firebase.js');
+  } catch (error) {
+    console.log('❌ خطأ في تشغيل التشخيص:', error.message);
+  }
+}
+
 console.log('🔍 تشخيص مفصل لكل متغير:');
 
 // فحص كل متغير بشكل منفصل
@@ -153,9 +177,21 @@ if (privateKey) {
 
 // فحص جميع متغيرات البيئة التي تبدأ بـ FIREBASE
 console.log('\n🔍 جميع متغيرات Firebase في البيئة:');
-Object.keys(process.env).filter(key => key.startsWith('FIREBASE')).forEach(key => {
+const allFirebaseKeys = Object.keys(process.env).filter(key =>
+  key.includes('FIREBASE') || key.includes('firebase')
+);
+console.log(`عدد متغيرات Firebase الموجودة: ${allFirebaseKeys.length}`);
+allFirebaseKeys.forEach(key => {
   const value = process.env[key];
   console.log(`  ${key}: ${value ? `موجود (${value.length} حرف)` : 'غير موجود'}`);
+
+  // فحص إضافي للمفتاح الخاص
+  if (key === 'FIREBASE_PRIVATE_KEY' && value) {
+    console.log(`    - النوع: ${typeof value}`);
+    console.log(`    - يبدأ بـ: "${value.substring(0, 30)}..."`);
+    console.log(`    - يحتوي على BEGIN: ${value.includes('BEGIN PRIVATE KEY')}`);
+    console.log(`    - يحتوي على \\n: ${value.includes('\\n')}`);
+  }
 });
 
 const hasFirebaseVars = !!(projectId && privateKey && clientEmail);
