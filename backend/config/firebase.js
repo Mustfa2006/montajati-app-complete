@@ -39,7 +39,9 @@ class FirebaseConfig {
         console.log('✅ استخدام Service Account File');
       }
       else {
-        throw new Error('لا توجد بيانات Firebase صحيحة');
+        console.warn('⚠️ لا توجد بيانات Firebase صحيحة - سيتم تعطيل الإشعارات');
+        this.initialized = false;
+        return null;
       }
 
       // تهيئة Firebase Admin
@@ -57,8 +59,9 @@ class FirebaseConfig {
 
     } catch (error) {
       console.error('❌ خطأ في تهيئة Firebase Admin SDK:', error.message);
+      console.warn('⚠️ سيتم تعطيل خدمة الإشعارات');
       this.initialized = false;
-      throw error;
+      return null; // لا نرمي الخطأ لتجنب توقف النظام
     }
   }
 
@@ -66,11 +69,20 @@ class FirebaseConfig {
    * التحقق من وجود Environment Variables
    */
   hasEnvironmentVariables() {
-    return !!(
+    const hasVars = !!(
       process.env.FIREBASE_PROJECT_ID &&
       process.env.FIREBASE_PRIVATE_KEY &&
       process.env.FIREBASE_CLIENT_EMAIL
     );
+
+    // التحقق من أن القيم ليست وهمية
+    const hasValidValues = !!(
+      process.env.FIREBASE_PROJECT_ID !== 'your-firebase-project-id' &&
+      process.env.FIREBASE_PRIVATE_KEY !== '"-----BEGIN PRIVATE KEY-----\\nYOUR_PRIVATE_KEY_HERE\\n-----END PRIVATE KEY-----"' &&
+      process.env.FIREBASE_CLIENT_EMAIL !== 'firebase-adminsdk-xxxxx@your-project-id.iam.gserviceaccount.com'
+    );
+
+    return hasVars && hasValidValues;
   }
 
   /**

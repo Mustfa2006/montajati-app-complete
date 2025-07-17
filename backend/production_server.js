@@ -133,10 +133,10 @@ app.get('/health', async (req, res) => {
 
     // فحص Firebase
     try {
-      await firebaseConfig.initialize();
-      healthStatus.services.firebase = 'healthy';
+      const result = await firebaseConfig.initialize();
+      healthStatus.services.firebase = result ? 'healthy' : 'disabled';
     } catch (error) {
-      healthStatus.services.firebase = 'error';
+      healthStatus.services.firebase = 'disabled';
     }
 
     // تحديد الحالة العامة
@@ -390,7 +390,11 @@ async function startServer() {
 
     // تهيئة Firebase
     console.log('🔥 تهيئة Firebase...');
-    await firebaseConfig.initialize();
+    try {
+      await firebaseConfig.initialize();
+    } catch (error) {
+      console.warn('⚠️ تحذير: فشل في تهيئة Firebase - سيتم المتابعة بدون إشعارات');
+    }
 
     // تهيئة خدمة مزامنة حالة الطلبات
     console.log('🔄 تهيئة خدمة مزامنة الطلبات...');

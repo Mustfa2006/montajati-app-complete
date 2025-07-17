@@ -80,6 +80,12 @@ class TargetedNotificationService {
    */
   async sendOrderStatusNotification(orderId, userId, customerName, oldStatus, newStatus) {
     try {
+      // التحقق من تهيئة Firebase
+      if (!this.initialized) {
+        console.warn('⚠️ Firebase غير مهيأ - تم تخطي الإشعار');
+        return { success: false, error: 'Firebase غير مهيأ' };
+      }
+
       console.log(`🎯 إرسال إشعار حالة الطلب للمستخدم المحدد فقط:`);
       console.log(`📦 الطلب: ${orderId}`);
       console.log(`👤 المستخدم: ${userId}`);
@@ -88,7 +94,7 @@ class TargetedNotificationService {
 
       // الحصول على FCM Token للمستخدم المحدد فقط
       const fcmToken = await this.getUserFCMToken(userId);
-      
+
       if (!fcmToken) {
         console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId}`);
         return { success: false, error: 'FCM Token غير متوفر' };
@@ -263,7 +269,16 @@ class TargetedNotificationService {
         .eq('id', userId)
         .single();
 
-      if (error || !data || !data.fcm_token) {
+      if (error) {
+        if (error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.warn('⚠️ جدول المستخدمين غير موجود');
+        } else {
+          console.log(`⚠️ لا يوجد مستخدم بالمعرف ${userId}`);
+        }
+        return null;
+      }
+
+      if (!data || !data.fcm_token) {
         console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId}`);
         return null;
       }
@@ -377,4 +392,4 @@ class TargetedNotificationService {
   }
 }
 
-module.exports = new TargetedNotificationService();
+module.exports = TargetedNotificationService;

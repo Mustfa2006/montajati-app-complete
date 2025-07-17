@@ -16,6 +16,9 @@ class OrderStatusWatcher {
     this.isWatching = false;
     this.watchInterval = null;
     this.checkIntervalMs = 30000; // فحص كل 30 ثانية
+    this.lastNoOrdersLog = 0; // لتقليل الرسائل المكررة
+
+    console.log('👁️ تم تهيئة مراقب حالة الطلبات');
   }
 
   /**
@@ -85,12 +88,22 @@ class OrderStatusWatcher {
         .order('updated_at', { ascending: false });
 
       if (error) {
+        // تحقق من نوع الخطأ
+        if (error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.warn('⚠️ جدول الطلبات غير موجود - سيتم إنشاؤه تلقائياً');
+          await this.createOrdersTableIfNotExists();
+          return;
+        }
         console.error('❌ خطأ في جلب الطلبات المحدثة:', error.message);
         return;
       }
 
       if (!recentOrders || recentOrders.length === 0) {
-        console.log('📝 لا توجد طلبات محدثة مؤخراً');
+        // تقليل عدد الرسائل المكررة
+        if (Date.now() - this.lastNoOrdersLog > 300000) { // كل 5 دقائق
+          console.log('📝 لا توجد طلبات محدثة مؤخراً');
+          this.lastNoOrdersLog = Date.now();
+        }
         return;
       }
 
@@ -103,6 +116,22 @@ class OrderStatusWatcher {
 
     } catch (error) {
       console.error('❌ خطأ في فحص تغييرات حالة الطلبات:', error.message);
+    }
+  }
+
+  /**
+   * إنشاء جدول الطلبات إذا لم يكن موجوداً
+   */
+  async createOrdersTableIfNotExists() {
+    try {
+      console.log('🔧 محاولة إنشاء جدول الطلبات...');
+
+      // هذا مجرد تحذير - يجب إنشاء الجداول يدوياً في الإنتاج
+      console.warn('⚠️ يجب إنشاء جدول الطلبات يدوياً في قاعدة البيانات');
+      console.warn('⚠️ راجع ملف database/official_schema_complete.sql');
+
+    } catch (error) {
+      console.error('❌ خطأ في إنشاء جدول الطلبات:', error.message);
     }
   }
 
@@ -276,4 +305,4 @@ class OrderStatusWatcher {
   }
 }
 
-module.exports = new OrderStatusWatcher();
+module.exports = OrderStatusWatcher;

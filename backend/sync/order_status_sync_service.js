@@ -86,15 +86,20 @@ class OrderStatusSyncService {
         return newToken;
       }
 
-      throw new Error('فشل في الحصول على توكن من شركة الوسيط');
+      console.warn('⚠️ فشل في الحصول على توكن من شركة الوسيط');
+      return null;
     } catch (error) {
       console.error('❌ خطأ في المصادقة مع شركة الوسيط:', error.message);
 
       // تسجيل الخطأ
-      await this.logSystemEvent('waseet_auth_error', {
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
+      try {
+        await this.logSystemEvent('waseet_auth_error', {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      } catch (logError) {
+        console.error('❌ خطأ في تسجيل الحدث:', logError.message);
+      }
 
       // إرجاع null بدلاً من رمي خطأ لتجنب توقف النظام
       return null;
@@ -162,6 +167,17 @@ class OrderStatusSyncService {
       return null;
     } catch (error) {
       console.error('❌ خطأ في تسجيل الدخول المباشر:', error.message);
+
+      // تسجيل الخطأ
+      try {
+        await this.logSystemEvent('waseet_direct_login_error', {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      } catch (logError) {
+        console.error('❌ خطأ في تسجيل الحدث:', logError.message);
+      }
+
       return null;
     }
   }
@@ -191,15 +207,19 @@ class OrderStatusSyncService {
         .or(`last_status_check.is.null,last_status_check.lt.${new Date(Date.now() - 10 * 60 * 1000).toISOString()}`);
 
       if (error) {
+        if (error.message.includes('relation') || error.message.includes('does not exist')) {
+          console.warn('⚠️ جدول الطلبات غير موجود - سيتم إرجاع قائمة فارغة');
+          return [];
+        }
         throw new Error(`خطأ في جلب الطلبات: ${error.message}`);
       }
 
       console.log(`📊 تم العثور على ${orders?.length || 0} طلب مؤهل للمزامنة`);
-      
+
       return orders || [];
     } catch (error) {
       console.error('❌ خطأ في جلب الطلبات للمزامنة:', error.message);
-      throw error;
+      return []; // إرجاع قائمة فارغة بدلاً من رمي خطأ
     }
   }
 
@@ -257,7 +277,19 @@ class OrderStatusSyncService {
       }
     } catch (error) {
       console.error(`❌ خطأ في فحص حالة الطلب ${order.order_number}:`, error.message);
-      
+
+      // تسجيل الخطأ
+      try {
+        await this.logSystemEvent('order_status_check_error', {
+          order_id: order.id,
+          order_number: order.order_number,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      } catch (logError) {
+        console.error('❌ خطأ في تسجيل الحدث:', logError.message);
+      }
+
       return {
         success: false,
         error: error.message
@@ -310,12 +342,29 @@ class OrderStatusSyncService {
       console.log(`✅ تم تحديث حالة الطلب ${order.order_number} بنجاح`);
 
       // إرسال إشعار للعميل
-      await notifier.sendStatusUpdateNotification(order, statusResult.localStatus);
+      try {
+        await notifier.sendStatusUpdateNotification(order, statusResult.localStatus);
+      } catch (notificationError) {
+        console.warn(`⚠️ تحذير: فشل في إرسال الإشعار: ${notificationError.message}`);
+      }
 
       return true;
     } catch (error) {
       console.error(`❌ خطأ في تحديث حالة الطلب ${order.order_number}:`, error.message);
-      throw error;
+
+      // تسجيل الخطأ
+      try {
+        await this.logSystemEvent('order_update_error', {
+          order_id: order.id,
+          order_number: order.order_number,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      } catch (logError) {
+        console.error('❌ خطأ في تسجيل الحدث:', logError.message);
+      }
+
+      return false; // إرجاع false بدلاً من رمي خطأ
     }
   }
 
@@ -388,10 +437,14 @@ class OrderStatusSyncService {
 
             // إذا تغيرت الحالة، قم بالتحديث الكامل
             if (statusResult.hasChanged) {
-              await this.updateOrderStatus(order, statusResult);
-              updatedCount++;
-
-              console.log(`✅ تم تحديث الطلب ${order.order_number}: ${order.status} → ${statusResult.localStatus}`);
+              const updateSuccess = await this.updateOrderStatus(order, statusResult);
+              if (updateSuccess) {
+                updatedCount++;
+                console.log(`✅ تم تحديث الطلب ${order.order_number}: ${order.status} → ${statusResult.localStatus}`);
+              } else {
+                errorCount++;
+                console.error(`❌ فشل في تحديث الطلب ${order.order_number}`);
+              }
             } else {
               console.log(`📊 الطلب ${order.order_number}: لا تغيير في الحالة (${statusResult.localStatus})`);
             }
@@ -437,26 +490,34 @@ class OrderStatusSyncService {
       console.log(`⏱️ المدة: ${duration}ms`);
 
       // تسجيل انتهاء المزامنة
-      await this.logSystemEvent('sync_cycle_complete', {
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-        duration_ms: duration,
-        orders_checked: checkedCount,
-        orders_updated: updatedCount,
-        errors: errorCount
-      });
+      try {
+        await this.logSystemEvent('sync_cycle_complete', {
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          duration_ms: duration,
+          orders_checked: checkedCount,
+          orders_updated: updatedCount,
+          errors: errorCount
+        });
+      } catch (logError) {
+        console.error('❌ خطأ في تسجيل انتهاء المزامنة:', logError.message);
+      }
 
     } catch (error) {
       errorCount++;
       console.error('❌ خطأ في دورة المزامنة:', error.message);
 
       // تسجيل خطأ المزامنة
-      await this.logSystemEvent('sync_cycle_error', {
-        error: error.message,
-        timestamp: new Date().toISOString(),
-        orders_checked: checkedCount,
-        orders_updated: updatedCount
-      });
+      try {
+        await this.logSystemEvent('sync_cycle_error', {
+          error: error.message,
+          timestamp: new Date().toISOString(),
+          orders_checked: checkedCount,
+          orders_updated: updatedCount
+        });
+      } catch (logError) {
+        console.error('❌ خطأ في تسجيل خطأ المزامنة:', logError.message);
+      }
     } finally {
       this.isRunning = false;
     }
@@ -573,7 +634,5 @@ class OrderStatusSyncService {
   }
 }
 
-// تصدير مثيل واحد من الخدمة (Singleton)
-const syncService = new OrderStatusSyncService();
-
-module.exports = syncService;
+// تصدير الكلاس
+module.exports = OrderStatusSyncService;

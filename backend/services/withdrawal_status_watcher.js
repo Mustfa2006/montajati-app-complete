@@ -17,6 +17,9 @@ class WithdrawalStatusWatcher {
     this.watchInterval = null;
     this.checkIntervalMs = 30000; // فحص كل 30 ثانية
     this.lastCheckedTimestamp = new Date().toISOString();
+    this.lastNoRequestsLog = 0; // لتقليل الرسائل المكررة
+
+    console.log('💰 تم تهيئة مراقب حالة طلبات السحب');
   }
 
   /**
@@ -91,7 +94,11 @@ class WithdrawalStatusWatcher {
       }
 
       if (!recentWithdrawals || recentWithdrawals.length === 0) {
-        console.log('📝 لا توجد طلبات سحب محدثة مؤخراً');
+        // تقليل عدد الرسائل المكررة
+        if (Date.now() - this.lastNoRequestsLog > 300000) { // كل 5 دقائق
+          console.log('📝 لا توجد طلبات سحب محدثة مؤخراً');
+          this.lastNoRequestsLog = Date.now();
+        }
         this.updateLastCheckedTimestamp();
         return;
       }
@@ -301,4 +308,4 @@ class WithdrawalStatusWatcher {
   }
 }
 
-module.exports = new WithdrawalStatusWatcher();
+module.exports = WithdrawalStatusWatcher;
