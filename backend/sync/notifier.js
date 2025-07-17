@@ -58,11 +58,10 @@ class NotificationService {
 
           credential = admin.credential.cert(serviceAccount);
         } else {
-          // في بيئة التطوير، استخدم ملف الخدمة
-          const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH ||
-                                     './firebase-service-account.json';
-          console.log('🔥 استخدام Firebase Service Account من ملف محلي');
-          credential = admin.credential.cert(require(serviceAccountPath));
+          // تعطيل Firebase إذا لم تكن المتغيرات متوفرة
+          console.log('⚠️ متغيرات Firebase غير متوفرة - سيتم تعطيل الإشعارات');
+          this.initialized = false;
+          return;
         }
 
         admin.initializeApp({

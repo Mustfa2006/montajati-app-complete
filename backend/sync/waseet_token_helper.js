@@ -23,15 +23,22 @@ class WaseetTokenHelper {
     try {
       // محاولة الوصول للمتغير العام WASEET_CONFIG
       if (global.WASEET_CONFIG && global.WASEET_CONFIG.authToken) {
-        console.log('✅ تم العثور على توكن في المتغير العام');
-        
-        // حفظ التوكن في قاعدة البيانات
-        await this.saveToken(global.WASEET_CONFIG.authToken);
-        
-        return global.WASEET_CONFIG.authToken;
+        // التحقق من صلاحية التوكن العام
+        if (global.WASEET_CONFIG.tokenExpiry && new Date(global.WASEET_CONFIG.tokenExpiry) > new Date()) {
+          console.log('✅ تم العثور على توكن صالح في المتغير العام');
+
+          // حفظ التوكن في قاعدة البيانات للنسخ الاحتياطي
+          await this.saveToken(global.WASEET_CONFIG.authToken, global.WASEET_CONFIG.tokenExpiry);
+
+          return global.WASEET_CONFIG.authToken;
+        } else {
+          console.log('⚠️ التوكن العام منتهي الصلاحية - سيتم حذفه');
+          delete global.WASEET_CONFIG;
+        }
       }
 
-      console.log('⚠️ لا يوجد توكن في المتغير العام');
+      // إخفاء رسالة "لا يوجد توكن في المتغير العام" لأنها طبيعية
+      // console.log('⚠️ لا يوجد توكن في المتغير العام');
       return null;
     } catch (error) {
       console.error('❌ خطأ في نسخ التوكن:', error.message);
@@ -61,7 +68,8 @@ class WaseetTokenHelper {
           console.log('✅ تم العثور على توكن صالح في قاعدة البيانات');
           return provider.token;
         } else {
-          console.log('⚠️ التوكن المحفوظ منتهي الصلاحية');
+          // إخفاء رسالة انتهاء الصلاحية لأنها طبيعية
+          // console.log('⚠️ التوكن المحفوظ منتهي الصلاحية');
           return null;
         }
       }
@@ -90,10 +98,31 @@ class WaseetTokenHelper {
         });
 
       console.log('✅ تم حفظ التوكن في قاعدة البيانات');
+
+      // تحديث التوكن العام أيضاً
+      this.updateGlobalToken(token, expiry);
+
       return true;
     } catch (error) {
       console.error('❌ خطأ في حفظ التوكن:', error.message);
       return false;
+    }
+  }
+
+  // ===================================
+  // تحديث التوكن العام
+  // ===================================
+  updateGlobalToken(token, expiry) {
+    try {
+      global.WASEET_CONFIG = {
+        authToken: token,
+        tokenExpiry: expiry,
+        lastUpdate: new Date(),
+        source: 'waseet_token_helper'
+      };
+      console.log('✅ تم تحديث التوكن العام من المساعد');
+    } catch (error) {
+      console.error('❌ خطأ في تحديث التوكن العام:', error.message);
     }
   }
 
@@ -116,7 +145,8 @@ class WaseetTokenHelper {
         return savedToken;
       }
 
-      console.log('❌ لا يوجد توكن متاح');
+      // إخفاء رسالة "لا يوجد توكن متاح" لأنها طبيعية
+      // console.log('❌ لا يوجد توكن متاح');
       return null;
     } catch (error) {
       console.error('❌ خطأ في الحصول على التوكن:', error.message);

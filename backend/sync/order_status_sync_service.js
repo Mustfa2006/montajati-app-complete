@@ -51,14 +51,24 @@ class OrderStatusSyncService {
       if (this.waseetConfig.token && this.waseetConfig.tokenExpiry) {
         const now = new Date();
         if (now < this.waseetConfig.tokenExpiry) {
-          console.log('✅ التوكن صالح، لا حاجة لتسجيل دخول جديد');
+          // إخفاء رسالة "التوكن صالح" لتقليل الرسائل المكررة
+          // console.log('✅ التوكن صالح، لا حاجة لتسجيل دخول جديد');
           return this.waseetConfig.token;
         }
       }
 
       console.log('🔐 محاولة الحصول على توكن شركة الوسيط...');
 
-      // استخدام المساعد للحصول على أفضل توكن متاح
+      // أولاً: التحقق من التوكن العام
+      const globalToken = this.getGlobalToken();
+      if (globalToken) {
+        this.waseetConfig.token = globalToken;
+        this.waseetConfig.tokenExpiry = global.WASEET_CONFIG.tokenExpiry;
+        console.log('✅ تم استخدام التوكن العام');
+        return globalToken;
+      }
+
+      // ثانياً: استخدام المساعد للحصول على أفضل توكن متاح
       const token = await waseetTokenHelper.getBestAvailableToken();
 
       if (token && await waseetTokenHelper.validateToken(token)) {
@@ -102,6 +112,46 @@ class OrderStatusSyncService {
       }
 
       // إرجاع null بدلاً من رمي خطأ لتجنب توقف النظام
+      return null;
+    }
+  }
+
+  // ===================================
+  // إدارة التوكن العام
+  // ===================================
+  setGlobalToken(token) {
+    try {
+      // إنشاء أو تحديث المتغير العام
+      global.WASEET_CONFIG = {
+        authToken: token,
+        tokenExpiry: this.waseetConfig.tokenExpiry,
+        lastUpdate: new Date(),
+        source: 'order_sync_service'
+      };
+
+      console.log('✅ تم حفظ التوكن في المتغير العام');
+    } catch (error) {
+      console.error('❌ خطأ في حفظ التوكن العام:', error.message);
+    }
+  }
+
+  getGlobalToken() {
+    try {
+      if (global.WASEET_CONFIG && global.WASEET_CONFIG.authToken) {
+        // التحقق من صلاحية التوكن
+        if (global.WASEET_CONFIG.tokenExpiry && new Date(global.WASEET_CONFIG.tokenExpiry) > new Date()) {
+          console.log('✅ تم العثور على توكن صالح في المتغير العام');
+          return global.WASEET_CONFIG.authToken;
+        } else {
+          console.log('⚠️ التوكن العام منتهي الصلاحية');
+          // حذف التوكن المنتهي الصلاحية
+          delete global.WASEET_CONFIG;
+          return null;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ خطأ في قراءة التوكن العام:', error.message);
       return null;
     }
   }
@@ -159,6 +209,9 @@ class OrderStatusSyncService {
           this.waseetConfig.tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
           console.log('✅ تم تسجيل الدخول المباشر بنجاح (إعادة توجيه)');
+
+          // حفظ التوكن في المتغير العام للمشاركة مع الخدمات الأخرى
+          this.setGlobalToken(this.waseetConfig.token);
 
           // تسجيل في النظام
           await this.logSystemEvent('waseet_direct_login_success', {
