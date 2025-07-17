@@ -18,6 +18,7 @@
     "test-health": "curl http://localhost:3003/health",
     "firebase-check": "node render_firebase_check.js",
     "firebase-extract": "node extract_firebase_vars.js",
+    "debug-firebase": "node debug-firebase.js",
     "firebase-diagnostic": "node render_firebase_diagnostic.js",
     "firebase-quick": "node quick_firebase_check.js",
     "test": "echo \"Error: no test specified\" && exit 1"
