@@ -22,11 +22,11 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 #### 🔥 **Firebase (للإشعارات)**
 ```
 FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----
-YOUR_PRIVATE_KEY_HERE
------END PRIVATE KEY-----
+FIREBASE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKB\nUjnv3DaQxWjIbIVW+LLllCdxtTTnvLN4WTAN+2SjSFAiTpgHVgGSjx2x61L/P0qH\nJdlHjmHcCcRqRGK42jXn2C1y3Rm2D8YjQBNWVKQHcuQRHjIqjSKO7zxpyQb1+joH\nAoGBAMmjx4nJmxDhGjKU8IWukR+N9rSi6l0r2nqF8unKjVBcVioHpLEcHLiJqNjI\n-----END PRIVATE KEY-----
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@project.iam.gserviceaccount.com
 ```
+
+**⚠️ مهم جداً:** في Render، ضع المفتاح في سطر واحد مع `\n` للأسطر الجديدة
 
 #### 📱 **Telegram**
 ```

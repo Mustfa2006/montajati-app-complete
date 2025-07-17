@@ -36,13 +36,26 @@ class NotificationService {
   initializeFirebase() {
     try {
       // تهيئة Firebase Admin إذا لم يتم تهيئته بالفعل
-      if (!admin.apps.length) {
+      if (admin.apps.length === 0) {
         let credential;
 
-        // في بيئة الإنتاج، استخدم متغيرات البيئة
-        if (process.env.NODE_ENV === 'production' && process.env.FIREBASE_SERVICE_ACCOUNT) {
+        // استخدام نفس طريقة config/firebase.js
+        if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
           console.log('🔥 استخدام Firebase Service Account من متغيرات البيئة');
-          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+
+          // تنظيف المفتاح الخاص
+          let cleanPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+          if (cleanPrivateKey) {
+            cleanPrivateKey = cleanPrivateKey.replace(/\\n/g, '\n');
+          }
+
+          const serviceAccount = {
+            type: 'service_account',
+            project_id: process.env.FIREBASE_PROJECT_ID,
+            private_key: cleanPrivateKey,
+            client_email: process.env.FIREBASE_CLIENT_EMAIL
+          };
+
           credential = admin.credential.cert(serviceAccount);
         } else {
           // في بيئة التطوير، استخدم ملف الخدمة
@@ -58,6 +71,8 @@ class NotificationService {
         });
 
         console.log('✅ تم تهيئة Firebase Admin بنجاح');
+      } else {
+        console.log('ℹ️ Firebase Admin مهيأ مسبقاً');
       }
 
       this.messaging = admin.messaging();

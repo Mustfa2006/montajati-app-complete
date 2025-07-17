@@ -27,7 +27,8 @@ const InventoryMonitorService = require('./inventory_monitor_service');
 const TelegramNotificationService = require('./telegram_notification_service');
 
 const app = express();
-const PORT = process.env.PORT || 3003;
+// التأكد من استخدام PORT من Render
+const PORT = parseInt(process.env.PORT) || 3003;
 
 // ===================================
 // تهيئة خدمات التلغرام والمخزون
@@ -461,8 +462,16 @@ async function startServer() {
     // بدء الخادم
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log('✅ خادم الإنتاج يعمل بنجاح!');
-      console.log(`🌐 الرابط: http://0.0.0.0:${PORT}`);
-      console.log(`🔗 فحص الصحة: http://0.0.0.0:${PORT}/health`);
+
+      // عرض الرابط الصحيح حسب البيئة
+      if (process.env.NODE_ENV === 'production' && process.env.RENDER) {
+        console.log(`🌐 الرابط: https://montajati-backend.onrender.com`);
+        console.log(`🔗 فحص الصحة: https://montajati-backend.onrender.com/health`);
+      } else {
+        console.log(`🌐 الرابط: http://localhost:${PORT}`);
+        console.log(`🔗 فحص الصحة: http://localhost:${PORT}/health`);
+      }
+
       console.log('📱 جاهز لاستقبال الطلبات من التطبيق');
     });
 
