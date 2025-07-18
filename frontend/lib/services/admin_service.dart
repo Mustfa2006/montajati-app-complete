@@ -6,7 +6,7 @@ import 'user_management_service.dart';
 import '../config/supabase_config.dart';
 import '../models/order_summary.dart';
 import '../utils/order_status_helper.dart';
-import 'firebase_service.dart';
+import 'official_notification_service.dart';
 
 class AdminService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
@@ -916,13 +916,29 @@ class AdminService {
         debugPrint('✅ === الخادم يتولى العملية بالكامل ===');
       }
 
-      // إرسال إشعار تغيير حالة الطلب للعميل
+      // إرسال إشعار تغيير حالة الطلب للمستخدم صاحب الطلب (النظام الرسمي)
       try {
-        await _sendOrderStatusChangeNotification(
-          orderId: orderId,
-          newStatus: statusForDatabase,
-          notes: notes,
-        );
+        // الحصول على رقم هاتف المستخدم صاحب الطلب
+        final userPhone = existingOrder['user_phone']?.toString();
+
+        if (userPhone != null && userPhone.isNotEmpty) {
+          debugPrint('📱 إرسال إشعار للمستخدم صاحب الطلب: $userPhone');
+
+          final notificationSent = await OfficialNotificationService.sendOrderStatusNotification(
+            orderId: orderId,
+            userPhone: userPhone,
+            newStatus: statusForDatabase,
+            notes: notes,
+          );
+
+          if (notificationSent) {
+            debugPrint('✅ تم إرسال إشعار تغيير حالة الطلب بنجاح');
+          } else {
+            debugPrint('❌ فشل في إرسال إشعار تغيير حالة الطلب');
+          }
+        } else {
+          debugPrint('⚠️ لا يوجد رقم هاتف للمستخدم صاحب الطلب');
+        }
       } catch (e) {
         debugPrint('❌ خطأ في إرسال إشعار تغيير حالة الطلب: $e');
       }
@@ -961,128 +977,7 @@ class AdminService {
     }
   }
 
-  /// إرسال إشعار تغيير حالة الطلب للعميل
-  static Future<void> _sendOrderStatusChangeNotification({
-    required String orderId,
-    required String newStatus,
-    String? notes,
-  }) async {
-    try {
-      debugPrint('📤 إرسال إشعار تغيير حالة الطلب $orderId');
 
-      // جلب بيانات الطلب والعميل
-      final orderResponse = await Supabase.instance.client
-          .from('orders')
-          .select('id, qr_id, customer_name, primary_phone, secondary_phone')
-          .eq('id', orderId)
-          .single();
-
-      final qrId = orderResponse['qr_id']?.toString() ?? orderId;
-      final customerPhone = orderResponse['primary_phone']?.toString() ?? '';
-
-      if (customerPhone.isEmpty) {
-        debugPrint('⚠️ لا يوجد رقم هاتف للعميل');
-        return;
-      }
-
-      // تحديد رسالة الإشعار حسب الحالة
-      String title = '';
-      String message = '';
-
-      switch (newStatus) {
-        case 'pending':
-          title = '⏳ طلبك قيد المراجعة';
-          message = 'طلبك رقم $qrId قيد المراجعة وسيتم تأكيده قريباً';
-          break;
-        case 'confirmed':
-          title = '✅ تم تأكيد طلبك';
-          message = 'تم تأكيد طلبك رقم $qrId وسيتم تحضيره قريباً';
-          break;
-        case 'processing':
-          title = '🔄 جاري تحضير طلبك';
-          message = 'طلبك رقم $qrId قيد التحضير الآن';
-          break;
-        case 'in_delivery':
-          title = '🚚 طلبك قيد التوصيل';
-          message = 'طلبك رقم $qrId قيد التوصيل وسيصلك قريباً';
-          break;
-        case 'in_transit':
-          title = '🚚 طلبك في الطريق';
-          message = 'طلبك رقم $qrId في الطريق إليك الآن';
-          break;
-        case 'delivered':
-          title = '🎉 تم تسليم طلبك';
-          message = 'تم تسليم طلبك رقم $qrId بنجاح! نشكرك لثقتك بنا';
-          break;
-        case 'cancelled':
-          title = '❌ تم إلغاء طلبك';
-          message =
-              'تم إلغاء طلبك رقم $qrId${notes != null && notes.isNotEmpty ? '. السبب: $notes' : ''}';
-          break;
-        case 'returned':
-          title = '↩️ تم إرجاع طلبك';
-          message =
-              'تم إرجاع طلبك رقم $qrId${notes != null && notes.isNotEmpty ? '. السبب: $notes' : ''}';
-          break;
-        default:
-          title = '🔄 تحديث حالة الطلب';
-          message = 'تم تحديث حالة طلبك رقم $qrId';
-      }
-
-      // إرسال الإشعار مباشرة عبر Firebase (الحل النهائي)
-      try {
-        // إرسال إشعار محلي مباشر عبر Firebase
-        await FirebaseService.sendOfficialNotification(
-          title: title,
-          body: message,
-          data: {
-            'type': 'order_status_update',
-            'orderId': orderId,
-            'qrId': qrId,
-            'newStatus': newStatus,
-            'timestamp': DateTime.now().toIso8601String(),
-            if (notes != null && notes.isNotEmpty) 'notes': notes,
-          },
-        );
-
-        debugPrint('✅ تم إرسال إشعار تغيير حالة الطلب مباشرة عبر Firebase');
-
-      } catch (firebaseError) {
-        debugPrint('❌ خطأ في إرسال الإشعار عبر Firebase: $firebaseError');
-
-        // محاولة الإرسال عبر الخادم كبديل
-        try {
-          final response = await http.post(
-            Uri.parse('https://montajati-backend.onrender.com/api/notifications/send'),
-            headers: {'Content-Type': 'application/json'},
-            body: json.encode({
-              'userPhone': customerPhone,
-              'title': title,
-              'message': message,
-              'data': {
-                'type': 'order_status_update',
-                'orderId': orderId,
-                'qrId': qrId,
-                'newStatus': newStatus,
-                'timestamp': DateTime.now().toIso8601String(),
-                if (notes != null && notes.isNotEmpty) 'notes': notes,
-              },
-            }),
-          ).timeout(const Duration(seconds: 10));
-
-          if (response.statusCode == 200) {
-            debugPrint('✅ تم إرسال الإشعار عبر الخادم كبديل');
-          } else {
-            debugPrint('❌ فشل الإرسال عبر الخادم أيضاً: ${response.statusCode}');
-          }
-        } catch (serverError) {
-          debugPrint('❌ فشل الإرسال عبر الخادم: $serverError');
-        }
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في إرسال إشعار تغيير حالة الطلب: $e');
-    }
-  }
 
   // تحديث بيانات العميل
   static Future<bool> updateCustomerInfo(

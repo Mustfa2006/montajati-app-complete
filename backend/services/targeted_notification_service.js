@@ -451,16 +451,35 @@ class TargetedNotificationService {
    */
   async getFCMTokenByPhone(userPhone) {
     try {
-      // البحث في جدول المستخدمين
+      console.log(`🔍 البحث عن FCM Token للمستخدم: ${userPhone}`);
+
+      // البحث في جدول user_fcm_tokens الجديد
       const { data, error } = await supabase
-        .from('users')
-        .select('fcm_token')
-        .eq('phone', userPhone)
+        .from('user_fcm_tokens')
+        .select('fcm_token, platform, is_active')
+        .eq('user_phone', userPhone)
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .single();
 
       if (error) {
-        console.log(`⚠️ لا يوجد مستخدم برقم الهاتف ${userPhone}`);
-        return null;
+        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userPhone}: ${error.message}`);
+
+        // محاولة البحث في جدول users كبديل
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('fcm_token')
+          .eq('phone', userPhone)
+          .single();
+
+        if (userError || !userData || !userData.fcm_token) {
+          console.log(`⚠️ لا يوجد FCM Token في جدول users أيضاً`);
+          return null;
+        }
+
+        console.log(`✅ تم العثور على FCM Token في جدول users`);
+        return userData.fcm_token;
       }
 
       if (!data || !data.fcm_token) {
@@ -468,7 +487,9 @@ class TargetedNotificationService {
         return null;
       }
 
+      console.log(`✅ تم العثور على FCM Token للمستخدم ${userPhone} (${data.platform})`);
       return data.fcm_token;
+
     } catch (error) {
       console.error('❌ خطأ في جلب FCM Token بالهاتف:', error.message);
       return null;

@@ -10,6 +10,7 @@ import 'config/api_config.dart';
 import 'providers/order_status_provider.dart';
 import 'router.dart';
 import 'services/firebase_service.dart';
+import 'services/official_notification_service.dart';
 import 'services/database_migration_service.dart';
 
 import 'services/background_order_sync_service.dart';
@@ -42,6 +43,9 @@ void main() async {
 
     // تهيئة Firebase للإشعارات
     await FirebaseService.initialize();
+
+    // تهيئة نظام الإشعارات الرسمي
+    await OfficialNotificationService.initialize();
 
     // تشغيل تحديثات قاعدة البيانات
     debugPrint('🔄 تشغيل تحديثات قاعدة البيانات...');
