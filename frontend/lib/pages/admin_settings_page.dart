@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../services/supabase_service.dart';
 import '../services/admin_service.dart';
 import '../services/withdrawal_service.dart';
+import '../services/official_notification_service.dart';
 import '../widgets/custom_app_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -303,6 +304,8 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                   _buildSecuritySettings(),
                   const SizedBox(height: 20),
                   _buildNotificationSettings(),
+                  const SizedBox(height: 20),
+                  _buildNotificationTestSection(),
                   const SizedBox(height: 20),
                   _buildBackupSettings(),
                   const SizedBox(height: 20),
@@ -1199,5 +1202,197 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
   Future<void> _updateSecuritySettings() async {
     // تحديث إعدادات الأمان في قاعدة البيانات
     debugPrint('تم تحديث إعدادات الأمان');
+  }
+
+  // ===================================
+  // واجهة اختبار الإشعارات
+  // ===================================
+
+  Widget _buildNotificationTestSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.notification_important, color: Colors.orange),
+                const SizedBox(width: 8),
+                const Text(
+                  'اختبار نظام الإشعارات الرسمي',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'اختبر نظام الإشعارات للتأكد من وصول الإشعارات للمستخدمين',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _testNotificationSystem,
+                    icon: const Icon(Icons.send),
+                    label: const Text('اختبار إرسال إشعار'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _refreshFCMToken,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('تحديث FCM Token'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (OfficialNotificationService.isInitialized)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'نظام الإشعارات مهيأ ويعمل',
+                      style: TextStyle(color: Colors.green, fontSize: 12),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.orange, size: 16),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'نظام الإشعارات غير مهيأ',
+                      style: TextStyle(color: Colors.orange, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===================================
+  // اختبار نظام الإشعارات الرسمي
+  // ===================================
+
+  Future<void> _testNotificationSystem() async {
+    setState(() => _isLoading = true);
+
+    try {
+      debugPrint('🧪 بدء اختبار نظام الإشعارات الرسمي...');
+
+      // تهيئة النظام
+      await OfficialNotificationService.initialize();
+
+      // حفظ FCM Token للمستخدم الحالي
+      final success = await OfficialNotificationService.saveUserFCMToken('07503597589');
+
+      if (success) {
+        // اختبار إرسال إشعار
+        final testResult = await OfficialNotificationService.testNotificationForCurrentUser();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(testResult
+                ? '✅ تم إرسال إشعار الاختبار بنجاح!'
+                : '❌ فشل في إرسال إشعار الاختبار'),
+              backgroundColor: testResult ? Colors.green : Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ فشل في حفظ FCM Token'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في اختبار نظام الإشعارات: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في اختبار الإشعارات: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _refreshFCMToken() async {
+    setState(() => _isLoading = true);
+
+    try {
+      debugPrint('🔄 إعادة تهيئة FCM Token...');
+
+      await OfficialNotificationService.refreshFCMToken();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم تحديث FCM Token بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في تحديث FCM Token: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في تحديث FCM Token: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 }

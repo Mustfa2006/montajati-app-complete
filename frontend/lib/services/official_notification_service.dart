@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/supabase_config.dart';
 
 class OfficialNotificationService {
@@ -380,12 +381,23 @@ class OfficialNotificationService {
 
   // الحصول على رقم هاتف المستخدم الحالي
   static Future<String?> _getCurrentUserPhone() async {
-    // يمكن تحسين هذا حسب نظام المصادقة المستخدم
     try {
-      // مثال: جلب من SharedPreferences أو من حالة التطبيق
-      return '07503597589'; // مؤقت للاختبار
+      // جلب من SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final userPhone = prefs.getString('user_phone');
+
+      if (userPhone != null && userPhone.isNotEmpty) {
+        debugPrint('✅ تم جلب رقم هاتف المستخدم من SharedPreferences: $userPhone');
+        return userPhone;
+      }
+
+      // إذا لم يوجد، استخدم رقم افتراضي للاختبار
+      debugPrint('⚠️ لم يتم العثور على رقم هاتف المستخدم، استخدام رقم افتراضي');
+      return '07503597589'; // رقم افتراضي للاختبار
+
     } catch (e) {
-      return null;
+      debugPrint('❌ خطأ في جلب رقم هاتف المستخدم: $e');
+      return '07503597589'; // رقم افتراضي للاختبار
     }
   }
 
@@ -397,9 +409,95 @@ class OfficialNotificationService {
   }
 
   // ===================================
+  // دوال إضافية للإدارة
+  // ===================================
+
+  /// حفظ FCM Token للمستخدم عند تسجيل الدخول
+  static Future<bool> saveUserFCMToken(String userPhone) async {
+    try {
+      debugPrint('💾 حفظ FCM Token للمستخدم: $userPhone');
+
+      if (_fcmToken == null) {
+        await _getFCMToken();
+      }
+
+      if (_fcmToken == null) {
+        debugPrint('❌ لا يوجد FCM Token للحفظ');
+        return false;
+      }
+
+      // حفظ رقم الهاتف في SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_phone', userPhone);
+
+      // حفظ FCM Token في قاعدة البيانات
+      await _supabase
+          .from('user_fcm_tokens')
+          .upsert({
+            'user_phone': userPhone,
+            'fcm_token': _fcmToken!,
+            'platform': _getPlatform(),
+            'is_active': true,
+            'updated_at': DateTime.now().toIso8601String(),
+          });
+
+      debugPrint('✅ تم حفظ FCM Token للمستخدم $userPhone بنجاح');
+      debugPrint('🔑 FCM Token: ${_fcmToken!.substring(0, 20)}...');
+
+      return true;
+
+    } catch (e) {
+      debugPrint('❌ خطأ في حفظ FCM Token للمستخدم: $e');
+      return false;
+    }
+  }
+
+  /// اختبار إرسال إشعار للمستخدم الحالي
+  static Future<bool> testNotificationForCurrentUser() async {
+    try {
+      final userPhone = await _getCurrentUserPhone();
+      if (userPhone == null) {
+        debugPrint('❌ لا يوجد رقم هاتف للمستخدم الحالي');
+        return false;
+      }
+
+      return await sendOrderStatusNotification(
+        orderId: 'test_order_${DateTime.now().millisecondsSinceEpoch}',
+        userPhone: userPhone,
+        newStatus: 'in_delivery',
+        notes: 'اختبار إشعار من التطبيق',
+      );
+
+    } catch (e) {
+      debugPrint('❌ خطأ في اختبار الإشعار: $e');
+      return false;
+    }
+  }
+
+  /// إعادة تهيئة FCM Token
+  static Future<void> refreshFCMToken() async {
+    try {
+      debugPrint('🔄 إعادة تهيئة FCM Token...');
+
+      _fcmToken = await _firebaseMessaging.getToken();
+      if (_fcmToken != null) {
+        debugPrint('✅ تم تحديث FCM Token: ${_fcmToken!.substring(0, 20)}...');
+
+        final userPhone = await _getCurrentUserPhone();
+        if (userPhone != null) {
+          await saveUserFCMToken(userPhone);
+        }
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في إعادة تهيئة FCM Token: $e');
+    }
+  }
+
+  // ===================================
   // Getters
   // ===================================
-  
+
   static bool get isInitialized => _initialized;
   static String? get fcmToken => _fcmToken;
 }
