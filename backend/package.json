@@ -10,6 +10,7 @@
     "local": "node production_server.js",
     "proxy": "node flexible_delivery_proxy.js",
     "test-firebase": "node test-firebase-vars.js",
+    "test-notifications": "node test-firebase-notifications.js",
     "proxy:dev": "nodemon flexible_delivery_proxy.js",
     "monitor": "node order_status_monitor.js",
     "monitor:dev": "nodemon order_status_monitor.js",

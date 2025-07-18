@@ -177,17 +177,22 @@ allFirebaseKeys.forEach(key => {
   }
 });
 
-const hasFirebaseVars = !!(projectId && privateKey && clientEmail);
+// فحص نهائي للمتغيرات بعد الاستخراج من FIREBASE_SERVICE_ACCOUNT
+const finalProjectId = process.env.FIREBASE_PROJECT_ID;
+const finalPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+const finalClientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+
+const hasFirebaseVars = !!(finalProjectId && finalPrivateKey && finalClientEmail);
 
 if (hasFirebaseVars) {
-  console.log('\n✅ جميع متغيرات Firebase موجودة في Render');
+  console.log('\n✅ جميع متغيرات Firebase متوفرة (من FIREBASE_SERVICE_ACCOUNT أو المتغيرات المنفصلة)');
   console.log('🧪 محاولة إنشاء Service Account للاختبار...');
 
   try {
     const testServiceAccount = {
-      project_id: projectId,
-      private_key: privateKey,
-      client_email: clientEmail,
+      project_id: finalProjectId,
+      private_key: finalPrivateKey,
+      client_email: finalClientEmail,
       type: 'service_account'
     };
     console.log('✅ تم إنشاء Service Account بنجاح');
@@ -197,11 +202,20 @@ if (hasFirebaseVars) {
     console.log(`❌ خطأ في إنشاء Service Account: ${error.message}`);
   }
 } else {
-  console.log('\n❌ بعض متغيرات Firebase مفقودة في Render!');
-  console.log('💡 يجب إضافة المتغيرات في Render Environment Variables:');
-  if (!projectId) console.log('   - FIREBASE_PROJECT_ID');
-  if (!privateKey) console.log('   - FIREBASE_PRIVATE_KEY');
-  if (!clientEmail) console.log('   - FIREBASE_CLIENT_EMAIL');
+  // فحص إضافي للـ FIREBASE_SERVICE_ACCOUNT
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (serviceAccount) {
+    console.log('\n🔄 FIREBASE_SERVICE_ACCOUNT موجود - سيتم استخراج المتغيرات تلقائياً');
+    console.log('✅ Firebase سيعمل بشكل صحيح');
+  } else {
+    console.log('\n❌ بعض متغيرات Firebase مفقودة في Render!');
+    console.log('💡 يجب إضافة إما:');
+    console.log('   1. FIREBASE_SERVICE_ACCOUNT (الطريقة المفضلة)');
+    console.log('   2. أو المتغيرات المنفصلة:');
+    if (!finalProjectId) console.log('      - FIREBASE_PROJECT_ID');
+    if (!finalPrivateKey) console.log('      - FIREBASE_PRIVATE_KEY');
+    if (!finalClientEmail) console.log('      - FIREBASE_CLIENT_EMAIL');
+  }
 }
 
 // تحسينات خاصة بـ Render

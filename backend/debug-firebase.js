@@ -84,36 +84,58 @@ try {
   console.log(`  - PRIVATE_KEY: ${privateKey ? '✅' : '❌'}`);
   console.log(`  - CLIENT_EMAIL: ${clientEmail ? '✅' : '❌'}`);
   
-  if (projectId && privateKey && clientEmail) {
+  // محاولة استخدام FIREBASE_SERVICE_ACCOUNT أولاً
+  const serviceAccountEnv = process.env.FIREBASE_SERVICE_ACCOUNT;
+  let serviceAccount = null;
+
+  if (serviceAccountEnv) {
+    console.log('🔄 محاولة استخدام FIREBASE_SERVICE_ACCOUNT...');
+    try {
+      const parsedAccount = JSON.parse(serviceAccountEnv);
+      if (parsedAccount.project_id && parsedAccount.private_key && parsedAccount.client_email) {
+        serviceAccount = parsedAccount;
+        console.log('✅ تم استخراج Service Account من FIREBASE_SERVICE_ACCOUNT');
+      }
+    } catch (error) {
+      console.log('❌ خطأ في تحليل FIREBASE_SERVICE_ACCOUNT:', error.message);
+    }
+  }
+
+  // إذا لم يتم العثور على FIREBASE_SERVICE_ACCOUNT، استخدم المتغيرات المنفصلة
+  if (!serviceAccount && projectId && privateKey && clientEmail) {
+    console.log('🔄 استخدام المتغيرات المنفصلة...');
     // تنظيف المفتاح
     let cleanPrivateKey = privateKey;
     if (cleanPrivateKey.includes('\\n')) {
       cleanPrivateKey = cleanPrivateKey.replace(/\\n/g, '\n');
       console.log('🔧 تم تحويل \\n إلى newlines');
     }
-    
-    const serviceAccount = {
+
+    serviceAccount = {
       type: "service_account",
       project_id: projectId,
       private_key: cleanPrivateKey,
       client_email: clientEmail,
     };
-    
+  }
+
+  if (serviceAccount) {
     console.log('محاولة تهيئة Firebase...');
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
-      projectId: projectId
+      projectId: serviceAccount.project_id
     });
-    
+
     console.log('✅ تم تهيئة Firebase بنجاح!');
-    
+
     // اختبار إرسال إشعار تجريبي
     console.log('اختبار إرسال إشعار...');
     const messaging = admin.messaging();
     console.log('✅ تم الحصول على خدمة Messaging');
-    
+
   } else {
     console.log('❌ متغيرات Firebase غير مكتملة');
+    console.log('💡 تأكد من وجود FIREBASE_SERVICE_ACCOUNT أو المتغيرات المنفصلة');
   }
   
 } catch (error) {
