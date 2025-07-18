@@ -24,6 +24,15 @@
     "debug-firebase": "node debug-firebase.js",
     "firebase-diagnostic": "node render_firebase_diagnostic.js",
     "firebase-quick": "node quick_firebase_check.js",
+    "notification:start": "node services/notification_service_runner.js start",
+    "notification:stats": "node services/notification_service_runner.js stats",
+    "notification:test": "node services/notification_service_runner.js test",
+    "notification:setup": "node setup_smart_notifications.js setup",
+    "notification:system": "node start_smart_notification_system.js start",
+    "notification:system-test": "node start_smart_notification_system.js test",
+    "notification:final": "node start_notification_system_final.js start",
+    "notification:final-stats": "node start_notification_system_final.js stats",
+    "notification:test-simple": "node test_notification_system_simple.js full",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

@@ -1,74 +1,45 @@
 // ===================================
-// إعداد Firebase كامل للإشعارات
+// إعداد Firebase الحقيقي للإشعارات
 // ===================================
 
 require('dotenv').config();
+const admin = require('firebase-admin');
 
-// إنشاء متغيرات Firebase مفقودة
-const firebaseConfig = {
-  type: "service_account",
-  project_id: process.env.FIREBASE_PROJECT_ID || "montajati-app",
-  private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "default_key_id",
-  private_key: process.env.FIREBASE_PRIVATE_KEY || "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKB\ndefault_private_key_content\n-----END PRIVATE KEY-----\n",
-  client_email: process.env.FIREBASE_CLIENT_EMAIL || "firebase-adminsdk@montajati-app.iam.gserviceaccount.com",
-  client_id: process.env.FIREBASE_CLIENT_ID || "default_client_id",
-  auth_uri: "https://accounts.google.com/o/oauth2/auth",
-  token_uri: "https://oauth2.googleapis.com/token",
-  auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
-  client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL || "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk%40montajati-app.iam.gserviceaccount.com"
-};
-
-console.log('🔧 إعداد Firebase للإشعارات...');
-
-// محاكاة Firebase Admin SDK
-class MockFirebaseAdmin {
-  constructor() {
-    this.initialized = false;
-    this.messaging = new MockMessaging();
+// استخراج إعدادات Firebase من متغير البيئة
+let firebaseConfig;
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    firebaseConfig = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    console.log('✅ تم تحميل إعدادات Firebase من FIREBASE_SERVICE_ACCOUNT');
+  } else {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT غير موجود');
   }
-
-  initializeApp(config) {
-    console.log('✅ تم تهيئة Firebase (محاكاة)');
-    this.initialized = true;
-    return this;
-  }
-
-  messaging() {
-    return this.messaging;
-  }
+} catch (error) {
+  console.error('❌ خطأ في تحميل إعدادات Firebase:', error.message);
+  process.exit(1);
 }
 
-class MockMessaging {
-  async send(message) {
-    console.log('📤 إرسال إشعار (محاكاة):', {
-      token: message.token?.substring(0, 20) + '...',
-      title: message.notification?.title,
-      body: message.notification?.body,
-      data: message.data
+console.log('🔧 إعداد Firebase الحقيقي للإشعارات...');
+
+// تهيئة Firebase Admin SDK الحقيقي
+let firebaseApp;
+try {
+  // التحقق من عدم وجود تطبيق Firebase مهيأ مسبقاً
+  if (admin.apps.length === 0) {
+    firebaseApp = admin.initializeApp({
+      credential: admin.credential.cert(firebaseConfig),
+      projectId: firebaseConfig.project_id
     });
-
-    // محاكاة نجاح الإرسال
-    return `mock_message_id_${Date.now()}`;
+    console.log('✅ تم تهيئة Firebase Admin SDK بنجاح');
+    console.log(`📱 Project ID: ${firebaseConfig.project_id}`);
+  } else {
+    firebaseApp = admin.apps[0];
+    console.log('✅ Firebase Admin SDK مهيأ مسبقاً');
   }
-
-  async sendMulticast(message) {
-    console.log('📤 إرسال إشعار متعدد (محاكاة):', {
-      tokens: message.tokens?.length + ' tokens',
-      title: message.notification?.title,
-      body: message.notification?.body
-    });
-
-    return {
-      successCount: message.tokens?.length || 0,
-      failureCount: 0,
-      responses: message.tokens?.map(() => ({ success: true })) || []
-    };
-  }
+} catch (error) {
+  console.error('❌ خطأ في تهيئة Firebase Admin SDK:', error.message);
+  process.exit(1);
 }
-
-// إنشاء Firebase Admin محاكي
-const admin = new MockFirebaseAdmin();
-admin.initializeApp(firebaseConfig);
 
 // تصدير للاستخدام في الخدمات الأخرى
 module.exports = {
