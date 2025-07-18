@@ -29,6 +29,7 @@ import 'pages/order_summary_page.dart';
 import 'pages/scheduled_orders_main_page.dart';
 // import 'pages/protected_system_test_page.dart'; // تم حذف الصفحة
 import 'pages/new_system_test_page.dart';
+import 'debug/notification_test.dart';
 
 
 class AppRouter {
@@ -245,6 +246,12 @@ class AppRouter {
         builder: (context, state) => const NewSystemTestPage(),
       ),
 
+      // صفحة اختبار الإشعارات
+      GoRoute(
+        path: '/notification-test',
+        name: 'notification-test',
+        builder: (context, state) => const NotificationTestPage(),
+      ),
 
     ],
 
@@ -342,5 +349,9 @@ class NavigationHelper {
 
   static void goToNewSystemTest(BuildContext context) {
     context.go('/new-system-test');
+  }
+
+  static void goToNotificationTest(BuildContext context) {
+    context.go('/notification-test');
   }
 }
