@@ -10,15 +10,15 @@ class InventoryMonitorService {
     this.telegramService = new TelegramNotificationService();
     this.lowStockThreshold = parseInt(process.env.LOW_STOCK_THRESHOLD) || 5;
 
-    // نظام ذكي لمنع تكرار الإشعارات
-    this.sentNotifications = new Map(); // productId -> { type, timestamp }
-    this.notificationCooldown = 60000; // دقيقة واحدة بالميلي ثانية
+    // نظام ذكي لمنع تكرار الإشعارات - مدى الحياة
+    this.sentNotifications = new Map(); // productId -> { type, timestamp, lastQuantity }
+    this.notificationCooldown = 24 * 60 * 60 * 1000; // 24 ساعة بالميلي ثانية
   }
 
   /**
-   * فحص إذا كان الإشعار تم إرساله مؤخراً (نظام منع التكرار)
+   * فحص إذا كان الإشعار تم إرساله مؤخراً (نظام منع التكرار الذكي)
    */
-  canSendNotification(productId, notificationType) {
+  canSendNotification(productId, notificationType, currentQuantity = null) {
     const key = `${productId}_${notificationType}`;
     const lastSent = this.sentNotifications.get(key);
 
@@ -26,28 +26,36 @@ class InventoryMonitorService {
       return true; // لم يتم إرسال إشعار من قبل
     }
 
+    // إذا تغيرت الكمية، يمكن إرسال إشعار جديد
+    if (currentQuantity !== null && lastSent.lastQuantity !== currentQuantity) {
+      console.log(`🔄 تغيرت الكمية للمنتج ${productId} من ${lastSent.lastQuantity} إلى ${currentQuantity} - يمكن إرسال إشعار جديد`);
+      return true;
+    }
+
     const now = Date.now();
     const timeDiff = now - lastSent.timestamp;
 
     if (timeDiff >= this.notificationCooldown) {
-      return true; // مر وقت كافي منذ آخر إشعار
+      return true; // مر وقت كافي منذ آخر إشعار (24 ساعة)
     }
 
-    console.log(`⏰ تم تخطي إشعار ${notificationType} للمنتج ${productId} - آخر إرسال منذ ${Math.round(timeDiff/1000)} ثانية`);
+    const hoursLeft = Math.round((this.notificationCooldown - timeDiff) / (1000 * 60 * 60));
+    console.log(`⏰ تم تخطي إشعار ${notificationType} للمنتج ${productId} - يمكن الإرسال مرة أخرى بعد ${hoursLeft} ساعة`);
     return false; // لا يمكن الإرسال بعد
   }
 
   /**
-   * تسجيل إرسال الإشعار
+   * تسجيل إرسال الإشعار مع الكمية
    */
-  markNotificationSent(productId, notificationType) {
+  markNotificationSent(productId, notificationType, currentQuantity = null) {
     const key = `${productId}_${notificationType}`;
     this.sentNotifications.set(key, {
       type: notificationType,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      lastQuantity: currentQuantity
     });
 
-    console.log(`✅ تم تسجيل إرسال إشعار ${notificationType} للمنتج ${productId}`);
+    console.log(`✅ تم تسجيل إرسال إشعار ${notificationType} للمنتج ${productId} - الكمية: ${currentQuantity}`);
   }
 
   /**
@@ -144,8 +152,8 @@ class InventoryMonitorService {
       if (currentStock === 0) {
         status = 'out_of_stock';
 
-        // فحص إذا كان يمكن إرسال الإشعار (نظام منع التكرار)
-        if (this.canSendNotification(productId, 'out_of_stock')) {
+        // فحص إذا كان يمكن إرسال الإشعار (نظام منع التكرار الذكي)
+        if (this.canSendNotification(productId, 'out_of_stock', currentStock)) {
           const alertResult = await this.telegramService.sendOutOfStockAlert({
             productId,
             productName,
@@ -153,7 +161,7 @@ class InventoryMonitorService {
           });
 
           if (alertResult.success) {
-            this.markNotificationSent(productId, 'out_of_stock');
+            this.markNotificationSent(productId, 'out_of_stock', currentStock);
           }
 
           alerts.push({
@@ -173,8 +181,8 @@ class InventoryMonitorService {
       else if (currentStock === 5) {
         status = 'low_stock';
 
-        // فحص إذا كان يمكن إرسال الإشعار (نظام منع التكرار)
-        if (this.canSendNotification(productId, 'low_stock')) {
+        // فحص إذا كان يمكن إرسال الإشعار (نظام منع التكرار الذكي)
+        if (this.canSendNotification(productId, 'low_stock', currentStock)) {
           const alertResult = await this.telegramService.sendLowStockAlert({
             productId,
             productName,
@@ -183,7 +191,7 @@ class InventoryMonitorService {
           });
 
           if (alertResult.success) {
-            this.markNotificationSent(productId, 'low_stock');
+            this.markNotificationSent(productId, 'low_stock', currentStock);
           }
 
           alerts.push({

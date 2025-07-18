@@ -173,15 +173,30 @@ class WithdrawalStatusWatcher {
         return;
       }
 
+      // الحصول على رقم هاتف المستخدم من قاعدة البيانات
+      const { data: userData, error: userError } = await this.supabase
+        .from('users')
+        .select('phone')
+        .eq('id', userId)
+        .single();
+
+      if (userError || !userData || !userData.phone) {
+        console.log(`⚠️ لا يمكن العثور على رقم هاتف للمستخدم ${userId}`);
+        return;
+      }
+
+      const userPhone = userData.phone;
+      console.log(`📱 رقم هاتف المستخدم: ${userPhone}`);
+
       // التحقق من تهيئة خدمة الإشعارات
       if (!targetedNotificationService || !targetedNotificationService.initialized) {
         console.warn('⚠️ خدمة الإشعارات المستهدفة غير مهيأة - تم تخطي الإشعار');
         return;
       }
 
-      // إرسال الإشعار المستهدف
+      // إرسال الإشعار المستهدف باستخدام رقم الهاتف
       const result = await targetedNotificationService.sendWithdrawalStatusNotification(
-        userId,
+        userPhone, // استخدام رقم الهاتف بدلاً من userId
         requestId,
         amount,
         status,

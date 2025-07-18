@@ -3,7 +3,7 @@
 // Targeted Notification Service
 // ===================================
 
-const admin = require('firebase-admin');
+const { admin, sendNotification } = require('../setup_firebase_complete');
 const { createClient } = require('@supabase/supabase-js');
 
 // إعداد Supabase
@@ -212,28 +212,28 @@ class TargetedNotificationService {
 
   /**
    * إرسال إشعار تحديث طلب السحب للمستخدم المحدد فقط
-   * @param {string} userId - معرف المستخدم صاحب طلب السحب
+   * @param {string} userPhone - رقم هاتف المستخدم صاحب طلب السحب
    * @param {string} requestId - معرف طلب السحب
    * @param {number} amount - مبلغ السحب
    * @param {string} status - حالة طلب السحب
    * @param {string} reason - سبب الرفض (اختياري)
    */
-  async sendWithdrawalStatusNotification(userId, requestId, amount, status, reason = '') {
+  async sendWithdrawalStatusNotification(userPhone, requestId, amount, status, reason = '') {
     try {
       console.log(`💰 إرسال إشعار طلب السحب للمستخدم المحدد فقط:`);
-      console.log(`👤 المستخدم: ${userId}`);
+      console.log(`📱 المستخدم: ${userPhone}`);
       console.log(`📄 طلب السحب: ${requestId}`);
       console.log(`💵 المبلغ: ${amount}`);
       console.log(`📊 الحالة: ${status}`);
 
       // الحصول على FCM Token للمستخدم المحدد فقط
-      const fcmToken = await this.getUserFCMToken(userId);
+      const fcmToken = await this.getFCMTokenByPhone(userPhone);
 
       if (!fcmToken) {
-        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId} - محاولة إرسال إشعار بديل`);
+        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userPhone} - محاولة إرسال إشعار بديل`);
 
         // بدلاً من إرسال للتلغرام (المدير)، نحاول طرق أخرى للوصول للمستخدم
-        console.log(`⚠️ لا يمكن إرسال إشعار مباشر للمستخدم ${userId} - FCM Token غير متوفر`);
+        console.log(`⚠️ لا يمكن إرسال إشعار مباشر للمستخدم ${userPhone} - FCM Token غير متوفر`);
 
         // يمكن هنا إضافة طرق أخرى مثل:
         // 1. إرسال SMS للمستخدم
@@ -302,7 +302,7 @@ class TargetedNotificationService {
         data: {
           type: 'withdrawal_status_change',
           request_id: requestId,
-          user_id: userId,
+          user_phone: userPhone,
           amount: amount.toString(),
           status: status,
           reason: reason,
@@ -312,7 +312,7 @@ class TargetedNotificationService {
 
       // تسجيل الإشعار في قاعدة البيانات
       await this.logNotification({
-        user_id: userId,
+        user_phone: userPhone,
         request_id: requestId,
         type: 'withdrawal_status_change',
         title: notificationData.title,
@@ -428,10 +428,14 @@ class TargetedNotificationService {
         }
       };
 
-      const response = await admin.messaging().send(message);
-      console.log('✅ تم إرسال الإشعار بنجاح:', response);
-      
-      return { success: true, messageId: response };
+      const response = await sendNotification(
+        fcmToken,
+        notification.title,
+        notification.body,
+        notification.data || {}
+      );
+
+      return response;
 
     } catch (error) {
       console.error('❌ خطأ في إرسال الإشعار:', error.message);
