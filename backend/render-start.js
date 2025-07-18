@@ -48,6 +48,7 @@ if (process.env.FIREBASE_PRIVATE_KEY) {
 
   process.env.FIREBASE_PRIVATE_KEY = cleanLines.join('\n');
   console.log('🔧 تم إصلاح Firebase Private Key للـ Render');
+  console.log(`✅ المفتاح المُصلح: ${process.env.FIREBASE_PRIVATE_KEY.length} حرف`);
 }
 
 // تعيين PORT من Render (إجباري)
@@ -96,11 +97,11 @@ if (process.env.RENDER === 'true') {
   }
 }
 
-console.log('🔍 تشخيص مفصل لكل متغير:');
+console.log('🔍 تشخيص مفصل لكل متغير (بعد الإصلاح):');
 
-// فحص كل متغير بشكل منفصل
+// فحص كل متغير بشكل منفصل - بعد الإصلاح
 const projectId = process.env.FIREBASE_PROJECT_ID;
-let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+let privateKey = process.env.FIREBASE_PRIVATE_KEY; // هذا بعد الإصلاح في السطور السابقة
 const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
 
 // فحص إضافي للمتغير البديل
@@ -111,6 +112,7 @@ if (!privateKey && serviceAccount) {
     const parsedAccount = JSON.parse(serviceAccount);
     if (parsedAccount.private_key) {
       privateKey = parsedAccount.private_key;
+      process.env.FIREBASE_PRIVATE_KEY = privateKey; // تحديث المتغير العام
       console.log('✅ تم استخراج private_key من FIREBASE_SERVICE_ACCOUNT');
     }
   } catch (error) {
@@ -120,39 +122,18 @@ if (!privateKey && serviceAccount) {
 
 console.log(`📋 FIREBASE_PROJECT_ID: ${projectId ? `"${projectId}"` : 'غير موجود'}`);
 console.log(`📋 FIREBASE_CLIENT_EMAIL: ${clientEmail ? `"${clientEmail}"` : 'غير موجود'}`);
-// تشخيص مفصل للـ Private Key
-console.log('\n🔍 تشخيص مفصل للـ FIREBASE_PRIVATE_KEY:');
-const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
-console.log(`📋 Raw FIREBASE_PRIVATE_KEY: ${rawPrivateKey ? `موجود (${rawPrivateKey.length} حرف)` : 'غير موجود'}`);
-
-if (rawPrivateKey) {
-  console.log(`🔍 نوع البيانات: ${typeof rawPrivateKey}`);
-  console.log(`🔍 أول 100 حرف: "${rawPrivateKey.substring(0, 100)}..."`);
-  console.log(`🔍 آخر 100 حرف: "...${rawPrivateKey.substring(rawPrivateKey.length - 100)}"`);
-  console.log(`🔍 يحتوي على BEGIN: ${rawPrivateKey.includes('BEGIN PRIVATE KEY')}`);
-  console.log(`🔍 يحتوي على END: ${rawPrivateKey.includes('END PRIVATE KEY')}`);
-  console.log(`🔍 يحتوي على \\n: ${rawPrivateKey.includes('\\n')}`);
-  console.log(`🔍 يحتوي على newlines: ${rawPrivateKey.includes('\n')}`);
-
-  // محاولة تنظيف المفتاح
-  let cleanedKey = rawPrivateKey;
-  if (cleanedKey.includes('\\n')) {
-    cleanedKey = cleanedKey.replace(/\\n/g, '\n');
-    console.log('🔧 تم تحويل \\n إلى newlines حقيقية');
-  }
-
-  // تحديث المتغير المحلي
-  privateKey = cleanedKey;
-  console.log(`✅ Private Key بعد التنظيف: موجود (${privateKey.length} حرف)`);
-} else {
-  console.log('❌ FIREBASE_PRIVATE_KEY غير موجود في process.env');
-}
-
-console.log(`📋 FIREBASE_PRIVATE_KEY النهائي: ${privateKey ? `موجود (${privateKey.length} حرف)` : 'غير موجود'}`);
+// تشخيص مفصل للـ Private Key - بعد الإصلاح
+console.log('\n🔍 تشخيص مفصل للـ FIREBASE_PRIVATE_KEY (بعد الإصلاح):');
+console.log(`📋 FIREBASE_PRIVATE_KEY: ${privateKey ? `موجود (${privateKey.length} حرف)` : 'غير موجود'}`);
 
 if (privateKey) {
-  console.log(`🔍 أول 50 حرف من Private Key: "${privateKey.substring(0, 50)}..."`);
-  console.log(`🔍 آخر 50 حرف من Private Key: "...${privateKey.substring(privateKey.length - 50)}"`);
+  console.log(`🔍 نوع البيانات: ${typeof privateKey}`);
+  console.log(`🔍 أول 100 حرف: "${privateKey.substring(0, 100)}..."`);
+  console.log(`🔍 آخر 100 حرف: "...${privateKey.substring(privateKey.length - 100)}"`);
+  console.log(`🔍 يحتوي على BEGIN: ${privateKey.includes('BEGIN PRIVATE KEY')}`);
+  console.log(`🔍 يحتوي على END: ${privateKey.includes('END PRIVATE KEY')}`);
+  console.log(`🔍 يحتوي على \\n: ${privateKey.includes('\\n')}`);
+  console.log(`🔍 يحتوي على newlines: ${privateKey.includes('\n')}`);
 
   // تشخيص إضافي للمفتاح
   console.log('\n🔬 تحليل تفصيلي للمفتاح:');
@@ -173,6 +154,8 @@ if (privateKey) {
     .replace(/\s/g, '');
   console.log(`🔐 محتوى المفتاح (بدون headers): ${keyContent.length} حرف`);
   console.log(`🔍 أول 20 حرف من المحتوى: "${keyContent.substring(0, 20)}"`);
+} else {
+  console.log('❌ FIREBASE_PRIVATE_KEY ما زال غير موجود بعد الإصلاح');
 }
 
 // فحص جميع متغيرات البيئة التي تبدأ بـ FIREBASE

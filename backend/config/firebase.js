@@ -72,8 +72,10 @@ class FirebaseConfig {
    * التحقق من وجود Environment Variables
    */
   hasEnvironmentVariables() {
-    // تحميل متغيرات البيئة مرة أخرى للتأكد
-    require('dotenv').config();
+    console.log('🔍 تشخيص متغيرات Firebase:');
+    console.log(`  FIREBASE_PROJECT_ID: ${process.env.FIREBASE_PROJECT_ID ? 'موجود' : 'مفقود'}`);
+    console.log(`  FIREBASE_PRIVATE_KEY: ${process.env.FIREBASE_PRIVATE_KEY ? 'موجود' : 'مفقود'}`);
+    console.log(`  FIREBASE_CLIENT_EMAIL: ${process.env.FIREBASE_CLIENT_EMAIL ? 'موجود' : 'مفقود'}`);
 
     // فحص أولي للمتغيرات
     let projectId = process.env.FIREBASE_PROJECT_ID;

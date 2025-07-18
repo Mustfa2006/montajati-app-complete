@@ -394,9 +394,15 @@ async function startServer() {
     if (admin.apps.length === 0) {
       console.log('🔥 تهيئة Firebase...');
       try {
-        await firebaseConfig.initialize();
+        const result = await firebaseConfig.initialize();
+        if (result) {
+          console.log('✅ تم تهيئة Firebase بنجاح');
+        } else {
+          console.warn('⚠️ Firebase غير متاح - سيتم تعطيل الإشعارات');
+        }
       } catch (error) {
         console.warn('⚠️ تحذير: فشل في تهيئة Firebase - سيتم المتابعة بدون إشعارات');
+        console.warn(`📋 سبب الفشل: ${error.message}`);
       }
     } else {
       console.log('ℹ️ Firebase مهيأ مسبقاً - تخطي التهيئة');

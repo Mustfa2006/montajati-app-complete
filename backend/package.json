@@ -9,6 +9,7 @@
     "production": "NODE_ENV=production node render-start.js",
     "local": "node production_server.js",
     "proxy": "node flexible_delivery_proxy.js",
+    "test-firebase": "node test-firebase-vars.js",
     "proxy:dev": "nodemon flexible_delivery_proxy.js",
     "monitor": "node order_status_monitor.js",
     "monitor:dev": "nodemon order_status_monitor.js",
