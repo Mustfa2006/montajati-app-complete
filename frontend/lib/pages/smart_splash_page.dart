@@ -26,7 +26,6 @@ class _SmartSplashPageState extends State<SmartSplashPage>
   late Animation<double> _logoOpacity;
   late Animation<double> _progressValue;
   
-  bool _isInitialized = false;
   String _statusText = 'جاري التحميل...';
 
   @override
@@ -37,54 +36,47 @@ class _SmartSplashPageState extends State<SmartSplashPage>
   }
 
   void _initializeAnimations() {
-    // حركة الشعار
+    // حركة الشعار - سريعة جداً
     _logoController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 400), // مخفضة من 800ms
       vsync: this,
     );
-    
-    _logoScale = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _logoController, curve: Curves.elasticOut),
+
+    _logoScale = Tween<double>(begin: 0.8, end: 1.0).animate( // بداية أكبر
+      CurvedAnimation(parent: _logoController, curve: Curves.easeOut), // منحنى أسرع
     );
-    
-    _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+
+    _logoOpacity = Tween<double>(begin: 0.3, end: 1.0).animate( // بداية أوضح
       CurvedAnimation(parent: _logoController, curve: Curves.easeIn),
     );
 
-    // حركة شريط التقدم
+    // حركة شريط التقدم - سريعة جداً
     _progressController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 600), // مخفضة من 1500ms
       vsync: this,
     );
-    
+
     _progressValue = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _progressController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _progressController, curve: Curves.easeOut), // منحنى أسرع
     );
 
-    // بدء الحركات
+    // بدء الحركات فوراً
     _logoController.forward();
     _progressController.forward();
   }
 
   Future<void> _startSmartInitialization() async {
     try {
-      // المرحلة 1: فحص سريع للبيانات المحفوظة
-      setState(() => _statusText = 'فحص البيانات...');
-      await Future.delayed(const Duration(milliseconds: 300));
-      
+      // 🚀 التحميل الفوري - بدون انتظار
       final prefs = await SharedPreferences.getInstance();
-      
-      // المرحلة 2: تحديد وجهة المستخدم
-      setState(() => _statusText = 'تحضير التطبيق...');
-      await Future.delayed(const Duration(milliseconds: 400));
-      
+
       String targetRoute = '/welcome';
-      
-      // فحص سريع لحالة تسجيل الدخول
+
+      // فحص فوري لحالة تسجيل الدخول (بدون انتظار)
       final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
       final userPhone = prefs.getString('current_user_phone');
       final userRole = prefs.getString('user_role');
-      
+
       if (isLoggedIn && userPhone != null && userPhone.isNotEmpty) {
         if (userRole == 'admin') {
           targetRoute = '/admin';
@@ -92,25 +84,30 @@ class _SmartSplashPageState extends State<SmartSplashPage>
           targetRoute = '/products';
         }
       }
-      
-      // المرحلة 3: الانتهاء
+
+      // تحديث النص بسرعة
+      setState(() => _statusText = 'جاري التحميل...');
+
+      // انتظار قصير جداً فقط للحركة (500ms بدلاً من 1000ms+)
+      await Future.delayed(const Duration(milliseconds: 500));
+
       setState(() => _statusText = 'مرحباً بك!');
+
+      // بدء الحركات بشكل متوازي
+      _logoController.forward();
+      _progressController.forward();
+
+      // انتظار قصير للحركة ثم الانتقال فوراً
       await Future.delayed(const Duration(milliseconds: 300));
-      
-      // انتظار انتهاء الحركات
-      await Future.wait([
-        _logoController.forward(),
-        _progressController.forward(),
-      ]);
-      
-      // التنقل السريع
+
+      // التنقل الفوري
       if (mounted) {
         context.go(targetRoute);
       }
-      
+
     } catch (e) {
       debugPrint('❌ خطأ في التهيئة: $e');
-      // في حالة الخطأ، انتقل للصفحة الرئيسية
+      // في حالة الخطأ، انتقل فوراً للصفحة الرئيسية
       if (mounted) {
         context.go('/welcome');
       }
@@ -273,7 +270,7 @@ class _SmartSplashPageState extends State<SmartSplashPage>
               Padding(
                 padding: const EdgeInsets.only(bottom: 30),
                 child: Text(
-                  'الإصدار 1.0.3',
+                  'الإصدار 1.0.4',
                   style: GoogleFonts.cairo(
                     fontSize: 12,
                     color: Colors.white.withValues(alpha: 0.5),

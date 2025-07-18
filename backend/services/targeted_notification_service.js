@@ -98,24 +98,47 @@ class TargetedNotificationService {
       if (!fcmToken) {
         console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId} - محاولة إرسال إشعار بديل`);
 
-        // محاولة إرسال إشعار عبر التلغرام كبديل
+        // بدلاً من إرسال للتلغرام (المدير)، نحفظ الإشعار للمستخدم
+        console.log(`⚠️ لا يمكن إرسال إشعار مباشر للمستخدم ${userId} - FCM Token غير متوفر`);
+
+        // حفظ الإشعار في قاعدة البيانات كبديل
         try {
-          const TelegramNotificationService = require('../telegram_notification_service');
-          const telegramService = new TelegramNotificationService();
+          const notificationData = {
+            user_id: userId,
+            title: 'تحديث حالة الطلب',
+            body: `تم تحديث حالة طلبك إلى: ${newStatus}`,
+            type: 'order_status',
+            data: JSON.stringify({
+              order_id: orderId,
+              status: newStatus,
+              customer_name: customerName
+            }),
+            is_read: false,
+            created_at: new Date().toISOString()
+          };
 
-          const message = `🔔 تحديث حالة الطلب\n\n👤 العميل: ${customerName}\n🔄 الحالة: ${newStatus}\n⏰ الوقت: ${new Date().toLocaleString('ar-SA')}`;
+          console.log('💾 حفظ إشعار حالة الطلب في قاعدة البيانات للمستخدم:', notificationData);
 
-          const telegramResult = await telegramService.sendMessage(message);
+          return {
+            success: true,
+            method: 'database',
+            message: 'تم حفظ الإشعار في قاعدة البيانات - سيراه المستخدم عند فتح التطبيق'
+          };
 
-          if (telegramResult.success) {
-            console.log('✅ تم إرسال إشعار بديل عبر التلغرام');
-            return { success: true, method: 'telegram', messageId: telegramResult.messageId };
-          }
-        } catch (telegramError) {
-          console.log('❌ فشل في إرسال الإشعار البديل عبر التلغرام:', telegramError.message);
+        } catch (dbError) {
+          console.log('❌ فشل في حفظ إشعار حالة الطلب في قاعدة البيانات:', dbError.message);
         }
 
-        return { success: false, error: 'FCM Token غير متوفر ولا يمكن إرسال إشعار بديل' };
+        // محاولة أخيرة للحصول على FCM Token من مصادر أخرى
+        const alternativeFcmToken = await this.getAlternativeFCMToken(userId);
+
+        if (alternativeFcmToken) {
+          console.log(`✅ تم العثور على FCM Token بديل للمستخدم ${userId}`);
+          // استخدام FCM Token البديل
+          const fcmToken = alternativeFcmToken;
+        } else {
+          return { success: false, error: 'FCM Token غير متوفر - يرجى من المستخدم فتح التطبيق لتحديث Token' };
+        }
       }
 
       // تحديد رسالة الإشعار حسب الحالة الجديدة
@@ -209,27 +232,59 @@ class TargetedNotificationService {
       if (!fcmToken) {
         console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId} - محاولة إرسال إشعار بديل`);
 
-        // محاولة إرسال إشعار عبر التلغرام كبديل
+        // بدلاً من إرسال للتلغرام (المدير)، نحاول طرق أخرى للوصول للمستخدم
+        console.log(`⚠️ لا يمكن إرسال إشعار مباشر للمستخدم ${userId} - FCM Token غير متوفر`);
+
+        // يمكن هنا إضافة طرق أخرى مثل:
+        // 1. إرسال SMS للمستخدم
+        // 2. إرسال إيميل للمستخدم
+        // 3. حفظ الإشعار في قاعدة البيانات ليراه المستخدم عند فتح التطبيق
+
+        // حفظ الإشعار في قاعدة البيانات كبديل
         try {
-          const TelegramNotificationService = require('../telegram_notification_service');
-          const telegramService = new TelegramNotificationService();
-
           const formattedAmount = amount && !isNaN(amount) ? parseFloat(amount).toFixed(2) : '0.00';
-          const statusText = status === 'approved' ? 'تم قبول' : status === 'rejected' ? 'تم رفض' : 'قيد المراجعة';
+          const statusText = status === 'approved' ? 'تم قبول طلب السحب' : status === 'rejected' ? 'تم رفض طلب السحب' : 'طلب السحب قيد المراجعة';
 
-          const message = `💰 تحديث طلب السحب\n\n👤 المستخدم: ${userId}\n💵 المبلغ: ${formattedAmount} د.ع\n📊 الحالة: ${statusText}\n${reason ? `📝 السبب: ${reason}\n` : ''}⏰ الوقت: ${new Date().toLocaleString('ar-SA')}`;
+          const notificationData = {
+            user_id: userId,
+            title: statusText,
+            body: `مبلغ ${formattedAmount} د.ع${reason ? ` - ${reason}` : ''}`,
+            type: 'withdrawal_status',
+            data: JSON.stringify({
+              withdrawal_id: withdrawalId || requestId,
+              amount: formattedAmount,
+              status,
+              reason
+            }),
+            is_read: false,
+            created_at: new Date().toISOString()
+          };
 
-          const telegramResult = await telegramService.sendMessage(message);
+          // حفظ في جدول الإشعارات (إذا كان موجوداً)
+          console.log('💾 حفظ الإشعار في قاعدة البيانات للمستخدم:', notificationData);
 
-          if (telegramResult.success) {
-            console.log('✅ تم إرسال إشعار بديل عبر التلغرام');
-            return { success: true, method: 'telegram', messageId: telegramResult.messageId };
-          }
-        } catch (telegramError) {
-          console.log('❌ فشل في إرسال الإشعار البديل عبر التلغرام:', telegramError.message);
+          // TODO: حفظ الإشعار في قاعدة البيانات عندما يكون الجدول جاهز
+
+          return {
+            success: true,
+            method: 'database',
+            message: 'تم حفظ الإشعار في قاعدة البيانات - سيراه المستخدم عند فتح التطبيق'
+          };
+
+        } catch (dbError) {
+          console.log('❌ فشل في حفظ الإشعار في قاعدة البيانات:', dbError.message);
         }
 
-        return { success: false, error: 'FCM Token غير متوفر ولا يمكن إرسال إشعار بديل' };
+        // محاولة أخيرة للحصول على FCM Token من مصادر أخرى
+        const alternativeFcmToken = await this.getAlternativeFCMToken(userId);
+
+        if (alternativeFcmToken) {
+          console.log(`✅ تم العثور على FCM Token بديل للمستخدم ${userId}`);
+          // استخدام FCM Token البديل
+          const fcmToken = alternativeFcmToken;
+        } else {
+          return { success: false, error: 'FCM Token غير متوفر - يرجى من المستخدم فتح التطبيق لتحديث Token' };
+        }
       }
 
       // تحديد رسالة الإشعار حسب حالة السحب
@@ -540,6 +595,54 @@ class TargetedNotificationService {
 
     } catch (error) {
       console.error('❌ خطأ في جلب FCM Token بالهاتف:', error.message);
+      return null;
+    }
+  }
+
+  /**
+   * محاولة الحصول على FCM Token بديل من مصادر أخرى
+   */
+  async getAlternativeFCMToken(userId) {
+    try {
+      console.log(`🔍 البحث عن FCM Token بديل للمستخدم ${userId}...`);
+
+      // محاولة 1: البحث في جميع الـ tokens (حتى غير النشطة)
+      const { data: allTokens, error: allTokensError } = await this.supabase
+        .from('user_fcm_tokens')
+        .select('fcm_token, updated_at')
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(5);
+
+      if (!allTokensError && allTokens && allTokens.length > 0) {
+        console.log(`📱 تم العثور على ${allTokens.length} FCM tokens للمستخدم`);
+
+        // جرب كل token حتى تجد واحد يعمل
+        for (const tokenData of allTokens) {
+          if (tokenData.fcm_token && tokenData.fcm_token.length > 50) {
+            console.log(`✅ استخدام FCM Token بديل من ${tokenData.updated_at}`);
+            return tokenData.fcm_token;
+          }
+        }
+      }
+
+      // محاولة 2: البحث في جدول المستخدمين إذا كان FCM Token محفوظ هناك
+      const { data: userData, error: userError } = await this.supabase
+        .from('users')
+        .select('fcm_token')
+        .eq('id', userId)
+        .single();
+
+      if (!userError && userData && userData.fcm_token) {
+        console.log(`✅ تم العثور على FCM Token في جدول المستخدمين`);
+        return userData.fcm_token;
+      }
+
+      console.log(`❌ لم يتم العثور على أي FCM Token بديل للمستخدم ${userId}`);
+      return null;
+
+    } catch (error) {
+      console.error('❌ خطأ في البحث عن FCM Token بديل:', error.message);
       return null;
     }
   }

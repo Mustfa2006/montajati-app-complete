@@ -115,7 +115,7 @@ class InventoryMonitorService {
       // جلب بيانات المنتج مع الصورة
       const { data: product, error } = await this.supabase
         .from('products')
-        .select('id, name, stock_quantity, image_url')
+        .select('id, name, available_quantity, image_url')
         .eq('id', productId)
         .single();
 
@@ -133,7 +133,7 @@ class InventoryMonitorService {
         };
       }
 
-      const currentStock = product.stock_quantity || 0;
+      const currentStock = product.available_quantity || 0;
       const productName = product.name || 'منتج غير محدد';
       const productImage = product.image_url;
 
@@ -169,8 +169,8 @@ class InventoryMonitorService {
           });
         }
       }
-      // فحص المخزون المنخفض (عند 1 أو 5 قطع)
-      else if (currentStock === 1 || currentStock === 5) {
+      // فحص المخزون المنخفض (عند 5 قطع بالضبط فقط)
+      else if (currentStock === 5) {
         status = 'low_stock';
 
         // فحص إذا كان يمكن إرسال الإشعار (نظام منع التكرار)
@@ -226,19 +226,41 @@ class InventoryMonitorService {
    */
   async monitorAllProducts() {
     try {
+      console.log('🔄 بدء مراقبة جميع المنتجات...');
+
       // تنظيف الإشعارات القديمة أولاً
       this.cleanupOldNotifications();
 
       // جلب جميع المنتجات مع الصور
+      console.log('📡 جلب المنتجات من قاعدة البيانات...');
       const { data: products, error } = await this.supabase
         .from('products')
-        .select('id, name, stock_quantity, image_url')
-        .order('stock_quantity', { ascending: true });
+        .select('id, name, available_quantity, image_url')
+        .order('available_quantity', { ascending: true });
 
       if (error) {
+        console.error('❌ خطأ في جلب المنتجات:', error);
         return {
           success: false,
           error: 'فشل في جلب المنتجات: ' + error.message
+        };
+      }
+
+      console.log(`📦 تم جلب ${products?.length || 0} منتج`);
+
+      if (!products || products.length === 0) {
+        console.log('⚠️ لا توجد منتجات في قاعدة البيانات');
+        return {
+          success: true,
+          results: {
+            total: 0,
+            outOfStock: 0,
+            lowStock: 0,
+            normal: 0,
+            sentNotifications: 0
+          },
+          alerts: [],
+          message: 'لا توجد منتجات للمراقبة'
         };
       }
 
@@ -250,7 +272,8 @@ class InventoryMonitorService {
 
       // فحص كل منتج
       for (const product of products) {
-        const currentStock = product.stock_quantity || 0;
+        const currentStock = product.available_quantity || 0;
+        console.log(`🔍 فحص منتج: ${product.name} - الكمية: ${currentStock}`);
 
         if (currentStock === 0) {
           outOfStockCount++;
@@ -275,7 +298,7 @@ class InventoryMonitorService {
               sent: alertResult.success
             });
           }
-        } else if (currentStock === 1 || currentStock === 5) {
+        } else if (currentStock === 5) {
           lowStockCount++;
 
           // فحص إذا كان يمكن إرسال الإشعار (نظام منع التكرار)

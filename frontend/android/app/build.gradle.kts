@@ -1,17 +1,13 @@
 import java.util.Properties
 import java.io.FileInputStream
 
-// إعدادات Kotlin 2.1.0 محسنة - متوافق مع Google Play Services
-System.setProperty("kotlin.daemon.enabled", "false")
-System.setProperty("kotlin.compiler.execution.strategy", "in-process")
-
+// إعدادات Kotlin 2.1.0 محسنة ومتوافقة مع Google Play Services
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
         jvmTarget = "11"
         freeCompilerArgs += listOf(
-            "-Xno-call-assertions",
-            "-Xno-param-assertions",
-            "-Xjvm-default=all"
+            "-Xjvm-default=all",
+            "-Xopt-in=kotlin.RequiresOptIn"
         )
     }
 }
