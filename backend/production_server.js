@@ -388,6 +388,7 @@ async function startServer() {
     console.log('🚀 بدء تشغيل خادم الإنتاج...');
     console.log(`📊 البيئة: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌐 المنفذ: ${PORT}`);
+    console.log(`🔍 معرف الإصدار: ${process.env.RENDER_GIT_COMMIT?.substring(0, 7) || 'local'} (إنتاج مُحسن)`);
 
     // تهيئة Firebase (إذا لم يكن مهيأ مسبقاً)
     const admin = require('firebase-admin');
@@ -396,16 +397,15 @@ async function startServer() {
       try {
         const result = await firebaseConfig.initialize();
         if (result) {
-          console.log('✅ تم تهيئة Firebase بنجاح');
+          console.log('✅ Firebase جاهز للإشعارات');
         } else {
-          console.warn('⚠️ Firebase غير متاح - سيتم تعطيل الإشعارات');
+          console.log('ℹ️ Firebase غير متاح - الخادم سيعمل بدون إشعارات');
         }
       } catch (error) {
-        console.warn('⚠️ تحذير: فشل في تهيئة Firebase - سيتم المتابعة بدون إشعارات');
-        console.warn(`📋 سبب الفشل: ${error.message}`);
+        console.log('ℹ️ Firebase غير متاح - الخادم سيعمل بدون إشعارات');
       }
     } else {
-      console.log('ℹ️ Firebase مهيأ مسبقاً - تخطي التهيئة');
+      console.log('✅ Firebase جاهز');
     }
 
     // تهيئة خدمة مزامنة حالة الطلبات

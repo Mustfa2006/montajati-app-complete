@@ -87,8 +87,8 @@ Object.entries(quickCheck).forEach(([key, value]) => {
 // فحص Firebase النهائي في Render مع تشخيص مفصل
 console.log('\n🔥 فحص Firebase النهائي في Render:');
 
-// تشغيل التشخيص الشامل في Render
-if (process.env.RENDER === 'true') {
+// تشغيل التشخيص الشامل في Render (فقط في حالة وجود مشاكل)
+if (process.env.RENDER === 'true' && process.env.DEBUG_FIREBASE === 'true') {
   console.log('🧪 تشغيل التشخيص الشامل في Render...');
   try {
     require('./debug-firebase.js');
