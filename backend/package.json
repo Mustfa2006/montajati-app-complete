@@ -33,6 +33,10 @@
     "notification:final": "node start_notification_system_final.js start",
     "notification:final-stats": "node start_notification_system_final.js stats",
     "notification:test-simple": "node test_notification_system_simple.js full",
+    "notification:real": "node run_real_notification_system.js start",
+    "notification:real-test": "node run_real_notification_system.js test",
+    "notification:real-trigger": "node run_real_notification_system.js trigger",
+    "notification:real-stats": "node run_real_notification_system.js stats",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
