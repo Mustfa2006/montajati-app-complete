@@ -6,6 +6,7 @@ import 'user_management_service.dart';
 import '../config/supabase_config.dart';
 import '../models/order_summary.dart';
 import '../utils/order_status_helper.dart';
+import 'firebase_service.dart';
 
 class AdminService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
@@ -1030,10 +1031,7 @@ class AdminService {
 
       // إرسال الإشعار مباشرة عبر Firebase (الحل النهائي)
       try {
-        // استيراد خدمة Firebase
-        final FirebaseService = (await import('../services/firebase_service.dart')).FirebaseService;
-
-        // إرسال إشعار محلي مباشر
+        // إرسال إشعار محلي مباشر عبر Firebase
         await FirebaseService.sendOfficialNotification(
           title: title,
           body: message,
