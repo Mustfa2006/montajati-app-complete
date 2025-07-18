@@ -287,6 +287,66 @@ router.post('/admin-withdrawal-update', async (req, res) => {
 });
 
 // ===================================
+// إرسال الإشعارات المباشرة
+// ===================================
+
+/**
+ * إرسال إشعار مباشر للمستخدم
+ * POST /api/notifications/send
+ */
+router.post('/send', async (req, res) => {
+  try {
+    const { userPhone, title, message, data } = req.body;
+
+    // التحقق من البيانات المطلوبة
+    if (!userPhone || !title || !message) {
+      return res.status(400).json({
+        success: false,
+        error: 'البيانات المطلوبة: userPhone, title, message'
+      });
+    }
+
+    console.log(`📤 طلب إرسال إشعار مباشر:`);
+    console.log(`📱 رقم الهاتف: ${userPhone}`);
+    console.log(`📋 العنوان: ${title}`);
+    console.log(`💬 الرسالة: ${message}`);
+
+    // استخدام خدمة الإشعارات المستهدفة
+    const targetedNotificationService = require('../services/targeted_notification_service');
+
+    const result = await targetedNotificationService.sendDirectNotification(
+      userPhone,
+      title,
+      message,
+      data || {}
+    );
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'تم إرسال الإشعار بنجاح',
+        data: {
+          messageId: result.messageId,
+          userPhone: userPhone,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: result.error || 'فشل في إرسال الإشعار'
+      });
+    }
+  } catch (error) {
+    console.error('❌ خطأ في API إرسال الإشعار المباشر:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===================================
 // اختبار الإشعارات
 // ===================================
 

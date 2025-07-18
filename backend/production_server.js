@@ -16,9 +16,11 @@ const { firebaseConfig } = require('./config/firebase');
 // استيراد المسارات
 const authRoutes = require('./routes/auth_supabase');
 const productsRoutes = require('./routes/products');
+const ordersRoutes = require('./routes/orders');
 const statisticsRoutes = require('./routes/statistics_simple');
 const uploadRoutes = require('./routes/upload');
 const usersRoutes = require('./routes/users');
+const targetedNotificationsRoutes = require('./routes/targeted_notifications');
 
 // استيراد الخدمات
 const OrderStatusSyncService = require('./sync/order_status_sync_service');
@@ -160,9 +162,11 @@ app.get('/health', async (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRoutes);
+app.use('/api/orders', ordersRoutes);
 app.use('/api/statistics', statisticsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/notifications', targetedNotificationsRoutes);
 
 // ===================================
 // مسارات نظام التلغرام والمخزون

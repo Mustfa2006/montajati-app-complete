@@ -390,6 +390,90 @@ class TargetedNotificationService {
       console.error('❌ خطأ في تسجيل الإشعار في system_logs:', error.message);
     }
   }
+
+  /**
+   * إرسال إشعار مباشر للمستخدم بناءً على رقم الهاتف
+   */
+  async sendDirectNotification(userPhone, title, message, data = {}) {
+    try {
+      console.log(`📤 إرسال إشعار مباشر:`);
+      console.log(`📱 رقم الهاتف: ${userPhone}`);
+      console.log(`📋 العنوان: ${title}`);
+      console.log(`💬 الرسالة: ${message}`);
+
+      // التحقق من تهيئة Firebase
+      if (!this.initialized) {
+        console.warn('⚠️ Firebase غير مهيأ - تم تخطي الإشعار');
+        return { success: false, error: 'Firebase غير مهيأ' };
+      }
+
+      // البحث عن FCM Token بناءً على رقم الهاتف
+      const fcmToken = await this.getFCMTokenByPhone(userPhone);
+
+      if (!fcmToken) {
+        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userPhone}`);
+        return { success: false, error: 'FCM Token غير متوفر' };
+      }
+
+      // إرسال الإشعار
+      const result = await this.sendNotificationToUser(fcmToken, {
+        title: title,
+        body: message,
+        data: {
+          type: 'direct_notification',
+          user_phone: userPhone,
+          timestamp: new Date().toISOString(),
+          ...data
+        }
+      });
+
+      // تسجيل الإشعار
+      await this.logNotification({
+        user_id: userPhone,
+        type: 'direct_notification',
+        title: title,
+        body: message,
+        status: result.success ? 'sent' : 'failed',
+        fcm_token: fcmToken,
+        error_message: result.error || null
+      });
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ خطأ في إرسال الإشعار المباشر:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * الحصول على FCM Token بناءً على رقم الهاتف
+   */
+  async getFCMTokenByPhone(userPhone) {
+    try {
+      // البحث في جدول المستخدمين
+      const { data, error } = await supabase
+        .from('users')
+        .select('fcm_token')
+        .eq('phone', userPhone)
+        .single();
+
+      if (error) {
+        console.log(`⚠️ لا يوجد مستخدم برقم الهاتف ${userPhone}`);
+        return null;
+      }
+
+      if (!data || !data.fcm_token) {
+        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userPhone}`);
+        return null;
+      }
+
+      return data.fcm_token;
+    } catch (error) {
+      console.error('❌ خطأ في جلب FCM Token بالهاتف:', error.message);
+      return null;
+    }
+  }
 }
 
 module.exports = TargetedNotificationService;
