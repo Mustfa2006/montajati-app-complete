@@ -1,7 +1,7 @@
 import java.util.Properties
 import java.io.FileInputStream
 
-// إعدادات Kotlin 2.1.0 محسنة
+// إعدادات Kotlin 2.1.0 محسنة - متوافق مع Google Play Services
 System.setProperty("kotlin.daemon.enabled", "false")
 System.setProperty("kotlin.compiler.execution.strategy", "in-process")
 
@@ -80,12 +80,25 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
+                "r8-rules.pro"
             )
+            // إعدادات تحسين إضافية
+            isDebuggable = false
+            isJniDebuggable = false
+            isRenderscriptDebuggable = false
+            renderscriptOptimLevel = 3
+
+            // تحسين APK
+            ndk {
+                debugSymbolLevel = "NONE"
+            }
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
             isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

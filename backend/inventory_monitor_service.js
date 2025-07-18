@@ -169,8 +169,8 @@ class InventoryMonitorService {
           });
         }
       }
-      // فحص المخزون المنخفض (عند 5 قطع بالضبط فقط)
-      else if (currentStock === 5) {
+      // فحص المخزون المنخفض (عند 1 أو 5 قطع)
+      else if (currentStock === 1 || currentStock === 5) {
         status = 'low_stock';
 
         // فحص إذا كان يمكن إرسال الإشعار (نظام منع التكرار)
@@ -275,7 +275,7 @@ class InventoryMonitorService {
               sent: alertResult.success
             });
           }
-        } else if (currentStock === 5) {
+        } else if (currentStock === 1 || currentStock === 5) {
           lowStockCount++;
 
           // فحص إذا كان يمكن إرسال الإشعار (نظام منع التكرار)

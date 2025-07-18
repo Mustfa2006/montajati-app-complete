@@ -183,12 +183,26 @@ class _StatisticsPageState extends State<StatisticsPage>
     for (var order in orders) {
       final status = order['status'] ?? '';
 
-      // استخدام profit_amount أولاً، ثم profit كبديل
+      // حساب الربح من البيانات المتاحة
       double profit = 0.0;
+
+      // محاولة الحصول على الربح من عدة مصادر
       if (order['profit_amount'] != null) {
         profit = (order['profit_amount']).toDouble();
       } else if (order['profit'] != null) {
         profit = (order['profit']).toDouble();
+      } else {
+        // حساب الربح من السعر والكمية إذا لم يكن محفوظاً
+        final price = (order['price'] ?? 0).toDouble();
+        final quantity = (order['quantity'] ?? 1).toDouble();
+        final costPrice = (order['cost_price'] ?? 0).toDouble();
+
+        if (price > 0 && costPrice > 0) {
+          profit = (price - costPrice) * quantity;
+        } else if (price > 0) {
+          // افتراض هامش ربح 30% إذا لم يكن سعر التكلفة متوفراً
+          profit = price * quantity * 0.3;
+        }
       }
 
       debugPrint('طلب: ${order['id']}, الحالة: $status, الربح: $profit');

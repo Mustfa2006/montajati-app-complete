@@ -473,7 +473,7 @@ class _FavoritesPageState extends State<FavoritesPage>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // اسم المنتج
+                  // اسم المنتج - متعدد الأسطر ومتجاوب
                   Text(
                     product.name,
                     style: GoogleFonts.cairo(
@@ -482,8 +482,9 @@ class _FavoritesPageState extends State<FavoritesPage>
                       fontWeight: FontWeight.bold,
                       height: 1.2,
                     ),
-                    maxLines: 1,
+                    maxLines: 2, // السماح بسطرين
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.start,
                   ),
 
                   SizedBox(

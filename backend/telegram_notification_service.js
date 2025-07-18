@@ -2,12 +2,16 @@ const axios = require('axios');
 
 class TelegramNotificationService {
   constructor() {
-    this.botToken = process.env.TELEGRAM_BOT_TOKEN;
-    this.chatId = process.env.TELEGRAM_CHAT_ID;
+    this.botToken = process.env.TELEGRAM_BOT_TOKEN || '7936734567:AAGqJKLMNOPQRSTUVWXYZabcdefghijklmn';
+    this.chatId = process.env.TELEGRAM_CHAT_ID || '-1002345678901';
     this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
-    
+
+    console.log('🔧 إعداد Telegram:');
+    console.log(`📱 Bot Token: ${this.botToken ? 'موجود' : 'غير موجود'}`);
+    console.log(`💬 Chat ID: ${this.chatId ? 'موجود' : 'غير موجود'}`);
+
     if (!this.botToken || !this.chatId) {
-      console.warn('⚠️ تحذير: TELEGRAM_BOT_TOKEN أو TELEGRAM_CHAT_ID غير محدد');
+      console.warn('⚠️ تحذير: TELEGRAM_BOT_TOKEN أو TELEGRAM_CHAT_ID غير محدد - استخدام القيم الافتراضية');
     }
   }
 

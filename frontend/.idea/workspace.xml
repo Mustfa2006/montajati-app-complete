@@ -6,7 +6,16 @@
   <component name="ChangeListManager">
     <list default="true" id="8412364a-30ad-4613-97eb-1510ee1dd4d9" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/proguard-rules.pro" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/proguard-rules.pro" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/android/gradle.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/settings.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/android/settings.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/pages/favorites_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/favorites_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/pages/new_products_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/new_products_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/pages/statistics_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/statistics_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/router.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/router.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/widgets/bottom_navigation_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/widgets/bottom_navigation_bar.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

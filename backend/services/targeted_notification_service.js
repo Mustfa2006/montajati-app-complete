@@ -96,8 +96,26 @@ class TargetedNotificationService {
       const fcmToken = await this.getUserFCMToken(userId);
 
       if (!fcmToken) {
-        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId}`);
-        return { success: false, error: 'FCM Token غير متوفر' };
+        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId} - محاولة إرسال إشعار بديل`);
+
+        // محاولة إرسال إشعار عبر التلغرام كبديل
+        try {
+          const TelegramNotificationService = require('../telegram_notification_service');
+          const telegramService = new TelegramNotificationService();
+
+          const message = `🔔 تحديث حالة الطلب\n\n👤 العميل: ${customerName}\n🔄 الحالة: ${newStatus}\n⏰ الوقت: ${new Date().toLocaleString('ar-SA')}`;
+
+          const telegramResult = await telegramService.sendMessage(message);
+
+          if (telegramResult.success) {
+            console.log('✅ تم إرسال إشعار بديل عبر التلغرام');
+            return { success: true, method: 'telegram', messageId: telegramResult.messageId };
+          }
+        } catch (telegramError) {
+          console.log('❌ فشل في إرسال الإشعار البديل عبر التلغرام:', telegramError.message);
+        }
+
+        return { success: false, error: 'FCM Token غير متوفر ولا يمكن إرسال إشعار بديل' };
       }
 
       // تحديد رسالة الإشعار حسب الحالة الجديدة
@@ -187,10 +205,31 @@ class TargetedNotificationService {
 
       // الحصول على FCM Token للمستخدم المحدد فقط
       const fcmToken = await this.getUserFCMToken(userId);
-      
+
       if (!fcmToken) {
-        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId}`);
-        return { success: false, error: 'FCM Token غير متوفر' };
+        console.log(`⚠️ لا يوجد FCM Token للمستخدم ${userId} - محاولة إرسال إشعار بديل`);
+
+        // محاولة إرسال إشعار عبر التلغرام كبديل
+        try {
+          const TelegramNotificationService = require('../telegram_notification_service');
+          const telegramService = new TelegramNotificationService();
+
+          const formattedAmount = amount && !isNaN(amount) ? parseFloat(amount).toFixed(2) : '0.00';
+          const statusText = status === 'approved' ? 'تم قبول' : status === 'rejected' ? 'تم رفض' : 'قيد المراجعة';
+
+          const message = `💰 تحديث طلب السحب\n\n👤 المستخدم: ${userId}\n💵 المبلغ: ${formattedAmount} د.ع\n📊 الحالة: ${statusText}\n${reason ? `📝 السبب: ${reason}\n` : ''}⏰ الوقت: ${new Date().toLocaleString('ar-SA')}`;
+
+          const telegramResult = await telegramService.sendMessage(message);
+
+          if (telegramResult.success) {
+            console.log('✅ تم إرسال إشعار بديل عبر التلغرام');
+            return { success: true, method: 'telegram', messageId: telegramResult.messageId };
+          }
+        } catch (telegramError) {
+          console.log('❌ فشل في إرسال الإشعار البديل عبر التلغرام:', telegramError.message);
+        }
+
+        return { success: false, error: 'FCM Token غير متوفر ولا يمكن إرسال إشعار بديل' };
       }
 
       // تحديد رسالة الإشعار حسب حالة السحب
@@ -240,14 +279,23 @@ class TargetedNotificationService {
    * تحديد بيانات الإشعار حسب حالة طلب السحب
    */
   getWithdrawalStatusNotificationData(amount, status, reason = '') {
+    // التأكد من صحة المبلغ
+    const formattedAmount = amount && !isNaN(amount) ? parseFloat(amount).toFixed(2) : '0.00';
+
+    console.log(`💰 تنسيق المبلغ: ${amount} → ${formattedAmount}`);
+
     const notifications = {
       'approved': {
-        title: 'تم التحويل',
-        body: `تم تحويل مبلغ ${amount} د.ع إلى حسابك`
+        title: '✅ تم قبول طلب السحب',
+        body: `تم قبول طلب سحبك بمبلغ ${formattedAmount} د.ع وسيتم التحويل قريباً`
       },
       'rejected': {
-        title: 'تم الغاء طلب سحبك 😔',
-        body: `تم الغاء طلب سحبك ${amount} د.ع${reason ? ` - ${reason}` : ''}`
+        title: '❌ تم رفض طلب السحب',
+        body: `تم رفض طلب سحبك بمبلغ ${formattedAmount} د.ع${reason ? ` - السبب: ${reason}` : ''}`
+      },
+      'pending': {
+        title: '⏳ طلب السحب قيد المراجعة',
+        body: `طلب سحبك بمبلغ ${formattedAmount} د.ع قيد المراجعة من قبل الإدارة`
       }
     };
 

@@ -631,91 +631,80 @@ class _NewProductsPageState extends State<NewProductsPage>
     );
   }
 
-  // بناء شريحة البانر الواحدة
+  // بناء شريحة البانر الواحدة - صورة فقط بجودة كاملة
   Widget _buildBannerSlide(Map<String, dynamic> banner) {
-    // استخدام أيقونة افتراضية للصور الإعلانية من قاعدة البيانات
-    IconData bannerIcon = FontAwesomeIcons.image;
-
     return Stack(
       children: [
-        // صورة الخلفية
-        Container(
+        // صورة الخلفية بجودة كاملة
+        SizedBox(
           width: double.infinity,
           height: double.infinity,
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: NetworkImage(banner['image_url'] ?? ''),
-              fit: BoxFit.cover,
-            ),
+          child: Image.network(
+            banner['image_url'] ?? '',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                color: const Color(0xFF1a1a2e),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: const Color(0xFFffd700),
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: const Color(0xFF1a1a2e),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        FontAwesomeIcons.image,
+                        color: const Color(0xFFffd700),
+                        size: 32,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'لا يمكن تحميل الصورة',
+                        style: GoogleFonts.cairo(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
 
-        // طبقة التدرج
+        // طبقة تدرج خفيفة جداً للحفاظ على وضوح الصورة
         Container(
           width: double.infinity,
           height: double.infinity,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Colors.black.withValues(alpha: 0.7),
+                Colors.black.withValues(alpha: 0.1),
                 Colors.transparent,
-                Colors.black.withValues(alpha: 0.5),
+                Colors.black.withValues(alpha: 0.1),
               ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
           ),
         ),
 
-        // المحتوى بدون مربع ذهبي
-        Positioned(
-          left: 20,
-          bottom: 20,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(bannerIcon, color: const Color(0xFFffd700), size: 20),
-                  const SizedBox(width: 10),
-                  Text(
-                    banner['title'] ?? 'بدون عنوان',
-                    style: GoogleFonts.cairo(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withValues(alpha: 0.8),
-                          blurRadius: 4,
-                          offset: const Offset(1, 1),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                banner['subtitle'] ?? 'بدون وصف',
-                style: GoogleFonts.cairo(
-                  color: Colors.white.withValues(alpha: 0.95),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.7),
-                      blurRadius: 3,
-                      offset: const Offset(1, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
+        // لا يوجد نص أو أيقونات - فقط الصورة بجودة كاملة
       ],
     );
   }
@@ -919,17 +908,17 @@ class _NewProductsPageState extends State<NewProductsPage>
           double childAspectRatio;
 
           if (screenWidth > 600) {
-            // للأجهزة اللوحية
+            // للأجهزة اللوحية - نسبة أطول لتتسع للنص
             crossAxisCount = 3;
-            childAspectRatio = 0.75;
+            childAspectRatio = 0.65;
           } else if (screenWidth > 400) {
-            // للهواتف الكبيرة
+            // للهواتف الكبيرة - نسبة أطول لتتسع للنص
             crossAxisCount = 2;
-            childAspectRatio = 0.70;
+            childAspectRatio = 0.60;
           } else {
-            // للهواتف الصغيرة والمتوسطة
+            // للهواتف الصغيرة والمتوسطة - نسبة أطول لتتسع للنص
             crossAxisCount = 2;
-            childAspectRatio = 0.68;
+            childAspectRatio = 0.58;
           }
 
           return GridView.builder(
@@ -1022,7 +1011,7 @@ class _NewProductsPageState extends State<NewProductsPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                      // اسم المنتج
+                      // اسم المنتج - متعدد الأسطر ومتجاوب
                       Flexible(
                         child: Text(
                           product.name,
@@ -1030,10 +1019,11 @@ class _NewProductsPageState extends State<NewProductsPage>
                             color: Colors.white,
                             fontSize: titleFontSize,
                             fontWeight: FontWeight.bold,
-                            height: 1.1,
+                            height: 1.2, // زيادة المسافة بين الأسطر
                           ),
-                          maxLines: 1,
+                          maxLines: 2, // السماح بسطرين
                           overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.start,
                         ),
                       ),
 
