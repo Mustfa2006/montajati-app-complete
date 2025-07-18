@@ -1,6 +1,14 @@
 -- ===================================
 -- نظام إشعارات ذكي مبني على تغيير عمود status
 -- ===================================
+--
+-- ⚠️ ملاحظة مهمة حول الهواتف:
+-- user_phone = هاتف المستخدم (صاحب الطلب) - هو من يستلم الإشعار
+-- customer_phone = هاتف العميل (المستلم) - لا يستلم إشعارات
+-- primary_phone = هاتف المستخدم الأساسي
+--
+-- الإشعارات ترسل للمستخدم (صاحب الطلب) وليس للعميل
+-- ===================================
 
 -- إنشاء جدول سجل الإشعارات المرسلة لتجنب التكرار
 CREATE TABLE IF NOT EXISTS notification_logs (
@@ -117,28 +125,32 @@ RETURNS VARCHAR(20) AS $$
 DECLARE
     user_phone VARCHAR(20);
 BEGIN
-    -- محاولة 1: من customer_id إذا كان موجود
+    -- محاولة 1: من user_phone مباشرة (هاتف المستخدم صاحب الطلب)
+    IF order_record.user_phone IS NOT NULL THEN
+        RETURN order_record.user_phone;
+    END IF;
+
+    -- محاولة 2: من customer_id إذا كان موجود (البحث في جدول المستخدمين)
     IF order_record.customer_id IS NOT NULL THEN
-        SELECT phone INTO user_phone 
-        FROM users 
+        SELECT phone INTO user_phone
+        FROM users
         WHERE id = order_record.customer_id;
-        
+
         IF user_phone IS NOT NULL THEN
             RETURN user_phone;
         END IF;
     END IF;
-    
-    -- محاولة 2: من primary_phone مباشرة
+
+    -- محاولة 3: من primary_phone (هاتف المستخدم الأساسي)
     IF order_record.primary_phone IS NOT NULL THEN
         RETURN order_record.primary_phone;
     END IF;
-    
-    -- محاولة 3: من customer_phone
-    IF order_record.customer_phone IS NOT NULL THEN
-        RETURN order_record.customer_phone;
-    END IF;
-    
-    -- إذا لم نجد أي رقم
+
+    -- ⚠️ لا نستخدم customer_phone لأنه هاتف العميل وليس المستخدم
+    -- customer_phone = هاتف العميل (المستلم)
+    -- user_phone = هاتف المستخدم (صاحب الطلب)
+
+    -- إذا لم نجد أي رقم للمستخدم
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
