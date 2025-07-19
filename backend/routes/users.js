@@ -1,8 +1,15 @@
 // مسارات المستخدمين - Users Routes
 const express = require('express');
 const User = require('../models/User');
+const { createClient } = require('@supabase/supabase-js');
 
 const router = express.Router();
+
+// إعداد Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // الحصول على جميع المستخدمين (للأدمن فقط)
 router.get('/', async (req, res) => {
@@ -109,6 +116,102 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'خطأ في الخادم',
+    });
+  }
+});
+
+// ===================================
+// حفظ FCM Token للإشعارات
+// ===================================
+router.post('/fcm-token', async (req, res) => {
+  try {
+    const { user_phone, fcm_token, device_info } = req.body;
+
+    // التحقق من البيانات المطلوبة
+    if (!user_phone || !fcm_token) {
+      return res.status(400).json({
+        success: false,
+        message: 'user_phone و fcm_token مطلوبان'
+      });
+    }
+
+    console.log(`📱 استلام FCM Token للمستخدم: ${user_phone}`);
+
+    // حفظ أو تحديث FCM Token
+    const { data, error } = await supabase
+      .from('fcm_tokens')
+      .upsert({
+        user_phone: user_phone,
+        token: fcm_token,
+        device_info: device_info || {},
+        is_active: true,
+        last_used_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_phone,token'
+      })
+      .select();
+
+    if (error) {
+      console.error('❌ خطأ في حفظ FCM Token:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في حفظ FCM Token',
+        error: error.message
+      });
+    }
+
+    console.log(`✅ تم حفظ FCM Token للمستخدم: ${user_phone}`);
+
+    res.json({
+      success: true,
+      message: 'تم حفظ FCM Token بنجاح',
+      data: data
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في endpoint FCM Token:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم',
+      error: error.message
+    });
+  }
+});
+
+// ===================================
+// جلب FCM Tokens للمستخدم
+// ===================================
+router.get('/fcm-tokens/:user_phone', async (req, res) => {
+  try {
+    const { user_phone } = req.params;
+
+    const { data, error } = await supabase
+      .from('fcm_tokens')
+      .select('*')
+      .eq('user_phone', user_phone)
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في جلب FCM Tokens',
+        error: error.message
+      });
+    }
+
+    res.json({
+      success: true,
+      data: data,
+      count: data?.length || 0
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب FCM Tokens:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم',
+      error: error.message
     });
   }
 });

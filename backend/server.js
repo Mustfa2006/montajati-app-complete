@@ -48,6 +48,10 @@ console.log('✅ تم إعداد Supabase بنجاح');
 // إضافة routes نظام الإشعارات المستهدفة
 app.use('/api/notifications', targetedNotificationsRouter);
 
+// إضافة routes FCM Tokens للإشعارات
+const fcmTokensRouter = require('./routes/fcm_tokens');
+app.use('/api/fcm', fcmTokensRouter);
+
 // Routes الأساسية
 app.get('/', (req, res) => {
   res.json({
