@@ -4,7 +4,7 @@
   "description": "Backend API لتطبيق منتجاتي - نظام إدارة الدروب شيبنگ",
   "main": "server.js",
   "scripts": {
-    "start": "NODE_ENV=production node official_montajati_server.js",
+    "start": "node official_montajati_server.js",
     "legacy": "node start_system_complete.js",
     "start-notifications": "node start_notifications_final.js",
     "start-simple": "node simple_server.js",

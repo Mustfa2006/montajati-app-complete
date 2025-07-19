@@ -225,11 +225,13 @@ class OfficialNotificationManager extends EventEmitter {
     }
 
     try {
-      // جلب الإشعارات المعلقة
+      // جلب الإشعارات المعلقة والجاهزة للمعالجة
+      const now = new Date().toISOString();
       const { data: notifications, error } = await this.supabase
         .from('notification_queue')
         .select('*')
         .eq('status', 'pending')
+        .or(`scheduled_at.is.null,scheduled_at.lte.${now}`)
         .order('priority', { ascending: false })
         .order('created_at', { ascending: true })
         .limit(this.config.batchSize);
@@ -395,13 +397,15 @@ class OfficialNotificationManager extends EventEmitter {
   // ===================================
   async handleNotificationFailure(notification, errorMessage) {
     try {
-      const attempts = (notification.attempts || 0) + 1;
+      const currentRetryCount = notification.retry_count || 0;
+      const newRetryCount = currentRetryCount + 1;
 
-      if (attempts < this.config.maxRetries) {
+      if (newRetryCount < this.config.maxRetries) {
         // إعادة جدولة الإشعار
-        await this.rescheduleNotification(notification, attempts, errorMessage);
+        await this.rescheduleNotification(notification, newRetryCount, errorMessage);
       } else {
         // فشل نهائي
+        console.log(`❌ فشل نهائي للإشعار ${notification.id} بعد ${newRetryCount} محاولات`);
         await this.updateNotificationStatus(notification.id, 'failed', { error: errorMessage });
         await this.logNotificationEvent(notification, 'failed', { error: errorMessage });
         this.state.totalFailed++;
@@ -415,7 +419,7 @@ class OfficialNotificationManager extends EventEmitter {
   // ===================================
   // إعادة جدولة الإشعار
   // ===================================
-  async rescheduleNotification(notification, attempts, errorMessage) {
+  async rescheduleNotification(notification, retryCount, errorMessage) {
     try {
       // التحقق من عمر الإشعار - إذا كان أكبر من 24 ساعة، فشل نهائي
       const notificationAge = Date.now() - new Date(notification.created_at).getTime();
@@ -428,21 +432,26 @@ class OfficialNotificationManager extends EventEmitter {
       }
 
       // تأخير متزايد (exponential backoff)
-      const backoffDelay = this.config.retryDelay * Math.pow(2, attempts - 1);
+      const backoffDelay = this.config.retryDelay * Math.pow(2, retryCount - 1);
       const nextAttemptAt = new Date(Date.now() + backoffDelay);
 
-      await this.supabase
+      // تحديث قاعدة البيانات بالأعمدة الصحيحة
+      const { error } = await this.supabase
         .from('notification_queue')
         .update({
           status: 'pending',
-          attempts: attempts,
-          last_error: errorMessage,
-          next_attempt_at: nextAttemptAt.toISOString(),
-          updated_at: new Date().toISOString()
+          retry_count: retryCount,
+          error_message: errorMessage,
+          scheduled_at: nextAttemptAt.toISOString()
         })
         .eq('id', notification.id);
 
-      console.log(`🔄 إعادة جدولة الإشعار ${notification.id} (محاولة ${attempts}) - التأخير: ${Math.round(backoffDelay / 1000)}s`);
+      if (error) {
+        console.error('❌ خطأ في تحديث قاعدة البيانات:', error);
+        return;
+      }
+
+      console.log(`🔄 إعادة جدولة الإشعار ${notification.id} (محاولة ${retryCount}) - التأخير: ${Math.round(backoffDelay / 1000)}s`);
 
     } catch (error) {
       console.error('❌ خطأ في إعادة جدولة الإشعار:', error);
