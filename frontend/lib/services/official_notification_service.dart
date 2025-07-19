@@ -124,15 +124,41 @@ class OfficialNotificationService {
       final currentUserPhone = await _getCurrentUserPhone();
       if (currentUserPhone == null) return;
 
-      // تحديث أو إدراج FCM Token
-      await _supabase
-          .from('user_fcm_tokens')
-          .upsert({
-            'user_phone': currentUserPhone,
-            'fcm_token': token,
-            'platform': _getPlatform(),
-            'updated_at': DateTime.now().toIso8601String(),
-          });
+      // تحديث أو إدراج FCM Token في كلا الجدولين
+
+      // الجدول الأول: fcm_tokens
+      try {
+        await _supabase
+            .from('fcm_tokens')
+            .upsert({
+              'user_phone': currentUserPhone,
+              'token': token,
+              'platform': _getPlatform(),
+              'device_info': {'app': 'montajati'},
+              'is_active': true,
+              'last_used_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+        debugPrint('✅ تم حفظ FCM Token في جدول fcm_tokens');
+      } catch (e) {
+        debugPrint('⚠️ خطأ في حفظ FCM Token في جدول fcm_tokens: $e');
+      }
+
+      // الجدول الثاني: user_fcm_tokens (للتوافق مع النظام القديم)
+      try {
+        await _supabase
+            .from('user_fcm_tokens')
+            .upsert({
+              'user_phone': currentUserPhone,
+              'fcm_token': token,
+              'platform': _getPlatform(),
+              'is_active': true,
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+        debugPrint('✅ تم حفظ FCM Token في جدول user_fcm_tokens');
+      } catch (e) {
+        debugPrint('⚠️ خطأ في حفظ FCM Token في جدول user_fcm_tokens: $e');
+      }
 
       debugPrint('✅ تم حفظ FCM Token للمستخدم: $currentUserPhone');
     } catch (e) {
@@ -430,16 +456,41 @@ class OfficialNotificationService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_phone', userPhone);
 
-      // حفظ FCM Token في قاعدة البيانات
-      await _supabase
-          .from('user_fcm_tokens')
-          .upsert({
-            'user_phone': userPhone,
-            'fcm_token': _fcmToken!,
-            'platform': _getPlatform(),
-            'is_active': true,
-            'updated_at': DateTime.now().toIso8601String(),
-          });
+      // حفظ FCM Token في قاعدة البيانات (كلا الجدولين)
+
+      // الجدول الأول: fcm_tokens
+      try {
+        await _supabase
+            .from('fcm_tokens')
+            .upsert({
+              'user_phone': userPhone,
+              'token': _fcmToken!,
+              'platform': _getPlatform(),
+              'device_info': {'app': 'montajati', 'login': true},
+              'is_active': true,
+              'last_used_at': DateTime.now().toIso8601String(),
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+        debugPrint('✅ تم حفظ FCM Token في جدول fcm_tokens');
+      } catch (e) {
+        debugPrint('⚠️ خطأ في حفظ FCM Token في جدول fcm_tokens: $e');
+      }
+
+      // الجدول الثاني: user_fcm_tokens
+      try {
+        await _supabase
+            .from('user_fcm_tokens')
+            .upsert({
+              'user_phone': userPhone,
+              'fcm_token': _fcmToken!,
+              'platform': _getPlatform(),
+              'is_active': true,
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+        debugPrint('✅ تم حفظ FCM Token في جدول user_fcm_tokens');
+      } catch (e) {
+        debugPrint('⚠️ خطأ في حفظ FCM Token في جدول user_fcm_tokens: $e');
+      }
 
       debugPrint('✅ تم حفظ FCM Token للمستخدم $userPhone بنجاح');
       debugPrint('🔑 FCM Token: ${_fcmToken!.substring(0, 20)}...');

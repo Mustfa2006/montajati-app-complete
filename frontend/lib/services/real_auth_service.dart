@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
+import 'official_notification_service.dart';
 
 class AuthService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
@@ -88,10 +90,23 @@ class AuthService {
       await prefs.setString('current_user_id', userData['id'].toString());
       await prefs.setString('current_user_name', userData['name'] ?? '');
       await prefs.setString('current_user_phone', userData['phone'] ?? '');
+      await prefs.setString('user_phone', userData['phone'] ?? ''); // ✅ إضافة للإشعارات
       await prefs.setBool(
         'current_user_is_admin',
         userData['is_admin'] ?? false,
       );
+
+      // 🔔 تسجيل FCM Token للإشعارات
+      try {
+        await OfficialNotificationService.saveUserFCMToken(userData['phone'] ?? '');
+        if (kDebugMode) {
+          debugPrint('✅ تم تسجيل FCM Token للمستخدم');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('⚠️ خطأ في تسجيل FCM Token: $e');
+        }
+      }
 
       return AuthResult(
         success: true,

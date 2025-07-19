@@ -6,12 +6,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-// استيراد الخدمات
+// استيراد الخدمات الأساسية فقط
 const { firebaseConfig } = require('./config/firebase');
-const TelegramNotificationService = require('./telegram_notification_service');
+const SimpleNotificationProcessor = require('./notification_processor_simple');
 const OrderStatusSyncService = require('./sync/order_status_sync_service');
-const NotificationMasterService = require('./services/notification_master_service');
-const SystemTester = require('./test_system_complete');
 
 class SystemManager {
   constructor() {
@@ -19,7 +17,10 @@ class SystemManager {
     this.port = process.env.PORT || 3003;
     this.services = {};
     this.isRunning = false;
-    
+
+    // تهيئة معالج الإشعارات البسيط
+    this.notificationProcessor = new SimpleNotificationProcessor();
+
     this.setupExpress();
   }
 

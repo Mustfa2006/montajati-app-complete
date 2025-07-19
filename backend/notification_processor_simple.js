@@ -190,12 +190,30 @@ class SimpleNotificationProcessor {
   // ===================================
   async sendNotification(notification) {
     try {
-      // محاولة الحصول على FCM token للمستخدم
-      const { data: tokens } = await this.supabase
+      // محاولة الحصول على FCM token للمستخدم من جدولين
+      let tokens = [];
+
+      // أولاً: جدول fcm_tokens
+      const { data: fcmTokens } = await this.supabase
         .from('fcm_tokens')
         .select('token')
         .eq('user_phone', notification.user_phone)
         .eq('is_active', true);
+
+      if (fcmTokens && fcmTokens.length > 0) {
+        tokens = fcmTokens;
+      } else {
+        // ثانياً: جدول user_fcm_tokens (البديل)
+        const { data: userTokens } = await this.supabase
+          .from('user_fcm_tokens')
+          .select('fcm_token as token')
+          .eq('user_phone', notification.user_phone)
+          .eq('is_active', true);
+
+        if (userTokens && userTokens.length > 0) {
+          tokens = userTokens;
+        }
+      }
 
       if (!tokens || tokens.length === 0) {
         console.log(`⚠️ لا يوجد FCM token للمستخدم: ${notification.user_phone}`);

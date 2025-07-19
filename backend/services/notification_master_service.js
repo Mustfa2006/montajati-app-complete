@@ -3,18 +3,12 @@
 // Master Notification Service for All Targeted Notifications
 // ===================================
 
-const orderStatusWatcher = require('./order_status_watcher');
-const withdrawalStatusWatcher = require('./withdrawal_status_watcher');
-const targetedNotificationService = require('./targeted_notification_service');
+const SimpleNotificationProcessor = require('../notification_processor_simple');
 
 class NotificationMasterService {
   constructor() {
     this.isRunning = false;
-    this.services = {
-      orderWatcher: orderStatusWatcher,
-      withdrawalWatcher: withdrawalStatusWatcher,
-      notificationService: targetedNotificationService
-    };
+    this.processor = new SimpleNotificationProcessor();
   }
 
   /**
@@ -27,24 +21,15 @@ class NotificationMasterService {
         return { success: true, message: 'الخدمات تعمل بالفعل' };
       }
 
-      console.log('🚀 بدء تشغيل جميع خدمات الإشعارات المستهدفة...');
+      console.log('🚀 بدء تشغيل جميع خدمات الإشعارات...');
 
-      // التحقق من تهيئة Firebase أولاً
-      if (!this.services.targetedNotification || !this.services.targetedNotification.initialized) {
-        console.warn('⚠️ Firebase غير مهيأ - سيتم تشغيل الخدمات بدون إشعارات مستهدفة');
-      }
-
-      // بدء مراقب حالة الطلبات
-      console.log('📦 تشغيل مراقب حالة الطلبات...');
-      this.services.orderWatcher.startWatching();
-
-      // بدء مراقب حالة طلبات السحب
-      console.log('💰 تشغيل مراقب حالة طلبات السحب...');
-      this.services.withdrawalWatcher.startWatching();
+      // بدء معالج الإشعارات البسيط
+      console.log('📱 تشغيل معالج الإشعارات...');
+      this.processor.startProcessing();
 
       this.isRunning = true;
 
-      console.log('✅ تم تشغيل جميع خدمات الإشعارات المستهدفة بنجاح');
+      console.log('✅ تم تشغيل جميع خدمات الإشعارات بنجاح');
       console.log('🎯 الإشعارات ستصل للمستخدمين المحددين فقط');
       
       return {
@@ -67,20 +52,10 @@ class NotificationMasterService {
    */
   async stopAllServices() {
     try {
-      if (!this.isRunning) {
-        console.log('⚠️ خدمات الإشعارات متوقفة بالفعل');
-        return { success: true, message: 'الخدمات متوقفة بالفعل' };
-      }
-
       console.log('🛑 إيقاف جميع خدمات الإشعارات...');
 
-      // إيقاف مراقب حالة الطلبات
-      console.log('📦 إيقاف مراقب حالة الطلبات...');
-      this.services.orderWatcher.stopWatching();
-
-      // إيقاف مراقب حالة طلبات السحب
-      console.log('💰 إيقاف مراقب حالة طلبات السحب...');
-      this.services.withdrawalWatcher.stopWatching();
+      // إيقاف معالج الإشعارات
+      this.processor.stopProcessing();
 
       this.isRunning = false;
 
@@ -88,8 +63,7 @@ class NotificationMasterService {
       
       return {
         success: true,
-        message: 'تم إيقاف جميع خدمات الإشعارات',
-        services: this.getServicesStatus()
+        message: 'تم إيقاف جميع خدمات الإشعارات'
       };
 
     } catch (error) {
@@ -102,191 +76,66 @@ class NotificationMasterService {
   }
 
   /**
-   * إعادة تشغيل جميع خدمات الإشعارات
-   */
-  async restartAllServices() {
-    try {
-      console.log('🔄 إعادة تشغيل جميع خدمات الإشعارات...');
-
-      // إيقاف الخدمات أولاً
-      await this.stopAllServices();
-
-      // انتظار ثانية واحدة
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // تشغيل الخدمات مرة أخرى
-      const result = await this.startAllServices();
-
-      console.log('✅ تم إعادة تشغيل جميع خدمات الإشعارات');
-      return result;
-
-    } catch (error) {
-      console.error('❌ خطأ في إعادة تشغيل خدمات الإشعارات:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * الحصول على حالة جميع الخدمات
+   * الحصول على حالة الخدمات
    */
   getServicesStatus() {
     return {
-      masterService: {
-        isRunning: this.isRunning,
-        startedAt: this.isRunning ? new Date().toISOString() : null
+      notificationProcessor: {
+        name: 'معالج الإشعارات',
+        status: this.processor.isProcessing ? 'running' : 'stopped',
+        isRunning: this.processor.isProcessing
       },
-      orderWatcher: this.services.orderWatcher.getWatcherStats(),
-      withdrawalWatcher: this.services.withdrawalWatcher.getWatcherStats()
+      masterService: {
+        name: 'الخدمة الرئيسية',
+        status: this.isRunning ? 'running' : 'stopped',
+        isRunning: this.isRunning
+      }
     };
   }
 
   /**
-   * إرسال إشعار حالة طلب يدوياً (للاستخدام من API)
+   * اختبار إرسال إشعار
    */
-  async sendOrderStatusNotification(orderId, userId, customerName, oldStatus, newStatus) {
+  async testNotification(userPhone, message = 'اختبار نظام الإشعارات') {
     try {
-      console.log('🔧 إرسال إشعار حالة طلب يدوياً...');
+      console.log(`🧪 اختبار إرسال إشعار للمستخدم: ${userPhone}`);
       
-      const result = await targetedNotificationService.sendOrderStatusNotification(
-        orderId,
-        userId,
-        customerName,
-        oldStatus,
-        newStatus
+      // إنشاء إشعار تجريبي في قائمة الانتظار
+      const { createClient } = require('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
       );
 
-      return result;
+      const { error } = await supabase
+        .from('notification_queue')
+        .insert({
+          order_id: `TEST-${Date.now()}`,
+          user_phone: userPhone,
+          customer_name: 'اختبار النظام',
+          old_status: 'test',
+          new_status: 'test_notification',
+          notification_data: {
+            title: 'اختبار الإشعارات 🧪',
+            message: message,
+            type: 'test',
+            priority: 1,
+            timestamp: Date.now()
+          },
+          priority: 1
+        });
 
-    } catch (error) {
-      console.error('❌ خطأ في إرسال إشعار حالة الطلب يدوياً:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * إرسال إشعار حالة طلب سحب يدوياً (للاستخدام من API)
-   */
-  async sendWithdrawalStatusNotification(userId, requestId, amount, status, reason = '') {
-    try {
-      console.log('🔧 إرسال إشعار حالة طلب سحب يدوياً...');
-      
-      const result = await targetedNotificationService.sendWithdrawalStatusNotification(
-        userId,
-        requestId,
-        amount,
-        status,
-        reason
-      );
-
-      return result;
-
-    } catch (error) {
-      console.error('❌ خطأ في إرسال إشعار حالة طلب السحب يدوياً:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * معالجة تحديث حالة طلب سحب من Admin Panel
-   */
-  async handleAdminWithdrawalStatusUpdate(requestId, newStatus, adminNotes = '') {
-    try {
-      console.log('🔧 معالجة تحديث حالة طلب سحب من Admin Panel...');
-      
-      const result = await this.services.withdrawalWatcher.handleManualWithdrawalStatusUpdate(
-        requestId,
-        newStatus,
-        adminNotes
-      );
-
-      return result;
-
-    } catch (error) {
-      console.error('❌ خطأ في معالجة تحديث حالة طلب السحب من Admin Panel:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * اختبار إرسال إشعار تجريبي
-   */
-  async sendTestNotification(userId, type = 'order') {
-    try {
-      console.log(`🧪 إرسال إشعار تجريبي للمستخدم ${userId}...`);
-
-      let result;
-
-      if (type === 'order') {
-        result = await this.sendOrderStatusNotification(
-          'test-order-123',
-          userId,
-          'عميل تجريبي',
-          'pending',
-          'delivered'
-        );
-      } else if (type === 'withdrawal') {
-        result = await this.sendWithdrawalStatusNotification(
-          userId,
-          'test-withdrawal-123',
-          50000,
-          'approved'
-        );
-      } else {
-        return {
-          success: false,
-          error: 'نوع إشعار غير مدعوم'
-        };
+      if (error) {
+        console.error('❌ خطأ في إنشاء إشعار الاختبار:', error.message);
+        return { success: false, error: error.message };
       }
 
-      return result;
+      console.log('✅ تم إنشاء إشعار الاختبار بنجاح');
+      return { success: true, message: 'تم إنشاء إشعار الاختبار' };
 
     } catch (error) {
-      console.error('❌ خطأ في إرسال الإشعار التجريبي:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * الحصول على إحصائيات شاملة
-   */
-  async getComprehensiveStats() {
-    try {
-      const stats = {
-        timestamp: new Date().toISOString(),
-        services: this.getServicesStatus(),
-        summary: {
-          totalServices: Object.keys(this.services).length,
-          activeServices: this.isRunning ? 2 : 0, // orderWatcher + withdrawalWatcher
-          status: this.isRunning ? 'running' : 'stopped'
-        }
-      };
-
-      return {
-        success: true,
-        data: stats
-      };
-
-    } catch (error) {
-      console.error('❌ خطأ في جلب الإحصائيات:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
+      console.error('❌ خطأ في اختبار الإشعار:', error.message);
+      return { success: false, error: error.message };
     }
   }
 }
