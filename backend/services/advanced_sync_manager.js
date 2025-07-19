@@ -136,32 +136,51 @@ class AdvancedSyncManager extends EventEmitter {
     try {
       console.log('🔐 تحديث توكن الوسيط...');
 
-      const response = await axios.post(`${this.waseetConfig.baseURL}/login`, {
-        username: this.waseetConfig.username,
-        password: this.waseetConfig.password
-      }, {
-        timeout: this.waseetConfig.timeout,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
-      });
-
-      if (response.data && response.data.token) {
-        this.state.currentToken = response.data.token;
-        this.state.tokenExpiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 ساعة
-        
-        console.log('✅ تم تحديث توكن الوسيط بنجاح');
-        this.emit('tokenRefreshed', this.state.currentToken);
-        
-        return this.state.currentToken;
-      } else {
-        throw new Error('لم يتم الحصول على توكن صحيح من الوسيط');
+      // التحقق من توفر بيانات الاعتماد
+      if (!this.waseetConfig.username || !this.waseetConfig.password) {
+        console.warn('⚠️ بيانات اعتماد الوسيط غير متوفرة، تخطي تحديث التوكن');
+        return null;
       }
 
+      // محاولة عدة مسارات API مختلفة
+      const apiPaths = ['/login', '/auth/login', '/api/login', '/api/auth/login'];
+
+      for (const path of apiPaths) {
+        try {
+          const response = await axios.post(`${this.waseetConfig.baseURL}${path}`, {
+            username: this.waseetConfig.username,
+            password: this.waseetConfig.password
+          }, {
+            timeout: 10000,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+
+          if (response.data && (response.data.token || response.data.access_token)) {
+            this.state.currentToken = response.data.token || response.data.access_token;
+            this.state.tokenExpiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 ساعة
+
+            console.log(`✅ تم تحديث توكن الوسيط بنجاح عبر ${path}`);
+            this.emit('tokenRefreshed', this.state.currentToken);
+
+            return this.state.currentToken;
+          }
+        } catch (pathError) {
+          console.log(`⚠️ فشل المسار ${path}: ${pathError.response?.status || pathError.message}`);
+          continue;
+        }
+      }
+
+      // إذا فشلت جميع المسارات
+      console.warn('⚠️ فشل في جميع مسارات API للوسيط، سيتم المتابعة بدون مزامنة');
+      return null;
+
     } catch (error) {
-      console.error('❌ خطأ في تحديث توكن الوسيط:', error);
-      throw new Error(`فشل في تحديث توكن الوسيط: ${error.message}`);
+      console.error('❌ خطأ عام في تحديث توكن الوسيط:', error);
+      console.warn('⚠️ سيتم المتابعة بدون خدمة المزامنة');
+      return null;
     }
   }
 

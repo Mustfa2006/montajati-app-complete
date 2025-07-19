@@ -417,7 +417,19 @@ class OfficialNotificationManager extends EventEmitter {
   // ===================================
   async rescheduleNotification(notification, attempts, errorMessage) {
     try {
-      const nextAttemptAt = new Date(Date.now() + this.config.retryDelay);
+      // التحقق من عمر الإشعار - إذا كان أكبر من 24 ساعة، فشل نهائي
+      const notificationAge = Date.now() - new Date(notification.created_at).getTime();
+      const maxAge = 24 * 60 * 60 * 1000; // 24 ساعة
+
+      if (notificationAge > maxAge) {
+        console.log(`⏰ انتهت صلاحية الإشعار ${notification.id} (عمر: ${Math.round(notificationAge / (60 * 60 * 1000))} ساعة)`);
+        await this.updateNotificationStatus(notification.id, 'expired', { error: 'انتهت صلاحية الإشعار' });
+        return;
+      }
+
+      // تأخير متزايد (exponential backoff)
+      const backoffDelay = this.config.retryDelay * Math.pow(2, attempts - 1);
+      const nextAttemptAt = new Date(Date.now() + backoffDelay);
 
       await this.supabase
         .from('notification_queue')
@@ -430,7 +442,7 @@ class OfficialNotificationManager extends EventEmitter {
         })
         .eq('id', notification.id);
 
-      console.log(`🔄 إعادة جدولة الإشعار ${notification.id} (محاولة ${attempts})`);
+      console.log(`🔄 إعادة جدولة الإشعار ${notification.id} (محاولة ${attempts}) - التأخير: ${Math.round(backoffDelay / 1000)}s`);
 
     } catch (error) {
       console.error('❌ خطأ في إعادة جدولة الإشعار:', error);
