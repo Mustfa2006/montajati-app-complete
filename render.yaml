@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: montajati-official-backend
+    env: node
+    region: singapore
+    plan: starter
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3003
+      - key: SUPABASE_URL
+        fromDatabase:
+          name: montajati-db
+          property: connectionString
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: montajati-app-7767d
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: WASEET_USERNAME
+        sync: false
+      - key: WASEET_PASSWORD
+        sync: false
+    autoDeploy: true
+    
+databases:
+  - name: montajati-db
+    databaseName: montajati
+    user: montajati_user
+    region: singapore
+    plan: starter
