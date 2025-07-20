@@ -7,24 +7,36 @@
 - ✅ تم ربطه بجميع الخدمات المطلوبة
 - ✅ تم إضافة دوال `initialize()` و `shutdown()`
 
-### 2. **مشاكل في الخدمات:**
+### 2. **ملف مفقود: `routes/fcm_tokens.js`**
+- ✅ تم إنشاء ملف FCM Tokens routes
+- ✅ تم إضافة جميع endpoints المطلوبة
+
+### 3. **مشكلة Event Handler:**
+- ✅ إضافة EventEmitter لـ OfficialNotificationManager
+- ✅ إصلاح `this.notificationManager.on is not a function`
+
+### 4. **مشاكل في الخدمات:**
 - ✅ إضافة دالة `shutdown()` لجميع الخدمات
 - ✅ إصلاح استدعاءات الخدمات (instances بدلاً من classes)
 - ✅ توحيد طريقة التهيئة
 
-### 3. **متغيرات البيئة:**
+### 5. **متغيرات البيئة:**
+- ✅ تحديث لاستخدام FIREBASE_SERVICE_ACCOUNT
 - ✅ إضافة فحص متغيرات البيئة
 - ✅ إنشاء خادم اختبار بسيط
 
 ## 🔧 الملفات المُصلحة:
 
-1. **`services/official_notification_manager.js`** - جديد
-2. **`services/firebase_admin_service.js`** - إضافة `shutdown()`
-3. **`services/targeted_notification_service.js`** - إضافة `shutdown()`
-4. **`services/token_management_service.js`** - إضافة `initialize()` و `shutdown()`
-5. **`package.json`** - تحديث scripts
-6. **`check_env_vars.js`** - جديد للفحص
-7. **`simple_test_server.js`** - جديد للاختبار
+1. **`services/official_notification_manager.js`** - جديد مع EventEmitter
+2. **`routes/fcm_tokens.js`** - جديد لإدارة FCM Tokens
+3. **`services/firebase_admin_service.js`** - تحديث لـ FIREBASE_SERVICE_ACCOUNT
+4. **`services/targeted_notification_service.js`** - إضافة `shutdown()`
+5. **`services/token_management_service.js`** - إضافة `initialize()` و `shutdown()`
+6. **`package.json`** - تحديث scripts
+7. **`check_env_vars.js`** - تحديث للمتغيرات الجديدة
+8. **`simple_test_server.js`** - جديد للاختبار
+9. **`test_services.js`** - جديد لاختبار الخدمات
+10. **`.env.render`** - متغيرات البيئة الصحيحة
 
 ## 🚀 خطوات النشر:
 
@@ -32,6 +44,9 @@
 ```bash
 # فحص متغيرات البيئة
 npm run check-env
+
+# اختبار الخدمات الأساسية
+npm run test-services
 
 # تشغيل خادم اختبار بسيط
 npm run start-simple

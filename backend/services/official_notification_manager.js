@@ -3,12 +3,14 @@
 // Official Notification Manager
 // ===================================
 
+const EventEmitter = require('events');
 const firebaseAdminService = require('./firebase_admin_service');
 const targetedNotificationService = require('./targeted_notification_service');
 const tokenManagementService = require('./token_management_service');
 
-class OfficialNotificationManager {
+class OfficialNotificationManager extends EventEmitter {
   constructor() {
+    super(); // استدعاء EventEmitter constructor
     this.isInitialized = false;
     this.firebaseService = null;
     this.targetedService = null;
@@ -84,6 +86,10 @@ class OfficialNotificationManager {
       console.error('❌ خطأ في إرسال إشعار تحديث الطلب:', error);
       this.stats.totalSent++;
       this.stats.failedSent++;
+
+      // إرسال حدث خطأ
+      this.emit('error', error);
+
       return { success: false, error: error.message };
     }
   }
@@ -122,6 +128,10 @@ class OfficialNotificationManager {
       console.error('❌ خطأ في إرسال الإشعار العام:', error);
       this.stats.totalSent++;
       this.stats.failedSent++;
+
+      // إرسال حدث خطأ
+      this.emit('error', error);
+
       return { success: false, error: error.message };
     }
   }

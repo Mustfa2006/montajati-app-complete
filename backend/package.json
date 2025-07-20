@@ -7,6 +7,7 @@
     "start": "node official_montajati_server.js",
     "start-simple": "node simple_test_server.js",
     "check-env": "node check_env_vars.js",
+    "test-services": "node test_services.js",
     "legacy": "node start_system_complete.js",
     "start-debug": "node render-start.js",
     "dev": "nodemon official_montajati_server.js",
