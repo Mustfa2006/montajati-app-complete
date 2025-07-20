@@ -334,6 +334,19 @@ class TargetedNotificationService {
       firebase: firebaseAdminService.getServiceInfo()
     };
   }
+
+  /**
+   * إيقاف الخدمة
+   */
+  async shutdown() {
+    try {
+      console.log('🔄 إيقاف خدمة الإشعارات المستهدفة...');
+      this.initialized = false;
+      console.log('✅ تم إيقاف خدمة الإشعارات المستهدفة بنجاح');
+    } catch (error) {
+      console.error('❌ خطأ في إيقاف خدمة الإشعارات المستهدفة:', error);
+    }
+  }
 }
 
 // إنشاء instance واحد للخدمة

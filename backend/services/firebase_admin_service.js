@@ -286,6 +286,20 @@ class FirebaseAdminService {
       projectId: process.env.FIREBASE_PROJECT_ID || 'غير محدد'
     };
   }
+
+  /**
+   * إيقاف الخدمة
+   */
+  async shutdown() {
+    try {
+      console.log('🔄 إيقاف Firebase Admin Service...');
+      this.initialized = false;
+      this.messaging = null;
+      console.log('✅ تم إيقاف Firebase Admin Service بنجاح');
+    } catch (error) {
+      console.error('❌ خطأ في إيقاف Firebase Admin Service:', error);
+    }
+  }
 }
 
 // إنشاء instance واحد للخدمة

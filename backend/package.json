@@ -5,15 +5,14 @@
   "main": "server.js",
   "scripts": {
     "start": "node official_montajati_server.js",
+    "start-simple": "node simple_test_server.js",
+    "check-env": "node check_env_vars.js",
     "legacy": "node start_system_complete.js",
-
-    "start-simple": "node simple_server.js",
     "start-debug": "node render-start.js",
     "dev": "nodemon official_montajati_server.js",
     "production": "NODE_ENV=production node official_montajati_server.js",
     "local": "node production_server.js",
     "proxy": "node flexible_delivery_proxy.js",
-
     "proxy:dev": "nodemon flexible_delivery_proxy.js",
     "monitor": "node order_status_monitor.js",
     "monitor:dev": "nodemon order_status_monitor.js",
@@ -22,8 +21,6 @@
     "health": "curl http://localhost:3003/health",
     "status": "curl http://localhost:3003/api/system/status",
     "metrics": "curl http://localhost:3003/api/monitor/metrics",
-
-
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

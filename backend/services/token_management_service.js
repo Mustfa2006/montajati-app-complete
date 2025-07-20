@@ -13,6 +13,23 @@ class TokenManagementService {
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
+    this.initialized = false;
+  }
+
+  /**
+   * تهيئة خدمة إدارة الرموز
+   */
+  async initialize() {
+    try {
+      console.log('🔧 تهيئة خدمة إدارة FCM Tokens...');
+      this.initialized = true;
+      console.log('✅ تم تهيئة خدمة إدارة FCM Tokens بنجاح');
+      return true;
+    } catch (error) {
+      console.error('❌ خطأ في تهيئة خدمة إدارة FCM Tokens:', error);
+      this.initialized = false;
+      return false;
+    }
   }
 
   /**
@@ -305,6 +322,19 @@ class TokenManagementService {
         error: error.message,
         timestamp: new Date().toISOString()
       };
+    }
+  }
+
+  /**
+   * إيقاف الخدمة
+   */
+  async shutdown() {
+    try {
+      console.log('🔄 إيقاف خدمة إدارة FCM Tokens...');
+      this.initialized = false;
+      console.log('✅ تم إيقاف خدمة إدارة FCM Tokens بنجاح');
+    } catch (error) {
+      console.error('❌ خطأ في إيقاف خدمة إدارة FCM Tokens:', error);
     }
   }
 }
