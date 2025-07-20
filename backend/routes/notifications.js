@@ -7,6 +7,79 @@ const express = require('express');
 const router = express.Router();
 const targetedNotificationService = require('../services/targeted_notification_service');
 const tokenManagementService = require('../services/token_management_service');
+const OfficialNotificationManager = require('../services/official_notification_manager');
+
+// إنشاء instance من مدير الإشعارات
+let notificationManager = null;
+
+// تهيئة مدير الإشعارات
+async function initializeNotificationManager() {
+  if (!notificationManager) {
+    notificationManager = new OfficialNotificationManager();
+    await notificationManager.initialize();
+  }
+  return notificationManager;
+}
+
+/**
+ * اختبار إرسال إشعار
+ * POST /api/notifications/test
+ */
+router.post('/test', async (req, res) => {
+  try {
+    const { userPhone } = req.body;
+
+    if (!userPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'userPhone مطلوب'
+      });
+    }
+
+    console.log('🧪 اختبار إرسال إشعار للمستخدم:', userPhone);
+
+    // تهيئة مدير الإشعارات
+    const manager = await initializeNotificationManager();
+
+    // إرسال إشعار تجريبي
+    const result = await manager.sendGeneralNotification({
+      customerPhone: userPhone,
+      title: '🧪 إشعار تجريبي',
+      message: 'هذا إشعار تجريبي من نظام منتجاتي - إذا وصلك هذا الإشعار فالنظام يعمل بشكل صحيح!',
+      additionalData: {
+        type: 'test_notification',
+        timestamp: new Date().toISOString(),
+        source: 'admin_panel'
+      }
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'تم إرسال الإشعار التجريبي بنجاح',
+        data: {
+          sentTo: userPhone,
+          timestamp: new Date().toISOString(),
+          result: result
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'فشل في إرسال الإشعار التجريبي',
+        error: result.error
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ خطأ في إرسال الإشعار التجريبي:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إرسال الإشعار التجريبي',
+      error: error.message
+    });
+  }
+});
 
 /**
  * إرسال إشعار تحديث حالة الطلب

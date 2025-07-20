@@ -10,6 +10,18 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 
+// ✅ إضافة middleware الأمان المحسن
+const {
+  corsOptions,
+  generalRateLimit,
+  authRateLimit,
+  apiRateLimit,
+  sanitizeInput,
+  validateContentType,
+  logSuspiciousActivity,
+  helmet: secureHelmet
+} = require('./middleware/security');
+
 // استيراد الخدمات الرسمية
 const OfficialNotificationManager = require('./services/official_notification_manager');
 const AdvancedSyncManager = require('./services/advanced_sync_manager');
@@ -47,36 +59,29 @@ class OfficialMontajatiServer {
   // إعداد Express
   // ===================================
   setupExpress() {
-    // إعدادات الأمان
-    this.app.use(helmet({
-      contentSecurityPolicy: false, // تعطيل CSP للتطوير
-      crossOriginEmbedderPolicy: false
-    }));
+    // ✅ إعدادات الأمان المحسنة
+    this.app.use(secureHelmet);
 
     // ضغط الاستجابات
     this.app.use(compression());
 
-    // إعدادات CORS
-    this.app.use(cors({
-      origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
-      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-      credentials: true
-    }));
+    // ✅ إعدادات CORS الآمنة
+    this.app.use(cors(corsOptions));
 
-    // تحديد معدل الطلبات
-    const limiter = rateLimit({
-      windowMs: 15 * 60 * 1000, // 15 دقيقة
-      max: this.environment === 'production' ? 100 : 1000, // حد الطلبات
-      message: {
-        success: false,
-        message: 'تم تجاوز الحد المسموح من الطلبات، يرجى المحاولة لاحقاً',
-        retryAfter: '15 minutes'
-      },
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
-    this.app.use('/api/', limiter);
+    // ✅ تنظيف وتعقيم المدخلات
+    this.app.use(sanitizeInput);
+
+    // ✅ التحقق من Content-Type
+    this.app.use(validateContentType);
+
+    // ✅ تسجيل النشاط المشبوه
+    this.app.use(logSuspiciousActivity);
+
+    // ✅ Rate Limiting المحسن
+    this.app.use('/api/', generalRateLimit);
+    this.app.use('/api/auth/', authRateLimit);
+    this.app.use('/api/orders/', apiRateLimit);
+    this.app.use('/api/notifications/', apiRateLimit);
 
     // معالجة البيانات
     this.app.use(express.json({ 
@@ -289,6 +294,10 @@ class OfficialMontajatiServer {
       // مسارات FCM
       const fcmRoutes = require('./routes/fcm_tokens');
       this.app.use('/api/fcm', fcmRoutes);
+
+      // مسارات الإشعارات
+      const notificationRoutes = require('./routes/notifications');
+      this.app.use('/api/notifications', notificationRoutes);
 
       // مسارات الطلبات
       const orderRoutes = require('./routes/orders');

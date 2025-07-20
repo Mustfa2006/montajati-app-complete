@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS customers (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- إنشاء جدول المنتجات
+-- ✅ إنشاء جدول المنتجات محسن
 CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     name VARCHAR(200) NOT NULL,
@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS products (
     category VARCHAR(100),
     sku VARCHAR(100) UNIQUE,
     stock_quantity INTEGER DEFAULT 0,
+    available_quantity INTEGER DEFAULT 0, -- ✅ إضافة العمود المفقود
+    reserved_quantity INTEGER DEFAULT 0,  -- ✅ إضافة عمود للكمية المحجوزة
+    minimum_stock INTEGER DEFAULT 5,      -- ✅ إضافة حد أدنى للمخزون
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

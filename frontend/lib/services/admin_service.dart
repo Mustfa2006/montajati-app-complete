@@ -11,7 +11,7 @@ import '../utils/order_status_helper.dart';
 class AdminService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
 
-  // رابط الخادم الخلفي
+  // رابط الخادم الخلفي - تم تحديثه للخادم المُنشر
   static const String baseUrl = 'https://montajati-backend.onrender.com';
 
   /// توليد رقم طلب فريد
@@ -929,7 +929,19 @@ class AdminService {
         if (userPhone != null && userPhone.isNotEmpty) {
           debugPrint('📱 إرسال إشعار للمستخدم صاحب الطلب: $userPhone');
 
-          // تم إزالة نظام الإشعارات
+          // 🔔 إرسال إشعار فوري للعميل
+          try {
+            await _sendOrderStatusNotification(
+              customerPhone: userPhone,
+              orderId: orderNumber,
+              newStatus: statusForDatabase,
+              customerName: customerName,
+            );
+            debugPrint('✅ تم إرسال الإشعار بنجاح للعميل $customerName');
+          } catch (e) {
+            debugPrint('⚠️ خطأ في إرسال الإشعار: $e');
+          }
+
           debugPrint('تم تحديث حالة الطلب $orderNumber للعميل $customerName إلى $statusForDatabase');
         } else {
           debugPrint('⚠️ لا يوجد رقم هاتف للمستخدم صاحب الطلب');
@@ -1920,6 +1932,7 @@ class AdminService {
     required String orderNumber,
     required String oldStatus,
     required String newStatus,
+    required String customerPhone,
   }) async {
     try {
       debugPrint('🔔 إرسال إشعار محلي فوري...');
@@ -1958,7 +1971,6 @@ class AdminService {
           message = 'تم تحديث حالة طلب $customerName ($orderNumber)';
       }
 
-      // تم إزالة نظام الإشعارات مؤقتاً
       debugPrint('✅ تم تحديث الطلب بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في إرسال الإشعار المحلي الفوري: $e');

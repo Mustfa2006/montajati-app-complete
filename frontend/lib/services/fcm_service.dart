@@ -37,16 +37,31 @@ class FCMService {
   bool get isInitialized => _isInitialized;
   String? get currentToken => _currentToken;
 
-  /// تهيئة خدمة FCM
+  /// ✅ تهيئة خدمة FCM محسنة مع معالجة أفضل للأخطاء
   Future<bool> initialize() async {
     try {
       debugPrint('🔥 بدء تهيئة Firebase Cloud Messaging...');
-      
-      // تهيئة Firebase
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      
+
+      // التحقق من توفر الخدمات
+      if (!kIsWeb && Platform.isIOS) {
+        // التحقق من إعدادات iOS
+        debugPrint('📱 تشغيل على iOS - التحقق من الإعدادات...');
+      } else if (!kIsWeb && Platform.isAndroid) {
+        // التحقق من إعدادات Android
+        debugPrint('🤖 تشغيل على Android - التحقق من الإعدادات...');
+      }
+
+      // تهيئة Firebase مع معالجة الأخطاء
+      try {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+        debugPrint('✅ تم تهيئة Firebase بنجاح');
+      } catch (firebaseError) {
+        debugPrint('❌ خطأ في تهيئة Firebase: $firebaseError');
+        return false;
+      }
+
       _messaging = FirebaseMessaging.instance;
       
       // طلب الأذونات
@@ -168,14 +183,18 @@ class FCMService {
       // الحصول على معلومات الجهاز
       final deviceInfo = await _getDeviceInfo();
       
-      // حفظ Token في قاعدة البيانات
+      // ✅ حفظ Token في قاعدة البيانات مع معالجة الاستجابة
       final response = await _supabase.rpc('upsert_fcm_token', params: {
         'p_user_phone': userPhone,
         'p_fcm_token': token,
         'p_device_info': deviceInfo,
       });
-      
-      debugPrint('✅ تم حفظ FCM Token للمستخدم: $userPhone');
+
+      if (response != null) {
+        debugPrint('✅ تم حفظ FCM Token للمستخدم: $userPhone');
+      } else {
+        debugPrint('⚠️ تم حفظ FCM Token ولكن بدون استجابة من الخادم');
+      }
       
     } catch (e) {
       debugPrint('❌ خطأ في حفظ FCM Token: $e');
@@ -328,12 +347,55 @@ class FCMService {
   /// تسجيل FCM Token للمستخدم الحالي
   static Future<bool> registerCurrentUserToken() async {
     final instance = FCMService();
-    
+
     if (!instance.isInitialized) {
       await instance.initialize();
     }
-    
-    return instance.currentToken != null;
+
+    if (instance.currentToken == null) {
+      debugPrint('❌ لا يوجد FCM Token للتسجيل');
+      return false;
+    }
+
+    try {
+      // الحصول على معلومات المستخدم الحالي
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) {
+        debugPrint('❌ لا يوجد مستخدم مسجل دخول');
+        return false;
+      }
+
+      // الحصول على رقم الهاتف من جدول المستخدمين
+      final userResponse = await Supabase.instance.client
+          .from('users')
+          .select('phone')
+          .eq('id', user.id)
+          .single();
+
+      final userPhone = userResponse['phone'] as String?;
+      if (userPhone == null || userPhone.isEmpty) {
+        debugPrint('❌ لا يوجد رقم هاتف للمستخدم');
+        return false;
+      }
+
+      // تسجيل الـ Token في قاعدة البيانات
+      await Supabase.instance.client.from('fcm_tokens').upsert({
+        'user_phone': userPhone,
+        'fcm_token': instance.currentToken,
+        'device_info': {'platform': 'Flutter', 'app': 'Montajati'},
+        'is_active': true,
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+        'last_used_at': DateTime.now().toIso8601String(),
+      });
+
+      debugPrint('✅ تم تسجيل FCM Token بنجاح للمستخدم: $userPhone');
+      return true;
+
+    } catch (e) {
+      debugPrint('❌ خطأ في تسجيل FCM Token: $e');
+      return false;
+    }
   }
 
   /// الحصول على معلومات الخدمة

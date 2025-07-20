@@ -1,11 +1,18 @@
-// إعداد Supabase للـ Frontend
+// إعداد Supabase للـ Frontend - محسن للأمان
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseConfig {
-  // إعدادات Supabase
-  static const String supabaseUrl = 'https://fqdhskaolzfavapmqodl.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZGhza2FvbHpmYXZhcG1xb2RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwODE3MjYsImV4cCI6MjA2NTY1NzcyNn0.tRHMAogrSzjRwSIJ9-m0YMoPhlHeR6U8kfob0wyvf_I';
+  // ✅ إعدادات Supabase الآمنة - يتم تحميلها من متغيرات البيئة
+  static const String supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'https://fqdhskaolzfavapmqodl.supabase.co',
+  );
+
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxZGhza2FvbHpmYXZhcG1xb2RsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwODE3MjYsImV4cCI6MjA2NTY1NzcyNn0.tRHMAogrSzjRwSIJ9-m0YMoPhlHeR6U8kfob0wyvf_I',
+  );
   
   // تهيئة Supabase
   static Future<void> initialize() async {

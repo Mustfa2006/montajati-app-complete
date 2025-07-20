@@ -12,30 +12,52 @@ class FirebaseAdminService {
   }
 
   /**
-   * تهيئة Firebase Admin SDK
+   * ✅ تهيئة Firebase Admin SDK محسنة للأمان
    */
   async initialize() {
     try {
       console.log('🔥 بدء تهيئة Firebase Admin SDK...');
 
-      // التحقق من وجود متغير البيئة المطلوب
-      if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-        throw new Error('متغير البيئة مفقود: FIREBASE_SERVICE_ACCOUNT');
+      // ✅ طرق متعددة لتحميل Firebase credentials
+      let serviceAccount;
+
+      // الطريقة الأولى: من متغير البيئة JSON
+      if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        try {
+          serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+          console.log('✅ تم تحميل Firebase credentials من FIREBASE_SERVICE_ACCOUNT');
+        } catch (parseError) {
+          console.warn('⚠️ خطأ في تحليل FIREBASE_SERVICE_ACCOUNT JSON:', parseError.message);
+        }
       }
 
-      // تحليل Service Account JSON
-      let serviceAccount;
-      try {
-        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      } catch (parseError) {
-        throw new Error('خطأ في تحليل FIREBASE_SERVICE_ACCOUNT JSON: ' + parseError.message);
+      // الطريقة الثانية: من متغيرات البيئة المنفصلة (للحل مع Render)
+      if (!serviceAccount && process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
+        serviceAccount = {
+          type: "service_account",
+          project_id: process.env.FIREBASE_PROJECT_ID,
+          private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || "",
+          private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'), // ✅ إصلاح مشكلة الأسطر الجديدة
+          client_email: process.env.FIREBASE_CLIENT_EMAIL,
+          client_id: process.env.FIREBASE_CLIENT_ID || "",
+          auth_uri: "https://accounts.google.com/o/oauth2/auth",
+          token_uri: "https://oauth2.googleapis.com/token",
+          auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
+          client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL || ""
+        };
+        console.log('✅ تم تحميل Firebase credentials من متغيرات البيئة المنفصلة');
+      }
+
+      // التحقق من وجود Service Account
+      if (!serviceAccount) {
+        throw new Error('❌ لم يتم العثور على Firebase credentials. تأكد من وجود FIREBASE_SERVICE_ACCOUNT أو متغيرات البيئة المطلوبة');
       }
 
       // التحقق من وجود الحقول المطلوبة
       const requiredFields = ['project_id', 'private_key', 'client_email'];
       for (const field of requiredFields) {
         if (!serviceAccount[field]) {
-          throw new Error(`حقل مفقود في Service Account: ${field}`);
+          throw new Error(`❌ حقل مفقود في Service Account: ${field}`);
         }
       }
 
@@ -45,6 +67,9 @@ class FirebaseAdminService {
           credential: admin.credential.cert(serviceAccount),
           projectId: serviceAccount.project_id
         });
+        console.log('✅ تم تهيئة Firebase Admin بنجاح');
+      } else {
+        console.log('✅ Firebase Admin مهيأ مسبقاً');
       }
 
       this.messaging = admin.messaging();
@@ -244,6 +269,17 @@ class FirebaseAdminService {
   }
 
   /**
+   * إرسال إشعار (دالة مختصرة للتوافق)
+   * @param {string} fcmToken - رمز FCM للمستخدم
+   * @param {Object} notification - بيانات الإشعار
+   * @param {Object} data - بيانات إضافية
+   * @returns {Promise<Object>} نتيجة الإرسال
+   */
+  async sendNotification(fcmToken, notification, data = {}) {
+    return await this.sendNotificationToUser(fcmToken, notification, data);
+  }
+
+  /**
    * التحقق من صحة FCM Token
    * @param {string} fcmToken - رمز FCM للتحقق منه
    * @returns {Promise<boolean>} صحة الرمز
@@ -302,4 +338,4 @@ class FirebaseAdminService {
 // إنشاء instance واحد للخدمة
 const firebaseAdminService = new FirebaseAdminService();
 
-module.exports = firebaseAdminService;
+module.exports = { FirebaseAdminService, firebaseAdminService };

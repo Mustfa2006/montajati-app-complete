@@ -28,14 +28,23 @@ router.get('/', async (req, res) => {
       query = query.eq('status', status);
     }
 
-    // البحث
+    // ✅ البحث الآمن - منع SQL Injection
     if (search) {
-      query = query.or(`customer_name.ilike.%${search}%,order_number.ilike.%${search}%,customer_phone.ilike.%${search}%`);
+      // تنظيف وتعقيم نص البحث
+      const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&').trim();
+
+      if (sanitizedSearch.length > 0) {
+        query = query.or(`customer_name.ilike.%${sanitizedSearch}%,order_number.ilike.%${sanitizedSearch}%,customer_phone.ilike.%${sanitizedSearch}%`);
+      }
     }
 
-    // التصفح
+    // ✅ التصفح المحسن مع ترتيب
     const offset = (page - 1) * limit;
-    query = query.range(offset, offset + limit - 1);
+
+    // ترتيب حسب تاريخ الإنشاء (الأحدث أولاً) لتحسين الأداء
+    query = query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     const { data, error } = await query;
 

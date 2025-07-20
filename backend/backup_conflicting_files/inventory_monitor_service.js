@@ -10,9 +10,15 @@ class InventoryMonitorService {
     this.telegramService = new TelegramNotificationService();
     this.lowStockThreshold = parseInt(process.env.LOW_STOCK_THRESHOLD) || 5;
 
-    // نظام ذكي لمنع تكرار الإشعارات - مدى الحياة
+    // ✅ نظام ذكي لمنع تكرار الإشعارات مع تنظيف دوري
     this.sentNotifications = new Map(); // productId -> { type, timestamp, lastQuantity }
     this.notificationCooldown = 24 * 60 * 60 * 1000; // 24 ساعة بالميلي ثانية
+    this.maxCacheSize = 1000; // ✅ حد أقصى لحجم الذاكرة المؤقتة
+
+    // ✅ تنظيف دوري للذاكرة المؤقتة كل 6 ساعات
+    this.cleanupInterval = setInterval(() => {
+      this.cleanupOldNotifications();
+    }, 6 * 60 * 60 * 1000);
   }
 
   /**
@@ -401,6 +407,55 @@ ${results.outOfStock > 0 || results.lowStock > 0 ?
         error: error.message
       };
     }
+  }
+
+  /**
+   * ✅ تنظيف الإشعارات القديمة من الذاكرة المؤقتة
+   */
+  cleanupOldNotifications() {
+    try {
+      const now = Date.now();
+      const cutoffTime = now - (this.notificationCooldown * 2); // ضعف فترة التبريد
+      let cleanedCount = 0;
+
+      // حذف الإشعارات القديمة
+      for (const [productId, notification] of this.sentNotifications.entries()) {
+        if (notification.timestamp < cutoffTime) {
+          this.sentNotifications.delete(productId);
+          cleanedCount++;
+        }
+      }
+
+      // إذا كان الحجم لا يزال كبيراً، احذف الأقدم
+      if (this.sentNotifications.size > this.maxCacheSize) {
+        const entries = Array.from(this.sentNotifications.entries())
+          .sort((a, b) => a[1].timestamp - b[1].timestamp);
+
+        const toDelete = entries.slice(0, entries.length - this.maxCacheSize);
+        toDelete.forEach(([productId]) => {
+          this.sentNotifications.delete(productId);
+          cleanedCount++;
+        });
+      }
+
+      if (cleanedCount > 0) {
+        console.log(`🧹 تم تنظيف ${cleanedCount} إشعار قديم من الذاكرة المؤقتة`);
+      }
+    } catch (error) {
+      console.error('❌ خطأ في تنظيف الذاكرة المؤقتة:', error);
+    }
+  }
+
+  /**
+   * ✅ إيقاف الخدمة وتنظيف الموارد
+   */
+  shutdown() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    this.sentNotifications.clear();
+    console.log('✅ تم إيقاف خدمة مراقبة المخزون وتنظيف الموارد');
   }
 }
 

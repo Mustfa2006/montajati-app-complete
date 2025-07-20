@@ -8,6 +8,7 @@ import '../services/order_monitoring_service.dart';
 import '../services/fcm_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'notification_test_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/custom_app_bar.dart';
@@ -1510,6 +1511,30 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // زر صفحة اختبار الإشعارات
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const NotificationTestPage(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.bug_report),
+                      label: const Text('🧪 صفحة اختبار الإشعارات المتقدمة'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1869,7 +1894,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
 
     try {
       final response = await http.get(
-        Uri.parse('${AdminService.baseUrl}/api/notifications/tokens/stats'),
+        Uri.parse('${AdminService.baseUrl}/api/fcm/stats'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -1942,7 +1967,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('${AdminService.baseUrl}/api/notifications/tokens/cleanup'),
+        Uri.parse('${AdminService.baseUrl}/api/fcm/cleanup'),
         headers: {'Content-Type': 'application/json'},
       );
 
