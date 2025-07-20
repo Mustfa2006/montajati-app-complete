@@ -41,47 +41,48 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDkrQtsrzTDMP9OcE8rqKDr9HESxqo-vvM',
-    appId: '1:827926006456:web:8f9a2b3c4d5e6f7g8h9i0j',
-    messagingSenderId: '827926006456',
+    apiKey: 'AIzaSyAyJztyuQ_t_ZIftJVwi_rXr9zHkvy2P1Y',
+    appId: '1:684581846709:web:0ec869872cc0887acd48fc',
+    messagingSenderId: '684581846709',
     projectId: 'montajati-app-7767d',
     authDomain: 'montajati-app-7767d.firebaseapp.com',
     storageBucket: 'montajati-app-7767d.firebasestorage.app',
-    measurementId: 'G-XXXXXXXXXX',
+    measurementId: 'G-MEASUREMENT_ID',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDkrQtsrzTDMP9OcE8rqKDr9HESxqo-vvM',
-    appId: '1:827926006456:android:1a2b3c4d5e6f7g8h9i0j1k',
-    messagingSenderId: '827926006456',
+    apiKey: 'AIzaSyAyJztyuQ_t_ZIftJVwi_rXr9zHkvy2P1Y',
+    appId: '1:684581846709:android:app_id_here',
+    messagingSenderId: '684581846709',
     projectId: 'montajati-app-7767d',
     storageBucket: 'montajati-app-7767d.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDkrQtsrzTDMP9OcE8rqKDr9HESxqo-vvM',
-    appId: '1:827926006456:ios:2b3c4d5e6f7g8h9i0j1k2l',
-    messagingSenderId: '827926006456',
+    apiKey: 'AIzaSyAyJztyuQ_t_ZIftJVwi_rXr9zHkvy2P1Y',
+    appId: '1:684581846709:ios:app_id_here',
+    messagingSenderId: '684581846709',
     projectId: 'montajati-app-7767d',
     storageBucket: 'montajati-app-7767d.firebasestorage.app',
     iosBundleId: 'com.montajati.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDkrQtsrzTDMP9OcE8rqKDr9HESxqo-vvM',
-    appId: '1:827926006456:macos:YOUR_MACOS_APP_ID',
-    messagingSenderId: '827926006456',
+    apiKey: 'AIzaSyAyJztyuQ_t_ZIftJVwi_rXr9zHkvy2P1Y',
+    appId: '1:684581846709:ios:app_id_here',
+    messagingSenderId: '684581846709',
     projectId: 'montajati-app-7767d',
     storageBucket: 'montajati-app-7767d.firebasestorage.app',
     iosBundleId: 'com.montajati.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDkrQtsrzTDMP9OcE8rqKDr9HESxqo-vvM',
-    appId: '1:827926006456:windows:YOUR_WINDOWS_APP_ID',
-    messagingSenderId: '827926006456',
+    apiKey: 'AIzaSyAyJztyuQ_t_ZIftJVwi_rXr9zHkvy2P1Y',
+    appId: '1:684581846709:web:0ec869872cc0887acd48fc',
+    messagingSenderId: '684581846709',
     projectId: 'montajati-app-7767d',
     authDomain: 'montajati-app-7767d.firebaseapp.com',
     storageBucket: 'montajati-app-7767d.firebasestorage.app',
+    measurementId: 'G-MEASUREMENT_ID',
   );
 }

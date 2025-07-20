@@ -5,10 +5,11 @@ const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const targetedNotificationService = require('./services/targeted_notification_service');
+const tokenManagementService = require('./services/token_management_service');
+const cron = require('node-cron');
 
-// استيراد نظام الإشعارات المستهدفة
-const notificationMasterService = require('./services/notification_master_service');
-const targetedNotificationsRouter = require('./routes/targeted_notifications');
+
 
 // تحميل المتغيرات من ملف .env
 dotenv.config();
@@ -45,12 +46,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // تحقق من اتصال Supabase
 console.log('✅ تم إعداد Supabase بنجاح');
 
-// إضافة routes نظام الإشعارات المستهدفة
-app.use('/api/notifications', targetedNotificationsRouter);
 
-// إضافة routes FCM Tokens للإشعارات
-const fcmTokensRouter = require('./routes/fcm_tokens');
-app.use('/api/fcm', fcmTokensRouter);
 
 // Routes الأساسية
 app.get('/', (req, res) => {
@@ -113,6 +109,15 @@ try {
   console.log('تحذير: لم يتم العثور على routes/statistics');
 }
 
+// Routes للإشعارات الفورية
+try {
+  const notificationRoutes = require('./routes/notifications');
+  app.use('/api/notifications', notificationRoutes);
+  console.log('✅ تم تحميل مسارات الإشعارات');
+} catch (error) {
+  console.log('تحذير: لم يتم العثور على routes/notifications');
+}
+
 // معالجة الأخطاء العامة
 app.use((err, req, res, next) => {
   console.error('خطأ في الخادم:', err.stack);
@@ -131,6 +136,22 @@ app.use('*', (req, res) => {
   });
 });
 
+// تهيئة خدمة الإشعارات المستهدفة
+async function initializeNotificationService() {
+  try {
+    console.log('🔔 بدء تهيئة خدمة الإشعارات المستهدفة...');
+    const initialized = await targetedNotificationService.initialize();
+
+    if (initialized) {
+      console.log('✅ تم تهيئة خدمة الإشعارات المستهدفة بنجاح');
+    } else {
+      console.log('⚠️ فشل في تهيئة خدمة الإشعارات المستهدفة');
+    }
+  } catch (error) {
+    console.error('❌ خطأ في تهيئة خدمة الإشعارات:', error.message);
+  }
+}
+
 // تشغيل الخادم
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, '0.0.0.0', async () => {
@@ -142,19 +163,57 @@ app.listen(PORT, '0.0.0.0', async () => {
     console.log(`🌐 الرابط المحلي: http://localhost:${PORT}`);
   }
 
-  // بدء نظام الإشعارات المستهدفة تلقائياً
-  console.log('🎯 بدء نظام الإشعارات المستهدفة...');
-  try {
-    const result = await notificationMasterService.startAllServices();
-    if (result.success) {
-      console.log('✅ تم تشغيل نظام الإشعارات المستهدفة بنجاح');
-      console.log('📱 الإشعارات ستصل للمستخدمين المحددين فقط');
-    } else {
-      console.log('⚠️ تحذير: فشل في تشغيل نظام الإشعارات');
-    }
-  } catch (error) {
-    console.log('⚠️ تحذير: خطأ في تشغيل نظام الإشعارات:', error.message);
-  }
+  // تهيئة خدمة الإشعارات
+  await initializeNotificationService();
+
+  // بدء مهام الصيانة الدورية
+  startMaintenanceTasks();
 });
+
+// مهام الصيانة الدورية لـ FCM Tokens
+function startMaintenanceTasks() {
+  console.log('⏰ بدء جدولة مهام الصيانة الدورية...');
+
+  // تنظيف الرموز القديمة كل يوم في الساعة 2:00 صباحاً
+  cron.schedule('0 2 * * *', async () => {
+    console.log('🧹 تشغيل مهمة تنظيف FCM Tokens القديمة...');
+    try {
+      const result = await tokenManagementService.cleanupOldTokens();
+      console.log('✅ انتهت مهمة التنظيف:', result);
+    } catch (error) {
+      console.error('❌ خطأ في مهمة التنظيف:', error.message);
+    }
+  }, {
+    timezone: 'Asia/Riyadh'
+  });
+
+  // التحقق من صحة الرموز كل أسبوع يوم الأحد في الساعة 3:00 صباحاً
+  cron.schedule('0 3 * * 0', async () => {
+    console.log('🔍 تشغيل مهمة التحقق من صحة FCM Tokens...');
+    try {
+      const result = await tokenManagementService.validateAllActiveTokens();
+      console.log('✅ انتهت مهمة التحقق:', result);
+    } catch (error) {
+      console.error('❌ خطأ في مهمة التحقق:', error.message);
+    }
+  }, {
+    timezone: 'Asia/Riyadh'
+  });
+
+  // تشغيل جميع مهام الصيانة كل شهر في اليوم الأول في الساعة 4:00 صباحاً
+  cron.schedule('0 4 1 * *', async () => {
+    console.log('🔧 تشغيل جميع مهام الصيانة الشهرية...');
+    try {
+      const result = await tokenManagementService.runMaintenanceTasks();
+      console.log('✅ انتهت مهام الصيانة الشهرية:', result);
+    } catch (error) {
+      console.error('❌ خطأ في مهام الصيانة الشهرية:', error.message);
+    }
+  }, {
+    timezone: 'Asia/Riyadh'
+  });
+
+  console.log('✅ تم جدولة مهام الصيانة الدورية بنجاح');
+}
 
 module.exports = app;

@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../services/new_flexible_delivery_service.dart';
-import '../services/new_notification_service.dart';
+
 
 class NewSystemTestPage extends StatefulWidget {
   const NewSystemTestPage({Key? key}) : super(key: key);
@@ -65,23 +65,9 @@ class _NewSystemTestPageState extends State<NewSystemTestPage> {
     }
   }
 
-  // اختبار خدمة الإشعارات
+  // تم إزالة نظام الإشعارات
   Future<void> _testNotificationService() async {
-    try {
-      _addTestResult('🔔 اختبار خدمة الإشعارات...');
-      
-      final isInitialized = await NewNotificationService.initialize();
-      
-      if (isInitialized) {
-        _addTestResult('✅ تم تهيئة خدمة الإشعارات بنجاح');
-        final serviceInfo = NewNotificationService.getServiceInfo();
-        _addTestResult('🔑 توكن FCM: ${serviceInfo['hasFCMToken'] ? 'متوفر' : 'غير متوفر'}');
-      } else {
-        _addTestResult('❌ فشل في تهيئة خدمة الإشعارات');
-      }
-    } catch (e) {
-      _addTestResult('❌ خطأ في اختبار الإشعارات: $e');
-    }
+    _addTestResult('⚠️ تم إزالة نظام الإشعارات من التطبيق');
   }
 
   // تحميل المحافظات

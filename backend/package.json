@@ -6,15 +6,14 @@
   "scripts": {
     "start": "node official_montajati_server.js",
     "legacy": "node start_system_complete.js",
-    "start-notifications": "node start_notifications_final.js",
+
     "start-simple": "node simple_server.js",
     "start-debug": "node render-start.js",
     "dev": "nodemon official_montajati_server.js",
     "production": "NODE_ENV=production node official_montajati_server.js",
     "local": "node production_server.js",
     "proxy": "node flexible_delivery_proxy.js",
-    "test-firebase": "node test_firebase_connection.js",
-    "test-notifications": "node test-firebase-notifications.js",
+
     "proxy:dev": "nodemon flexible_delivery_proxy.js",
     "monitor": "node order_status_monitor.js",
     "monitor:dev": "nodemon order_status_monitor.js",
@@ -23,24 +22,8 @@
     "health": "curl http://localhost:3003/health",
     "status": "curl http://localhost:3003/api/system/status",
     "metrics": "curl http://localhost:3003/api/monitor/metrics",
-    "firebase-check": "node render_firebase_check.js",
-    "firebase-extract": "node extract_firebase_vars.js",
-    "debug-firebase": "node debug-firebase.js",
-    "firebase-diagnostic": "node render_firebase_diagnostic.js",
-    "firebase-quick": "node quick_firebase_check.js",
-    "notification:start": "node services/notification_service_runner.js start",
-    "notification:stats": "node services/notification_service_runner.js stats",
-    "notification:test": "node services/notification_service_runner.js test",
-    "notification:setup": "node setup_smart_notifications.js setup",
-    "notification:system": "node start_smart_notification_system.js start",
-    "notification:system-test": "node start_smart_notification_system.js test",
-    "notification:final": "node start_notification_system_final.js start",
-    "notification:final-stats": "node start_notification_system_final.js stats",
-    "notification:test-simple": "node test_notification_system_simple.js full",
-    "notification:real": "node run_real_notification_system.js start",
-    "notification:real-test": "node run_real_notification_system.js test",
-    "notification:real-trigger": "node run_real_notification_system.js trigger",
-    "notification:real-stats": "node run_real_notification_system.js stats",
+
+
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -63,7 +46,7 @@
     "dotenv": "^16.5.0",
     "express": "^4.18.2",
     "express-rate-limit": "^7.5.1",
-    "firebase-admin": "^12.7.0",
+
     "form-data": "^4.0.3",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
@@ -71,7 +54,8 @@
     "multer": "^2.0.1",
     "node-cron": "^3.0.3",
     "pg": "^8.16.0",
-    "streamifier": "^0.1.1"
+    "streamifier": "^0.1.1",
+    "firebase-admin": "^12.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

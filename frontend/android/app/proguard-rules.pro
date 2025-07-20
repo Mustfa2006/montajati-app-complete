@@ -9,17 +9,7 @@
 -keep class io.flutter.**  { *; }
 -keep class io.flutter.plugins.**  { *; }
 
-# إبقاء Firebase classes المستخدمة فعلياً
--keep class com.google.firebase.messaging.** { *; }
--keep class com.google.firebase.analytics.** { *; }
--keep class com.google.firebase.crashlytics.** { *; }
--keep class com.google.firebase.core.** { *; }
--keep class com.google.android.gms.tasks.** { *; }
--keep class com.google.android.gms.common.** { *; }
 
-# إبقاء classes المطلوبة للإشعارات
--keep class com.google.firebase.iid.** { *; }
--keep class com.google.firebase.installations.** { *; }
 
 # إبقاء JSON وHTTP classes المستخدمة
 -keep class com.google.gson.** { *; }

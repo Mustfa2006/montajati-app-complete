@@ -16,39 +16,19 @@ class NotificationService {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // إعداد Firebase Admin
-    this.initializeFirebase();
-
-    // إعدادات الإشعارات
-    this.notificationConfig = {
-      enabled: process.env.NOTIFICATIONS_ENABLED !== 'false',
-      retryAttempts: 3,
-      retryDelay: 2000, // 2 ثانية
-      batchSize: 100
-    };
-
-    console.log('🔔 تم تهيئة خدمة الإشعارات التلقائية');
+    // تم إزالة نظام الإشعارات
+    this.initialized = false;
+    console.log('⚠️ تم إزالة نظام الإشعارات من التطبيق');
   }
 
-  // ===================================
-  // تهيئة Firebase Admin
-  // ===================================
+  // تم إزالة نظام الإشعارات
   initializeFirebase() {
-    try {
-      // استخدام Firebase المهيأ مسبقاً من config/firebase.js
-      if (admin.apps.length > 0) {
-        console.log('ℹ️ Firebase Admin مهيأ مسبقاً');
-        this.messaging = admin.messaging();
-        this.initialized = true;
-        return;
-      }
+    console.log('⚠️ تم إزالة نظام الإشعارات - Firebase غير متاح');
+    this.initialized = false;
+  }
 
-      // إذا لم يكن مهيأ، استخدم نفس طريقة config/firebase.js
-      if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
-        console.log('🔥 استخدام Firebase Service Account من متغيرات البيئة');
-
-        // تنظيف المفتاح الخاص
-        let cleanPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
+      // تم إزالة نظام الإشعارات
+      console.log('⚠️ نظام الإشعارات غير متاح - تم إزالته من التطبيق');
         if (cleanPrivateKey) {
           cleanPrivateKey = cleanPrivateKey.replace(/\\n/g, '\n');
         }

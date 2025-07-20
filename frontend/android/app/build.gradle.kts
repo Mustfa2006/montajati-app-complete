@@ -1,7 +1,7 @@
 import java.util.Properties
 import java.io.FileInputStream
 
-// إعدادات Kotlin 2.1.0 محسنة ومتوافقة مع Google Play Services
+// إعدادات Kotlin متوافقة مع Flutter
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
         jvmTarget = "11"
@@ -17,7 +17,7 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-    // Add the Google services Gradle plugin
+    // Google Services plugin for Firebase
     id("com.google.gms.google-services")
 }
 
@@ -47,8 +47,8 @@ android {
         applicationId = "com.montajati.app"
         minSdk = 21 // Android 5.0 كحد أدنى للإنتاج
         targetSdk = 35 // Android 15 - أحدث إصدار
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "2.0.0"
 
         // إعدادات التطبيق للإنتاج
         resValue("string", "app_name", "منتجاتي")
@@ -57,6 +57,11 @@ android {
         // إعدادات الأمان
         multiDexEnabled = true
         vectorDrawables.useSupportLibrary = true
+
+        // إعدادات Architecture - دعم 32-bit فقط للتوافق مع الأجهزة القديمة
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "x86"))
+        }
     }
 
     // إعدادات التوقيع
@@ -82,8 +87,8 @@ android {
             // إعدادات تحسين إضافية
             isDebuggable = false
             isJniDebuggable = false
-            isRenderscriptDebuggable = false
-            renderscriptOptimLevel = 3
+            // isRenderscriptDebuggable removed in AGP 9.0+
+            // renderscriptOptimLevel removed in AGP 9.0+
 
             // تحسين APK
             ndk {
@@ -97,6 +102,16 @@ android {
             isShrinkResources = false
         }
     }
+
+    // إعدادات Splits لتحسين حجم APK - 32-bit فقط
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "x86")
+            isUniversalApk = true // إنشاء APK شامل يدعم المعمارات 32-bit
+        }
+    }
 }
 
 flutter {
@@ -107,18 +122,14 @@ dependencies {
     // Core library desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
-    // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:32.7.4"))
 
-    // Add the dependencies for Firebase products you want to use
-    // When using the BoM, don't specify versions in Firebase dependencies
-    implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-messaging")
-
-    // Add the dependencies for any other desired Firebase products
-    // https://firebase.google.com/docs/android/setup#available-libraries
 
     // Google Play Core for Flutter (fixes missing classes)
     implementation("com.google.android.play:core:1.10.3")
     implementation("com.google.android.play:core-ktx:1.8.1")
+
+    // Firebase BoM للإشعارات
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-analytics")
 }

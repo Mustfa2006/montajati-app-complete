@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "684581846709",
+    "project_id": "montajati-app-7767d",
+    "storage_bucket": "montajati-app-7767d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:684581846709:android:app_id_here",
+        "android_client_info": {
+          "package_name": "com.montajati.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "684581846709-client_id_here.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAyJztyuQ_t_ZIftJVwi_rXr9zHkvy2P1Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "684581846709-client_id_here.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

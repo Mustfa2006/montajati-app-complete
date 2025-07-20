@@ -85,16 +85,9 @@ class SystemManager {
     console.log('🚀 تهيئة جميع خدمات النظام...');
 
     try {
-      // 1. تهيئة Firebase
-      console.log('🔥 تهيئة Firebase...');
-      try {
-        await firebaseConfig.initialize();
-        this.services.firebase = { status: 'active', initialized: true };
-        console.log('✅ Firebase مهيأ بنجاح');
-      } catch (error) {
-        this.services.firebase = { status: 'disabled', error: error.message };
-        console.warn('⚠️ Firebase معطل:', error.message);
-      }
+      // تم إزالة نظام Firebase والإشعارات
+      console.log('⚠️ تم إزالة نظام Firebase والإشعارات من التطبيق');
+      this.services.firebase = { status: 'removed', initialized: false };
 
       // 2. تهيئة Telegram
       console.log('📱 تهيئة خدمة Telegram...');

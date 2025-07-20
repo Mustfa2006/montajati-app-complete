@@ -3,7 +3,11 @@ import 'package:flutter/services.dart';
 import '../services/supabase_service.dart';
 import '../services/admin_service.dart';
 import '../services/withdrawal_service.dart';
-import '../services/official_notification_service.dart';
+
+import '../services/order_monitoring_service.dart';
+import '../services/fcm_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../widgets/custom_app_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,6 +20,7 @@ class AdminSettingsPage extends StatefulWidget {
 
 class _AdminSettingsPageState extends State<AdminSettingsPage> {
   bool _isLoading = false;
+  final TextEditingController _testPhoneController = TextEditingController();
 
   // إعدادات النظام العامة
   bool _maintenanceMode = false;
@@ -1231,6 +1236,59 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 16),
+            // مؤشر حالة تسجيل الدخول
+            FutureBuilder<String?>(
+              future: _getCurrentUserPhone(),
+              builder: (context, snapshot) {
+                final isLoggedIn = snapshot.data != null && snapshot.data!.isNotEmpty;
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isLoggedIn ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isLoggedIn ? Colors.green : Colors.orange,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isLoggedIn ? Icons.check_circle : Icons.warning,
+                        color: isLoggedIn ? Colors.green : Colors.orange,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isLoggedIn
+                            ? 'مسجل دخول: ${snapshot.data}'
+                            : 'غير مسجل دخول - يجب تسجيل الدخول أولاً',
+                          style: TextStyle(
+                            color: isLoggedIn ? Colors.green : Colors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            // زر محاكاة تسجيل الدخول للاختبار
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _simulateLogin,
+                icon: const Icon(Icons.login),
+                label: const Text('محاكاة تسجيل دخول للاختبار'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -1258,28 +1316,203 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            if (OfficialNotificationService.isInitialized)
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.green),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.green, size: 16),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'نظام الإشعارات مهيأ ويعمل',
-                      style: TextStyle(color: Colors.green, fontSize: 12),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _testOrderMonitoring,
+                    icon: const Icon(Icons.monitor_heart),
+                    label: const Text('اختبار المراقبة الفورية'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple,
+                      foregroundColor: Colors.white,
                     ),
-                  ],
+                  ),
                 ),
-              )
-            else
-              Container(
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : _restartOrderMonitoring,
+                    icon: const Icon(Icons.restart_alt),
+                    label: const Text('إعادة تشغيل المراقبة'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info, color: Colors.orange, size: 16),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'تم إزالة نظام الإشعارات',
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            // قسم اختبار الإشعارات الفورية
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.notifications_active,
+                           color: Colors.blue.shade700, size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        'اختبار الإشعارات الفورية',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // حقل رقم الهاتف
+                  TextField(
+                    controller: _testPhoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'رقم هاتف العميل للاختبار',
+                      hintText: '05xxxxxxxx',
+                      prefixIcon: Icon(Icons.phone),
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // أزرار الاختبار
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _testNotification,
+                          icon: const Icon(Icons.send),
+                          label: const Text('إرسال إشعار تجريبي'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _testOrderNotification,
+                          icon: const Icon(Icons.shopping_cart),
+                          label: const Text('اختبار إشعار طلب'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // معلومات FCM
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'معلومات خدمة الإشعارات:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 8),
+                        FutureBuilder<Map<String, dynamic>>(
+                          future: _getFCMServiceInfo(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              final info = snapshot.data!;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('• الحالة: ${info['isInitialized'] ? 'مفعل' : 'غير مفعل'}'),
+                                  Text('• يوجد Token: ${info['hasToken'] ? 'نعم' : 'لا'}'),
+                                  if (info['tokenPreview'] != null)
+                                    Text('• Token: ${info['tokenPreview']}...'),
+                                ],
+                              );
+                            }
+                            return const Text('جاري التحميل...');
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // أزرار إدارة الرموز
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _getTokenStats,
+                          icon: const Icon(Icons.analytics),
+                          label: const Text('إحصائيات الرموز'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.purple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isLoading ? null : _cleanupTokens,
+                          icon: const Icon(Icons.cleaning_services),
+                          label: const Text('تنظيف الرموز'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.orange.withOpacity(0.1),
@@ -1304,6 +1537,60 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
   }
 
   // ===================================
+  // دوال مساعدة
+  // ===================================
+
+  Future<String?> _getCurrentUserPhone() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('user_phone');
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // ===================================
+  // محاكاة تسجيل الدخول للاختبار
+  // ===================================
+
+  Future<void> _simulateLogin() async {
+    setState(() => _isLoading = true);
+
+    try {
+      debugPrint('🔐 محاكاة تسجيل دخول للاختبار...');
+
+      // حفظ رقم هاتف تجريبي
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_phone', '07503597589');
+      await prefs.setString('user_name', 'مستخدم تجريبي');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم تسجيل الدخول التجريبي بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في محاكاة تسجيل الدخول: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في تسجيل الدخول: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // ===================================
   // اختبار نظام الإشعارات الرسمي
   // ===================================
 
@@ -1311,50 +1598,22 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
     setState(() => _isLoading = true);
 
     try {
-      debugPrint('🧪 بدء اختبار نظام الإشعارات الرسمي...');
+      debugPrint('⚠️ تم إزالة نظام الإشعارات من التطبيق');
 
-      // تهيئة النظام
-      await OfficialNotificationService.initialize();
-
-      // حفظ FCM Token للمستخدم الحالي
-      final success = await OfficialNotificationService.saveUserFCMToken('07503597589');
-
-      if (success) {
-        // اختبار إرسال إشعار
-        final testResult = await OfficialNotificationService.testNotificationForCurrentUser();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(testResult
-                ? '✅ تم إرسال إشعار الاختبار بنجاح!'
-                : '❌ فشل في إرسال إشعار الاختبار'),
-              backgroundColor: testResult ? Colors.green : Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('❌ فشل في حفظ FCM Token'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-
-    } catch (e) {
-      debugPrint('❌ خطأ في اختبار نظام الإشعارات: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ خطأ في اختبار الإشعارات: $e'),
-            backgroundColor: Colors.red,
+          const SnackBar(
+            content: Text('⚠️ تم إزالة نظام الإشعارات من التطبيق'),
+            backgroundColor: Colors.orange,
           ),
         );
       }
+
+      // تم إزالة نظام الإشعارات
+      debugPrint('⚠️ تم إزالة نظام الإشعارات من التطبيق');
+
+    } catch (e) {
+      debugPrint('❌ خطأ في اختبار نظام الإشعارات: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1368,7 +1627,26 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
     try {
       debugPrint('🔄 إعادة تهيئة FCM Token...');
 
-      await OfficialNotificationService.refreshFCMToken();
+      // الحصول على رقم هاتف المستخدم الحالي
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserPhone = prefs.getString('user_phone');
+
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ يجب تسجيل الدخول أولاً لتحديث FCM Token'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      debugPrint('📱 رقم المستخدم الحالي: $currentUserPhone');
+
+      // تم إزالة نظام الإشعارات
+      debugPrint('⚠️ تم إزالة نظام الإشعارات من التطبيق');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1385,6 +1663,310 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('❌ خطأ في تحديث FCM Token: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // ===================================
+  // اختبار نظام المراقبة الفورية
+  // ===================================
+
+  Future<void> _testOrderMonitoring() async {
+    setState(() => _isLoading = true);
+
+    try {
+      debugPrint('🧪 اختبار نظام المراقبة الفورية...');
+
+      // اختبار الإشعارات المحلية
+      await OrderMonitoringService.testNotification();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم إرسال إشعار اختبار المراقبة الفورية'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في اختبار المراقبة الفورية: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في اختبار المراقبة: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _restartOrderMonitoring() async {
+    setState(() => _isLoading = true);
+
+    try {
+      debugPrint('🔄 إعادة تشغيل نظام المراقبة الفورية...');
+
+      await OrderMonitoringService.restartMonitoring();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم إعادة تشغيل نظام المراقبة الفورية'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في إعادة تشغيل المراقبة: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في إعادة تشغيل المراقبة: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _testPhoneController.dispose();
+    super.dispose();
+  }
+
+  /// اختبار إرسال إشعار عام
+  Future<void> _testNotification() async {
+    if (_testPhoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('يرجى إدخال رقم الهاتف'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final success = await AdminService.testNotification(_testPhoneController.text.trim());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success
+              ? '✅ تم إرسال الإشعار التجريبي بنجاح!'
+              : '❌ فشل في إرسال الإشعار التجريبي'),
+            backgroundColor: success ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في إرسال الإشعار: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// اختبار إرسال إشعار تحديث طلب
+  Future<void> _testOrderNotification() async {
+    if (_testPhoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('يرجى إدخال رقم الهاتف'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await AdminService.sendGeneralNotification(
+        customerPhone: _testPhoneController.text.trim(),
+        title: '📦 تحديث حالة طلبك',
+        message: 'تم تحديث حالة طلبك إلى: جاري التوصيل - هذا إشعار تجريبي',
+        additionalData: {
+          'type': 'order_status_test',
+          'orderId': 'TEST-${DateTime.now().millisecondsSinceEpoch}',
+          'newStatus': 'out_for_delivery',
+        },
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ تم إرسال إشعار تحديث الطلب التجريبي!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في إرسال إشعار الطلب: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// الحصول على معلومات خدمة FCM
+  Future<Map<String, dynamic>> _getFCMServiceInfo() async {
+    try {
+      return FCMService().getServiceInfo();
+    } catch (e) {
+      return {
+        'isInitialized': false,
+        'hasToken': false,
+        'error': e.toString(),
+      };
+    }
+  }
+
+  /// الحصول على إحصائيات FCM Tokens
+  Future<void> _getTokenStats() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.get(
+        Uri.parse('${AdminService.getBaseUrl()}/api/notifications/tokens/stats'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          final stats = data['data'];
+
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('📊 إحصائيات FCM Tokens'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('📈 إجمالي الرموز: ${stats['total']['tokens']}'),
+                      Text('✅ الرموز النشطة: ${stats['total']['activeTokens']}'),
+                      Text('❌ الرموز غير النشطة: ${stats['total']['inactiveTokens']}'),
+                      Text('👥 المستخدمين الفريدين: ${stats['total']['uniqueUsers']}'),
+                      const Divider(),
+                      Text('📱 استخدم اليوم: ${stats['usage']['usedToday']}'),
+                      Text('📅 استخدم هذا الأسبوع: ${stats['usage']['usedThisWeek']}'),
+                      Text('📆 استخدم هذا الشهر: ${stats['usage']['usedThisMonth']}'),
+                      const Divider(),
+                      Text('🆕 أنشئ اليوم: ${stats['growth']['createdToday']}'),
+                      Text('📊 أنشئ هذا الأسبوع: ${stats['growth']['createdThisWeek']}'),
+                      const Divider(),
+                      Text('💚 نسبة النشاط: ${stats['health']['activePercentage']}%'),
+                      Text('📈 معدل الاستخدام: ${stats['health']['usageRate']}%'),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('إغلاق'),
+                  ),
+                ],
+              ),
+            );
+          }
+        } else {
+          throw Exception(data['message']);
+        }
+      } else {
+        throw Exception('خطأ في الخادم: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في الحصول على الإحصائيات: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// تنظيف FCM Tokens القديمة
+  Future<void> _cleanupTokens() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse('${AdminService.getBaseUrl()}/api/notifications/tokens/cleanup'),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ ${data['message']}'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          throw Exception(data['message']);
+        }
+      } else {
+        throw Exception('خطأ في الخادم: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ خطأ في تنظيف الرموز: $e'),
             backgroundColor: Colors.red,
           ),
         );

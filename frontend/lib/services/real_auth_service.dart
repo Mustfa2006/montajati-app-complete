@@ -4,10 +4,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
-import 'official_notification_service.dart';
+import 'fcm_service.dart';
+
 
 class AuthService {
-  static SupabaseClient get _supabase => SupabaseConfig.client;
+  static SupabaseClient get _supabase {
+    try {
+      return SupabaseConfig.client;
+    } catch (e) {
+      debugPrint('❌ خطأ في الوصول لـ Supabase client: $e');
+      rethrow;
+    }
+  }
 
   // تشفير كلمة المرور
   static String _hashPassword(String password) {
@@ -24,8 +32,13 @@ class AuthService {
 
   // الحصول على التوكن
   static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('auth_token');
+    } catch (e) {
+      debugPrint('❌ خطأ في الحصول على التوكن: $e');
+      return null;
+    }
   }
 
   // حذف التوكن
@@ -96,9 +109,9 @@ class AuthService {
         userData['is_admin'] ?? false,
       );
 
-      // 🔔 تسجيل FCM Token للإشعارات
+      // 🔔 تسجيل FCM Token للإشعارات الفورية
       try {
-        await OfficialNotificationService.saveUserFCMToken(userData['phone'] ?? '');
+        await FCMService.registerCurrentUserToken();
         if (kDebugMode) {
           debugPrint('✅ تم تسجيل FCM Token للمستخدم');
         }

@@ -6,7 +6,7 @@ import 'user_management_service.dart';
 import '../config/supabase_config.dart';
 import '../models/order_summary.dart';
 import '../utils/order_status_helper.dart';
-import 'official_notification_service.dart';
+
 
 class AdminService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
@@ -920,22 +920,14 @@ class AdminService {
       try {
         // الحصول على رقم هاتف المستخدم صاحب الطلب
         final userPhone = existingOrder['user_phone']?.toString();
+        final customerName = existingOrder['customer_name']?.toString() ?? 'عميل';
+        final orderNumber = existingOrder['order_number']?.toString() ?? 'غير محدد';
 
         if (userPhone != null && userPhone.isNotEmpty) {
           debugPrint('📱 إرسال إشعار للمستخدم صاحب الطلب: $userPhone');
 
-          final notificationSent = await OfficialNotificationService.sendOrderStatusNotification(
-            orderId: orderId,
-            userPhone: userPhone,
-            newStatus: statusForDatabase,
-            notes: notes,
-          );
-
-          if (notificationSent) {
-            debugPrint('✅ تم إرسال إشعار تغيير حالة الطلب بنجاح');
-          } else {
-            debugPrint('❌ فشل في إرسال إشعار تغيير حالة الطلب');
-          }
+          // تم إزالة نظام الإشعارات
+          debugPrint('تم تحديث حالة الطلب $orderNumber للعميل $customerName إلى $statusForDatabase');
         } else {
           debugPrint('⚠️ لا يوجد رقم هاتف للمستخدم صاحب الطلب');
         }
@@ -1916,6 +1908,180 @@ class AdminService {
       }
     } catch (e) {
       debugPrint('❌ خطأ في نقل ربح الطلب: $e');
+    }
+  }
+
+  // إرسال إشعار محلي فوري عند تغيير حالة الطلب
+  static Future<void> _sendImmediateLocalNotification({
+    required String customerName,
+    required String orderNumber,
+    required String oldStatus,
+    required String newStatus,
+  }) async {
+    try {
+      debugPrint('🔔 إرسال إشعار محلي فوري...');
+
+      // تحديد رسالة الإشعار حسب الحالة
+      String title = '';
+      String message = '';
+
+      switch (newStatus) {
+        case 'pending':
+          title = '⏳ طلب قيد المراجعة';
+          message = 'طلب $customerName ($orderNumber) قيد المراجعة';
+          break;
+        case 'confirmed':
+          title = '✅ تم تأكيد الطلب';
+          message = 'تم تأكيد طلب $customerName ($orderNumber)';
+          break;
+        case 'processing':
+          title = '🔄 جاري تحضير الطلب';
+          message = 'طلب $customerName ($orderNumber) قيد التحضير';
+          break;
+        case 'in_delivery':
+          title = '🚚 الطلب قيد التوصيل';
+          message = 'طلب $customerName ($orderNumber) قيد التوصيل';
+          break;
+        case 'delivered':
+          title = '🎉 تم تسليم الطلب';
+          message = 'تم تسليم طلب $customerName ($orderNumber) بنجاح';
+          break;
+        case 'cancelled':
+          title = '❌ تم إلغاء الطلب';
+          message = 'تم إلغاء طلب $customerName ($orderNumber)';
+          break;
+        default:
+          title = '🔄 تحديث حالة الطلب';
+          message = 'تم تحديث حالة طلب $customerName ($orderNumber)';
+      }
+
+      // 🔔 إرسال إشعار فوري للعميل
+      await _sendOrderStatusNotification(
+        customerPhone: order['customer_phone'] ?? '',
+        orderId: orderNumber,
+        newStatus: newStatus,
+        customerName: order['customer_name'] ?? '',
+      );
+
+      debugPrint('✅ تم تحديث الطلب وإرسال الإشعار للعميل $customerName ($orderNumber)');
+    } catch (e) {
+      debugPrint('❌ خطأ في إرسال الإشعار المحلي الفوري: $e');
+    }
+  }
+
+  // ===================================
+  // دوال الإشعارات الفورية
+  // ===================================
+
+  /// إرسال إشعار تحديث حالة الطلب
+  static Future<void> _sendOrderStatusNotification({
+    required String customerPhone,
+    required String orderId,
+    required String newStatus,
+    required String customerName,
+    String? notes,
+  }) async {
+    try {
+      debugPrint('📱 إرسال إشعار تحديث الطلب للعميل: $customerPhone');
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/notifications/order-status'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'userPhone': customerPhone,
+          'orderId': orderId,
+          'newStatus': newStatus,
+          'customerName': customerName,
+          'notes': notes ?? '',
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          debugPrint('✅ تم إرسال الإشعار بنجاح: ${data['data']['messageId']}');
+        } else {
+          debugPrint('⚠️ فشل في إرسال الإشعار: ${data['message']}');
+        }
+      } else {
+        debugPrint('❌ خطأ في إرسال الإشعار: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في إرسال إشعار تحديث الطلب: $e');
+    }
+  }
+
+  /// إرسال إشعار عام للعميل
+  static Future<void> sendGeneralNotification({
+    required String customerPhone,
+    required String title,
+    required String message,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    try {
+      debugPrint('📢 إرسال إشعار عام للعميل: $customerPhone');
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/notifications/general'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'userPhone': customerPhone,
+          'title': title,
+          'message': message,
+          'additionalData': additionalData ?? {},
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          debugPrint('✅ تم إرسال الإشعار العام بنجاح');
+        } else {
+          debugPrint('⚠️ فشل في إرسال الإشعار العام: ${data['message']}');
+        }
+      } else {
+        debugPrint('❌ خطأ في إرسال الإشعار العام: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في إرسال الإشعار العام: $e');
+    }
+  }
+
+  /// اختبار إرسال إشعار
+  static Future<bool> testNotification(String customerPhone) async {
+    try {
+      debugPrint('🧪 اختبار إرسال إشعار للعميل: $customerPhone');
+
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/notifications/test'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'userPhone': customerPhone,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success']) {
+          debugPrint('✅ تم إرسال الإشعار التجريبي بنجاح');
+          return true;
+        } else {
+          debugPrint('⚠️ فشل في إرسال الإشعار التجريبي: ${data['message']}');
+          return false;
+        }
+      } else {
+        debugPrint('❌ خطأ في إرسال الإشعار التجريبي: ${response.statusCode}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في اختبار الإشعار: $e');
+      return false;
     }
   }
 }

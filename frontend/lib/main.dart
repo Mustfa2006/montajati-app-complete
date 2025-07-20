@@ -9,18 +9,59 @@ import 'config/supabase_config.dart';
 import 'config/api_config.dart';
 import 'providers/order_status_provider.dart';
 import 'router.dart';
-import 'services/firebase_service.dart';
-import 'services/official_notification_service.dart';
-import 'services/database_migration_service.dart';
 
+
+import 'services/database_migration_service.dart';
 import 'services/background_order_sync_service.dart';
-import 'services/notification_service.dart';
 import 'services/location_cache_service.dart';
+import 'services/order_monitoring_service.dart';
+import 'services/fcm_service.dart';
 
 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // إعداد معالج الأخطاء العام
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('❌ خطأ Flutter: ${details.exception}');
+    debugPrint('📍 Stack trace: ${details.stack}');
+  };
+
+  // إعداد ErrorWidget مخصص
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text(
+                'حدث خطأ في التطبيق',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'الخطأ: ${details.exception}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  // إعادة تشغيل التطبيق
+                  SystemNavigator.pop();
+                },
+                child: const Text('إعادة تشغيل التطبيق'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  };
 
   // إخفاء شريط الحالة لجميع الصفحات
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -36,39 +77,83 @@ void main() async {
     }
 
     // طباعة إعدادات API
-    ApiConfig.printConfig();
+    try {
+      ApiConfig.printConfig();
+      debugPrint('✅ تم تحميل إعدادات API بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في إعدادات API: $e');
+    }
 
     // تهيئة Supabase
-    await SupabaseConfig.initialize();
+    try {
+      debugPrint('🔄 بدء تهيئة Supabase...');
+      await SupabaseConfig.initialize();
+      debugPrint('✅ تم تهيئة Supabase بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في تهيئة Supabase: $e');
+    }
 
-    // تهيئة Firebase للإشعارات
-    await FirebaseService.initialize();
 
-    // تهيئة نظام الإشعارات الرسمي
-    await OfficialNotificationService.initialize();
 
     // تشغيل تحديثات قاعدة البيانات
-    debugPrint('🔄 تشغيل تحديثات قاعدة البيانات...');
-    await DatabaseMigrationService.runAllMigrations();
+    try {
+      debugPrint('🔄 بدء تشغيل تحديثات قاعدة البيانات...');
+      await DatabaseMigrationService.runAllMigrations();
+      debugPrint('✅ تم تشغيل تحديثات قاعدة البيانات بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في تحديثات قاعدة البيانات: $e');
+    }
 
     // 🚀 تهيئة خدمة التخزين المؤقت للمواقع (مرة واحدة فقط)
-    debugPrint('📍 تهيئة خدمة التخزين المؤقت للمواقع...');
-    await LocationCacheService.initialize();
+    try {
+      debugPrint('🔄 بدء تهيئة خدمة التخزين المؤقت للمواقع...');
+      await LocationCacheService.initialize();
+      debugPrint('✅ تم تهيئة خدمة التخزين المؤقت للمواقع بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في تهيئة خدمة التخزين المؤقت للمواقع: $e');
+    }
 
-    // تهيئة خدمة الإشعارات
-    debugPrint('🔔 تهيئة خدمة الإشعارات...');
-    await NotificationService.initialize();
+    // 🔔 تهيئة خدمة الإشعارات الفورية FCM
+    try {
+      debugPrint('🔄 بدء تهيئة خدمة الإشعارات الفورية...');
+      final fcmInitialized = await FCMService().initialize();
+      if (fcmInitialized) {
+        debugPrint('✅ تم تهيئة خدمة الإشعارات الفورية بنجاح');
+      } else {
+        debugPrint('⚠️ فشل في تهيئة خدمة الإشعارات الفورية');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تهيئة خدمة الإشعارات الفورية: $e');
+    }
+
+
 
     // بدء المراقبة التلقائية المستمرة للطلبات
-    debugPrint('🚀 بدء المراقبة التلقائية المستمرة للطلبات...');
-    await BackgroundOrderSyncService.initialize();
+    try {
+      debugPrint('🔄 بدء المراقبة التلقائية المستمرة للطلبات...');
+      await BackgroundOrderSyncService.initialize();
+      debugPrint('✅ تم بدء المراقبة التلقائية المستمرة للطلبات بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في بدء المراقبة التلقائية المستمرة للطلبات: $e');
+    }
 
+    // بدء مراقبة الطلبات في الوقت الفعلي للإشعارات الفورية
+    try {
+      debugPrint('🔄 بدء مراقبة الطلبات للإشعارات الفورية...');
+      await OrderMonitoringService.startMonitoring();
+      debugPrint('✅ تم بدء مراقبة الطلبات للإشعارات الفورية بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في بدء مراقبة الطلبات للإشعارات الفورية: $e');
+    }
 
-
-    debugPrint('✅ تم تهيئة جميع الخدمات بنجاح - المراقبة التلقائية نشطة');
-  } catch (e) {
+    debugPrint('✅ تم تهيئة جميع الخدمات بنجاح - المراقبة التلقائية والإشعارات الفورية نشطة');
+  } catch (e, stackTrace) {
     // في حالة فشل تهيئة الخدمات، استمر في تشغيل التطبيق
-    debugPrint('❌ خطأ في تهيئة الخدمات: $e');
+    debugPrint('❌ خطأ عام في تهيئة الخدمات: $e');
+    debugPrint('📍 Stack trace: $stackTrace');
+
+    // محاولة تشغيل التطبيق حتى لو فشلت بعض الخدمات
+    debugPrint('⚠️ سيتم تشغيل التطبيق مع الخدمات المتاحة فقط');
   }
 
   runApp(

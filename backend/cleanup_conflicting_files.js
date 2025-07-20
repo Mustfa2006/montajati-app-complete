@@ -11,41 +11,33 @@ class FileCleanup {
   constructor() {
     this.backupDir = './backup_conflicting_files';
     
-    // الملفات الأساسية المطلوبة لنظام الإشعارات
+    // الملفات الأساسية المطلوبة للنظام
     this.essentialFiles = [
       // الملفات الأساسية
       'package.json',
       'package-lock.json',
       '.env',
       'server.js',
-      
-      // نظام الإشعارات الأساسي
-      'notification_processor_simple.js',
-      'routes/fcm_tokens.js',
-      'database/smart_notification_trigger.sql',
-      
+
       // التشغيل
       'start_system_complete.js',
-      'start_notifications_final.js',
       'simple_server.js',
-      
+
       // الإعدادات
-      'config/firebase.js',
       'config/supabase.js',
-      
+
       // المسارات الأساسية
       'routes/orders.js',
       'routes/users.js',
       'routes/products.js',
       'routes/auth.js',
-      
+
       // الاختبار الأساسي
       'quick_test_system.js',
       'production_readiness_check.js',
-      
+
       // الأدلة المهمة
       'SYSTEM_READY_REPORT.md',
-      'SIMPLE_NOTIFICATIONS_GUIDE.md',
       'DEPLOYMENT_GUIDE_FINAL.md'
     ];
 

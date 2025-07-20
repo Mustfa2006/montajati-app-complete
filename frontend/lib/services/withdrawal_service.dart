@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'firebase_service.dart';
+
 
 /// خدمة إدارة السحوبات المالية - نظام متقدم وآمن
 class WithdrawalService {
@@ -1079,12 +1079,8 @@ class WithdrawalService {
         debugPrint('⚠️ لم يتم العثور على المستخدم: $e');
       }
 
-      // إرسال إشعار رسمي لطلب السحب
-      await FirebaseService.sendWithdrawalNotification(
-        status: data['new_status'] ?? 'unknown',
-        amount: data['amount']?.toString() ?? '0',
-        requestId: data['request_id']?.toString(),
-      );
+      // تم إزالة نظام الإشعارات
+      debugPrint('تم تحديث حالة طلب السحب: ${data['new_status']} - ${data['amount']}');
 
       debugPrint('✅ تم إرسال الإشعار المحلي بنجاح للمستخدم $userName');
     } catch (e) {
@@ -1092,78 +1088,14 @@ class WithdrawalService {
     }
   }
 
-  /// إرسال FCM notification
+  /// تم إزالة نظام الإشعارات
   static Future<void> _sendFCMNotification({
     required String token,
     required String title,
     required String body,
     required Map<String, dynamic> data,
   }) async {
-    try {
-      debugPrint('🔥 إرسال FCM notification...');
-
-      // إرسال الإشعار عبر HTTP API
-      // ملاحظة: يجب استبدال YOUR_SERVER_KEY بمفتاح الخادم الفعلي من Firebase
-
-      const String serverKey =
-          'AIzaSyAyJztyuQ_t_ZIftJVwi_rXr9zHkvy2P1Y'; // مفتاح Firebase Server الجديد
-
-      // تم تكوين مفتاح الخادم FCM بنجاح
-      debugPrint('🔥 إرسال FCM notification مع المفتاح الفعلي');
-      debugPrint('📨 FCM Notification:');
-      debugPrint('   📱 Title: $title');
-      debugPrint('   📝 Body: $body');
-      debugPrint(
-        '   🔑 Token: ${token.length > 20 ? '${token.substring(0, 20)}...' : token}',
-      );
-      debugPrint('   📊 Data: $data');
-
-      // الكود الفعلي لإرسال الإشعار
-
-      final response = await http.post(
-        Uri.parse('https://fcm.googleapis.com/fcm/send'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'key=$serverKey',
-        },
-        body: jsonEncode({
-          'to': token,
-          'notification': {
-            'title': title,
-            'body': body,
-            'sound': 'default',
-            'badge': 1,
-            'icon': 'ic_notification',
-            'color': '#FFD700',
-          },
-          'data': {...data, 'click_action': 'FLUTTER_NOTIFICATION_CLICK'},
-          'priority': 'high',
-          'android': {
-            'priority': 'high',
-            'notification': {
-              'channel_id': 'withdrawal_notifications',
-              'sound': 'default',
-              'vibrate': [1000, 500, 1000],
-            },
-          },
-          'apns': {
-            'payload': {
-              'aps': {'sound': 'default', 'badge': 1},
-            },
-          },
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        debugPrint('✅ تم إرسال FCM notification بنجاح');
-        debugPrint('📨 Response: ${response.body}');
-      } else {
-        debugPrint('❌ فشل إرسال FCM notification: ${response.statusCode}');
-        debugPrint('📨 Response: ${response.body}');
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في إرسال FCM notification: $e');
-    }
+    debugPrint('تم إزالة نظام الإشعارات - $title: $body');
   }
 
   /// محاكاة إشعار محلي للاختبار

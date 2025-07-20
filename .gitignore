@@ -17,9 +17,7 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
-# 🔐 Firebase Service Account (NEVER COMMIT!)
-backend/firebase-service-account.json
-firebase-service-account.json
+
 *.log
 logs/
 pids/
@@ -181,13 +179,7 @@ Thumbs.db
 *.swo
 *~
 
-# ===================================
-# Firebase & Google Services
-# ===================================
-google-services.json
-GoogleService-Info.plist
-firebase-debug.log
-.firebase/
+
 
 # ===================================
 # Supabase

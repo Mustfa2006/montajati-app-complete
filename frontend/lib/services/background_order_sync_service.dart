@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 // import 'alwaseet_api_service.dart'; // تم حذف الملف
-import 'notification_service.dart';
+
 
 /// خدمة مراقبة الطلبات في الخلفية بشكل مستمر
 /// تعمل حتى لو كان التطبيق مغلق أو المستخدم غير نشط
@@ -34,7 +34,7 @@ class BackgroundOrderSyncService {
       debugPrint('🚀 تهيئة خدمة مراقبة الطلبات في الخلفية...');
 
       // تهيئة خدمة الإشعارات
-      await NotificationService.initialize();
+      // تم إزالة نظام الإشعارات
 
       // التحقق من إعدادات المراقبة
       final prefs = await SharedPreferences.getInstance();
@@ -311,15 +311,8 @@ class BackgroundOrderSyncService {
       String title = 'تحديث حالة الطلب';
       String body = 'طلب $customerName ($qrId)\nالحالة الجديدة: $statusText';
 
-      await NotificationService.showNotification(
-        title: title,
-        body: body,
-        payload: jsonEncode({
-          'type': 'order_update',
-          'qr_id': qrId,
-          'status': newStatus,
-        }),
-      );
+      // تم إزالة نظام الإشعارات
+      debugPrint('تم تحديث حالة الطلب $qrId إلى $newStatus');
 
       debugPrint('📱 تم إرسال إشعار تحديث الطلب: $qrId');
     } catch (e) {

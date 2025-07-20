@@ -1,4 +1,5 @@
 // router.dart - نظام التنقل لتطبيق منتجاتي
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -29,7 +30,7 @@ import 'pages/order_summary_page.dart';
 import 'pages/scheduled_orders_main_page.dart';
 // import 'pages/protected_system_test_page.dart'; // تم حذف الصفحة
 import 'pages/new_system_test_page.dart';
-import 'debug/notification_test.dart';
+
 import 'pages/smart_splash_page.dart';
 
 
@@ -37,28 +38,34 @@ class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) async {
-      final currentPath = state.uri.toString();
+      try {
+        final currentPath = state.uri.toString();
 
-      // السماح بالوصول لشاشة التحميل دائماً
-      if (currentPath == '/splash') {
-        return null;
+        // السماح بالوصول لشاشة التحميل دائماً
+        if (currentPath == '/splash') {
+          return null;
+        }
+
+        // التحقق من حالة تسجيل الدخول
+        final token = await AuthService.getToken();
+        final isLoggedIn = token != null && token.isNotEmpty;
+
+        // إذا كان المستخدم مسجل دخول ويحاول الوصول لصفحات المصادقة
+        if (isLoggedIn && (currentPath == '/welcome' || currentPath == '/login' || currentPath == '/register')) {
+          return '/products'; // توجيه للمنتجات
+        }
+
+        // إذا لم يكن مسجل دخول ويحاول الوصول لصفحات محمية
+        if (!isLoggedIn && currentPath != '/welcome' && currentPath != '/login' && currentPath != '/register') {
+          return '/welcome'; // توجيه لصفحة الترحيب
+        }
+
+        return null; // لا توجيه
+      } catch (e) {
+        debugPrint('❌ خطأ في redirect: $e');
+        // في حالة الخطأ، توجيه لصفحة الترحيب
+        return '/welcome';
       }
-
-      // التحقق من حالة تسجيل الدخول
-      final token = await AuthService.getToken();
-      final isLoggedIn = token != null && token.isNotEmpty;
-
-      // إذا كان المستخدم مسجل دخول ويحاول الوصول لصفحات المصادقة
-      if (isLoggedIn && (currentPath == '/welcome' || currentPath == '/login' || currentPath == '/register')) {
-        return '/products'; // توجيه للمنتجات
-      }
-
-      // إذا لم يكن مسجل دخول ويحاول الوصول لصفحات محمية
-      if (!isLoggedIn && currentPath != '/welcome' && currentPath != '/login' && currentPath != '/register') {
-        return '/welcome'; // توجيه لصفحة الترحيب
-      }
-
-      return null; // لا توجيه
     },
     routes: [
       // شاشة التحميل الذكية
@@ -261,11 +268,7 @@ class AppRouter {
       ),
 
       // صفحة اختبار الإشعارات
-      GoRoute(
-        path: '/notification-test',
-        name: 'notification-test',
-        builder: (context, state) => const NotificationTestPage(),
-      ),
+
 
     ],
 

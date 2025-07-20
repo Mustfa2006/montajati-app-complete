@@ -67,12 +67,8 @@ class ProductionReadinessChecker {
     
     const requiredFiles = [
       'package.json',
-      'database/smart_notification_trigger.sql',
-      'notification_processor_simple.js',
       'start_system_complete.js',
-      'start_notifications_final.js',
-      'config/supabase.js',
-      'config/firebase.js'
+      'config/supabase.js'
     ];
 
     let allPresent = true;

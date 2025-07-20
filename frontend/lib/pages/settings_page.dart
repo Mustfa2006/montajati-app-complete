@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/supabase_service.dart';
-import '../services/firebase_service.dart';
+
 import '../widgets/custom_app_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

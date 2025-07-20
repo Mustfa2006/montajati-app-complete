@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'notification_service.dart';
+
 
 /// خدمة إدارة المخزون والكميات
 class InventoryService {
@@ -238,11 +238,8 @@ class InventoryService {
       if (stock <= 0) {
         debugPrint('🚨 تم اكتشاف نفاد مخزون: $name');
 
-        // إرسال إشعار محلي
-        await NotificationService.showOutOfStockNotification(
-          productName: name,
-          productId: productId,
-        );
+        // تم إزالة نظام الإشعارات
+        debugPrint('⚠️ تحذير: المنتج $name نفد من المخزون');
       }
     } catch (e) {
       debugPrint('❌ خطأ في التحقق من نفاد المخزون: $e');
