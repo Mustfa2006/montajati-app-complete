@@ -109,11 +109,22 @@ class AuthService {
         userData['is_admin'] ?? false,
       );
 
-      // 🔔 تسجيل FCM Token للإشعارات الفورية
+      // 🔔 تسجيل FCM Token للإشعارات الفورية (مع تأخير للتأكد من حفظ البيانات)
       try {
-        await FCMService.registerCurrentUserToken();
         if (kDebugMode) {
-          debugPrint('✅ تم تسجيل FCM Token للمستخدم');
+          debugPrint('🔄 بدء تسجيل FCM Token للمستخدم: ${userData['phone']}');
+        }
+
+        // تأخير قصير للتأكد من حفظ البيانات في SharedPreferences
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        final fcmSuccess = await FCMService.registerCurrentUserToken();
+        if (kDebugMode) {
+          if (fcmSuccess) {
+            debugPrint('✅ تم تسجيل FCM Token للمستخدم بنجاح');
+          } else {
+            debugPrint('⚠️ فشل في تسجيل FCM Token للمستخدم');
+          }
         }
       } catch (e) {
         if (kDebugMode) {

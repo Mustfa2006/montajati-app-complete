@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../services/admin_service.dart';
 import '../services/fcm_service.dart';
+import '../debug/fcm_debug_helper.dart';
 
 class NotificationTestPage extends StatefulWidget {
   const NotificationTestPage({super.key});
@@ -196,6 +197,23 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
                   ),
                 ),
               ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // زر التشخيص الشامل
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _runFCMDiagnosis,
+                icon: const Icon(Icons.bug_report),
+                label: const Text('🔍 تشخيص شامل لـ FCM'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
             ),
 
             const SizedBox(height: 20),
@@ -408,6 +426,34 @@ class _NotificationTestPageState extends State<NotificationTestPage> {
     } catch (e) {
       setState(() {
         _result = '❌ خطأ: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _runFCMDiagnosis() async {
+    setState(() {
+      _isLoading = true;
+      _result = '🔍 جاري تشغيل التشخيص الشامل لـ FCM...';
+    });
+
+    try {
+      // تشغيل التشخيص الشامل
+      await FCMDebugHelper.quickDiagnosis();
+
+      setState(() {
+        _result = '✅ تم تشغيل التشخيص الشامل! تحقق من console للتفاصيل.';
+      });
+
+      // تحديث الإحصائيات
+      await _loadTokenStats();
+
+    } catch (e) {
+      setState(() {
+        _result = '❌ خطأ في التشخيص: $e';
       });
     } finally {
       setState(() {

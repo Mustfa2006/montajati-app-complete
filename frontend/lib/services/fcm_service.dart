@@ -346,37 +346,42 @@ class FCMService {
 
   /// تسجيل FCM Token للمستخدم الحالي
   static Future<bool> registerCurrentUserToken() async {
-    final instance = FCMService();
-
-    if (!instance.isInitialized) {
-      await instance.initialize();
-    }
-
-    if (instance.currentToken == null) {
-      debugPrint('❌ لا يوجد FCM Token للتسجيل');
-      return false;
-    }
-
     try {
-      // الحصول على معلومات المستخدم الحالي
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) {
-        debugPrint('❌ لا يوجد مستخدم مسجل دخول');
-        return false;
+      debugPrint('🔄 بدء تسجيل FCM Token للمستخدم الحالي...');
+
+      final instance = FCMService();
+
+      // التأكد من تهيئة FCM service
+      if (!instance.isInitialized) {
+        debugPrint('🔄 تهيئة FCM service...');
+        final initSuccess = await instance.initialize();
+        if (!initSuccess) {
+          debugPrint('❌ فشل في تهيئة FCM service');
+          return false;
+        }
       }
 
-      // الحصول على رقم الهاتف من جدول المستخدمين
-      final userResponse = await Supabase.instance.client
-          .from('users')
-          .select('phone')
-          .eq('id', user.id)
-          .single();
+      // التأكد من وجود FCM token
+      if (instance.currentToken == null) {
+        debugPrint('⚠️ لا يوجد FCM Token، محاولة الحصول عليه...');
+        await instance._getFCMToken();
 
-      final userPhone = userResponse['phone'] as String?;
+        if (instance.currentToken == null) {
+          debugPrint('❌ فشل في الحصول على FCM Token');
+          return false;
+        }
+      }
+
+      // الحصول على رقم الهاتف من SharedPreferences (أسرع من قاعدة البيانات)
+      final prefs = await SharedPreferences.getInstance();
+      final userPhone = prefs.getString('user_phone');
+
       if (userPhone == null || userPhone.isEmpty) {
-        debugPrint('❌ لا يوجد رقم هاتف للمستخدم');
+        debugPrint('❌ لا يوجد رقم هاتف في SharedPreferences');
         return false;
       }
+
+      debugPrint('📱 تسجيل FCM Token للمستخدم: $userPhone');
 
       // تسجيل الـ Token في قاعدة البيانات
       await Supabase.instance.client.from('fcm_tokens').upsert({
