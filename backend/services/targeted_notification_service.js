@@ -4,7 +4,7 @@
 // ===================================
 
 const { createClient } = require('@supabase/supabase-js');
-const firebaseAdminService = require('./firebase_admin_service');
+const { firebaseAdminService } = require('./firebase_admin_service');
 
 class TargetedNotificationService {
   constructor() {

@@ -4,7 +4,7 @@
 // ===================================
 
 const EventEmitter = require('events');
-const firebaseAdminService = require('./firebase_admin_service');
+const { firebaseAdminService } = require('./firebase_admin_service');
 const targetedNotificationService = require('./targeted_notification_service');
 const tokenManagementService = require('./token_management_service');
 
