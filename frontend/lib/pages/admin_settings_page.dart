@@ -8,6 +8,8 @@ import '../services/order_monitoring_service.dart';
 import '../services/fcm_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../widgets/custom_app_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -1867,7 +1869,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
 
     try {
       final response = await http.get(
-        Uri.parse('${AdminService.getBaseUrl()}/api/notifications/tokens/stats'),
+        Uri.parse('${AdminService.baseUrl}/api/notifications/tokens/stats'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -1940,7 +1942,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
 
     try {
       final response = await http.post(
-        Uri.parse('${AdminService.getBaseUrl()}/api/notifications/tokens/cleanup'),
+        Uri.parse('${AdminService.baseUrl}/api/notifications/tokens/cleanup'),
         headers: {'Content-Type': 'application/json'},
       );
 

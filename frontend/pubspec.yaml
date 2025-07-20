@@ -1,5 +1,5 @@
 name: montajati_app
-description: "تطبيق منتجاتي - منصة الدروب شوبينغ الأولى في العراق مع إشعارات فورية"
+description: "تطبيق منتجاتي - منصة الدروب شوبينغ الأولى في العراق"
 homepage: https://montajati.com
 repository: https://github.com/montajati/montajati-app
 publish_to: 'none'
@@ -16,7 +16,7 @@ publish_to: 'none'
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.0.0+6
+version: 1.0.4+5
 
 environment:
   sdk: ^3.8.1

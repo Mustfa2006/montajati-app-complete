@@ -11,6 +11,9 @@ import '../utils/order_status_helper.dart';
 class AdminService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
 
+  // رابط الخادم الخلفي
+  static const String baseUrl = 'https://montajati-backend.onrender.com';
+
   /// توليد رقم طلب فريد
   static String generateOrderNumber() {
     final now = DateTime.now();
@@ -1955,15 +1958,8 @@ class AdminService {
           message = 'تم تحديث حالة طلب $customerName ($orderNumber)';
       }
 
-      // 🔔 إرسال إشعار فوري للعميل
-      await _sendOrderStatusNotification(
-        customerPhone: order['customer_phone'] ?? '',
-        orderId: orderNumber,
-        newStatus: newStatus,
-        customerName: order['customer_name'] ?? '',
-      );
-
-      debugPrint('✅ تم تحديث الطلب وإرسال الإشعار للعميل $customerName ($orderNumber)');
+      // تم إزالة نظام الإشعارات مؤقتاً
+      debugPrint('✅ تم تحديث الطلب بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في إرسال الإشعار المحلي الفوري: $e');
     }
@@ -1985,7 +1981,7 @@ class AdminService {
       debugPrint('📱 إرسال إشعار تحديث الطلب للعميل: $customerPhone');
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/api/notifications/order-status'),
+        Uri.parse('$baseUrl/api/notifications/order-status'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -2024,7 +2020,7 @@ class AdminService {
       debugPrint('📢 إرسال إشعار عام للعميل: $customerPhone');
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/api/notifications/general'),
+        Uri.parse('$baseUrl/api/notifications/general'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -2057,7 +2053,7 @@ class AdminService {
       debugPrint('🧪 اختبار إرسال إشعار للعميل: $customerPhone');
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/api/notifications/test'),
+        Uri.parse('$baseUrl/api/notifications/test'),
         headers: {
           'Content-Type': 'application/json',
         },
