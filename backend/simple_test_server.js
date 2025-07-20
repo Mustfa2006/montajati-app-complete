@@ -31,9 +31,17 @@ app.get('/test', (req, res) => {
     message: 'اختبار الخادم نجح!',
     data: {
       hasSupabaseUrl: !!process.env.SUPABASE_URL,
-      hasFirebaseProjectId: !!process.env.FIREBASE_PROJECT_ID,
-      hasFirebasePrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
-      hasFirebaseClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL
+      hasSupabaseServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasFirebaseServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+      firebaseServiceAccountValid: (() => {
+        try {
+          if (!process.env.FIREBASE_SERVICE_ACCOUNT) return false;
+          const parsed = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+          return !!(parsed.project_id && parsed.private_key && parsed.client_email);
+        } catch (e) {
+          return false;
+        }
+      })()
     }
   });
 });

@@ -18,38 +18,32 @@ class FirebaseAdminService {
     try {
       console.log('🔥 بدء تهيئة Firebase Admin SDK...');
 
-      // التحقق من وجود متغيرات البيئة المطلوبة
-      const requiredEnvVars = [
-        'FIREBASE_PROJECT_ID',
-        'FIREBASE_PRIVATE_KEY',
-        'FIREBASE_CLIENT_EMAIL'
-      ];
-
-      const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-      
-      if (missingVars.length > 0) {
-        throw new Error(`متغيرات البيئة المطلوبة مفقودة: ${missingVars.join(', ')}`);
+      // التحقق من وجود متغير البيئة المطلوب
+      if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+        throw new Error('متغير البيئة مفقود: FIREBASE_SERVICE_ACCOUNT');
       }
 
-      // إعداد Service Account
-      const serviceAccount = {
-        type: 'service_account',
-        project_id: process.env.FIREBASE_PROJECT_ID,
-        private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || 'default-key-id',
-        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        client_email: process.env.FIREBASE_CLIENT_EMAIL,
-        client_id: process.env.FIREBASE_CLIENT_ID || '123456789',
-        auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-        token_uri: 'https://oauth2.googleapis.com/token',
-        auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
-        client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${encodeURIComponent(process.env.FIREBASE_CLIENT_EMAIL)}`
-      };
+      // تحليل Service Account JSON
+      let serviceAccount;
+      try {
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      } catch (parseError) {
+        throw new Error('خطأ في تحليل FIREBASE_SERVICE_ACCOUNT JSON: ' + parseError.message);
+      }
+
+      // التحقق من وجود الحقول المطلوبة
+      const requiredFields = ['project_id', 'private_key', 'client_email'];
+      for (const field of requiredFields) {
+        if (!serviceAccount[field]) {
+          throw new Error(`حقل مفقود في Service Account: ${field}`);
+        }
+      }
 
       // تهيئة Firebase Admin إذا لم يكن مهيأ مسبقاً
       if (admin.apps.length === 0) {
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
-          projectId: process.env.FIREBASE_PROJECT_ID
+          projectId: serviceAccount.project_id
         });
       }
 
@@ -57,6 +51,9 @@ class FirebaseAdminService {
       this.initialized = true;
 
       console.log('✅ تم تهيئة Firebase Admin SDK بنجاح');
+      console.log(`📋 Project ID: ${serviceAccount.project_id}`);
+      console.log(`📧 Client Email: ${serviceAccount.client_email}`);
+
       return true;
 
     } catch (error) {

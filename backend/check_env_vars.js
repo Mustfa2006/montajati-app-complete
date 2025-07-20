@@ -10,10 +10,7 @@ console.log('🔍 فحص متغيرات البيئة المطلوبة...\n');
 const requiredVars = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
-  'FIREBASE_PROJECT_ID',
-  'FIREBASE_PRIVATE_KEY',
-  'FIREBASE_CLIENT_EMAIL',
-  'FIREBASE_CLIENT_ID'
+  'FIREBASE_SERVICE_ACCOUNT'
 ];
 
 let allPresent = true;
@@ -21,7 +18,19 @@ let allPresent = true;
 requiredVars.forEach(varName => {
   const value = process.env[varName];
   if (value) {
-    console.log(`✅ ${varName}: موجود`);
+    if (varName === 'FIREBASE_SERVICE_ACCOUNT') {
+      try {
+        const parsed = JSON.parse(value);
+        console.log(`✅ ${varName}: موجود وصالح`);
+        console.log(`   📋 Project ID: ${parsed.project_id}`);
+        console.log(`   📧 Client Email: ${parsed.client_email}`);
+      } catch (e) {
+        console.log(`❌ ${varName}: موجود لكن JSON غير صالح`);
+        allPresent = false;
+      }
+    } else {
+      console.log(`✅ ${varName}: موجود`);
+    }
   } else {
     console.log(`❌ ${varName}: مفقود`);
     allPresent = false;
