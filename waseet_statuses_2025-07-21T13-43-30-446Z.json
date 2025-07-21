@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-07-21T13:43:30.448Z",
+  "summary": {
+    "uniqueStatuses": [
+      "active"
+    ],
+    "statusCount": 1,
+    "orderCount": 0,
+    "pageCount": 1
+  },
+  "allStatuses": [
+    "active"
+  ],
+  "totalPages": 1,
+  "totalOrders": 0,
+  "pageDetails": [
+    {
+      "source": "/merchant",
+      "pageSize": 18136,
+      "statusCount": 1,
+      "orderCount": 0,
+      "statuses": [
+        "active"
+      ]
+    }
+  ],
+  "orders": []
+}

@@ -318,6 +318,10 @@ class OfficialMontajatiServer {
       const authRoutes = require('./routes/auth');
       this.app.use('/api/auth', authRoutes);
 
+      // مسارات حالات الوسيط
+      const waseetStatusesRoutes = require('./routes/waseet_statuses');
+      this.app.use('/api/waseet-statuses', waseetStatusesRoutes);
+
       console.log('✅ تم تحميل جميع المسارات الأساسية');
 
     } catch (error) {

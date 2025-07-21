@@ -45,9 +45,9 @@ class AdvancedSyncManager extends EventEmitter {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // إعدادات API الوسيط
+    // إعدادات API الوسيط (تم إصلاح الرابط الصحيح)
     this.waseetConfig = {
-      baseURL: 'https://api.alwaseet-iq.net',
+      baseURL: 'https://merchant.alwaseet-iq.net',
       username: process.env.WASEET_USERNAME,
       password: process.env.WASEET_PASSWORD,
       timeout: 30000,
@@ -142,9 +142,28 @@ class AdvancedSyncManager extends EventEmitter {
         return null;
       }
 
-      // محاولة عدة مسارات API مختلفة
-      const apiPaths = ['/login', '/auth/login', '/api/login', '/api/auth/login'];
+      // استخدام API الوسيط الرسمي الصحيح
+      const WaseetAPIClient = require('./waseet_api_client');
+      const client = new WaseetAPIClient(this.waseetConfig.username, this.waseetConfig.password);
 
+      const loginSuccess = await client.login();
+
+      if (loginSuccess) {
+        console.log('✅ تم تسجيل الدخول للوسيط بنجاح عبر API الرسمي');
+        this.state.currentToken = client.token;
+        this.state.tokenExpiresAt = client.tokenExpiresAt;
+        this.emit('tokenRefreshed', this.state.currentToken);
+        return this.state.currentToken;
+      } else {
+        console.warn('⚠️ فشل في تسجيل الدخول للوسيط');
+        return null;
+      }
+
+      /* الكود القديم - محفوظ للمرجع
+      // محاولة عدة مسارات API مختلفة (تم إصلاح المسار الصحيح)
+      const apiPaths = ['/merchant/login', '/login', '/auth/login', '/api/login', '/api/auth/login'];
+
+      /*
       for (const path of apiPaths) {
         try {
           const response = await axios.post(`${this.waseetConfig.baseURL}${path}`, {
@@ -176,6 +195,7 @@ class AdvancedSyncManager extends EventEmitter {
       // إذا فشلت جميع المسارات
       console.warn('⚠️ فشل في جميع مسارات API للوسيط، سيتم المتابعة بدون مزامنة');
       return null;
+      */
 
     } catch (error) {
       console.error('❌ خطأ عام في تحديث توكن الوسيط:', error);

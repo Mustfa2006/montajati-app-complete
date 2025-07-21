@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/custom_app_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../screens/waseet_statuses_screen.dart';
 
 class AdminSettingsPage extends StatefulWidget {
   const AdminSettingsPage({super.key});
@@ -307,6 +308,8 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                   _buildNotificationSettings(),
                   const SizedBox(height: 20),
                   _buildNotificationTestSection(),
+                  const SizedBox(height: 20),
+                  _buildWaseetStatusesSection(),
                   const SizedBox(height: 20),
                   _buildBackupSettings(),
                   const SizedBox(height: 20),
@@ -1208,6 +1211,84 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
   // ===================================
   // واجهة اختبار الإشعارات
   // ===================================
+
+  Widget _buildWaseetStatusesSection() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.local_shipping, color: Colors.blue),
+                const SizedBox(width: 8),
+                const Text(
+                  'إدارة حالات الوسيط',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'إدارة وعرض جميع حالات الطلبات المعتمدة من شركة الوسيط',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const WaseetStatusesScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.list_alt),
+              label: const Text('عرض حالات الوسيط'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[700],
+                foregroundColor: Colors.white,
+                minimumSize: const Size(double.infinity, 48),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info, color: Colors.blue[700], size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'معلومات الحالات',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '• إجمالي 20 حالة معتمدة من الوسيط\n'
+                    '• مجمعة في 7 فئات رئيسية\n'
+                    '• تحديث تلقائي لحالات الطلبات\n'
+                    '• إحصائيات مفصلة لكل حالة',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildNotificationTestSection() {
     return Card(
