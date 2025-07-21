@@ -802,7 +802,7 @@ class AdminService {
       // التحقق من وجود الطلب أولاً
       final existingOrder = await _supabase
           .from('orders')
-          .select('id, status')
+          .select('id, status, user_phone, customer_name, order_number')
           .eq('id', orderId)
           .maybeSingle();
 
