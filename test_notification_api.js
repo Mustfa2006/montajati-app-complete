@@ -5,11 +5,11 @@ async function testNotificationAPI() {
     console.log('🔥 اختبار API إرسال الإشعارات...');
 
     const postData = JSON.stringify({
-      userPhone: '07503597589',
-      orderId: 'order_test_' + Date.now(),
+      userPhone: '07512329969',
+      orderId: 'order_1753098717228_0947',
       newStatus: 'delivered',
-      customerName: 'أحمد محمد',
-      notes: 'اختبار إشعار جديد - ' + new Date().toLocaleString('ar')
+      customerName: 'جديد',
+      notes: 'تم تسليم طلبك بنجاح - النظام المحدث'
     });
 
     const options = {

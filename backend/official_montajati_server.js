@@ -26,6 +26,7 @@ const {
 const OfficialNotificationManager = require('./services/official_notification_manager');
 const AdvancedSyncManager = require('./services/advanced_sync_manager');
 const SystemMonitor = require('./services/system_monitor');
+const FCMCleanupService = require('./services/fcm_cleanup_service');
 
 class OfficialMontajatiServer {
   constructor() {
@@ -42,6 +43,7 @@ class OfficialMontajatiServer {
         notifications: null,
         sync: null,
         monitor: null,
+        fcmCleanup: null,
       }
     };
 
@@ -49,6 +51,7 @@ class OfficialMontajatiServer {
     this.notificationManager = new OfficialNotificationManager();
     this.syncManager = new AdvancedSyncManager();
     this.systemMonitor = new SystemMonitor();
+    this.fcmCleanupService = FCMCleanupService;
 
     this.setupExpress();
     this.setupRoutes();
@@ -385,6 +388,18 @@ class OfficialMontajatiServer {
         console.warn('⚠️ تحذير: فشل في تهيئة خدمة المزامنة، سيتم تشغيل النظام بدونها');
         console.warn(`   السبب: ${error.message}`);
         this.state.services.sync = null;
+      }
+
+      // تهيئة خدمة تنظيف FCM Tokens
+      console.log('🧹 تهيئة خدمة تنظيف FCM Tokens...');
+      try {
+        this.fcmCleanupService.start();
+        this.state.services.fcmCleanup = this.fcmCleanupService;
+        console.log('✅ تم تهيئة خدمة تنظيف FCM Tokens بنجاح');
+      } catch (error) {
+        console.warn('⚠️ تحذير: فشل في تهيئة خدمة تنظيف FCM Tokens');
+        console.warn(`   السبب: ${error.message}`);
+        this.state.services.fcmCleanup = null;
       }
 
       this.state.isInitialized = true;

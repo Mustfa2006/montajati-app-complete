@@ -232,4 +232,147 @@ router.post('/cleanup', async (req, res) => {
   }
 });
 
+// ===================================
+// تحديث FCM Token تلقائياً
+// ===================================
+router.post('/update-token', async (req, res) => {
+  try {
+    const { userPhone, fcmToken, deviceInfo } = req.body;
+
+    if (!userPhone || !fcmToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'userPhone و fcmToken مطلوبان'
+      });
+    }
+
+    console.log(`🔄 تحديث FCM Token للمستخدم: ${userPhone}`);
+
+    // تعطيل جميع tokens القديمة للمستخدم
+    await supabase
+      .from('fcm_tokens')
+      .update({ is_active: false })
+      .eq('user_phone', userPhone);
+
+    // إضافة Token الجديد
+    const { data, error } = await supabase
+      .from('fcm_tokens')
+      .insert({
+        user_phone: userPhone,
+        fcm_token: fcmToken,
+        is_active: true,
+        device_info: deviceInfo || {},
+        created_at: new Date().toISOString(),
+        last_used_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ خطأ في تحديث FCM Token:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في تحديث FCM Token',
+        error: error.message
+      });
+    }
+
+    console.log(`✅ تم تحديث FCM Token بنجاح للمستخدم: ${userPhone}`);
+
+    res.json({
+      success: true,
+      message: 'تم تحديث FCM Token بنجاح',
+      data: {
+        tokenId: data.id,
+        userPhone: data.user_phone,
+        isActive: data.is_active
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في تحديث FCM Token:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ داخلي في الخادم',
+      error: error.message
+    });
+  }
+});
+
+// ===================================
+// التحقق من صحة FCM Token
+// ===================================
+router.post('/validate-token', async (req, res) => {
+  try {
+    const { fcmToken, userPhone } = req.body;
+
+    if (!fcmToken) {
+      return res.status(400).json({
+        success: false,
+        message: 'fcmToken مطلوب'
+      });
+    }
+
+    console.log(`🔍 التحقق من صحة FCM Token للمستخدم: ${userPhone}`);
+
+    // اختبار Token بإرسال رسالة تجريبية
+    try {
+      const admin = require('firebase-admin');
+      const testMessage = {
+        token: fcmToken,
+        data: {
+          type: 'validation_test',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      await admin.messaging().send(testMessage);
+
+      // تحديث آخر استخدام للـ Token
+      if (userPhone) {
+        await supabase
+          .from('fcm_tokens')
+          .update({ last_used_at: new Date().toISOString() })
+          .eq('fcm_token', fcmToken)
+          .eq('user_phone', userPhone);
+      }
+
+      console.log(`✅ FCM Token صالح للمستخدم: ${userPhone}`);
+
+      res.json({
+        success: true,
+        message: 'FCM Token صالح',
+        isValid: true
+      });
+
+    } catch (firebaseError) {
+      console.log(`❌ FCM Token غير صالح: ${firebaseError.code}`);
+
+      // تعطيل Token غير الصالح
+      if (userPhone) {
+        await supabase
+          .from('fcm_tokens')
+          .update({ is_active: false })
+          .eq('fcm_token', fcmToken)
+          .eq('user_phone', userPhone);
+      }
+
+      res.status(400).json({
+        success: false,
+        message: 'FCM Token غير صالح أو منتهي الصلاحية',
+        isValid: false,
+        error: firebaseError.code
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ خطأ في التحقق من FCM Token:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ داخلي في الخادم',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

@@ -49,24 +49,62 @@ class TargetedNotificationService {
    */
   async getUserFCMToken(userPhone) {
     try {
+      // الحصول على جميع tokens النشطة للمستخدم
       const { data, error } = await this.supabase
-        .rpc('get_user_fcm_token', { p_user_phone: userPhone });
+        .from('fcm_tokens')
+        .select('fcm_token, created_at')
+        .eq('user_phone', userPhone)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ خطأ في الحصول على FCM Token:', error.message);
+        console.error('❌ خطأ في الحصول على FCM Tokens:', error.message);
         return null;
       }
 
-      if (data && data.length > 0) {
-        const tokenData = data[0];
-        
-        // تحديث آخر استخدام للـ Token
-        await this.updateTokenLastUsed(userPhone, tokenData.fcm_token);
-        
-        return tokenData.fcm_token;
+      if (!data || data.length === 0) {
+        console.log(`⚠️ لا توجد FCM tokens نشطة للمستخدم: ${userPhone}`);
+        return null;
       }
 
+      // تجربة كل token حتى نجد واحد يعمل
+      for (const tokenData of data) {
+        try {
+          // اختبار Token بإرسال إشعار تجريبي
+          const testMessage = {
+            token: tokenData.fcm_token,
+            data: {
+              type: 'test',
+              timestamp: new Date().toISOString()
+            }
+          };
+
+          // اختبار Token بإرسال رسالة تجريبية
+          const admin = require('firebase-admin');
+          await admin.messaging().send({
+            token: tokenData.fcm_token,
+            data: { type: 'test' }
+          });
+
+          // إذا نجح الإرسال، حدث آخر استخدام وأرجع Token
+          await this.updateTokenLastUsed(userPhone, tokenData.fcm_token);
+          console.log(`✅ تم العثور على FCM token صالح للمستخدم: ${userPhone}`);
+          return tokenData.fcm_token;
+
+        } catch (tokenError) {
+          console.log(`⚠️ FCM token منتهي الصلاحية: ${tokenData.fcm_token.substring(0, 20)}...`);
+
+          // تعطيل Token المنتهي الصلاحية
+          await this.supabase
+            .from('fcm_tokens')
+            .update({ is_active: false })
+            .eq('fcm_token', tokenData.fcm_token);
+        }
+      }
+
+      console.log(`❌ جميع FCM tokens منتهية الصلاحية للمستخدم: ${userPhone}`);
       return null;
+
     } catch (error) {
       console.error('❌ خطأ في الحصول على FCM Token:', error.message);
       return null;

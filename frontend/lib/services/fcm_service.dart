@@ -3,15 +3,17 @@
 // Professional FCM Service for Push Notifications
 // ===================================
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:http/http.dart' as http;
 import '../firebase_options.dart';
 
 class FCMService {
@@ -55,6 +57,9 @@ class FCMService {
 
       // الحصول على FCM Token
       await _getFCMToken();
+
+      // إعداد تحديث Token التلقائي
+      await _setupTokenRefresh();
 
       // إعداد معالجات الإشعارات
       _setupMessageHandlers();
@@ -384,11 +389,171 @@ class FCMService {
   }
 
   /// الحصول على معلومات الخدمة
+  /// إعداد تحديث FCM Token التلقائي
+  Future<void> _setupTokenRefresh() async {
+    if (_messaging == null) return;
+
+    // 1. مراقبة تحديث Token تلقائياً
+    _messaging!.onTokenRefresh.listen((newToken) async {
+      debugPrint('🔄 تم تحديث FCM Token تلقائياً');
+      debugPrint('🆕 Token الجديد: ${newToken.substring(0, 20)}...');
+
+      _currentToken = newToken;
+
+      // تحديث Token في قاعدة البيانات
+      await _updateTokenInDatabase(newToken);
+    });
+
+    // 2. فحص وتحديث Token عند بدء التطبيق
+    await _checkAndRefreshToken();
+
+    // 3. إعداد فحص دوري للـ Token
+    _setupPeriodicTokenCheck();
+  }
+
+  /// فحص وتحديث Token عند الحاجة
+  Future<void> _checkAndRefreshToken() async {
+    try {
+      // الحصول على Token الحالي
+      final currentToken = await _messaging?.getToken();
+
+      if (currentToken != null && currentToken != _currentToken) {
+        debugPrint('🔄 تم العثور على Token محدث');
+        _currentToken = currentToken;
+        await _updateTokenInDatabase(currentToken);
+      }
+
+      // فحص صحة Token الحالي
+      await _validateCurrentToken();
+
+    } catch (e) {
+      debugPrint('⚠️ خطأ في فحص Token: $e');
+    }
+  }
+
+  /// التحقق من صحة Token الحالي
+  Future<void> _validateCurrentToken() async {
+    if (_currentToken == null) return;
+
+    try {
+      // محاولة تحديث آخر استخدام في قاعدة البيانات
+      final response = await http.post(
+        Uri.parse('https://montajati-backend.onrender.com/api/fcm/validate-token'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'fcmToken': _currentToken,
+          'userPhone': await _getCurrentUserPhone(),
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('⚠️ Token قد يكون منتهي الصلاحية، سيتم تحديثه');
+        await _forceTokenRefresh();
+      }
+    } catch (e) {
+      debugPrint('⚠️ خطأ في التحقق من Token: $e');
+    }
+  }
+
+  /// إجبار تحديث Token
+  Future<void> _forceTokenRefresh() async {
+    try {
+      debugPrint('🔄 إجبار تحديث FCM Token...');
+
+      // حذف Token الحالي
+      await _messaging?.deleteToken();
+
+      // الحصول على Token جديد
+      final newToken = await _messaging?.getToken();
+
+      if (newToken != null) {
+        debugPrint('✅ تم الحصول على Token جديد');
+        _currentToken = newToken;
+        await _updateTokenInDatabase(newToken);
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في إجبار تحديث Token: $e');
+    }
+  }
+
+  /// إعداد فحص دوري للـ Token
+  void _setupPeriodicTokenCheck() {
+    // فحص Token كل 6 ساعات
+    Timer.periodic(const Duration(hours: 6), (timer) async {
+      debugPrint('🔍 فحص دوري لـ FCM Token...');
+      await _checkAndRefreshToken();
+    });
+
+    // فحص Token عند العودة للتطبيق من الخلفية
+    WidgetsBinding.instance.addObserver(_AppLifecycleObserver(this));
+  }
+
+  /// تحديث Token في قاعدة البيانات
+  Future<void> _updateTokenInDatabase(String token) async {
+    try {
+      final userPhone = await _getCurrentUserPhone();
+      if (userPhone == null) return;
+
+      final response = await http.post(
+        Uri.parse('https://montajati-backend.onrender.com/api/fcm/update-token'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'userPhone': userPhone,
+          'fcmToken': token,
+          'deviceInfo': {
+            'platform': 'Flutter',
+            'app': 'Montajati',
+            'timestamp': DateTime.now().toIso8601String(),
+          },
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ تم تحديث FCM Token في قاعدة البيانات');
+      } else {
+        debugPrint('⚠️ فشل في تحديث FCM Token: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تحديث Token في قاعدة البيانات: $e');
+    }
+  }
+
+  /// الحصول على رقم هاتف المستخدم الحالي
+  Future<String?> _getCurrentUserPhone() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('user_phone');
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// دالة عامة لتحديث Token يدوياً
+  Future<void> refreshToken() async {
+    debugPrint('🔄 تحديث FCM Token يدوياً...');
+    await _forceTokenRefresh();
+  }
+
   Map<String, dynamic> getServiceInfo() {
     return {
       'isInitialized': _isInitialized,
       'hasToken': _currentToken != null,
       'tokenPreview': _currentToken?.substring(0, 20),
     };
+  }
+}
+
+/// مراقب دورة حياة التطبيق لتحديث Token
+class _AppLifecycleObserver extends WidgetsBindingObserver {
+  final FCMService _fcmService;
+
+  _AppLifecycleObserver(this._fcmService);
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // عند العودة للتطبيق، فحص Token
+      _fcmService._checkAndRefreshToken();
+    }
   }
 }
