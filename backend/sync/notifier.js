@@ -73,22 +73,38 @@ class NotificationService {
         return;
       }
 
-      // رسائل الحالات
-      const statusMessages = {
-        'pending': 'في انتظار التأكيد',
-        'confirmed': 'تم تأكيد الطلب',
-        'in_delivery': 'في الطريق إليك',
-        'delivered': 'تم التسليم',
-        'cancelled': 'تم إلغاء الطلب'
-      };
-
-      const statusMessage = statusMessages[newStatus] || newStatus;
+      // رسائل الحالات الجديدة
       const customerName = order.customer_name || 'عزيزي العميل';
 
-      const notification = {
-        title: '📦 تحديث حالة طلبك',
-        body: `${customerName}، تم تحديث حالة طلبك إلى: ${statusMessage}`
-      };
+      let notification = {};
+
+      if (newStatus === 'in_delivery') {
+        notification = {
+          title: '🚗 قيد التوصيل',
+          body: `${customerName} - قيد التوصيل`
+        };
+      } else if (newStatus === 'delivered') {
+        notification = {
+          title: '😊 تم التوصيل',
+          body: `${customerName} - تم التوصيل`
+        };
+      } else if (newStatus === 'cancelled') {
+        notification = {
+          title: '😢 ملغي',
+          body: `${customerName} - ملغي`
+        };
+      } else {
+        // للحالات الأخرى (pending, confirmed, etc.)
+        const statusMessages = {
+          'pending': 'في انتظار التأكيد',
+          'confirmed': 'تم تأكيد الطلب'
+        };
+        const statusMessage = statusMessages[newStatus] || newStatus;
+        notification = {
+          title: '📦 تحديث حالة طلبك',
+          body: `${customerName} - ${statusMessage}`
+        };
+      }
 
       const data = {
         type: 'order_status_update',

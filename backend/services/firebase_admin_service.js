@@ -188,22 +188,36 @@ class FirebaseAdminService {
    * @returns {Promise<Object>} نتيجة الإرسال
    */
   async sendOrderStatusNotification(fcmToken, orderId, newStatus, customerName = '') {
-    const statusMessages = {
-      'pending': 'في انتظار التأكيد',
-      'confirmed': 'تم تأكيد الطلب',
-      'processing': 'جاري التحضير',
-      'shipped': 'تم الشحن',
-      'out_for_delivery': 'في الطريق للتوصيل',
-      'delivered': 'تم التوصيل',
-      'cancelled': 'تم إلغاء الطلب',
-      'returned': 'تم إرجاع الطلب'
-    };
+    const customerDisplayName = customerName || 'عزيزي العميل';
 
-    const statusMessage = statusMessages[newStatus] || newStatus;
-    const title = '📦 تحديث حالة طلبك';
-    const body = customerName 
-      ? `مرحباً ${customerName}، تم تحديث حالة طلبك إلى: ${statusMessage}`
-      : `تم تحديث حالة طلبك إلى: ${statusMessage}`;
+    let title = '';
+    let body = '';
+
+    // رسائل الإشعارات الجديدة حسب المطلوب
+    if (newStatus === 'in_delivery') {
+      title = '🚗 قيد التوصيل';
+      body = `${customerDisplayName} - قيد التوصيل`;
+    } else if (newStatus === 'delivered') {
+      title = '😊 تم التوصيل';
+      body = `${customerDisplayName} - تم التوصيل`;
+    } else if (newStatus === 'cancelled') {
+      title = '😢 ملغي';
+      body = `${customerDisplayName} - ملغي`;
+    } else {
+      // للحالات الأخرى
+      const statusMessages = {
+        'pending': 'في انتظار التأكيد',
+        'confirmed': 'تم تأكيد الطلب',
+        'processing': 'جاري التحضير',
+        'shipped': 'تم الشحن',
+        'out_for_delivery': 'في الطريق للتوصيل',
+        'returned': 'تم إرجاع الطلب'
+      };
+
+      const statusMessage = statusMessages[newStatus] || newStatus;
+      title = '📦 تحديث حالة طلبك';
+      body = `${customerDisplayName} - ${statusMessage}`;
+    }
 
     return await this.sendNotificationToUser(
       fcmToken,
