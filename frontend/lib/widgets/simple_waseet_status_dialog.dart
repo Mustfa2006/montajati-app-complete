@@ -25,78 +25,30 @@ class _SimpleWaseetStatusDialogState extends State<SimpleWaseetStatusDialog> {
   int? selectedStatusId;
   String? selectedStatusText;
 
-  // الحالات الأساسية المهمة
+  // حالات شركة الوسيط الصحيحة بنفس النص والـ ID
   final List<Map<String, dynamic>> statuses = [
-    {
-      'id': 4,
-      'text': 'تم التسليم للزبون',
-      'color': Colors.green,
-      'icon': Icons.check_circle,
-      'category': 'delivered'
-    },
-    {
-      'id': 3,
-      'text': 'قيد التوصيل الى الزبون (في عهدة المندوب)',
-      'color': Colors.blue,
-      'icon': Icons.local_shipping,
-      'category': 'in_delivery'
-    },
-    {
-      'id': 25,
-      'text': 'لا يرد',
-      'color': Colors.orange,
-      'icon': Icons.phone_disabled,
-      'category': 'contact_issue'
-    },
-    {
-      'id': 31,
-      'text': 'الغاء الطلب',
-      'color': Colors.red,
-      'icon': Icons.cancel,
-      'category': 'cancelled'
-    },
-    {
-      'id': 32,
-      'text': 'رفض الطلب',
-      'color': Colors.red,
-      'icon': Icons.block,
-      'category': 'cancelled'
-    },
-    {
-      'id': 29,
-      'text': 'مؤجل',
-      'color': Colors.amber,
-      'icon': Icons.schedule,
-      'category': 'postponed'
-    },
-    {
-      'id': 38,
-      'text': 'العنوان غير دقيق',
-      'color': Colors.brown,
-      'icon': Icons.location_off,
-      'category': 'address_issue'
-    },
-    {
-      'id': 41,
-      'text': 'لا يمكن الاتصال بالرقم',
-      'color': Colors.orange,
-      'icon': Icons.phone_missed,
-      'category': 'contact_issue'
-    },
-    {
-      'id': 26,
-      'text': 'لا يرد بعد الاتفاق',
-      'color': Colors.deepOrange,
-      'icon': Icons.phone_disabled,
-      'category': 'contact_issue'
-    },
-    {
-      'id': 27,
-      'text': 'مغلق',
-      'color': Colors.grey,
-      'icon': Icons.phone_locked,
-      'category': 'contact_issue'
-    },
+    {'id': 1, 'text': 'نشط', 'color': Colors.green, 'icon': Icons.check_circle},
+    {'id': 4, 'text': 'تم التسليم للزبون', 'color': Colors.green, 'icon': Icons.check_circle},
+    {'id': 24, 'text': 'تم تغيير محافظة الزبون', 'color': Colors.blue, 'icon': Icons.location_on},
+    {'id': 42, 'text': 'تغيير المندوب', 'color': Colors.blue, 'icon': Icons.person_pin},
+    {'id': 25, 'text': 'لا يرد', 'color': Colors.orange, 'icon': Icons.phone_disabled},
+    {'id': 26, 'text': 'لا يرد بعد الاتفاق', 'color': Colors.deepOrange, 'icon': Icons.phone_disabled},
+    {'id': 27, 'text': 'مغلق', 'color': Colors.grey, 'icon': Icons.phone_locked},
+    {'id': 28, 'text': 'مغلق بعد الاتفاق', 'color': Colors.grey, 'icon': Icons.phone_locked},
+    {'id': 3, 'text': 'قيد التوصيل الى الزبون (في عهدة المندوب)', 'color': Colors.blue, 'icon': Icons.local_shipping},
+    {'id': 36, 'text': 'الرقم غير معرف', 'color': Colors.red, 'icon': Icons.phone_missed},
+    {'id': 37, 'text': 'الرقم غير داخل في الخدمة', 'color': Colors.red, 'icon': Icons.phone_missed},
+    {'id': 41, 'text': 'لا يمكن الاتصال بالرقم', 'color': Colors.orange, 'icon': Icons.phone_missed},
+    {'id': 29, 'text': 'مؤجل', 'color': Colors.amber, 'icon': Icons.schedule},
+    {'id': 30, 'text': 'مؤجل لحين اعادة الطلب لاحقا', 'color': Colors.amber, 'icon': Icons.schedule},
+    {'id': 31, 'text': 'الغاء الطلب', 'color': Colors.red, 'icon': Icons.cancel},
+    {'id': 32, 'text': 'رفض الطلب', 'color': Colors.red, 'icon': Icons.block},
+    {'id': 33, 'text': 'مفصول عن الخدمة', 'color': Colors.red, 'icon': Icons.block},
+    {'id': 34, 'text': 'طلب مكرر', 'color': Colors.orange, 'icon': Icons.repeat},
+    {'id': 35, 'text': 'مستلم مسبقا', 'color': Colors.green, 'icon': Icons.check_circle_outline},
+    {'id': 38, 'text': 'العنوان غير دقيق', 'color': Colors.brown, 'icon': Icons.location_off},
+    {'id': 39, 'text': 'لم يطلب', 'color': Colors.red, 'icon': Icons.cancel},
+    {'id': 40, 'text': 'حظر المندوب', 'color': Colors.red, 'icon': Icons.block},
   ];
 
   @override
@@ -164,7 +116,7 @@ class _SimpleWaseetStatusDialogState extends State<SimpleWaseetStatusDialog> {
                         ),
                       ),
                       subtitle: Text(
-                        'ID: ${status['id']} • ${getCategoryName(status['category'])}',
+                        'ID: ${status['id']}',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
@@ -209,17 +161,7 @@ class _SimpleWaseetStatusDialogState extends State<SimpleWaseetStatusDialog> {
     );
   }
 
-  String getCategoryName(String category) {
-    const categoryNames = {
-      'delivered': 'تم التوصيل',
-      'in_delivery': 'قيد التوصيل',
-      'contact_issue': 'مشاكل التواصل',
-      'cancelled': 'ملغي',
-      'postponed': 'مؤجل',
-      'address_issue': 'مشاكل العنوان',
-    };
-    return categoryNames[category] ?? category;
-  }
+
 }
 
 // دالة مساعدة لعرض الحوار

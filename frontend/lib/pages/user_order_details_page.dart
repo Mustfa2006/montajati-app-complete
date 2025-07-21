@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order.dart';
-import '../models/order_item.dart';
+import '../models/order_item.dart' as OrderItemModel;
 import '../widgets/common_header.dart';
+import '../services/admin_service.dart';
+import '../services/real_auth_service.dart';
 
 class UserOrderDetailsPage extends StatefulWidget {
   final String orderId;
@@ -21,11 +23,25 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   Order? _order;
   bool _isLoading = true;
   String? _error;
+  bool _isAdmin = false;
+  bool _isUpdatingStatus = false;
 
   @override
   void initState() {
     super.initState();
     _loadOrderDetails();
+    _checkAdminStatus();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    try {
+      final isCurrentUserAdmin = await AuthService.isCurrentUserAdmin();
+      setState(() {
+        _isAdmin = isCurrentUserAdmin;
+      });
+    } catch (e) {
+      debugPrint('خطأ في فحص صلاحيات المستخدم: $e');
+    }
   }
 
   Future<void> _loadOrderDetails() async {
@@ -72,7 +88,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           (orderResponse[itemsKey] as List?)?.map((item) {
             if (isScheduledOrder) {
               // للطلبات المجدولة - استخدام أسماء الأعمدة الصحيحة
-              return OrderItem(
+              return OrderItemModel.OrderItem(
                 id: item['id']?.toString() ?? '',
                 productId:
                     item['product_id']?.toString() ??
@@ -88,7 +104,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
               );
             } else {
               // للطلبات العادية
-              return OrderItem(
+              return OrderItemModel.OrderItem(
                 id: item['id']?.toString() ?? '',
                 productId: item['product_id'] ?? '',
                 name: item['product_name'] ?? '',
@@ -99,7 +115,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
               );
             }
           }).toList() ??
-          <OrderItem>[];
+          <OrderItemModel.OrderItem>[];
 
       // إنشاء كائن الطلب مع أسماء الأعمدة الصحيحة
       final order = Order(
@@ -558,6 +574,43 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
               fontSize: 12,
             ),
           ),
+          // زر تحديث الحالة للإدارة
+          if (_isAdmin) ...[
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: _isUpdatingStatus ? null : _showUpdateStatusDialog,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: _isUpdatingStatus
+                      ? Colors.grey.withValues(alpha: 0.3)
+                      : const Color(0xFF4CAF50).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _isUpdatingStatus
+                        ? Colors.grey.withValues(alpha: 0.5)
+                        : const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                    width: 1,
+                  ),
+                ),
+                child: _isUpdatingStatus
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.grey,
+                        ),
+                      )
+                    : const Icon(
+                        FontAwesomeIcons.penToSquare,
+                        color: Color(0xFF4CAF50),
+                        size: 16,
+                      ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -728,7 +781,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     );
   }
 
-  Widget _buildOrderItem(OrderItem item) {
+  Widget _buildOrderItem(OrderItemModel.OrderItem item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(15),
@@ -1000,7 +1053,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   }
 
   // 🧮 دوال مساعدة للحصول على أسعار العناصر
-  double _getItemPrice(OrderItem item) {
+  double _getItemPrice(OrderItemModel.OrderItem item) {
     // إذا كان سعر العميل 0، استخدم سعر الجملة كبديل
     if (item.customerPrice > 0) {
       return item.customerPrice.toDouble();
@@ -1011,16 +1064,178 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     }
   }
 
-  double _getItemTotal(OrderItem item) {
+  double _getItemTotal(OrderItemModel.OrderItem item) {
     // إذا كان total_price محفوظ في قاعدة البيانات، استخدمه
     // وإلا احسب من السعر والكمية
     double price = _getItemPrice(item);
     return price * item.quantity;
   }
 
-  bool _hasValidImage(OrderItem item) {
+  bool _hasValidImage(OrderItemModel.OrderItem item) {
     return item.image.isNotEmpty &&
         item.image != 'null' &&
         item.image.startsWith('http');
+  }
+
+  // وظائف تحديث الحالة للإدارة
+  void _showUpdateStatusDialog() {
+    if (!_isAdmin || _order == null) return;
+
+    final currentStatus = _order!.status;
+    String selectedStatus = _getStatusValue(currentStatus);
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1a1a2e),
+          title: Text(
+            'تحديث حالة الطلب',
+            style: GoogleFonts.cairo(
+              color: const Color(0xFFffd700),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'الحالة الحالية: ${_getStatusText(currentStatus)}',
+                style: GoogleFonts.cairo(color: Colors.white70),
+              ),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<String>(
+                value: selectedStatus,
+                decoration: InputDecoration(
+                  labelText: 'الحالة الجديدة',
+                  labelStyle: GoogleFonts.cairo(color: Colors.white70),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                dropdownColor: const Color(0xFF1a1a2e),
+                style: GoogleFonts.cairo(color: Colors.white),
+                items: _getStatusOptions().map((status) {
+                  return DropdownMenuItem(
+                    value: status['value'],
+                    child: Text(
+                      status['text']!,
+                      style: GoogleFonts.cairo(color: Colors.white),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setDialogState(() {
+                    selectedStatus = value!;
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'إلغاء',
+                style: GoogleFonts.cairo(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: selectedStatus == _getStatusValue(currentStatus)
+                  ? null
+                  : () {
+                      Navigator.pop(context);
+                      _updateOrderStatus(selectedStatus);
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFffd700),
+                foregroundColor: const Color(0xFF1a1a2e),
+              ),
+              child: Text(
+                'تحديث',
+                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateOrderStatus(String newStatus) async {
+    if (!_isAdmin || _order == null) return;
+
+    setState(() => _isUpdatingStatus = true);
+
+    try {
+      final success = await AdminService.updateOrderStatus(
+        _order!.id,
+        newStatus,
+        notes: 'تم تحديث الحالة من صفحة تفاصيل الطلب',
+        updatedBy: 'admin',
+      );
+
+      if (success) {
+        await _loadOrderDetails();
+        _showSuccessSnackBar('تم تحديث حالة الطلب بنجاح');
+      } else {
+        _showErrorSnackBar('فشل في تحديث حالة الطلب');
+      }
+    } catch (e) {
+      _showErrorSnackBar('خطأ في تحديث حالة الطلب: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingStatus = false);
+      }
+    }
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.cairo(),
+        ),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: GoogleFonts.cairo(),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  List<Map<String, String>> _getStatusOptions() {
+    return [
+      {'value': 'pending', 'text': 'في الانتظار'},
+      {'value': 'confirmed', 'text': 'مؤكد'},
+      {'value': 'in_delivery', 'text': 'قيد التوصيل'},
+      {'value': 'delivered', 'text': 'تم التوصيل'},
+      {'value': 'cancelled', 'text': 'ملغي'},
+    ];
+  }
+
+  String _getStatusValue(OrderStatus status) {
+    switch (status) {
+      case OrderStatus.pending:
+        return 'pending';
+      case OrderStatus.confirmed:
+        return 'confirmed';
+      case OrderStatus.inDelivery:
+        return 'in_delivery';
+      case OrderStatus.delivered:
+        return 'delivered';
+      case OrderStatus.cancelled:
+        return 'cancelled';
+    }
   }
 }

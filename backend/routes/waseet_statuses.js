@@ -6,6 +6,8 @@
 const express = require('express');
 const router = express.Router();
 const waseetStatusManager = require('../services/waseet_status_manager');
+const { supabase } = require('../config/supabase');
+const { supabase } = require('../config/supabase');
 
 // ===================================
 // الحصول على جميع الحالات المعتمدة
@@ -78,8 +80,37 @@ router.post('/update-order-status', async (req, res) => {
 
     // تحديث الحالة
     const result = await waseetStatusManager.updateOrderStatus(orderId, waseetStatusId, waseetStatusText);
-    
+
     if (result.success) {
+      // 🔔 إرسال إشعار للعميل عند نجاح التحديث
+      try {
+        const targetedNotificationService = require('../services/targeted_notification_service');
+
+        // الحصول على معلومات الطلب
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('customer_id, customer_name, customer_phone')
+          .eq('id', orderId)
+          .single();
+
+        if (orderData && orderData.customer_phone) {
+          console.log(`📱 إرسال إشعار تحديث حالة الطلب ${orderId} للعميل ${orderData.customer_name}`);
+
+          await targetedNotificationService.sendOrderStatusNotification(
+            orderId,
+            orderData.customer_id || orderData.customer_phone,
+            orderData.customer_name || 'عميل',
+            result.oldStatus || 'unknown',
+            result.newStatus || waseetStatusText
+          );
+
+          console.log(`✅ تم إرسال إشعار تحديث الحالة بنجاح`);
+        }
+      } catch (notificationError) {
+        console.error('⚠️ خطأ في إرسال إشعار تحديث الحالة:', notificationError.message);
+        // لا نوقف العملية بسبب خطأ في الإشعار
+      }
+
       res.json({
         success: true,
         message: 'تم تحديث حالة الطلب بنجاح',

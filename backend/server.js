@@ -118,6 +118,15 @@ try {
   console.log('تحذير: لم يتم العثور على routes/notifications');
 }
 
+// Routes لحالات الوسيط
+try {
+  const waseetStatusRoutes = require('./routes/waseet_statuses');
+  app.use('/api/waseet-statuses', waseetStatusRoutes);
+  console.log('✅ تم تحميل مسارات حالات الوسيط');
+} catch (error) {
+  console.log('تحذير: لم يتم العثور على routes/waseet_statuses');
+}
+
 // معالجة الأخطاء العامة
 app.use((err, req, res, next) => {
   console.error('خطأ في الخادم:', err.stack);

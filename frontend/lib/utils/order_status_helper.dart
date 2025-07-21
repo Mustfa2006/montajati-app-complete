@@ -102,20 +102,8 @@ class OrderStatusHelper {
 
   /// تحويل النص العربي إلى قيمة قاعدة البيانات
   static String arabicToDatabase(String arabicStatus) {
-    switch (arabicStatus) {
-      case 'في الانتظار':
-        return 'pending';
-      case 'نشط':
-        return 'active';
-      case 'قيد التوصيل':
-        return 'in_delivery';
-      case 'تم التوصيل':
-        return 'delivered';
-      case 'ملغي':
-        return 'cancelled';
-      default:
-        return 'active';
-    }
+    // إرجاع النص كما هو - قاعدة البيانات تدعم النصوص العربية الآن
+    return arabicStatus;
   }
 
   /// الحصول على قائمة الحالات المتاحة للاختيار

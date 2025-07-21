@@ -6,6 +6,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
 class WaseetStatusService {
   static const String baseUrl = 'https://montajati-backend.onrender.com/api/waseet-statuses';
@@ -14,6 +15,73 @@ class WaseetStatusService {
   static List<WaseetStatus> _cachedStatuses = [];
   static Map<String, List<WaseetStatus>> _categorizedStatuses = {};
   static DateTime? _lastFetch;
+
+  // جلب الحالات بتنسيق مناسب للحوار
+  Future<List<Map<String, dynamic>>> getStatuses() async {
+    try {
+      final statuses = await getApprovedStatuses();
+      return statuses.map((status) => {
+        'id': status.id,
+        'text': status.text,
+        'color': _getColorForCategory(status.category),
+        'icon': _getIconForCategory(status.category),
+        'category': status.category,
+      }).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error getting statuses: $e');
+      }
+      return [];
+    }
+  }
+
+  // دالة مساعدة لتحديد لون الفئة
+  Color _getColorForCategory(String category) {
+    switch (category) {
+      case 'delivered':
+        return Colors.green;
+      case 'in_delivery':
+        return Colors.blue;
+      case 'contact_issue':
+        return Colors.orange;
+      case 'cancelled':
+        return Colors.red;
+      case 'postponed':
+        return Colors.amber;
+      case 'address_issue':
+        return Colors.brown;
+      case 'returned':
+        return Colors.purple;
+      case 'active':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // دالة مساعدة لتحديد أيقونة الفئة
+  IconData _getIconForCategory(String category) {
+    switch (category) {
+      case 'delivered':
+        return Icons.check_circle;
+      case 'in_delivery':
+        return Icons.local_shipping;
+      case 'contact_issue':
+        return Icons.phone_disabled;
+      case 'cancelled':
+        return Icons.cancel;
+      case 'postponed':
+        return Icons.schedule;
+      case 'address_issue':
+        return Icons.location_off;
+      case 'returned':
+        return Icons.keyboard_return;
+      case 'active':
+        return Icons.check_circle;
+      default:
+        return Icons.info;
+    }
+  }
 
   // جلب جميع الحالات المعتمدة
   static Future<List<WaseetStatus>> getApprovedStatuses({bool forceRefresh = false}) async {

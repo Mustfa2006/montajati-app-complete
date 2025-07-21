@@ -816,50 +816,13 @@ class AdminService {
       // تحديد قيمة قاعدة البيانات بناءً على نوع المدخل
       String statusForDatabase;
 
-      // قائمة القيم الصحيحة لقاعدة البيانات - فقط القيم المسموحة
-      final validDatabaseValues = [
-        'active',
-        'in_delivery',
-        'delivered',
-        'cancelled',
-      ];
-
       debugPrint('🔍 فحص القيمة المدخلة:');
       debugPrint('   📝 القيمة: "$newStatus"');
       debugPrint('   📋 النوع: ${newStatus.runtimeType}');
-      debugPrint('   📋 القائمة الصحيحة: $validDatabaseValues');
-      debugPrint(
-        '   ✅ موجودة في القائمة: ${validDatabaseValues.contains(newStatus)}',
-      );
 
-      if (validDatabaseValues.contains(newStatus)) {
-        // إذا كانت القيمة المدخلة هي قيمة قاعدة بيانات صحيحة، استخدمها مباشرة
-        statusForDatabase = newStatus;
-        debugPrint('   ✅ استخدام القيمة مباشرة: "$statusForDatabase"');
-      } else {
-        // تحويل الحالات غير المسموحة إلى حالات مسموحة
-        switch (newStatus.toLowerCase()) {
-          case 'pending':
-          case 'confirmed':
-            statusForDatabase = 'active';
-            debugPrint('   🔄 تحويل "$newStatus" إلى "active"');
-            break;
-          case 'processing':
-            statusForDatabase = 'in_delivery';
-            debugPrint('   🔄 تحويل "$newStatus" إلى "in_delivery"');
-            break;
-          case 'shipped':
-            statusForDatabase = 'delivered'; // shipped يعني تم التوصيل
-            debugPrint('   🔄 تحويل "$newStatus" إلى "delivered"');
-            break;
-          default:
-            // إذا كانت القيمة المدخلة نص عربي، حولها إلى قيمة قاعدة البيانات
-            statusForDatabase = OrderStatusHelper.arabicToDatabase(newStatus);
-            debugPrint(
-              '   🔄 تحويل من العربي: "$newStatus" -> "$statusForDatabase"',
-            );
-        }
-      }
+      // استخدام النص كما هو - قاعدة البيانات تدعم النصوص العربية الآن
+      statusForDatabase = newStatus;
+      debugPrint('   ✅ استخدام القيمة مباشرة: "$statusForDatabase"');
 
       debugPrint('🔄 تحويل الحالة باستخدام النظام الجديد:');
       debugPrint('   📝 الحالة المدخلة: "$newStatus"');

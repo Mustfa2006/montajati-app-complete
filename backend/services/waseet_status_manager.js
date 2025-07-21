@@ -12,8 +12,9 @@ class WaseetStatusManager {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // الحالات الأساسية المعتمدة (20 حالة)
+    // الحالات الأساسية المعتمدة (22 حالة)
     this.approvedStatuses = [
+      { id: 1, text: "نشط", category: "active", appStatus: "active" },
       { id: 4, text: "تم التسليم للزبون", category: "delivered", appStatus: "delivered" },
       { id: 24, text: "تم تغيير محافظة الزبون", category: "modified", appStatus: "active" },
       { id: 42, text: "تغيير المندوب", category: "modified", appStatus: "active" },
@@ -75,14 +76,13 @@ class WaseetStatusManager {
       }
 
       const statusInfo = this.getStatusById(waseetStatusId);
-      const appStatus = this.mapWaseetStatusToAppStatus(waseetStatusId);
       const statusText = waseetStatusText || statusInfo.text;
 
-      // تحديث الطلب في قاعدة البيانات
+      // تحديث الطلب في قاعدة البيانات - حفظ النص الكامل في عمود status
       const { data, error } = await this.supabase
         .from('orders')
         .update({
-          status: appStatus,
+          status: statusText,  // حفظ النص الكامل للحالة في عمود status
           waseet_status_id: waseetStatusId,
           waseet_status_text: statusText,
           status_updated_at: new Date().toISOString()
@@ -96,14 +96,14 @@ class WaseetStatusManager {
       }
 
       console.log(`✅ تم تحديث حالة الطلب ${orderId} بنجاح`);
-      console.log(`   📊 حالة التطبيق: ${appStatus}`);
-      console.log(`   📋 حالة الوسيط: ${statusText}`);
+      console.log(`   📊 حالة الطلب في قاعدة البيانات: ${statusText}`);
+      console.log(`   📋 ID الحالة: ${waseetStatusId}`);
 
       return {
         success: true,
         order: data,
         oldStatus: data.status,
-        newStatus: appStatus,
+        newStatus: statusText,  // النص الكامل للحالة
         waseetStatus: statusText
       };
 
