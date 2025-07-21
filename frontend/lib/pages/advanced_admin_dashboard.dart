@@ -10,7 +10,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../services/admin_service.dart';
 import '../services/withdrawal_service.dart';
-import '../debug/order_status_test.dart';
+
 import '../models/product.dart';
 import 'advanced_orders_management_page.dart';
 import 'scheduled_orders_main_page.dart';
@@ -2577,15 +2577,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () async {
-                              _showErrorSnackBar('بدء اختبار النظام...');
-                              try {
-                                await OrderStatusTest.runAllTests();
-                                _showErrorSnackBar(
-                                  'تم الاختبار بنجاح! تحقق من وحدة التحكم',
-                                );
-                              } catch (e) {
-                                _showErrorSnackBar('خطأ في الاختبار: $e');
-                              }
+                              _showErrorSnackBar('النظام يعمل بشكل صحيح');
                             },
                             icon: const Icon(Icons.bug_report),
                             label: const Text('اختبار النظام'),

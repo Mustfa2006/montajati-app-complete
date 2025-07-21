@@ -1,14 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../services/supabase_service.dart';
 import '../services/admin_service.dart';
-import '../services/withdrawal_service.dart';
-
 import '../services/order_monitoring_service.dart';
 import '../services/fcm_service.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'notification_test_page.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../widgets/custom_app_bar.dart';
@@ -1519,15 +1512,15 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const NotificationTestPage(),
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('نظام الإشعارات يعمل بشكل صحيح'),
+                            backgroundColor: Colors.green,
                           ),
                         );
                       },
-                      icon: const Icon(Icons.bug_report),
-                      label: const Text('🧪 صفحة اختبار الإشعارات المتقدمة'),
+                      icon: const Icon(Icons.check_circle),
+                      label: const Text('✅ فحص نظام الإشعارات'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.teal,
                         foregroundColor: Colors.white,

@@ -47,8 +47,8 @@ android {
         applicationId = "com.montajati.app"
         minSdk = 21 // Android 5.0 كحد أدنى للإنتاج
         targetSdk = 35 // Android 15 - أحدث إصدار
-        versionCode = 2
-        versionName = "2.0.0"
+        versionCode = 7
+        versionName = "2.1.0"
 
         // إعدادات التطبيق للإنتاج
         resValue("string", "app_name", "منتجاتي")

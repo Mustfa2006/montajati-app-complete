@@ -37,51 +37,31 @@ class FCMService {
   bool get isInitialized => _isInitialized;
   String? get currentToken => _currentToken;
 
-  /// ✅ تهيئة خدمة FCM محسنة مع معالجة أفضل للأخطاء
+  /// تهيئة خدمة FCM
   Future<bool> initialize() async {
     try {
-      debugPrint('🔥 بدء تهيئة Firebase Cloud Messaging...');
-
-      // التحقق من توفر الخدمات
-      if (!kIsWeb && Platform.isIOS) {
-        // التحقق من إعدادات iOS
-        debugPrint('📱 تشغيل على iOS - التحقق من الإعدادات...');
-      } else if (!kIsWeb && Platform.isAndroid) {
-        // التحقق من إعدادات Android
-        debugPrint('🤖 تشغيل على Android - التحقق من الإعدادات...');
-      }
-
-      // تهيئة Firebase مع معالجة الأخطاء
-      try {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-        debugPrint('✅ تم تهيئة Firebase بنجاح');
-      } catch (firebaseError) {
-        debugPrint('❌ خطأ في تهيئة Firebase: $firebaseError');
-        return false;
-      }
+      // تهيئة Firebase
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
 
       _messaging = FirebaseMessaging.instance;
-      
+
       // طلب الأذونات
       await _requestPermissions();
-      
+
       // تهيئة Local Notifications
       await _initializeLocalNotifications();
-      
+
       // الحصول على FCM Token
       await _getFCMToken();
-      
+
       // إعداد معالجات الإشعارات
       _setupMessageHandlers();
-      
+
       _isInitialized = true;
-      debugPrint('✅ تم تهيئة FCM بنجاح');
-      
       return true;
     } catch (e) {
-      debugPrint('❌ خطأ في تهيئة FCM: $e');
       return false;
     }
   }

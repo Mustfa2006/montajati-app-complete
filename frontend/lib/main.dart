@@ -115,15 +115,9 @@ void main() async {
 
     // 🔔 تهيئة خدمة الإشعارات الفورية FCM
     try {
-      debugPrint('🔄 بدء تهيئة خدمة الإشعارات الفورية...');
-      final fcmInitialized = await FCMService().initialize();
-      if (fcmInitialized) {
-        debugPrint('✅ تم تهيئة خدمة الإشعارات الفورية بنجاح');
-      } else {
-        debugPrint('⚠️ فشل في تهيئة خدمة الإشعارات الفورية');
-      }
+      await FCMService().initialize();
     } catch (e) {
-      debugPrint('❌ خطأ في تهيئة خدمة الإشعارات الفورية: $e');
+      // تجاهل الأخطاء في الإنتاج
     }
 
 
@@ -233,7 +227,7 @@ class MontajatiApp extends StatelessWidget {
         // إعدادات حقول الإدخال
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: Colors.white.withOpacity(0.1),
+          fillColor: Colors.white.withValues(alpha: 0.1),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -243,7 +237,7 @@ class MontajatiApp extends StatelessWidget {
             borderSide: const BorderSide(color: Color(0xFFffd700), width: 2),
           ),
           labelStyle: GoogleFonts.cairo(
-            color: Colors.white.withOpacity(0.7),
+            color: Colors.white.withValues(alpha: 0.7),
           ),
         ),
       ),
