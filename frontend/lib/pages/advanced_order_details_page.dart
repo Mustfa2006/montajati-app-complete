@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import '../services/admin_service.dart';
+import '../services/waseet_status_service.dart';
 import '../utils/order_status_helper.dart';
+import '../widgets/simple_waseet_status_dialog.dart';
 
 class AdvancedOrderDetailsPage extends StatefulWidget {
   final String orderId;
@@ -298,107 +300,38 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
 
   // نظام تحديث الحالات الجديد - حوار منبثق بسيط
   void _showStatusUpdateDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF16213e),
-        title: const Text(
-          'تحديث حالة الطلب',
-          style: TextStyle(color: Color(0xFFffd700)),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'اختر الحالة الجديدة للطلب:',
-              style: TextStyle(color: Colors.white),
-            ),
-            const SizedBox(height: 20),
-            _buildSimpleStatusSelector(),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء', style: TextStyle(color: Colors.white70)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _updateOrderStatusSimple();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-            ),
-            child: const Text('تحديث', style: TextStyle(color: Colors.black)),
-          ),
-        ],
-      ),
+    showSimpleWaseetStatusDialog(
+      context,
+      orderId: _order!.id,
+      currentStatus: _order!.status,
+      onStatusSelected: (statusId, statusText) async {
+        setState(() => _isUpdatingStatus = true);
+
+        try {
+          final success = await WaseetStatusService.updateOrderStatus(
+            _order!.id,
+            statusId,
+            waseetStatusText: statusText,
+          );
+
+          if (success) {
+            await _loadOrderDetails();
+            _showSuccessSnackBar('تم تحديث حالة الطلب بنجاح إلى: $statusText');
+          } else {
+            _showErrorSnackBar('فشل في تحديث حالة الطلب');
+          }
+        } catch (e) {
+          _showErrorSnackBar('خطأ في تحديث حالة الطلب: $e');
+        } finally {
+          if (mounted) {
+            setState(() => _isUpdatingStatus = false);
+          }
+        }
+      },
     );
   }
 
-  String _selectedStatus = '';
-
-  Widget _buildSimpleStatusSelector() {
-    final statuses = [
-      {'value': 'active', 'text': 'نشط', 'color': Colors.blue},
-      {'value': 'in_delivery', 'text': 'قيد التوصيل', 'color': Colors.orange},
-      {'value': 'delivered', 'text': 'تم التوصيل', 'color': Colors.green},
-      {'value': 'cancelled', 'text': 'ملغي', 'color': Colors.red},
-    ];
-
-    return Column(
-      children: statuses.map((status) {
-        final isSelected = _selectedStatus == status['value'];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: Icon(
-              Icons.circle,
-              color: status['color'] as Color,
-              size: 16,
-            ),
-            title: Text(
-              status['text'] as String,
-              style: TextStyle(
-                color: isSelected ? const Color(0xFFffd700) : Colors.white,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-            onTap: () {
-              setState(() {
-                _selectedStatus = status['value'] as String;
-              });
-            },
-            selected: isSelected,
-            selectedTileColor: const Color(0xFFffd700).withValues(alpha: 0.1),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Future<void> _updateOrderStatusSimple() async {
-    if (_selectedStatus.isEmpty) return;
-
-    setState(() => _isUpdatingStatus = true);
-
-    try {
-      await AdminService.updateOrderStatus(_order!.id, _selectedStatus);
-
-      await _loadOrderDetails();
-      _showSuccessSnackBar('تم تحديث حالة الطلب بنجاح');
-    } catch (e) {
-      _showErrorSnackBar('خطأ في تحديث حالة الطلب: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isUpdatingStatus = false);
-      }
-    }
-  }
+  // تم حذف النظام القديم واستبداله بحوار حالات الوسيط الجديد
 
   // تم حذف النظام القديم - استخدم النظام الجديد المبسط
 
