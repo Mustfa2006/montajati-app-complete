@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
+import 'package:google_fonts/google_fonts.dart';
 import '../services/admin_service.dart';
-import '../services/waseet_status_service.dart';
 import '../utils/order_status_helper.dart';
-import '../widgets/simple_waseet_status_dialog.dart';
 
 class AdvancedOrderDetailsPage extends StatefulWidget {
   final String orderId;
@@ -298,42 +297,144 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     }
   }
 
-  // نظام تحديث الحالات الجديد - حوار منبثق بسيط
+  // نظام تحديث الحالات البسيط - تحديث مباشر لعمود status
   void _showStatusUpdateDialog() {
-    showSimpleWaseetStatusDialog(
-      context,
-      orderId: _order!.id,
-      currentStatus: _order!.status,
-      onStatusSelected: (statusId, statusText) async {
-        setState(() => _isUpdatingStatus = true);
+    final currentStatus = _order!.status;
+    String selectedStatus = currentStatus;
 
-        try {
-          final success = await WaseetStatusService.updateOrderStatus(
-            _order!.id,
-            statusId,
-            waseetStatusText: statusText,
-          );
-
-          if (success) {
-            await _loadOrderDetails();
-            _showSuccessSnackBar('تم تحديث حالة الطلب بنجاح إلى: $statusText');
-          } else {
-            _showErrorSnackBar('فشل في تحديث حالة الطلب');
-          }
-        } catch (e) {
-          _showErrorSnackBar('خطأ في تحديث حالة الطلب: $e');
-        } finally {
-          if (mounted) {
-            setState(() => _isUpdatingStatus = false);
-          }
-        }
-      },
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: const Color(0xFF1a1a2e),
+          title: Text(
+            'تحديث حالة الطلب',
+            style: GoogleFonts.cairo(
+              color: const Color(0xFFffd700),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'الحالة الحالية: $currentStatus',
+                style: GoogleFonts.cairo(color: Colors.white70),
+              ),
+              const SizedBox(height: 20),
+              DropdownButtonFormField<String>(
+                value: selectedStatus,
+                decoration: InputDecoration(
+                  labelText: 'الحالة الجديدة',
+                  labelStyle: GoogleFonts.cairo(color: Colors.white70),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                dropdownColor: const Color(0xFF1a1a2e),
+                style: GoogleFonts.cairo(color: Colors.white),
+                items: _getStatusOptions().map((status) {
+                  return DropdownMenuItem(
+                    value: status['text'],
+                    child: Text(
+                      status['text']!,
+                      style: GoogleFonts.cairo(color: Colors.white),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setDialogState(() {
+                    selectedStatus = value!;
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'إلغاء',
+                style: GoogleFonts.cairo(color: Colors.grey),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: selectedStatus == currentStatus
+                  ? null
+                  : () {
+                      Navigator.pop(context);
+                      _updateOrderStatus(selectedStatus);
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFffd700),
+                foregroundColor: const Color(0xFF1a1a2e),
+              ),
+              child: Text(
+                'تحديث',
+                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  // تم حذف النظام القديم واستبداله بحوار حالات الوسيط الجديد
+  // تحديث حالة الطلب مباشرة في قاعدة البيانات
+  Future<void> _updateOrderStatus(String newStatus) async {
+    setState(() => _isUpdatingStatus = true);
 
-  // تم حذف النظام القديم - استخدم النظام الجديد المبسط
+    try {
+      final success = await AdminService.updateOrderStatus(
+        _order!.id,
+        newStatus,
+        notes: 'تم تحديث الحالة من لوحة التحكم',
+        updatedBy: 'admin',
+      );
+
+      if (success) {
+        await _loadOrderDetails();
+        _showSuccessSnackBar('تم تحديث حالة الطلب بنجاح إلى: $newStatus');
+      } else {
+        _showErrorSnackBar('فشل في تحديث حالة الطلب');
+      }
+    } catch (e) {
+      _showErrorSnackBar('خطأ في تحديث حالة الطلب: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingStatus = false);
+      }
+    }
+  }
+
+  // قائمة الحالات المحددة
+  List<Map<String, String>> _getStatusOptions() {
+    return [
+      {'id': '4', 'text': 'تم التسليم للزبون'},
+      {'id': '24', 'text': 'تم تغيير محافظة الزبون'},
+      {'id': '42', 'text': 'تغيير المندوب'},
+      {'id': '25', 'text': 'لا يرد'},
+      {'id': '26', 'text': 'لا يرد بعد الاتفاق'},
+      {'id': '27', 'text': 'مغلق'},
+      {'id': '28', 'text': 'مغلق بعد الاتفاق'},
+      {'id': '3', 'text': 'قيد التوصيل الى الزبون (في عهدة المندوب)'},
+      {'id': '36', 'text': 'الرقم غير معرف'},
+      {'id': '37', 'text': 'الرقم غير داخل في الخدمة'},
+      {'id': '41', 'text': 'لا يمكن الاتصال بالرقم'},
+      {'id': '29', 'text': 'مؤجل'},
+      {'id': '30', 'text': 'مؤجل لحين اعادة الطلب لاحقا'},
+      {'id': '31', 'text': 'الغاء الطلب'},
+      {'id': '32', 'text': 'رفض الطلب'},
+      {'id': '33', 'text': 'مفصول عن الخدمة'},
+      {'id': '34', 'text': 'طلب مكرر'},
+      {'id': '35', 'text': 'مستلم مسبقا'},
+      {'id': '38', 'text': 'العنوان غير دقيق'},
+      {'id': '39', 'text': 'لم يطلب'},
+      {'id': '40', 'text': 'حظر المندوب'},
+    ];
+  }
+
+
 
   // بطاقة حالة الطلب المتحركة
   Widget _buildStatusCard() {
