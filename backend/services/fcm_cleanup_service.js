@@ -26,18 +26,18 @@ class FCMCleanupService {
 
     console.log('🧹 بدء خدمة تنظيف FCM Tokens التلقائية...');
     
-    // تشغيل التنظيف كل 6 ساعات
+    // تشغيل التنظيف كل 12 ساعة (أقل إزعاجاً)
     this.cleanupInterval = setInterval(async () => {
       await this.cleanupExpiredTokens();
-    }, 6 * 60 * 60 * 1000); // 6 ساعات
+    }, 12 * 60 * 60 * 1000); // 12 ساعة
 
-    // تشغيل التنظيف فور البدء
+    // تشغيل التنظيف فور البدء (بعد 5 دقائق لتجنب الحمل عند البدء)
     setTimeout(() => {
       this.cleanupExpiredTokens();
-    }, 30000); // بعد 30 ثانية من البدء
+    }, 5 * 60 * 1000); // بعد 5 دقائق من البدء
 
     this.isRunning = true;
-    console.log('✅ تم بدء خدمة تنظيف FCM Tokens (كل 6 ساعات)');
+    console.log('✅ تم بدء خدمة تنظيف FCM Tokens (كل 12 ساعة)');
   }
 
   // إيقاف خدمة التنظيف
@@ -58,12 +58,13 @@ class FCMCleanupService {
       
       const startTime = Date.now();
       
-      // الحصول على جميع Tokens النشطة
+      // الحصول على Tokens القديمة فقط (أكثر من 7 أيام بدون استخدام)
       const { data: tokens, error } = await this.supabase
         .from('fcm_tokens')
-        .select('id, fcm_token, user_phone, created_at')
+        .select('id, fcm_token, user_phone, created_at, last_used_at')
         .eq('is_active', true)
-        .order('created_at', { ascending: false });
+        .lt('last_used_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+        .order('last_used_at', { ascending: true });
 
       if (error) {
         console.error('❌ خطأ في جلب FCM Tokens:', error.message);
@@ -71,11 +72,11 @@ class FCMCleanupService {
       }
 
       if (!tokens || tokens.length === 0) {
-        console.log('📱 لا توجد FCM Tokens للفحص');
+        console.log('📱 لا توجد FCM Tokens قديمة للفحص (جميع Tokens مستخدمة حديثاً)');
         return;
       }
 
-      console.log(`🔍 فحص ${tokens.length} FCM token...`);
+      console.log(`🔍 فحص ${tokens.length} FCM token قديم (غير مستخدم لأكثر من 7 أيام)...`);
 
       let expiredCount = 0;
       let validCount = 0;
@@ -88,33 +89,34 @@ class FCMCleanupService {
         
         await Promise.all(batch.map(async (tokenData) => {
           try {
-            // اختبار Token بإرسال رسالة تجريبية
+            // اختبار Token بإرسال رسالة صامتة (data-only message)
             const testMessage = {
               token: tokenData.fcm_token,
               data: {
-                type: 'cleanup_test',
+                type: 'silent_validation',
                 timestamp: new Date().toISOString()
               }
+              // لا notification - رسالة صامتة تماماً
             };
 
             await admin.messaging().send(testMessage);
-            
+
             // Token صالح - تحديث آخر استخدام
             await this.supabase
               .from('fcm_tokens')
               .update({ last_used_at: new Date().toISOString() })
               .eq('id', tokenData.id);
-            
+
             validCount++;
 
           } catch (firebaseError) {
             // Token منتهي الصلاحية - تعطيله
             if (firebaseError.code === 'messaging/registration-token-not-registered' ||
                 firebaseError.code === 'messaging/invalid-registration-token') {
-              
+
               await this.supabase
                 .from('fcm_tokens')
-                .update({ 
+                .update({
                   is_active: false,
                   deactivated_at: new Date().toISOString(),
                   deactivation_reason: firebaseError.code

@@ -431,14 +431,14 @@ class FCMService {
     }
   }
 
-  /// التحقق من صحة Token الحالي
+  /// التحقق من صحة Token الحالي (بدون إرسال إشعارات)
   Future<void> _validateCurrentToken() async {
     if (_currentToken == null) return;
 
     try {
-      // محاولة تحديث آخر استخدام في قاعدة البيانات
+      // فقط تحديث آخر استخدام في قاعدة البيانات بدون اختبار Firebase
       final response = await http.post(
-        Uri.parse('https://montajati-backend.onrender.com/api/fcm/validate-token'),
+        Uri.parse('https://montajati-backend.onrender.com/api/fcm/update-last-used'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'fcmToken': _currentToken,
@@ -447,8 +447,7 @@ class FCMService {
       );
 
       if (response.statusCode != 200) {
-        debugPrint('⚠️ Token قد يكون منتهي الصلاحية، سيتم تحديثه');
-        await _forceTokenRefresh();
+        debugPrint('⚠️ فشل في تحديث آخر استخدام للـ Token');
       }
     } catch (e) {
       debugPrint('⚠️ خطأ في التحقق من Token: $e');
@@ -478,8 +477,8 @@ class FCMService {
 
   /// إعداد فحص دوري للـ Token
   void _setupPeriodicTokenCheck() {
-    // فحص Token كل 6 ساعات
-    Timer.periodic(const Duration(hours: 6), (timer) async {
+    // فحص Token كل 8 ساعات (أقل استهلاكاً للبطارية)
+    Timer.periodic(const Duration(hours: 8), (timer) async {
       debugPrint('🔍 فحص دوري لـ FCM Token...');
       await _checkAndRefreshToken();
     });

@@ -375,4 +375,50 @@ router.post('/validate-token', async (req, res) => {
   }
 });
 
+// ===================================
+// تحديث آخر استخدام للـ Token (بدون اختبار Firebase)
+// ===================================
+router.post('/update-last-used', async (req, res) => {
+  try {
+    const { fcmToken, userPhone } = req.body;
+
+    if (!fcmToken || !userPhone) {
+      return res.status(400).json({
+        success: false,
+        message: 'fcmToken و userPhone مطلوبان'
+      });
+    }
+
+    // تحديث آخر استخدام للـ Token بدون اختبار Firebase
+    const { error } = await supabase
+      .from('fcm_tokens')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('fcm_token', fcmToken)
+      .eq('user_phone', userPhone)
+      .eq('is_active', true);
+
+    if (error) {
+      console.error('❌ خطأ في تحديث آخر استخدام للـ Token:', error.message);
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في تحديث آخر استخدام للـ Token',
+        error: error.message
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'تم تحديث آخر استخدام للـ Token بنجاح'
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في تحديث آخر استخدام للـ Token:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ داخلي في الخادم',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

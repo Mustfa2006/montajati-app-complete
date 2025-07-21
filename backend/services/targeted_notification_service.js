@@ -67,40 +67,13 @@ class TargetedNotificationService {
         return null;
       }
 
-      // تجربة كل token حتى نجد واحد يعمل
-      for (const tokenData of data) {
-        try {
-          // اختبار Token بإرسال إشعار تجريبي
-          const testMessage = {
-            token: tokenData.fcm_token,
-            data: {
-              type: 'test',
-              timestamp: new Date().toISOString()
-            }
-          };
+      // استخدام أحدث token بدون اختبار (لتجنب الإشعارات المزعجة)
+      const latestToken = data[0]; // أحدث token
 
-          // اختبار Token بإرسال رسالة تجريبية
-          const admin = require('firebase-admin');
-          await admin.messaging().send({
-            token: tokenData.fcm_token,
-            data: { type: 'test' }
-          });
-
-          // إذا نجح الإرسال، حدث آخر استخدام وأرجع Token
-          await this.updateTokenLastUsed(userPhone, tokenData.fcm_token);
-          console.log(`✅ تم العثور على FCM token صالح للمستخدم: ${userPhone}`);
-          return tokenData.fcm_token;
-
-        } catch (tokenError) {
-          console.log(`⚠️ FCM token منتهي الصلاحية: ${tokenData.fcm_token.substring(0, 20)}...`);
-
-          // تعطيل Token المنتهي الصلاحية
-          await this.supabase
-            .from('fcm_tokens')
-            .update({ is_active: false })
-            .eq('fcm_token', tokenData.fcm_token);
-        }
-      }
+      // تحديث آخر استخدام وإرجاع Token
+      await this.updateTokenLastUsed(userPhone, latestToken.fcm_token);
+      console.log(`✅ تم العثور على FCM token للمستخدم: ${userPhone}`);
+      return latestToken.fcm_token;
 
       console.log(`❌ جميع FCM tokens منتهية الصلاحية للمستخدم: ${userPhone}`);
       return null;
