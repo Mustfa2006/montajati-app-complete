@@ -654,15 +654,29 @@ class ProductionMonitoring {
           CREATE INDEX IF NOT EXISTS idx_sync_logs_success ON sync_logs(success);
         `;
 
-        // تنفيذ SQL مباشرة
-        const { error: createError } = await this.supabase.rpc('exec_sql', {
-          sql: createTableSQL
-        });
+        // محاولة إدراج سجل تجريبي لإنشاء الجدول تلقائياً
+        const { error: insertError } = await this.supabase
+          .from('sync_logs')
+          .insert({
+            operation_id: 'table_creation_test',
+            sync_type: 'test',
+            success: true,
+            orders_processed: 0,
+            orders_updated: 0,
+            duration_ms: 0,
+            sync_timestamp: new Date().toISOString(),
+            service_version: '1.0.0'
+          });
 
-        if (createError) {
-          logger.error('❌ فشل إنشاء جدول sync_logs', { error: createError.message });
+        if (insertError) {
+          logger.error('❌ فشل إنشاء جدول sync_logs', { error: insertError.message });
         } else {
           logger.info('✅ تم إنشاء جدول sync_logs بنجاح');
+          // حذف السجل التجريبي
+          await this.supabase
+            .from('sync_logs')
+            .delete()
+            .eq('operation_id', 'table_creation_test');
         }
       }
     } catch (error) {

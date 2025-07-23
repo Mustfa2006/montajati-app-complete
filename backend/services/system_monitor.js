@@ -226,7 +226,9 @@ class SystemMonitor extends EventEmitter {
           total: os.totalmem(),
           free: os.freemem(),
           used: os.totalmem() - os.freemem(),
-          usage: ((os.totalmem() - os.freemem()) / os.totalmem()) * 100,
+          // حساب استخدام الذاكرة للعملية الحالية فقط (أكثر دقة)
+          processMemory: process.memoryUsage(),
+          usage: (process.memoryUsage().heapUsed / process.memoryUsage().heapTotal) * 100,
         },
         uptime: os.uptime(),
         platform: os.platform(),
