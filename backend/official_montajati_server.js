@@ -359,8 +359,7 @@ class OfficialMontajatiServer {
     });
 
     this.systemMonitor.on('alert', (alert) => {
-      console.log(`🚨 تنبيه النظام: ${alert.title}`);
-      // يمكن إضافة إرسال تنبيهات للمدراء هنا
+      // تنبيه النظام (بصمت)
     });
   }
 
@@ -465,6 +464,13 @@ class OfficialMontajatiServer {
           await this.state.services.sync.shutdown();
           this.state.services.sync = null;
         }
+
+      // إيقاف نظام المراقبة القديم أيضاً
+      if (this.state.services.monitor) {
+        console.log('🔄 إيقاف نظام المراقبة القديم لتوفير الذاكرة...');
+        await this.state.services.monitor.shutdown();
+        this.state.services.monitor = null;
+      }
 
       } catch (error) {
         console.warn('⚠️ فشل بدء النظام الإنتاجي:', error.message);

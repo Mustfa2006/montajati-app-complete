@@ -383,7 +383,7 @@ class ProductionWaseetService {
         statusCounts: ordersData.statusCounts.counts
       });
 
-      logger.info(`✅ تم جلب ${orderStatuses.length} طلب بنجاح`);
+      // تم إزالة الرسالة المفصلة
       
       return {
         success: true,

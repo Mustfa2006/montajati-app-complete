@@ -64,7 +64,7 @@ class ProductionMonitoring {
       this.startPeriodicHealthCheck();
       
       this.isMonitoring = true;
-      logger.info(`✅ تم بدء نظام المراقبة - فحص كل ${this.config.healthCheckInterval / 1000} ثانية`);
+      logger.info(`✅ تم بدء نظام المراقبة`);
       
     } catch (error) {
       logger.error('❌ فشل بدء نظام المراقبة', {
@@ -117,7 +117,7 @@ class ProductionMonitoring {
     const startTime = Date.now();
     
     try {
-      logger.debug('🔍 بدء فحص الصحة الشامل');
+      // فحص صحة النظام بصمت
       
       // فحص صحة النظام
       const systemHealth = await this.checkSystemHealth();
@@ -160,7 +160,7 @@ class ProductionMonitoring {
         duration: Date.now() - startTime
       });
 
-      logger.debug(`✅ انتهى فحص الصحة - الحالة العامة: ${overallHealth}`);
+      // انتهى فحص الصحة بصمت
 
     } catch (error) {
       await logger.error('❌ فشل فحص الصحة', {

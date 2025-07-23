@@ -142,11 +142,8 @@ class ProductionSyncService {
       this.syncCount++;
       this.stats.totalSyncs++;
       
-      logger.info(`🔄 بدء المزامنة رقم ${this.syncCount}`);
-      
       // جلب الطلبات من قاعدة البيانات
       const localOrders = await this.getOrdersToSync();
-      logger.info(`📋 تم جلب ${localOrders.length} طلب للمزامنة`);
       
       if (localOrders.length === 0) {
         logger.info('📭 لا توجد طلبات للمزامنة');
@@ -174,7 +171,12 @@ class ProductionSyncService {
       this.updateStats(true, localOrders.length, syncResults.updated, duration);
       this.lastSyncTime = new Date().toISOString();
       
-      logger.info(`✅ انتهت المزامنة بنجاح - تم تحديث ${syncResults.updated}/${localOrders.length} طلب في ${duration}ms`);
+      // رسالة مبسطة للنتيجة
+      if (syncResults.updated > 0) {
+        logger.info(`✅ مزامنة ${this.syncCount}: تم تحديث ${syncResults.updated} من ${localOrders.length} طلب`);
+      } else {
+        logger.info(`✅ مزامنة ${this.syncCount}: فحص ${localOrders.length} طلب - لا توجد تحديثات`);
+      }
 
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -297,7 +299,7 @@ class ProductionSyncService {
         const waseetOrder = waseetOrdersMap.get(localOrder.waseet_order_id.toString());
         
         if (!waseetOrder) {
-          logger.warn(`⚠️ الطلب ${localOrder.order_number} غير موجود في الوسيط`);
+          // طلب غير موجود في الوسيط (طبيعي للطلبات القديمة)
           return;
         }
 

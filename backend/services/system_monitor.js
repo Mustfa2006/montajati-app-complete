@@ -481,7 +481,7 @@ class SystemMonitor extends EventEmitter {
           created_at: new Date().toISOString()
         });
 
-      console.log(`🚨 تنبيه جديد: ${alert.title}`);
+      // تنبيه جديد (بصمت)
       this.emit('alert', alert);
 
     } catch (error) {

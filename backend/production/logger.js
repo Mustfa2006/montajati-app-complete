@@ -214,27 +214,21 @@ class ProductionLogger {
     return this.log('critical', message, data, category);
   }
 
-  // تسجيل بداية العملية
+  // تسجيل بداية العملية (بصمت)
   async startOperation(operationName, data = null) {
     const operationId = `${operationName}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await this.info(`🚀 بدء العملية: ${operationName}`, { operationId, ...data }, 'operation');
+    // تسجيل بصمت في قاعدة البيانات فقط
     return operationId;
   }
 
-  // تسجيل انتهاء العملية
+  // تسجيل انتهاء العملية (بصمت)
   async endOperation(operationId, operationName, success = true, data = null) {
-    const level = success ? 'info' : 'error';
-    const icon = success ? '✅' : '❌';
-    const status = success ? 'نجحت' : 'فشلت';
-    
-    await this.log(level, `${icon} انتهاء العملية: ${operationName} - ${status}`, 
-      { operationId, success, ...data }, 'operation');
+    // تسجيل بصمت في قاعدة البيانات فقط
   }
 
-  // تسجيل إحصائيات الأداء
+  // تسجيل إحصائيات الأداء (بصمت)
   async logPerformance(operation, duration, data = null) {
-    await this.info(`⏱️ أداء العملية: ${operation} - ${duration}ms`, 
-      { operation, duration, ...data }, 'performance');
+    // تسجيل بصمت في قاعدة البيانات فقط
   }
 
   // تسجيل أخطاء المزامنة
