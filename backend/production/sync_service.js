@@ -47,7 +47,7 @@ class ProductionSyncService {
     }
 
     try {
-      logger.info('🚀 بدء خدمة المزامنة الإنتاجية');
+      // بدء خدمة المزامنة بصمت
       
       // التحقق من التكوين
       await this.validateConfiguration();

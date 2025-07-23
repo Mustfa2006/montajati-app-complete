@@ -372,19 +372,9 @@ class OfficialMontajatiServer {
       console.log(`📊 البيئة: ${this.environment}`);
       console.log(`🌐 المنفذ: ${this.port}`);
 
-      // تهيئة الخدمات بصمت
-      await this.systemMonitor.initialize();
-      this.state.services.monitor = this.systemMonitor;
-
+      // تهيئة الخدمات الأساسية فقط (بدون النظام القديم)
       await this.notificationManager.initialize();
       this.state.services.notifications = this.notificationManager;
-
-      try {
-        await this.syncManager.initialize();
-        this.state.services.sync = this.syncManager;
-      } catch (error) {
-        this.state.services.sync = null;
-      }
 
       try {
         this.fcmCleanupService.start();
@@ -417,20 +407,8 @@ class OfficialMontajatiServer {
         this.state.isRunning = true;
         this.state.startedAt = new Date();
 
-        console.log('\n' + '='.repeat(80));
         console.log('🎉 الخادم الرسمي لنظام منتجاتي يعمل بنجاح!');
-        console.log('='.repeat(80));
-        console.log(`🌐 الرابط: http://localhost:${this.port}`);
-        console.log(`🔗 فحص الصحة: http://localhost:${this.port}/health`);
-        console.log(`📊 حالة النظام: http://localhost:${this.port}/api/system/status`);
-        console.log(`📱 إدارة الإشعارات: http://localhost:${this.port}/api/notifications`);
-        console.log(`🔄 إدارة المزامنة: http://localhost:${this.port}/api/sync`);
-        console.log(`📈 المراقبة: http://localhost:${this.port}/api/monitor`);
-        console.log('='.repeat(80));
-        console.log(`📅 تاريخ البدء: ${this.state.startedAt.toLocaleString('ar-IQ')}`);
-        console.log(`🏷️ البيئة: ${this.environment}`);
-        console.log(`🔧 إصدار Node.js: ${process.version}`);
-        console.log('='.repeat(80));
+        console.log(`🌐 الرابط: https://montajati-backend.onrender.com`);
       });
 
       // إعداد timeout للخادم
@@ -447,14 +425,14 @@ class OfficialMontajatiServer {
 
         // إيقاف النظام القديم لتوفير الذاكرة
         if (this.state.services.sync) {
-          console.log('🔄 إيقاف نظام المزامنة القديم لتوفير الذاكرة...');
+          // إيقاف النظام القديم بصمت
           await this.state.services.sync.shutdown();
           this.state.services.sync = null;
         }
 
       // إيقاف نظام المراقبة القديم أيضاً
       if (this.state.services.monitor) {
-        console.log('🔄 إيقاف نظام المراقبة القديم لتوفير الذاكرة...');
+        // إيقاف نظام المراقبة القديم بصمت
         await this.state.services.monitor.shutdown();
         this.state.services.monitor = null;
       }
