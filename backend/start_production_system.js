@@ -8,9 +8,9 @@
 const path = require('path');
 const fs = require('fs');
 
-// التأكد من وجود ملف .env
+// التأكد من وجود ملف .env (في التطوير فقط)
 const envPath = path.join(__dirname, '.env');
-if (!fs.existsSync(envPath)) {
+if (!fs.existsSync(envPath) && process.env.NODE_ENV !== 'production') {
   console.error('❌ ملف .env غير موجود');
   console.error('📋 أنشئ ملف .env مع المتغيرات المطلوبة:');
   console.error('   SUPABASE_URL=your_supabase_url');
@@ -20,8 +20,10 @@ if (!fs.existsSync(envPath)) {
   process.exit(1);
 }
 
-// تحميل متغيرات البيئة
-require('dotenv').config();
+// تحميل متغيرات البيئة (إذا كان ملف .env موجود)
+if (fs.existsSync(envPath)) {
+  require('dotenv').config();
+}
 
 // استيراد النظام الإنتاجي
 const ProductionSystem = require('./production/main');
