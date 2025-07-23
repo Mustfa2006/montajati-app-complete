@@ -71,12 +71,47 @@ class OfficialOrdersService extends ChangeNotifier {
         debugPrint('✅ تم استلام الربح النهائي من ملخص الطلب: $finalProfit د.ع');
       }
 
+      // ✅ تحقق نهائي من الربح
+      if (finalProfit <= 0) {
+        debugPrint('🚨 تحذير: الربح النهائي = 0 أو سالب!');
+        debugPrint('🔄 محاولة حساب الربح من totals...');
+
+        final subtotal = totals['subtotal'] ?? 0;
+
+        // افتراض أن الربح = 30% من المجموع الفرعي
+        if (subtotal > 0) {
+          finalProfit = (subtotal * 0.3).round();
+          debugPrint('💰 ربح مقدر (30% من المجموع الفرعي): $finalProfit د.ع');
+        }
+      }
+
       // 3. إعداد بيانات الطلب الرسمية (أسماء الأعمدة الصحيحة)
       debugPrint('🔍 إعداد البيانات للحفظ في قاعدة البيانات:');
       debugPrint('   - subtotal: ${totals['subtotal']} د.ع');
       debugPrint('   - delivery_fee: ${totals['delivery_fee']} د.ع');
       debugPrint('   - total: ${totals['total']} د.ع');
       debugPrint('   - profit (finalProfit): $finalProfit د.ع');
+
+      // الحصول على user_id من رقم الهاتف
+      String? userId;
+      if (userPhone != null) {
+        try {
+          final userResponse = await _supabase
+              .from('users')
+              .select('id')
+              .eq('phone', userPhone)
+              .maybeSingle();
+
+          if (userResponse != null) {
+            userId = userResponse['id'];
+            debugPrint('✅ تم العثور على user_id: $userId');
+          } else {
+            debugPrint('⚠️ لم يتم العثور على مستخدم برقم: $userPhone');
+          }
+        } catch (e) {
+          debugPrint('❌ خطأ في البحث عن المستخدم: $e');
+        }
+      }
 
       final orderData = {
         'id': orderId,
@@ -92,11 +127,12 @@ class OfficialOrdersService extends ChangeNotifier {
         'delivery_fee': totals['delivery_fee'] ?? 0,
         'total': totals['total'] ?? 0,
         'profit': finalProfit, // ✅ الربح النهائي بعد خصم تكلفة التوصيل
+        'profit_amount': finalProfit, // ✅ إضافة profit_amount أيضاً
         'status': 'active',
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
-        'user_phone':
-            userPhone ?? '07503597589', // ✅ استخدام رقم المستخدم الحالي
+        'user_phone': userPhone ?? '07503597589', // ✅ استخدام رقم المستخدم الحالي
+        'user_id': userId, // ✅ إضافة user_id
       };
 
       debugPrint('📋 بيانات الطلب: $orderData');

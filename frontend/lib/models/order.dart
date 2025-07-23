@@ -15,6 +15,7 @@ class Order {
   final int subtotal;
   final int total;
   final OrderStatus status;
+  final String rawStatus; // النص الأصلي من قاعدة البيانات
   final DateTime createdAt;
   final List<OrderItem> items;
   final DateTime? scheduledDate;
@@ -33,6 +34,7 @@ class Order {
     required this.subtotal,
     required this.total,
     required this.status,
+    this.rawStatus = 'نشط', // قيمة افتراضية
     required this.createdAt,
     required this.items,
     this.scheduledDate,
@@ -53,6 +55,7 @@ class Order {
       subtotal: (json['subtotal'] ?? 0),
       total: (json['total'] ?? 0),
       status: _parseOrderStatus(json['status']),
+      rawStatus: json['status'] ?? 'نشط', // الاحتفاظ بالنص الأصلي
       createdAt: DateTime.parse(json['created_at']),
       items:
           (json['order_items'] as List?)
@@ -152,6 +155,7 @@ class Order {
     int? subtotal,
     int? total,
     OrderStatus? status,
+    String? rawStatus,
     DateTime? createdAt,
     List<OrderItem>? items,
   }) {
@@ -168,6 +172,7 @@ class Order {
       subtotal: subtotal ?? this.subtotal,
       total: total ?? this.total,
       status: status ?? this.status,
+      rawStatus: rawStatus ?? this.rawStatus,
       createdAt: createdAt ?? this.createdAt,
       items: items ?? this.items,
     );

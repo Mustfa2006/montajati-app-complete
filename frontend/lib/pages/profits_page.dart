@@ -10,6 +10,7 @@ import '../services/simple_orders_service.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../widgets/common_header.dart';
+import '../services/smart_profits_manager.dart';
 
 class ProfitsPage extends StatefulWidget {
   const ProfitsPage({super.key});
@@ -111,6 +112,35 @@ class _ProfitsPageState extends State<ProfitsPage>
 
   // 🛡️ جلب الأرباح مباشرة من قاعدة البيانات (مع حماية من التكرار)
   bool _isLoadingProfits = false;
+
+  // 🧠 إعادة حساب الأرباح باستخدام النظام الذكي
+  Future<void> _smartRecalculateProfits() async {
+    try {
+      debugPrint('🧠 === إعادة حساب الأرباح باستخدام النظام الذكي ===');
+
+      final prefs = await SharedPreferences.getInstance();
+      String? currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        debugPrint('❌ لا يوجد مستخدم مسجل دخول');
+        return;
+      }
+
+      // إعادة حساب الأرباح باستخدام النظام الذكي
+      final success = await SmartProfitsManager.smartRecalculateAndUpdate(currentUserPhone);
+
+      if (success) {
+        debugPrint('✅ تم إعادة حساب الأرباح بنجاح');
+        // إعادة تحميل البيانات من قاعدة البيانات
+        await _loadProfitsFromDatabase();
+      } else {
+        debugPrint('❌ فشل في إعادة حساب الأرباح');
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في إعادة حساب الأرباح الذكي: $e');
+    }
+  }
 
   Future<void> _loadProfitsFromDatabase() async {
     // منع التحميل المتكرر

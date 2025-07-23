@@ -5,7 +5,11 @@ import 'package:http/http.dart' as http;
 import 'user_management_service.dart';
 import '../config/supabase_config.dart';
 import '../models/order_summary.dart';
+// import '../../debug_helper.dart'; // سيتم إضافته لاحقاً
 import '../utils/order_status_helper.dart';
+import 'smart_profits_manager.dart';
+import 'order_status_monitor.dart';
+import 'smart_profit_transfer.dart';
 
 
 class AdminService {
@@ -783,6 +787,92 @@ class AdminService {
     debugPrint('❌ القيم المرفوضة (${rejectedValues.length}): $rejectedValues');
   }
 
+  // تحويل رقم الحالة إلى النص المناسب لقاعدة البيانات (النصوص الدقيقة من Check Constraint)
+  static String _convertStatusToDatabase(String status) {
+    debugPrint('🔄 تحويل الحالة باستخدام النظام الجديد:');
+    debugPrint('   📝 الحالة المدخلة: "$status"');
+
+    // تحويل الأرقام إلى النصوص الدقيقة المسموحة في قاعدة البيانات
+    String databaseValue;
+    switch (status) {
+      case '4':
+        databaseValue = 'تم التسليم للزبون';
+        break;
+      case '24':
+        databaseValue = 'تم تغيير محافظة الزبون';
+        break;
+      case '42':
+        databaseValue = 'تغيير المندوب';
+        break;
+      case '25':
+        databaseValue = 'لا يرد';
+        break;
+      case '26':
+        databaseValue = 'لا يرد بعد الاتفاق';
+        break;
+      case '27':
+        databaseValue = 'مغلق';
+        break;
+      case '28':
+        databaseValue = 'مغلق بعد الاتفاق';
+        break;
+      case '3':
+        databaseValue = 'قيد التوصيل الى الزبون (في عهدة المندوب)';
+        break;
+      case '36':
+        databaseValue = 'الرقم غير معرف';
+        break;
+      case '37':
+        databaseValue = 'الرقم غير داخل في الخدمة';
+        break;
+      case '41':
+        databaseValue = 'لا يمكن الاتصال بالرقم';
+        break;
+      case '29':
+        databaseValue = 'مؤجل';
+        break;
+      case '30':
+        databaseValue = 'مؤجل لحين اعادة الطلب لاحقا';
+        break;
+      case '31':
+        databaseValue = 'الغاء الطلب';
+        break;
+      case '32':
+        databaseValue = 'رفض الطلب';
+        break;
+      case '33':
+        databaseValue = 'مفصول عن الخدمة';
+        break;
+      case '34':
+        databaseValue = 'طلب مكرر';
+        break;
+      case '35':
+        databaseValue = 'مستلم مسبقا';
+        break;
+      case '38':
+        databaseValue = 'العنوان غير دقيق';
+        break;
+      case '39':
+        databaseValue = 'لم يطلب';
+        break;
+      case '40':
+        databaseValue = 'حظر المندوب';
+        break;
+      default:
+        // إذا لم نجد تطابق، استخدم "نشط" كقيمة افتراضية
+        databaseValue = 'نشط';
+        break;
+    }
+
+    debugPrint('   💾 قيمة قاعدة البيانات: "$databaseValue"');
+
+    // تحويل إلى النص العربي المبسط للعرض
+    String arabicText = OrderStatusHelper.getArabicStatus(status);
+    debugPrint('   📋 النص العربي: "$arabicText"');
+
+    return databaseValue;
+  }
+
   // تحديث حالة الطلب
   static Future<bool> updateOrderStatus(
     String orderId,
@@ -796,22 +886,52 @@ class AdminService {
       debugPrint('🔥 NEW STATUS: $newStatus');
       debugPrint('🔥 NOTES: $notes');
 
+      // اختبار الاتصال بقاعدة البيانات أولاً
+      debugPrint('🔍 اختبار الاتصال بقاعدة البيانات...');
+      try {
+        final testConnection = await _supabase
+            .from('orders')
+            .select('count')
+            .limit(1);
+        debugPrint('✅ الاتصال بقاعدة البيانات يعمل بشكل صحيح');
+      } catch (connectionError) {
+        debugPrint('❌ فشل في الاتصال بقاعدة البيانات: $connectionError');
+        return false;
+      }
+
       // لا نحتاج لاختبار القيم بعد الآن - نعرف القيم الصحيحة
       // await testStatusValues(orderId);
 
       // التحقق من وجود الطلب أولاً
+      debugPrint('🔍 البحث عن الطلب في قاعدة البيانات...');
+
       final existingOrder = await _supabase
           .from('orders')
           .select('id, status, user_phone, customer_name, order_number')
           .eq('id', orderId)
           .maybeSingle();
 
+      debugPrint('🔍 نتيجة البحث: $existingOrder');
+
       if (existingOrder == null) {
         debugPrint('🔥 ERROR: الطلب غير موجود في قاعدة البيانات');
+        debugPrint('🔥 معرف الطلب المطلوب: $orderId');
+
+        // محاولة البحث بطرق أخرى للتشخيص
+        try {
+          final allOrders = await _supabase
+              .from('orders')
+              .select('id')
+              .limit(5);
+          debugPrint('🔍 أمثلة على معرفات الطلبات الموجودة: $allOrders');
+        } catch (e) {
+          debugPrint('🔥 خطأ في جلب أمثلة الطلبات: $e');
+        }
+
         return false;
       }
 
-      debugPrint('🔥 EXISTING ORDER: $existingOrder');
+      debugPrint('✅ تم العثور على الطلب: $existingOrder');
 
       // تحديد قيمة قاعدة البيانات بناءً على نوع المدخل
       String statusForDatabase;
@@ -820,9 +940,9 @@ class AdminService {
       debugPrint('   📝 القيمة: "$newStatus"');
       debugPrint('   📋 النوع: ${newStatus.runtimeType}');
 
-      // استخدام النص كما هو - قاعدة البيانات تدعم النصوص العربية الآن
-      statusForDatabase = newStatus;
-      debugPrint('   ✅ استخدام القيمة مباشرة: "$statusForDatabase"');
+      // تحويل الأرقام إلى النصوص العربية المناسبة
+      statusForDatabase = _convertStatusToDatabase(newStatus);
+      debugPrint('   ✅ القيمة بعد التحويل: "$statusForDatabase"');
 
       debugPrint('🔄 تحويل الحالة باستخدام النظام الجديد:');
       debugPrint('   📝 الحالة المدخلة: "$newStatus"');
@@ -835,19 +955,43 @@ class AdminService {
       debugPrint('🔧 تحديث مباشر في Supabase: $orderId');
       debugPrint('🔧 نوع المعرف: ${orderId.runtimeType}');
       debugPrint('🔧 الحالة الجديدة: $statusForDatabase');
+      debugPrint('🔧 الحالة القديمة: ${existingOrder['status']}');
+
+      // تحضير بيانات التحديث
+      final updateData = {
+        'status': statusForDatabase,
+        'updated_at': DateTime.now().toIso8601String(),
+      };
+      debugPrint('🔧 بيانات التحديث: $updateData');
 
       // تحديث حالة الطلب مباشرة في Supabase
+      debugPrint('🔧 بدء عملية التحديث...');
       final updateResult = await _supabase
           .from('orders')
-          .update({
-            'status': statusForDatabase,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+          .update(updateData)
           .eq('id', orderId)
           .select();
 
+      debugPrint('🔧 نتيجة التحديث: $updateResult');
+      debugPrint('🔧 عدد الصفوف المحدثة: ${updateResult.length}');
+
       if (updateResult.isEmpty) {
         debugPrint('🔥 ERROR: فشل في تحديث الحالة في Supabase');
+        debugPrint('🔥 السبب المحتمل: الطلب غير موجود أو لا توجد صلاحيات');
+
+        // محاولة إضافية للتحقق من وجود الطلب
+        final checkOrder = await _supabase
+            .from('orders')
+            .select('id, status')
+            .eq('id', orderId)
+            .maybeSingle();
+
+        if (checkOrder == null) {
+          debugPrint('🔥 ERROR: الطلب غير موجود نهائياً في قاعدة البيانات');
+        } else {
+          debugPrint('🔥 ERROR: الطلب موجود لكن التحديث فشل. الحالة الحالية: ${checkOrder['status']}');
+        }
+
         return false;
       }
 
@@ -913,13 +1057,46 @@ class AdminService {
         debugPrint('❌ خطأ في إرسال إشعار تغيير حالة الطلب: $e');
       }
 
-      // ✅ تحديث أرباح المستخدم عند تغيير الحالة إلى "تم التوصيل"
-      if (statusForDatabase == 'delivered' || statusForDatabase == 'shipped') {
-        debugPrint('🚨 === بدء تحديث الأرباح عند التوصيل ===');
-        debugPrint('📦 معرف الطلب: $orderId');
-        debugPrint('🔄 الحالة الجديدة: $statusForDatabase');
-        debugPrint('💰 تحديث الأرباح عند التوصيل للطلب: $orderId');
-        debugPrint('✅ === انتهاء تحديث الأرباح عند التوصيل ===');
+      // 🧠 نقل ربح الطلب بذكاء بين المنتظر والمحقق
+      final userPhone = existingOrder['user_phone'];
+      final orderProfit = (existingOrder['profit'] ?? 0).toDouble();
+      final oldStatus = existingOrder['status'] ?? '';
+
+      debugPrint('🔍 === تشخيص شروط نقل الأرباح ===');
+      debugPrint('📱 رقم الهاتف: $userPhone (فارغ؟ ${userPhone == null || userPhone.isEmpty})');
+      debugPrint('💰 ربح الطلب: $orderProfit د.ع (صفر؟ ${orderProfit <= 0})');
+      debugPrint('🔄 الحالة القديمة: "$oldStatus"');
+      debugPrint('🔄 الحالة الجديدة: "$statusForDatabase"');
+
+      if (userPhone != null && userPhone.isNotEmpty && orderProfit > 0) {
+        debugPrint('✅ جميع الشروط مستوفاة - بدء نقل الأرباح');
+        debugPrint('🧠 === نقل ربح الطلب الذكي ===');
+        debugPrint('📱 المستخدم: $userPhone');
+        debugPrint('💰 ربح الطلب: $orderProfit د.ع');
+        debugPrint('🔄 الحالة: "$oldStatus" → "$statusForDatabase"');
+
+        try {
+          final success = await SmartProfitTransfer.transferOrderProfit(
+            userPhone: userPhone,
+            orderProfit: orderProfit,
+            oldStatus: oldStatus,
+            newStatus: statusForDatabase,
+            orderId: orderId,
+            orderNumber: existingOrder['order_number'] ?? orderId,
+          );
+
+          if (success) {
+            debugPrint('✅ تم نقل ربح الطلب بنجاح');
+          } else {
+            debugPrint('⚠️ فشل في نقل ربح الطلب');
+          }
+        } catch (e) {
+          debugPrint('❌ خطأ في نقل ربح الطلب: $e');
+        }
+
+        debugPrint('✅ === انتهاء نقل ربح الطلب ===');
+      } else {
+        debugPrint('⚠️ لا يوجد رقم هاتف أو ربح للطلب - تخطي تحديث الأرباح');
       }
 
       // محاولة إضافة ملاحظة إذا كانت متوفرة (اختيارية)
@@ -943,6 +1120,20 @@ class AdminService {
       return true;
     } catch (e) {
       debugPrint('❌ خطأ في تحديث حالة الطلب: $e');
+      debugPrint('❌ نوع الخطأ: ${e.runtimeType}');
+      debugPrint('❌ تفاصيل الخطأ: ${e.toString()}');
+
+      // إذا كان الخطأ من نوع PostgrestException، اطبع التفاصيل
+      if (e.toString().contains('PostgrestException')) {
+        debugPrint('❌ خطأ في قاعدة البيانات - تحقق من الصلاحيات والاتصال');
+      }
+
+      // إذا كان الخطأ يتعلق بالشبكة
+      if (e.toString().contains('SocketException') ||
+          e.toString().contains('TimeoutException')) {
+        debugPrint('❌ خطأ في الاتصال بالشبكة');
+      }
+
       return false;
     }
   }

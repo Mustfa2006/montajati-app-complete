@@ -219,7 +219,7 @@ class _WelcomePageState extends State<WelcomePage>
             colors: [Colors.white, Color(0xFFe6b31e), Colors.white],
           ).createShader(bounds),
           child: Text(
-            'منتجاتي',
+            'منـتجـاتــي',
             style: GoogleFonts.cairo(
               fontSize: 56,
               fontWeight: FontWeight.w800,

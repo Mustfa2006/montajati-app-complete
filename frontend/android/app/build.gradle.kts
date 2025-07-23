@@ -1,7 +1,7 @@
 import java.util.Properties
 import java.io.FileInputStream
 
-// إعدادات Kotlin متوافقة مع Flutter
+// إعدادات Kotlin محسنة ومستقرة
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
         jvmTarget = "11"
@@ -30,7 +30,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.montajati.app"
-    compileSdk = 35
+    compileSdk = 35  // مطلوب للمكونات الإضافية
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -40,15 +40,15 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     defaultConfig {
         applicationId = "com.montajati.app"
         minSdk = 21 // Android 5.0 كحد أدنى للإنتاج
-        targetSdk = 35 // Android 15 - أحدث إصدار
-        versionCode = 7
-        versionName = "2.1.0"
+        targetSdk = 35 // Android 15 - مطلوب للمكونات الإضافية
+        versionCode = 8
+        versionName = "2.2.0"
 
         // إعدادات التطبيق للإنتاج
         resValue("string", "app_name", "منتجاتي")
@@ -58,9 +58,9 @@ android {
         multiDexEnabled = true
         vectorDrawables.useSupportLibrary = true
 
-        // إعدادات Architecture - دعم 32-bit فقط للتوافق مع الأجهزة القديمة
+        // إعدادات Architecture - دعم جميع المعماريات للتطوير والاختبار
         ndk {
-            abiFilters.addAll(listOf("armeabi-v7a", "x86"))
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
         }
     }
 
@@ -103,13 +103,13 @@ android {
         }
     }
 
-    // إعدادات Splits لتحسين حجم APK - 32-bit فقط
+    // إعدادات Splits لتحسين حجم APK - دعم جميع المعماريات
     splits {
         abi {
             isEnable = true
             reset()
-            include("armeabi-v7a", "x86")
-            isUniversalApk = true // إنشاء APK شامل يدعم المعمارات 32-bit
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true // إنشاء APK شامل يدعم جميع المعماريات
         }
     }
 }
@@ -128,8 +128,8 @@ dependencies {
     implementation("com.google.android.play:core:1.10.3")
     implementation("com.google.android.play:core-ktx:1.8.1")
 
-    // Firebase BoM للإشعارات
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    // Firebase BoM للإشعارات - إصدار متوافق مع Kotlin 1.9.25
+    implementation(platform("com.google.firebase:firebase-bom:32.8.1"))
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-analytics")
 }

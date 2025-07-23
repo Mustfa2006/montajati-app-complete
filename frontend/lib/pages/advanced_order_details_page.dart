@@ -300,7 +300,20 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   // نظام تحديث الحالات البسيط - تحديث مباشر لعمود status
   void _showStatusUpdateDialog() {
     final currentStatus = _order!.status;
-    String selectedStatus = currentStatus;
+    String selectedStatus = _getCurrentStatusId(currentStatus); // تحويل إلى رقم مناسب
+
+    debugPrint('🔍 DIALOG: الحالة الحالية: $currentStatus');
+    debugPrint('🔍 DIALOG: الحالة المحولة: $selectedStatus');
+
+    // التأكد من أن القيمة المختارة موجودة في القائمة
+    final statusOptions = _getStatusOptions();
+    final validIds = statusOptions.map((option) => option['id']).toList();
+    debugPrint('🔍 DIALOG: القيم المتاحة: $validIds');
+
+    if (!validIds.contains(selectedStatus)) {
+      debugPrint('⚠️ DIALOG: القيمة المختارة غير موجودة، استخدام القيمة الافتراضية');
+      selectedStatus = validIds.isNotEmpty ? validIds.first! : '24';
+    }
 
     showDialog(
       context: context,
@@ -324,6 +337,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
                 value: selectedStatus,
+                hint: selectedStatus.isEmpty ? Text('اختر الحالة', style: GoogleFonts.cairo(color: Colors.white70)) : null,
                 decoration: InputDecoration(
                   labelText: 'الحالة الجديدة',
                   labelStyle: GoogleFonts.cairo(color: Colors.white70),
@@ -334,8 +348,9 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 dropdownColor: const Color(0xFF1a1a2e),
                 style: GoogleFonts.cairo(color: Colors.white),
                 items: _getStatusOptions().map((status) {
+                  debugPrint('🔍 DROPDOWN ITEM: ${status['id']} -> ${status['text']}');
                   return DropdownMenuItem(
-                    value: status['text'],
+                    value: status['id'], // إرسال الرقم بدلاً من النص
                     child: Text(
                       status['text']!,
                       style: GoogleFonts.cairo(color: Colors.white),
@@ -359,7 +374,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               ),
             ),
             ElevatedButton(
-              onPressed: selectedStatus == currentStatus
+              onPressed: selectedStatus == _order!.status
                   ? null
                   : () {
                       Navigator.pop(context);
@@ -385,6 +400,12 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     setState(() => _isUpdatingStatus = true);
 
     try {
+      debugPrint('🔥 ADVANCED ORDER DETAILS: بدء تحديث حالة الطلب');
+      debugPrint('🔥 معرف الطلب: ${_order!.id}');
+      debugPrint('🔥 الحالة الجديدة: $newStatus');
+      debugPrint('🔥 نوع معرف الطلب: ${_order!.id.runtimeType}');
+      debugPrint('🔥 نوع الحالة الجديدة: ${newStatus.runtimeType}');
+
       final success = await AdminService.updateOrderStatus(
         _order!.id,
         newStatus,
@@ -392,18 +413,62 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
         updatedBy: 'admin',
       );
 
+      debugPrint('🔥 نتيجة التحديث: $success');
+
       if (success) {
+        debugPrint('✅ نجح التحديث - إعادة تحميل التفاصيل');
         await _loadOrderDetails();
         _showSuccessSnackBar('تم تحديث حالة الطلب بنجاح إلى: $newStatus');
       } else {
-        _showErrorSnackBar('فشل في تحديث حالة الطلب');
+        debugPrint('❌ فشل التحديث');
+        _showErrorSnackBar('فشل في تحديث حالة الطلب - تحقق من الـ logs للتفاصيل');
       }
     } catch (e) {
+      debugPrint('💥 خطأ في تحديث حالة الطلب: $e');
+      debugPrint('💥 نوع الخطأ: ${e.runtimeType}');
       _showErrorSnackBar('خطأ في تحديث حالة الطلب: $e');
     } finally {
       if (mounted) {
         setState(() => _isUpdatingStatus = false);
       }
+    }
+  }
+
+  // تحويل الحالة الحالية إلى رقم مناسب للقائمة
+  String _getCurrentStatusId(String currentStatus) {
+    // إذا كانت الحالة رقم بالفعل وموجودة في القائمة، أرجعها
+    final statusOptions = _getStatusOptions();
+    final existingOption = statusOptions.firstWhere(
+      (option) => option['id'] == currentStatus,
+      orElse: () => {},
+    );
+
+    if (existingOption.isNotEmpty) {
+      return currentStatus;
+    }
+
+    // تحويل النصوص العربية إلى أرقام
+    switch (currentStatus.toLowerCase()) {
+      case 'تم التوصيل':
+      case 'تم التسليم':
+      case 'delivered':
+        return '4';
+      case 'قيد التوصيل':
+      case 'in_delivery':
+        return '3';
+      case 'مؤجل':
+      case 'postponed':
+        return '29';
+      case 'ملغي':
+      case 'cancelled':
+        return '25';
+      case 'نشط':
+      case 'active':
+      case 'pending':
+        return '24';
+      default:
+        // إذا لم نجد تطابق، أرجع أول خيار متاح
+        return statusOptions.isNotEmpty ? statusOptions.first['id']! : '24';
     }
   }
 

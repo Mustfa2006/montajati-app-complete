@@ -14,6 +14,7 @@ import '../models/order.dart';
 import '../models/order_item.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../widgets/common_header.dart';
+import '../utils/order_status_helper.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -258,31 +259,60 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  // حساب عدد الطلبات لكل حالة
+  // حساب عدد الطلبات لكل حالة باستخدام النص الحقيقي
   Map<String, int> get orderCounts {
     // ✅ الطلبات العادية فقط (بدون المجدولة)
     final regularOrders = _ordersService.orders;
     return {
       'all': regularOrders.length, // الطلبات العادية فقط
       'active': regularOrders
-          .where(
-            (order) =>
-                order.status == OrderStatus.pending ||
-                order.status == OrderStatus.confirmed,
-          )
+          .where((order) => _isActiveStatus(order.rawStatus))
           .length,
       'in_delivery': regularOrders
-          .where((order) => order.status == OrderStatus.inDelivery)
+          .where((order) => _isInDeliveryStatus(order.rawStatus))
           .length,
       'delivered': regularOrders
-          .where((order) => order.status == OrderStatus.delivered)
+          .where((order) => _isDeliveredStatus(order.rawStatus))
           .length,
       'cancelled': regularOrders
-          .where((order) => order.status == OrderStatus.cancelled)
+          .where((order) => _isCancelledStatus(order.rawStatus))
           .length,
       // ✅ الطلبات المجدولة منفصلة
       'scheduled': _scheduledOrders.length,
     };
+  }
+
+  // دوال مساعدة لتحديد نوع الحالة
+  bool _isActiveStatus(String status) {
+    return status == 'تم تغيير محافظة الزبون' ||
+           status == 'تغيير المندوب' ||
+           status == 'نشط';
+  }
+
+  bool _isInDeliveryStatus(String status) {
+    return status == 'قيد التوصيل الى الزبون (في عهدة المندوب)';
+  }
+
+  bool _isDeliveredStatus(String status) {
+    return status == 'تم التسليم للزبون';
+  }
+
+  bool _isCancelledStatus(String status) {
+    return status == 'لا يرد' ||
+           status == 'لا يرد بعد الاتفاق' ||
+           status == 'مغلق' ||
+           status == 'مغلق بعد الاتفاق' ||
+           status == 'الغاء الطلب' ||
+           status == 'رفض الطلب' ||
+           status == 'مفصول عن الخدمة' ||
+           status == 'طلب مكرر' ||
+           status == 'مستلم مسبقا' ||
+           status == 'الرقم غير معرف' ||
+           status == 'الرقم غير داخل في الخدمة' ||
+           status == 'لا يمكن الاتصال بالرقم' ||
+           status == 'العنوان غير دقيق' ||
+           status == 'لم يطلب' ||
+           status == 'حظر المندوب';
   }
 
   // فلترة الطلبات حسب الحالة والبحث
@@ -331,29 +361,25 @@ class _OrdersPageState extends State<OrdersPage> {
       // ✅ فلترة الطلبات العادية حسب الحالة (لا تنطبق على المجدولة)
       switch (selectedFilter) {
         case 'active':
-          // إظهار الطلبات النشطة (pending و confirmed)
+          // إظهار الطلبات النشطة باستخدام النص الحقيقي
           statusFiltered = baseOrders
-              .where(
-                (order) =>
-                    order.status == OrderStatus.pending ||
-                    order.status == OrderStatus.confirmed,
-              )
+              .where((order) => _isActiveStatus(order.rawStatus))
               .toList();
           debugPrint('🔍 عدد الطلبات النشطة: ${statusFiltered.length}');
           break;
         case 'in_delivery':
           statusFiltered = baseOrders
-              .where((order) => order.status == OrderStatus.inDelivery)
+              .where((order) => _isInDeliveryStatus(order.rawStatus))
               .toList();
           break;
         case 'delivered':
           statusFiltered = baseOrders
-              .where((order) => order.status == OrderStatus.delivered)
+              .where((order) => _isDeliveredStatus(order.rawStatus))
               .toList();
           break;
         case 'cancelled':
           statusFiltered = baseOrders
-              .where((order) => order.status == OrderStatus.cancelled)
+              .where((order) => _isCancelledStatus(order.rawStatus))
               .toList();
           break;
       }
@@ -706,9 +732,9 @@ class _OrdersPageState extends State<OrdersPage> {
     // ✅ تحديد إذا كان الطلب مجدول
     final bool isScheduled = order.scheduledDate != null;
 
-    // 🎨 الحصول على ألوان البطاقة حسب حالة الطلب
+    // 🎨 الحصول على ألوان البطاقة حسب حالة الطلب الحقيقية
     final cardColors = _getOrderCardColors(
-      order.status.toString(),
+      order.rawStatus, // استخدام النص الحقيقي من قاعدة البيانات
       isScheduled,
     );
 
@@ -800,7 +826,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         ),
                       )
                     : Center(
-                        child: _buildStatusBadge(order.status),
+                        child: _buildStatusBadge(order),
                       ), // عرض حالة الطلب للطلبات العادية
               ),
 
@@ -979,38 +1005,22 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  // بناء شارة الحالة
-  Widget _buildStatusBadge(OrderStatus status) {
-    Color backgroundColor;
-    Color textColor;
-    String statusText;
+  // بناء شارة الحالة باستخدام OrderStatusHelper والنص الأصلي
+  Widget _buildStatusBadge(Order order) {
+    // استخدام النص الأصلي من قاعدة البيانات
+    final statusText = OrderStatusHelper.getArabicStatus(order.rawStatus);
+    final backgroundColor = OrderStatusHelper.getStatusColor(order.rawStatus);
 
-    switch (status) {
-      case OrderStatus.pending:
-        backgroundColor = const Color(0xFFffd700); // أصفر ذهبي
-        textColor = Colors.black;
-        statusText = 'نشط';
-        break;
-      case OrderStatus.confirmed:
-        backgroundColor = const Color(0xFFffd700); // أصفر ذهبي
-        textColor = Colors.black;
-        statusText = 'نشط';
-        break;
-      case OrderStatus.inDelivery:
-        backgroundColor = const Color(0xFF17a2b8); // سماوي
-        textColor = Colors.white;
-        statusText = 'قيد التوصيل';
-        break;
-      case OrderStatus.delivered:
-        backgroundColor = const Color(0xFF28a745); // أخضر
-        textColor = Colors.white;
-        statusText = 'تم التوصيل';
-        break;
-      case OrderStatus.cancelled:
-        backgroundColor = const Color(0xFFdc3545); // أحمر
-        textColor = Colors.white;
-        statusText = 'ملغي';
-        break;
+    // تحديد لون النص بناءً على الحالة
+    Color textColor = Colors.white;
+
+    // للحالات النشطة: نص أسود على خلفية ذهبية
+    if (_isActiveStatus(order.rawStatus)) {
+      textColor = Colors.black; // أسود للنص
+    }
+    // للحالات الأخرى: نص أبيض
+    else {
+      textColor = Colors.white;
     }
 
     return Container(
@@ -1096,9 +1106,7 @@ class _OrdersPageState extends State<OrdersPage> {
           ),
 
           // أزرار التعديل والحذف (للطلبات المجدولة والطلبات النشطة فقط)
-          if (isScheduled ||
-              order.status == OrderStatus.pending ||
-              order.status == OrderStatus.confirmed)
+          if (isScheduled || _isActiveStatus(order.rawStatus))
             Row(
               children: [
                 // زر التعديل
@@ -1235,8 +1243,7 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     // للطلبات العادية - التحقق من إمكانية التعديل
-    if (order.status != OrderStatus.pending &&
-        order.status != OrderStatus.confirmed) {
+    if (!_isActiveStatus(order.rawStatus)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1272,8 +1279,7 @@ class _OrdersPageState extends State<OrdersPage> {
   // حذف الطلب (للطلبات النشطة فقط)
   void _deleteOrder(Order order) {
     // التحقق من إمكانية الحذف
-    if (order.status != OrderStatus.pending &&
-        order.status != OrderStatus.confirmed) {
+    if (!_isActiveStatus(order.rawStatus)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1364,7 +1370,7 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  // دالة لتحديد ألوان الإطار والظل حسب حالة الطلب
+  // دالة لتحديد ألوان الإطار والظل حسب حالة الطلب الحقيقية
   Map<String, dynamic> _getOrderCardColors(String status, bool isScheduled) {
     if (isScheduled) {
       // الطلبات المجدولة تبقى بنفس التصميم (بنفسجي)
@@ -1378,68 +1384,122 @@ class _OrdersPageState extends State<OrdersPage> {
       };
     }
 
-    // ألوان الطلبات العادية حسب حالة الطلب
-    // تحويل OrderStatus enum إلى string للمقارنة
-    final statusString = status.toLowerCase().replaceAll('orderstatus.', '');
+    // ألوان الطلبات العادية حسب النص الحقيقي من قاعدة البيانات
+    final statusText = status.trim();
 
-    switch (statusString) {
-      case 'pending':
-      case 'confirmed':
-      case 'active':
-      case 'نشط':
-      case 'مؤكد':
-        return {
-          'borderColor': const Color(0xFFffd700), // ذهبي للنشط
-          'shadowColor': const Color(0xFFffd700).withValues(alpha: 0.4),
-          'gradientColors': [
-            const Color(0xFF1a1a2e).withValues(alpha: 0.95),
-            const Color(0xFF16213e).withValues(alpha: 0.9),
-            const Color(0xFF2d2438).withValues(alpha: 0.85),
-          ],
-        };
-      case 'indelivery':
-      case 'in_delivery':
-      case 'قيد التوصيل':
-        return {
-          'borderColor': const Color(0xFF007bff), // أزرق لقيد التوصيل
-          'shadowColor': const Color(0xFF007bff).withValues(alpha: 0.4),
-          'gradientColors': [
-            const Color(0xFF1a2332).withValues(alpha: 0.95),
-            const Color(0xFF162838).withValues(alpha: 0.9),
-            const Color(0xFF1e3a5f).withValues(alpha: 0.85),
-          ],
-        };
-      case 'delivered':
-      case 'تم التوصيل':
-        return {
-          'borderColor': const Color(0xFF28a745), // أخضر لتم التوصيل
-          'shadowColor': const Color(0xFF28a745).withValues(alpha: 0.4),
-          'gradientColors': [
-            const Color(0xFF1a2e1a).withValues(alpha: 0.95),
-            const Color(0xFF162e16).withValues(alpha: 0.9),
-            const Color(0xFF1e3f1e).withValues(alpha: 0.85),
-          ],
-        };
-      case 'cancelled':
-      case 'ملغي':
-        return {
-          'borderColor': const Color(0xFFdc3545), // أحمر للملغي
-          'shadowColor': const Color(0xFFdc3545).withValues(alpha: 0.4),
-          'gradientColors': [
-            const Color(0xFF2e1a1a).withValues(alpha: 0.95),
-            const Color(0xFF2e1616).withValues(alpha: 0.9),
-            const Color(0xFF3f1e1e).withValues(alpha: 0.85),
-          ],
-        };
-      default:
-        return {
-          'borderColor': const Color(0xFFffc107), // أصفر للحالات غير المعروفة
-          'shadowColor': const Color(0xFFffc107).withValues(alpha: 0.3),
-          'gradientColors': [
-            const Color(0xFF2e2a1a).withValues(alpha: 0.9),
-            const Color(0xFF2e2616).withValues(alpha: 0.8),
-          ],
-        };
+    // 🟢 الحالات المكتملة (أخضر)
+    if (statusText == 'تم التسليم للزبون') {
+      return {
+        'borderColor': const Color(0xFF28a745), // أخضر لتم التسليم
+        'shadowColor': const Color(0xFF28a745).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF1a2e1a).withValues(alpha: 0.95),
+          const Color(0xFF162e16).withValues(alpha: 0.9),
+          const Color(0xFF1e3f1e).withValues(alpha: 0.85),
+        ],
+      };
     }
+
+    // 🔵 الحالات قيد التوصيل (أزرق)
+    if (statusText == 'قيد التوصيل الى الزبون (في عهدة المندوب)') {
+      return {
+        'borderColor': const Color(0xFF007bff), // أزرق لقيد التوصيل
+        'shadowColor': const Color(0xFF007bff).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF1a2332).withValues(alpha: 0.95),
+          const Color(0xFF162838).withValues(alpha: 0.9),
+          const Color(0xFF1e3a5f).withValues(alpha: 0.85),
+        ],
+      };
+    }
+
+    // 🔴 الحالات الملغية والمرفوضة (أحمر)
+    if (statusText == 'لا يرد' ||
+        statusText == 'لا يرد بعد الاتفاق' ||
+        statusText == 'مغلق' ||
+        statusText == 'مغلق بعد الاتفاق' ||
+        statusText == 'الغاء الطلب' ||
+        statusText == 'رفض الطلب' ||
+        statusText == 'مفصول عن الخدمة' ||
+        statusText == 'طلب مكرر' ||
+        statusText == 'مستلم مسبقا' ||
+        statusText == 'الرقم غير معرف' ||
+        statusText == 'الرقم غير داخل في الخدمة' ||
+        statusText == 'لا يمكن الاتصال بالرقم' ||
+        statusText == 'العنوان غير دقيق' ||
+        statusText == 'لم يطلب' ||
+        statusText == 'حظر المندوب') {
+      return {
+        'borderColor': const Color(0xFFdc3545), // أحمر للملغي والمرفوض
+        'shadowColor': const Color(0xFFdc3545).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF2e1a1a).withValues(alpha: 0.95),
+          const Color(0xFF2e1616).withValues(alpha: 0.9),
+          const Color(0xFF3f1e1e).withValues(alpha: 0.85),
+        ],
+      };
+    }
+
+    // 🟡 الحالات المؤجلة (أصفر)
+    if (statusText == 'مؤجل' || statusText == 'مؤجل لحين اعادة الطلب لاحقا') {
+      return {
+        'borderColor': const Color(0xFFffc107), // أصفر للمؤجل
+        'shadowColor': const Color(0xFFffc107).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF2e2a1a).withValues(alpha: 0.95),
+          const Color(0xFF2e2616).withValues(alpha: 0.9),
+          const Color(0xFF3f3a1e).withValues(alpha: 0.85),
+        ],
+      };
+    }
+
+    // 🔵 الحالات النشطة (ذهبي)
+    if (statusText == 'تم تغيير محافظة الزبون' ||
+        statusText == 'تغيير المندوب' ||
+        statusText == 'نشط') {
+      return {
+        'borderColor': const Color(0xFFffd700), // ذهبي للنشط
+        'shadowColor': const Color(0xFFffd700).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF1a1a2e).withValues(alpha: 0.95),
+          const Color(0xFF16213e).withValues(alpha: 0.9),
+          const Color(0xFF2d2438).withValues(alpha: 0.85),
+        ],
+      };
+    }
+
+    // الحالات القديمة للتوافق
+    final statusLower = statusText.toLowerCase();
+    if (statusLower.contains('تم') || statusLower.contains('delivered')) {
+      return {
+        'borderColor': const Color(0xFF28a745), // أخضر
+        'shadowColor': const Color(0xFF28a745).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF1a2e1a).withValues(alpha: 0.95),
+          const Color(0xFF162e16).withValues(alpha: 0.9),
+          const Color(0xFF1e3f1e).withValues(alpha: 0.85),
+        ],
+      };
+    } else if (statusLower.contains('ملغي') || statusLower.contains('cancelled')) {
+      return {
+        'borderColor': const Color(0xFFdc3545), // أحمر
+        'shadowColor': const Color(0xFFdc3545).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF2e1a1a).withValues(alpha: 0.95),
+          const Color(0xFF2e1616).withValues(alpha: 0.9),
+          const Color(0xFF3f1e1e).withValues(alpha: 0.85),
+        ],
+      };
+    }
+
+    // افتراضي (ذهبي)
+    return {
+      'borderColor': const Color(0xFFffd700),
+      'shadowColor': const Color(0xFFffd700).withValues(alpha: 0.3),
+      'gradientColors': [
+        const Color(0xFF1a1a2e).withValues(alpha: 0.9),
+        const Color(0xFF16213e).withValues(alpha: 0.8),
+      ],
+    };
   }
 }

@@ -16,6 +16,8 @@ import 'services/background_order_sync_service.dart';
 import 'services/location_cache_service.dart';
 import 'services/order_monitoring_service.dart';
 import 'services/fcm_service.dart';
+import 'services/order_status_monitor.dart';
+import 'services/smart_profit_transfer.dart';
 
 
 
@@ -118,6 +120,18 @@ void main() async {
       await FCMService().initialize();
     } catch (e) {
       // تجاهل الأخطاء في الإنتاج
+    }
+
+    // 🧠 تفعيل نظام مراقبة الأرباح الذكي
+    try {
+      debugPrint('🧠 تفعيل نظام مراقبة الأرباح الذكي...');
+      OrderStatusMonitor.startMonitoring();
+      debugPrint('✅ تم تفعيل نظام مراقبة الأرباح الذكي');
+
+      // اختبار النظام
+      await SmartProfitTransfer.testTransfer();
+    } catch (e) {
+      debugPrint('❌ خطأ في تفعيل نظام مراقبة الأرباح: $e');
     }
 
 

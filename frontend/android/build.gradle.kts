@@ -1,6 +1,6 @@
 plugins {
-    // Add the dependency for the Google services Gradle plugin
-    id("com.google.gms.google-services") version "4.4.3" apply false
+    // Google services plugin - إصدار متوافق مع Firebase BoM 32.8.1
+    id("com.google.gms.google-services") version "4.4.0" apply false
 }
 
 allprojects {

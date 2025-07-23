@@ -54,6 +54,26 @@
                 "--release"
             ],
             "console": "debugConsole"
+        },
+        {
+            "name": "Flutter Debug (Android Emulator - Detailed Logs)",
+            "request": "launch",
+            "type": "dart",
+            "program": "lib/main.dart",
+            "deviceId": "emulator-5554",
+            "args": [
+                "--debug",
+                "--verbose"
+            ],
+            "console": "debugConsole",
+            "logging": {
+                "exceptions": true,
+                "programOutput": true,
+                "engineLogging": true
+            },
+            "env": {
+                "FLUTTER_MODE": "debug"
+            }
         }
     ]
 }

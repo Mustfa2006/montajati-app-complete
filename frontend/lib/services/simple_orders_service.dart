@@ -96,6 +96,7 @@ class SimpleOrdersService extends ChangeNotifier {
                 .toInt(),
             total: adminOrder.totalAmount.toInt(),
             status: _convertAdminStatusToOrderStatus(adminOrder.status),
+            rawStatus: adminOrder.status, // الاحتفاظ بالنص الأصلي
             createdAt: adminOrder.createdAt,
             items: adminOrder.items
                 .map(
@@ -131,6 +132,7 @@ class SimpleOrdersService extends ChangeNotifier {
                 .toInt(),
             total: adminOrder.totalAmount.toInt(),
             status: _convertAdminStatusToOrderStatus(adminOrder.status),
+            rawStatus: adminOrder.status, // الاحتفاظ بالنص الأصلي
             createdAt: adminOrder.createdAt,
             items: [], // قائمة فارغة في حالة الخطأ
             scheduledDate: null,

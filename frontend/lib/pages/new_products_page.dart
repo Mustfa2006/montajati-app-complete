@@ -68,9 +68,17 @@ class _NewProductsPageState extends State<NewProductsPage>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // متحكم التمرير وزر الرجوع لبداية الصفحة
+  late ScrollController _scrollController;
+  bool _showScrollToTopButton = false;
+
   @override
   void initState() {
     super.initState();
+
+    // تهيئة متحكم التمرير
+    _scrollController = ScrollController();
+    _scrollController.addListener(_scrollListener);
 
     // التحقق من صلاحيات المدير
     _checkAdminPermissions();
@@ -131,6 +139,7 @@ class _NewProductsPageState extends State<NewProductsPage>
     _bannerTimer?.cancel();
     _bannerPageController.dispose();
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -284,6 +293,32 @@ class _NewProductsPageState extends State<NewProductsPage>
     // التحقق يتم في initState() فقط
   }
 
+  // مراقب التمرير لإظهار/إخفاء زر الرجوع لبداية الصفحة
+  void _scrollListener() {
+    if (_scrollController.offset >= 400) {
+      if (!_showScrollToTopButton) {
+        setState(() {
+          _showScrollToTopButton = true;
+        });
+      }
+    } else {
+      if (_showScrollToTopButton) {
+        setState(() {
+          _showScrollToTopButton = false;
+        });
+      }
+    }
+  }
+
+  // دالة الرجوع لبداية الصفحة
+  void _scrollToTop() {
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+
   // التحقق من صلاحيات المدير
   Future<void> _checkAdminPermissions() async {
     try {
@@ -363,6 +398,7 @@ class _NewProductsPageState extends State<NewProductsPage>
               refreshMessage: 'تم تحديث المنتجات والمفضلة',
               indicatorColor: const Color(0xFFffd700),
               child: SingleChildScrollView(
+                controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Padding(
                   padding: const EdgeInsets.only(
@@ -417,6 +453,21 @@ class _NewProductsPageState extends State<NewProductsPage>
           ),
         ],
       ),
+
+      // زر الرجوع لبداية الصفحة
+      floatingActionButton: _showScrollToTopButton
+          ? FloatingActionButton(
+              onPressed: _scrollToTop,
+              backgroundColor: const Color(0xFFffd700),
+              foregroundColor: Colors.black,
+              elevation: 8,
+              child: const Icon(
+                Icons.keyboard_arrow_up,
+                size: 28,
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
 
       // شريط التنقل السفلي المعاد ترتيبه
       bottomNavigationBar: const CustomBottomNavigationBar(
