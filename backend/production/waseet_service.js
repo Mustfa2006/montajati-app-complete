@@ -43,7 +43,7 @@ class ProductionWaseetService {
         return this.token;
       }
 
-      logger.info('🔐 بدء تسجيل الدخول في شركة الوسيط');
+      // تسجيل الدخول بصمت
       
       const startTime = Date.now();
       const loginData = new URLSearchParams({
@@ -69,7 +69,7 @@ class ProductionWaseetService {
         tokenLength: this.token.length
       });
 
-      logger.info('✅ تم تسجيل الدخول بنجاح في شركة الوسيط');
+      // تم تسجيل الدخول بصمت
       return this.token;
 
     } catch (error) {
@@ -113,7 +113,7 @@ class ProductionWaseetService {
     try {
       await this.authenticate();
       
-      logger.info('📄 جلب صفحة التاجر من شركة الوسيط');
+      // جلب صفحة التاجر بصمت
       const startTime = Date.now();
 
       const response = await this.makeRequest('GET', '/merchant', null, {
@@ -137,7 +137,7 @@ class ProductionWaseetService {
         pageSize
       });
 
-      logger.info(`✅ تم جلب صفحة التاجر بنجاح (${pageSize} حرف)`);
+      // تم جلب صفحة التاجر بصمت
       return response.data;
 
     } catch (error) {
@@ -160,7 +160,7 @@ class ProductionWaseetService {
     const operationId = await logger.startOperation('extract_orders_data');
     
     try {
-      logger.info('🔍 استخراج بيانات الطلبات من صفحة التاجر');
+      // استخراج بيانات الطلبات بصمت
       
       const orders = [];
       let extractedCount = 0;
@@ -172,7 +172,7 @@ class ProductionWaseetService {
           const printedOrders = JSON.parse(printedOrdersMatch[1]);
           orders.push(...printedOrders);
           extractedCount += printedOrders.length;
-          logger.info(`📋 تم استخراج ${printedOrders.length} طلب مطبوع`);
+          // تم استخراج الطلبات المطبوعة بصمت
         } catch (e) {
           logger.warn('⚠️ خطأ في تحليل الطلبات المطبوعة', { error: e.message });
         }
@@ -185,7 +185,7 @@ class ProductionWaseetService {
           const notPrintedOrders = JSON.parse(notPrintedOrdersMatch[1]);
           orders.push(...notPrintedOrders);
           extractedCount += notPrintedOrders.length;
-          logger.info(`📋 تم استخراج ${notPrintedOrders.length} طلب غير مطبوع`);
+          // تم استخراج الطلبات غير المطبوعة بصمت
         } catch (e) {
           logger.warn('⚠️ خطأ في تحليل الطلبات غير المطبوعة', { error: e.message });
         }
@@ -200,7 +200,7 @@ class ProductionWaseetService {
         statusCounts
       });
 
-      logger.info(`✅ تم استخراج ${orders.length} طلب بنجاح`);
+      // تم استخراج الطلبات بصمت
       return {
         orders,
         totalCount: orders.length,
@@ -360,7 +360,7 @@ class ProductionWaseetService {
     const operationId = await logger.startOperation('fetch_all_orders');
     
     try {
-      logger.info('📊 جلب جميع الطلبات وحالاتها');
+      // جلب جميع الطلبات بصمت
       
       const pageContent = await this.fetchMerchantPage();
       const ordersData = await this.extractOrdersFromPage(pageContent);

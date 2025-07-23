@@ -18,8 +18,7 @@ class MontajatiProductionSystem {
     // معالجة إشارات النظام
     this.setupSignalHandlers();
     
-    logger.info('🚀 تم تهيئة النظام الإنتاجي لمزامنة حالات الطلبات');
-    this.logSystemInfo();
+    // تهيئة النظام الإنتاجي بصمت
   }
 
   /**
@@ -34,11 +33,7 @@ class MontajatiProductionSystem {
     try {
       this.startTime = new Date();
       
-      logger.info('🎯 بدء النظام الإنتاجي لمزامنة حالات الطلبات');
-      logger.info('='.repeat(80));
-      
-      // عرض معلومات النظام
-      this.displaySystemBanner();
+      // بدء النظام الإنتاجي بصمت
       
       // التحقق من التكوين
       await this.validateSystem();
@@ -51,14 +46,8 @@ class MontajatiProductionSystem {
       
       this.isRunning = true;
       
-      // تسجيل بدء النظام
-      await logger.info('✅ تم بدء النظام الإنتاجي بنجاح', {
-        startTime: this.startTime.toISOString(),
-        version: config.get('system', 'version'),
-        environment: config.get('system', 'environment')
-      });
-
-      this.displaySuccessMessage();
+      // تم بدء النظام بنجاح
+      console.log('✅ تم بدء النظام الإنتاجي بنجاح');
 
     } catch (error) {
       await logger.critical('❌ فشل بدء النظام الإنتاجي', {
@@ -138,7 +127,7 @@ class MontajatiProductionSystem {
    * التحقق من صحة النظام
    */
   async validateSystem() {
-    logger.info('🔍 التحقق من صحة النظام...');
+    // التحقق من صحة النظام بصمت
     
     // التحقق من متغيرات البيئة
     const requiredEnvVars = [
@@ -157,44 +146,26 @@ class MontajatiProductionSystem {
     // التحقق من إنشاء المجلدات
     config.createDirectories();
     
-    logger.info('✅ تم التحقق من صحة النظام');
+    // تم التحقق من صحة النظام بصمت
   }
 
   /**
    * تهيئة الخدمات
    */
   async initializeServices() {
-    logger.info('⚙️ تهيئة الخدمات...');
-    
-    // تهيئة خدمة المزامنة
+    // تهيئة الخدمات بصمت
     this.syncService = new ProductionSyncService();
-    logger.info('✅ تم تهيئة خدمة المزامنة');
-    
-    // تهيئة نظام المراقبة
     this.monitoring = new ProductionMonitoring();
-    logger.info('✅ تم تهيئة نظام المراقبة');
-    
-    logger.info('✅ تم تهيئة جميع الخدمات');
   }
 
   /**
    * بدء الخدمات
    */
   async startServices() {
-    logger.info('🚀 بدء الخدمات...');
-    
-    // بدء نظام المراقبة أولاً
+    // بدء الخدمات بصمت
     await this.monitoring.start();
-    logger.info('✅ تم بدء نظام المراقبة');
-    
-    // بدء خدمة المزامنة
     await this.syncService.start();
-    logger.info('✅ تم بدء خدمة المزامنة');
-
-    // تحسين استخدام الذاكرة
     this.optimizeMemoryUsage();
-
-    logger.info('✅ تم بدء جميع الخدمات');
   }
 
   /**
@@ -303,7 +274,7 @@ class MontajatiProductionSystem {
       const memUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
       const memTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
 
-      logger.info(`💾 استخدام الذاكرة: ${memUsedMB}MB / ${memTotalMB}MB`);
+      // مراقبة الذاكرة بصمت
 
       // تحذير إذا كان الاستخدام عالي
       if (memUsedMB > 400) {

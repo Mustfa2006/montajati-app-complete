@@ -59,7 +59,7 @@ class ProductionSyncService {
       this.startPeriodicSync();
       
       this.isRunning = true;
-      logger.info(`✅ تم بدء خدمة المزامنة - المزامنة كل ${this.config.interval / 1000} ثانية`);
+      // تم بدء خدمة المزامنة بصمت
       
     } catch (error) {
       logger.error('❌ فشل بدء خدمة المزامنة', {
@@ -93,7 +93,7 @@ class ProductionSyncService {
    * التحقق من صحة التكوين
    */
   async validateConfiguration() {
-    logger.info('🔍 التحقق من صحة التكوين');
+    // التحقق من صحة التكوين بصمت
     
     // التحقق من الاتصال بقاعدة البيانات
     const { error: dbError } = await this.supabase
@@ -108,7 +108,7 @@ class ProductionSyncService {
     // التحقق من الاتصال بشركة الوسيط
     await this.waseetService.authenticate();
     
-    logger.info('✅ تم التحقق من صحة التكوين');
+    // تم التحقق من صحة التكوين بصمت
   }
 
   /**
@@ -158,7 +158,7 @@ class ProductionSyncService {
         throw new Error(`فشل جلب البيانات من الوسيط: ${waseetData.error}`);
       }
 
-      logger.info(`📊 تم جلب ${waseetData.total_orders} طلب من الوسيط`);
+      // تم جلب الطلبات من الوسيط بصمت
       
       // مزامنة الطلبات
       const syncResults = await this.syncOrders(localOrders, waseetData.orders);

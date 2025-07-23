@@ -372,37 +372,24 @@ class OfficialMontajatiServer {
       console.log(`📊 البيئة: ${this.environment}`);
       console.log(`🌐 المنفذ: ${this.port}`);
 
-      // تهيئة خدمة المراقبة أولاً
-      console.log('📊 تهيئة خدمة المراقبة...');
+      // تهيئة الخدمات بصمت
       await this.systemMonitor.initialize();
       this.state.services.monitor = this.systemMonitor;
 
-      // تهيئة خدمة الإشعارات
-      console.log('🔔 تهيئة خدمة الإشعارات...');
       await this.notificationManager.initialize();
       this.state.services.notifications = this.notificationManager;
 
-      // تهيئة خدمة المزامنة (اختيارية)
-      console.log('🔄 تهيئة خدمة المزامنة...');
       try {
         await this.syncManager.initialize();
         this.state.services.sync = this.syncManager;
-        console.log('✅ تم تهيئة خدمة المزامنة بنجاح');
       } catch (error) {
-        console.warn('⚠️ تحذير: فشل في تهيئة خدمة المزامنة، سيتم تشغيل النظام بدونها');
-        console.warn(`   السبب: ${error.message}`);
         this.state.services.sync = null;
       }
 
-      // تهيئة خدمة تنظيف FCM Tokens
-      console.log('🧹 تهيئة خدمة تنظيف FCM Tokens...');
       try {
         this.fcmCleanupService.start();
         this.state.services.fcmCleanup = this.fcmCleanupService;
-        console.log('✅ تم تهيئة خدمة تنظيف FCM Tokens بنجاح');
       } catch (error) {
-        console.warn('⚠️ تحذير: فشل في تهيئة خدمة تنظيف FCM Tokens');
-        console.warn(`   السبب: ${error.message}`);
         this.state.services.fcmCleanup = null;
       }
 
