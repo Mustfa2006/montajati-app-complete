@@ -323,6 +323,10 @@ class OfficialMontajatiServer {
       const waseetStatusesRoutes = require('./routes/waseet_statuses');
       this.app.use('/api/waseet-statuses', waseetStatusesRoutes);
 
+      // مسارات دعم الطلبات
+      const orderSupportRoutes = require('./routes/order_support');
+      this.app.use('/api/support', orderSupportRoutes);
+
       console.log('✅ تم تحميل جميع المسارات الأساسية');
 
     } catch (error) {
