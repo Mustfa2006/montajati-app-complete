@@ -5,7 +5,7 @@
 require('dotenv').config();
 
 console.log('🔔 فحص جميع متغيرات الإشعارات');
-console.log('=' * 60);
+console.log('='.repeat(60));
 
 /**
  * فحص متغيرات Supabase

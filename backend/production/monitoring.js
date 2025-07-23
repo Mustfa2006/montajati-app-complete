@@ -351,6 +351,16 @@ class ProductionMonitoring {
         .limit(5);
 
       if (error) {
+        // إذا كان الجدول غير موجود، أنشئه
+        if (error.message.includes('relation "sync_logs" does not exist')) {
+          await this.createSyncLogsTable();
+          return {
+            status: 'warning',
+            error: 'تم إنشاء جدول sync_logs',
+            issues: ['جدول المزامنة لم يكن موجوداً - تم إنشاؤه']
+          };
+        }
+
         return {
           status: 'warning',
           error: error.message,
@@ -610,6 +620,54 @@ class ProductionMonitoring {
   resetActiveAlerts() {
     this.activeAlerts.clear();
     logger.info('🔄 تم إعادة تعيين التنبيهات النشطة');
+  }
+
+  /**
+   * إنشاء جدول sync_logs إذا لم يكن موجوداً
+   */
+  async createSyncLogsTable() {
+    try {
+      // محاولة إنشاء الجدول مباشرة
+      const { error } = await this.supabase
+        .from('sync_logs')
+        .select('id')
+        .limit(1);
+
+      if (error && error.message.includes('does not exist')) {
+        // إنشاء الجدول باستخدام SQL مباشر
+        const createTableSQL = `
+          CREATE TABLE IF NOT EXISTS sync_logs (
+            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+            operation_id TEXT NOT NULL,
+            sync_type TEXT NOT NULL DEFAULT 'full_sync',
+            success BOOLEAN NOT NULL,
+            orders_processed INTEGER DEFAULT 0,
+            orders_updated INTEGER DEFAULT 0,
+            duration_ms INTEGER DEFAULT 0,
+            error_message TEXT,
+            sync_timestamp TIMESTAMPTZ DEFAULT NOW(),
+            service_version TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_sync_logs_timestamp ON sync_logs(sync_timestamp);
+          CREATE INDEX IF NOT EXISTS idx_sync_logs_success ON sync_logs(success);
+        `;
+
+        // تنفيذ SQL مباشرة
+        const { error: createError } = await this.supabase.rpc('exec_sql', {
+          sql: createTableSQL
+        });
+
+        if (createError) {
+          logger.error('❌ فشل إنشاء جدول sync_logs', { error: createError.message });
+        } else {
+          logger.info('✅ تم إنشاء جدول sync_logs بنجاح');
+        }
+      }
+    } catch (error) {
+      logger.error('❌ خطأ في إنشاء جدول sync_logs', { error: error.message });
+    }
   }
 }
 

@@ -35,7 +35,7 @@ class MontajatiProductionSystem {
       this.startTime = new Date();
       
       logger.info('🎯 بدء النظام الإنتاجي لمزامنة حالات الطلبات');
-      logger.info('=' * 80);
+      logger.info('='.repeat(80));
       
       // عرض معلومات النظام
       this.displaySystemBanner();
@@ -190,7 +190,10 @@ class MontajatiProductionSystem {
     // بدء خدمة المزامنة
     await this.syncService.start();
     logger.info('✅ تم بدء خدمة المزامنة');
-    
+
+    // تحسين استخدام الذاكرة
+    this.optimizeMemoryUsage();
+
     logger.info('✅ تم بدء جميع الخدمات');
   }
 
@@ -277,6 +280,39 @@ class MontajatiProductionSystem {
       pid: systemInfo.pid,
       memory: systemInfo.memory
     });
+  }
+
+  /**
+   * تحسين استخدام الذاكرة
+   */
+  optimizeMemoryUsage() {
+    try {
+      // تشغيل garbage collection إذا كان متاحاً
+      if (global.gc) {
+        global.gc();
+        logger.info('🧹 تم تشغيل garbage collection');
+      }
+
+      // تعيين حدود الذاكرة
+      if (process.env.NODE_OPTIONS && !process.env.NODE_OPTIONS.includes('--max-old-space-size')) {
+        logger.warn('⚠️ يُنصح بتعيين --max-old-space-size=512 لتحسين الذاكرة');
+      }
+
+      // مراقبة استخدام الذاكرة
+      const memUsage = process.memoryUsage();
+      const memUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+      const memTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+
+      logger.info(`💾 استخدام الذاكرة: ${memUsedMB}MB / ${memTotalMB}MB`);
+
+      // تحذير إذا كان الاستخدام عالي
+      if (memUsedMB > 400) {
+        logger.warn(`⚠️ استخدام ذاكرة عالي: ${memUsedMB}MB`);
+      }
+
+    } catch (error) {
+      logger.error('❌ خطأ في تحسين الذاكرة', { error: error.message });
+    }
   }
 
   /**
