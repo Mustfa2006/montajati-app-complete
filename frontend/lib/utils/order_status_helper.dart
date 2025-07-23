@@ -121,7 +121,7 @@ class OrderStatusHelper {
   /// الحصول على لون الحالة بناءً على النص الدقيق
   static Color getStatusColor(String? databaseStatus) {
     if (databaseStatus == null || databaseStatus.isEmpty) {
-      return const Color(0xFF007bff); // أزرق للنشط
+      return const Color(0xFFffc107); // ذهبي للنشط (افتراضي)
     }
 
     final status = databaseStatus.trim();
@@ -131,11 +131,15 @@ class OrderStatusHelper {
       return const Color(0xFF28a745); // أخضر
     }
 
-    // ألوان للحالات النشطة (أزرق)
+    // ألوان للحالة النشطة (ذهبي)
+    if (status == 'نشط') {
+      return const Color(0xFFffc107); // ذهبي للنشط
+    }
+
+    // ألوان للحالات التي تحتاج معالجة (برتقالي)
     if (status == 'تم تغيير محافظة الزبون' ||
-        status == 'تغيير المندوب' ||
-        status == 'نشط') {
-      return const Color(0xFF007bff); // أزرق
+        status == 'تغيير المندوب') {
+      return const Color(0xFFff6b35); // برتقالي للمعالجة
     }
 
     // ألوان للحالات قيد التوصيل (سماوي)
@@ -179,7 +183,7 @@ class OrderStatusHelper {
       return const Color(0xFFffc107); // أصفر
     }
 
-    return const Color(0xFF007bff); // أزرق افتراضي
+    return const Color(0xFFffc107); // ذهبي افتراضي (مثل نشط)
   }
 
   /// الحصول على أيقونة الحالة بناءً على النص الدقيق

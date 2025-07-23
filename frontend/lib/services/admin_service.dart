@@ -312,8 +312,10 @@ class AdminService {
         customerNotes: response['customer_notes'], // ✅ إصلاح: استخدام customer_notes
         totalAmount: (response['total'] as num?)?.toDouble() ?? 0.0,
         deliveryCost: (response['delivery_fee'] as num?)?.toDouble() ?? 0.0,
-        profitAmount: (response['profit'] as num?)?.toDouble() ?? 0.0,
-        expectedProfit: (response['profit'] as num?)?.toDouble() ?? 0.0,
+        profitAmount: (response['profit_amount'] as num?)?.toDouble() ??
+                     (response['profit'] as num?)?.toDouble() ?? 0.0,
+        expectedProfit: (response['profit_amount'] as num?)?.toDouble() ??
+                       (response['profit'] as num?)?.toDouble() ?? 0.0,
         itemsCount: orderItemsList.length,
         status: finalStatus,
         createdAt: DateTime.tryParse(response['created_at'] ?? '') ?? DateTime.now(),
@@ -1059,7 +1061,8 @@ class AdminService {
 
       // 🧠 نقل ربح الطلب بذكاء بين المنتظر والمحقق
       final userPhone = existingOrder['user_phone'];
-      final orderProfit = (existingOrder['profit'] ?? 0).toDouble();
+      // محاولة قراءة الربح من profit_amount أولاً، ثم profit
+      final orderProfit = (existingOrder['profit_amount'] ?? existingOrder['profit'] ?? 0).toDouble();
       final oldStatus = existingOrder['status'] ?? '';
 
       debugPrint('🔍 === تشخيص شروط نقل الأرباح ===');

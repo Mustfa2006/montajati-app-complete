@@ -14,6 +14,36 @@ class StatusMapper {
       'processing': 'active',
       'prepared': 'active',
 
+      // حالات شركة الوسيط بالعربي والـ ID
+      'فعال': 'active',
+      '1': 'active', // فعال
+      'تم تغيير محافظة الزبون': 'active',
+      '24': 'active', // تم تغيير محافظة الزبون
+      'تغيير المندوب': 'active',
+      '42': 'active', // تغيير المندوب
+      'لا يرد': 'active',
+      '25': 'active', // لا يرد
+      'لا يرد بعد الاتفاق': 'active',
+      '26': 'active', // لا يرد بعد الاتفاق
+      'مغلق': 'active',
+      '27': 'active', // مغلق
+      'مغلق بعد الاتفاق': 'active',
+      '28': 'active', // مغلق بعد الاتفاق
+      'مؤجل': 'active',
+      '29': 'active', // مؤجل
+      'مؤجل لحين اعادة الطلب لاحقا': 'active',
+      '30': 'active', // مؤجل لحين اعادة الطلب لاحقا
+      'الرقم غير معرف': 'active',
+      '36': 'active', // الرقم غير معرف
+      'الرقم غير داخل في الخدمة': 'active',
+      '37': 'active', // الرقم غير داخل في الخدمة
+      'لا يمكن الاتصال بالرقم': 'active',
+      '41': 'active', // لا يمكن الاتصال بالرقم
+      'العنوان غير دقيق': 'active',
+      '38': 'active', // العنوان غير دقيق
+      'لم يطلب': 'active',
+      '39': 'active', // لم يطلب
+
       // حالات التوصيل
       'shipped': 'in_delivery',
       'sent': 'in_delivery',        // ✅ إضافة حالة sent
@@ -22,12 +52,16 @@ class StatusMapper {
       'on_the_way': 'in_delivery',
       'dispatched': 'in_delivery',
       'picked_up': 'in_delivery',
+      'قيد التوصيل الى الزبون (في عهدة المندوب)': 'in_delivery',
+      '3': 'in_delivery', // قيد التوصيل الى الزبون
 
       // حالات التسليم
       'delivered': 'delivered',
       'completed': 'delivered',
       'success': 'delivered',
       'received': 'delivered',
+      'مستلم مسبقا': 'delivered',
+      '35': 'delivered', // مستلم مسبقا
 
       // حالات الإلغاء
       'cancelled': 'cancelled',
@@ -35,7 +69,17 @@ class StatusMapper {
       'rejected': 'cancelled',
       'failed': 'cancelled',
       'returned': 'cancelled',
-      'refunded': 'cancelled'
+      'refunded': 'cancelled',
+      'الغاء الطلب': 'cancelled',
+      '31': 'cancelled', // الغاء الطلب
+      'رفض الطلب': 'cancelled',
+      '32': 'cancelled', // رفض الطلب
+      'مفصول عن الخدمة': 'cancelled',
+      '33': 'cancelled', // مفصول عن الخدمة
+      'طلب مكرر': 'cancelled',
+      '34': 'cancelled', // طلب مكرر
+      'حظر المندوب': 'cancelled',
+      '40': 'cancelled' // حظر المندوب
     };
 
     // خريطة عكسية للتحويل من المحلي إلى الوسيط

@@ -265,6 +265,9 @@ class _OrdersPageState extends State<OrdersPage> {
     final regularOrders = _ordersService.orders;
     return {
       'all': regularOrders.length, // الطلبات العادية فقط
+      'processing': regularOrders
+          .where((order) => _isProcessingStatus(order.rawStatus))
+          .length,
       'active': regularOrders
           .where((order) => _isActiveStatus(order.rawStatus))
           .length,
@@ -283,36 +286,50 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   // دوال مساعدة لتحديد نوع الحالة
-  bool _isActiveStatus(String status) {
+
+  // قسم معالجة - الطلبات التي تحتاج معالجة
+  bool _isProcessingStatus(String status) {
     return status == 'تم تغيير محافظة الزبون' ||
            status == 'تغيير المندوب' ||
-           status == 'نشط';
-  }
-
-  bool _isInDeliveryStatus(String status) {
-    return status == 'قيد التوصيل الى الزبون (في عهدة المندوب)';
-  }
-
-  bool _isDeliveredStatus(String status) {
-    return status == 'تم التسليم للزبون';
-  }
-
-  bool _isCancelledStatus(String status) {
-    return status == 'لا يرد' ||
+           status == 'لا يرد' ||
            status == 'لا يرد بعد الاتفاق' ||
            status == 'مغلق' ||
            status == 'مغلق بعد الاتفاق' ||
-           status == 'الغاء الطلب' ||
-           status == 'رفض الطلب' ||
-           status == 'مفصول عن الخدمة' ||
-           status == 'طلب مكرر' ||
-           status == 'مستلم مسبقا' ||
            status == 'الرقم غير معرف' ||
            status == 'الرقم غير داخل في الخدمة' ||
            status == 'لا يمكن الاتصال بالرقم' ||
+           status == 'مؤجل' ||
+           status == 'مؤجل لحين اعادة الطلب لاحقا' ||
+           status == 'مفصول عن الخدمة' ||
+           status == 'طلب مكرر' ||
+           status == 'مستلم مسبقا' ||
            status == 'العنوان غير دقيق' ||
            status == 'لم يطلب' ||
            status == 'حظر المندوب';
+  }
+
+  // قسم نشط - الطلبات النشطة فقط
+  bool _isActiveStatus(String status) {
+    return status == 'نشط' || status == 'active';
+  }
+
+  // قسم قيد التوصيل
+  bool _isInDeliveryStatus(String status) {
+    return status == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
+           status == 'in_delivery';
+  }
+
+  // قسم تم التسليم
+  bool _isDeliveredStatus(String status) {
+    return status == 'تم التسليم للزبون' ||
+           status == 'delivered';
+  }
+
+  // قسم ملغي - الطلبات الملغية والمرفوضة
+  bool _isCancelledStatus(String status) {
+    return status == 'الغاء الطلب' ||
+           status == 'رفض الطلب' ||
+           status == 'cancelled';
   }
 
   // فلترة الطلبات حسب الحالة والبحث
@@ -360,6 +377,13 @@ class _OrdersPageState extends State<OrdersPage> {
     if (selectedFilter != 'all' && selectedFilter != 'scheduled') {
       // ✅ فلترة الطلبات العادية حسب الحالة (لا تنطبق على المجدولة)
       switch (selectedFilter) {
+        case 'processing':
+          // إظهار الطلبات التي تحتاج معالجة
+          statusFiltered = baseOrders
+              .where((order) => _isProcessingStatus(order.rawStatus))
+              .toList();
+          debugPrint('🔍 عدد الطلبات التي تحتاج معالجة: ${statusFiltered.length}');
+          break;
         case 'active':
           // إظهار الطلبات النشطة باستخدام النص الحقيقي
           statusFiltered = baseOrders
@@ -568,6 +592,13 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
             const SizedBox(width: 12),
             _buildFilterButton(
+              'processing',
+              'معالجة',
+              FontAwesomeIcons.wrench,
+              const Color(0xFFff6b35),
+            ),
+            const SizedBox(width: 12),
+            _buildFilterButton(
               'active',
               'نشط',
               FontAwesomeIcons.clock,
@@ -583,7 +614,7 @@ class _OrdersPageState extends State<OrdersPage> {
             const SizedBox(width: 12),
             _buildFilterButton(
               'delivered',
-              'تم التوصيل',
+              'تم التسليم',
               FontAwesomeIcons.circleCheck,
               const Color(0xFF28a745),
             ),
@@ -618,7 +649,7 @@ class _OrdersPageState extends State<OrdersPage> {
   ) {
     bool isSelected = selectedFilter == status;
     int count = orderCounts[status] ?? 0;
-    double width = status == 'in_delivery' || status == 'delivered' ? 130 : 95;
+    double width = status == 'in_delivery' || status == 'delivered' || status == 'processing' ? 130 : 95;
 
     return GestureDetector(
       onTap: () {
@@ -665,7 +696,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   Text(
                     label,
                     style: GoogleFonts.cairo(
-                      fontSize: status == 'in_delivery' || status == 'delivered'
+                      fontSize: status == 'in_delivery' || status == 'delivered' || status == 'processing'
                           ? 10 // تكبير النص قليلاً
                           : 11, // تكبير النص قليلاً
                       fontWeight: FontWeight.w600,
@@ -1387,8 +1418,21 @@ class _OrdersPageState extends State<OrdersPage> {
     // ألوان الطلبات العادية حسب النص الحقيقي من قاعدة البيانات
     final statusText = status.trim();
 
+    // 🟡 الحالات النشطة (أصفر ذهبي) - أولوية عالية
+    if (statusText == 'نشط' || statusText == 'active') {
+      return {
+        'borderColor': const Color(0xFFffc107), // أصفر ذهبي للنشط
+        'shadowColor': const Color(0xFFffc107).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF2e2a1a).withValues(alpha: 0.95),
+          const Color(0xFF2e2616).withValues(alpha: 0.9),
+          const Color(0xFF3f3a1e).withValues(alpha: 0.85),
+        ],
+      };
+    }
+
     // 🟢 الحالات المكتملة (أخضر)
-    if (statusText == 'تم التسليم للزبون') {
+    if (statusText == 'تم التسليم للزبون' || statusText == 'delivered') {
       return {
         'borderColor': const Color(0xFF28a745), // أخضر لتم التسليم
         'shadowColor': const Color(0xFF28a745).withValues(alpha: 0.4),
@@ -1401,7 +1445,8 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     // 🔵 الحالات قيد التوصيل (أزرق)
-    if (statusText == 'قيد التوصيل الى الزبون (في عهدة المندوب)') {
+    if (statusText == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
+        statusText == 'in_delivery') {
       return {
         'borderColor': const Color(0xFF007bff), // أزرق لقيد التوصيل
         'shadowColor': const Color(0xFF007bff).withValues(alpha: 0.4),
@@ -1413,22 +1458,39 @@ class _OrdersPageState extends State<OrdersPage> {
       };
     }
 
-    // 🔴 الحالات الملغية والمرفوضة (أحمر)
-    if (statusText == 'لا يرد' ||
+    // 🟠 الحالات التي تحتاج معالجة (برتقالي)
+    if (statusText == 'تم تغيير محافظة الزبون' ||
+        statusText == 'تغيير المندوب' ||
+        statusText == 'لا يرد' ||
         statusText == 'لا يرد بعد الاتفاق' ||
         statusText == 'مغلق' ||
         statusText == 'مغلق بعد الاتفاق' ||
-        statusText == 'الغاء الطلب' ||
-        statusText == 'رفض الطلب' ||
-        statusText == 'مفصول عن الخدمة' ||
-        statusText == 'طلب مكرر' ||
-        statusText == 'مستلم مسبقا' ||
         statusText == 'الرقم غير معرف' ||
         statusText == 'الرقم غير داخل في الخدمة' ||
         statusText == 'لا يمكن الاتصال بالرقم' ||
+        statusText == 'مؤجل' ||
+        statusText == 'مؤجل لحين اعادة الطلب لاحقا' ||
+        statusText == 'مفصول عن الخدمة' ||
+        statusText == 'طلب مكرر' ||
+        statusText == 'مستلم مسبقا' ||
         statusText == 'العنوان غير دقيق' ||
         statusText == 'لم يطلب' ||
         statusText == 'حظر المندوب') {
+      return {
+        'borderColor': const Color(0xFFff6b35), // برتقالي للمعالجة
+        'shadowColor': const Color(0xFFff6b35).withValues(alpha: 0.4),
+        'gradientColors': [
+          const Color(0xFF2e1f1a).withValues(alpha: 0.95),
+          const Color(0xFF2e1e16).withValues(alpha: 0.9),
+          const Color(0xFF3f2a1e).withValues(alpha: 0.85),
+        ],
+      };
+    }
+
+    // 🔴 الحالات الملغية والمرفوضة (أحمر)
+    if (statusText == 'الغاء الطلب' ||
+        statusText == 'رفض الطلب' ||
+        statusText == 'cancelled') {
       return {
         'borderColor': const Color(0xFFdc3545), // أحمر للملغي والمرفوض
         'shadowColor': const Color(0xFFdc3545).withValues(alpha: 0.4),
@@ -1436,34 +1498,6 @@ class _OrdersPageState extends State<OrdersPage> {
           const Color(0xFF2e1a1a).withValues(alpha: 0.95),
           const Color(0xFF2e1616).withValues(alpha: 0.9),
           const Color(0xFF3f1e1e).withValues(alpha: 0.85),
-        ],
-      };
-    }
-
-    // 🟡 الحالات المؤجلة (أصفر)
-    if (statusText == 'مؤجل' || statusText == 'مؤجل لحين اعادة الطلب لاحقا') {
-      return {
-        'borderColor': const Color(0xFFffc107), // أصفر للمؤجل
-        'shadowColor': const Color(0xFFffc107).withValues(alpha: 0.4),
-        'gradientColors': [
-          const Color(0xFF2e2a1a).withValues(alpha: 0.95),
-          const Color(0xFF2e2616).withValues(alpha: 0.9),
-          const Color(0xFF3f3a1e).withValues(alpha: 0.85),
-        ],
-      };
-    }
-
-    // 🔵 الحالات النشطة (ذهبي)
-    if (statusText == 'تم تغيير محافظة الزبون' ||
-        statusText == 'تغيير المندوب' ||
-        statusText == 'نشط') {
-      return {
-        'borderColor': const Color(0xFFffd700), // ذهبي للنشط
-        'shadowColor': const Color(0xFFffd700).withValues(alpha: 0.4),
-        'gradientColors': [
-          const Color(0xFF1a1a2e).withValues(alpha: 0.95),
-          const Color(0xFF16213e).withValues(alpha: 0.9),
-          const Color(0xFF2d2438).withValues(alpha: 0.85),
         ],
       };
     }
@@ -1492,13 +1526,14 @@ class _OrdersPageState extends State<OrdersPage> {
       };
     }
 
-    // افتراضي (ذهبي)
+    // افتراضي (ذهبي مثل زر نشط)
     return {
-      'borderColor': const Color(0xFFffd700),
-      'shadowColor': const Color(0xFFffd700).withValues(alpha: 0.3),
+      'borderColor': const Color(0xFFffc107), // نفس لون زر نشط
+      'shadowColor': const Color(0xFFffc107).withValues(alpha: 0.4),
       'gradientColors': [
-        const Color(0xFF1a1a2e).withValues(alpha: 0.9),
-        const Color(0xFF16213e).withValues(alpha: 0.8),
+        const Color(0xFF2e2a1a).withValues(alpha: 0.95),
+        const Color(0xFF2e2616).withValues(alpha: 0.9),
+        const Color(0xFF3f3a1e).withValues(alpha: 0.85),
       ],
     };
   }
