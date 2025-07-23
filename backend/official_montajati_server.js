@@ -3,6 +3,7 @@
 // Official Integrated Montajati Server
 // ===================================
 
+// تحميل متغيرات البيئة (يعمل مع Render تلقائياً)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -449,6 +450,19 @@ class OfficialMontajatiServer {
       // إعداد timeout للخادم
       server.timeout = 30000; // 30 ثانية
 
+      // بدء النظام الإنتاجي للمزامنة
+      try {
+        console.log('\n🚀 بدء النظام الإنتاجي للمزامنة...');
+        const productionSystem = require('./production/main');
+        this.state.services = this.state.services || {};
+        this.state.services.productionSync = productionSystem;
+        await productionSystem.start();
+        console.log('✅ تم بدء النظام الإنتاجي للمزامنة بنجاح');
+      } catch (error) {
+        console.warn('⚠️ فشل بدء النظام الإنتاجي:', error.message);
+        console.log('📋 الخادم سيعمل بدون المزامنة الإنتاجية');
+      }
+
       return server;
 
     } catch (error) {
@@ -577,6 +591,12 @@ class OfficialMontajatiServer {
       if (this.state.services.monitor) {
         console.log('📊 إيقاف خدمة المراقبة...');
         await this.state.services.monitor.shutdown();
+      }
+
+      // إيقاف النظام الإنتاجي
+      if (this.state.services.productionSync) {
+        console.log('🚀 إيقاف النظام الإنتاجي...');
+        await this.state.services.productionSync.stop();
       }
 
       console.log('✅ تم إيقاف جميع الخدمات بأمان');
