@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import '../services/simple_orders_service.dart';
 import '../services/scheduled_orders_service.dart';
@@ -14,6 +16,7 @@ import '../models/order.dart';
 import '../models/order_item.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../widgets/common_header.dart';
+import '../widgets/order_processing_widget.dart';
 import '../utils/order_status_helper.dart';
 
 class OrdersPage extends StatefulWidget {
@@ -1136,10 +1139,52 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
           ),
 
-          // أزرار التعديل والحذف (للطلبات المجدولة والطلبات النشطة فقط)
-          if (isScheduled || _isActiveStatus(order.rawStatus))
-            Row(
-              children: [
+          // أزرار التعديل والحذف والمعالجة
+          Row(
+            children: [
+              // زر المعالجة (للطلبات التي تحتاج معالجة)
+              if (_needsProcessing(order))
+                GestureDetector(
+                  onTap: () => _showProcessingDialog(order),
+                  child: Container(
+                    width: 55,
+                    height: 24,
+                    margin: const EdgeInsets.only(left: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFff8c00),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFff8c00).withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          FontAwesomeIcons.headset,
+                          color: Colors.white,
+                          size: 8,
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          'معالجة',
+                          style: GoogleFonts.cairo(
+                            fontSize: 8,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // أزرار التعديل والحذف (للطلبات المجدولة والطلبات النشطة فقط)
+              if (isScheduled || _isActiveStatus(order.rawStatus)) ...[
                 // زر التعديل
                 GestureDetector(
                   onTap: () => _editOrder(order),
@@ -1218,7 +1263,8 @@ class _OrdersPageState extends State<OrdersPage> {
                   ),
                 ),
               ],
-            ),
+            ],
+          ),
 
           // تاريخ الطلب
           Expanded(
@@ -1256,6 +1302,312 @@ class _OrdersPageState extends State<OrdersPage> {
   // تنسيق التاريخ
   String _formatDate(DateTime date) {
     return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
+  }
+
+  // التحقق من أن الطلب يحتاج معالجة
+  bool _needsProcessing(Order order) {
+    // الحالات التي تحتاج معالجة (بناءً على النص)
+    final statusesNeedProcessing = [
+      'لا يرد',
+      'لا يرد بعد الاتفاق',
+      'مغلق',
+      'مغلق بعد الاتفاق',
+      'الرقم غير معرف',
+      'الرقم غير داخل في الخدمة',
+      'لا يمكن الاتصال بالرقم',
+      'مؤجل',
+      'مؤجل لحين اعادة الطلب لاحقا',
+      'مفصول عن الخدمة',
+      'طلب مكرر',
+      'مستلم مسبقا',
+      'العنوان غير دقيق',
+      'لم يطلب',
+      'حظر المندوب',
+    ];
+
+    return statusesNeedProcessing.contains(order.rawStatus) &&
+           !(order.supportRequested ?? false);
+  }
+
+  // عرض نافذة المعالجة
+  void _showProcessingDialog(Order order) {
+    final TextEditingController notesController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        bool isLoading = false;
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1a1a2e),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.headset,
+                    color: const Color(0xFFffd700),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'إرسال للدعم',
+                    style: GoogleFonts.cairo(
+                      fontSize: 18,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // معلومات الطلب
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16213e),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '📋 معلومات الطلب:',
+                            style: GoogleFonts.cairo(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: const Color(0xFFffd700),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildInfoRow('🆔', 'رقم الطلب', '#${order.id}'),
+                          _buildInfoRow('👤', 'اسم الزبون', order.customerName),
+                          _buildInfoRow('📞', 'الهاتف الأساسي', order.primaryPhone),
+                          if (order.secondaryPhone != null && order.secondaryPhone!.isNotEmpty)
+                            _buildInfoRow('📱', 'الهاتف البديل', order.secondaryPhone!),
+                          _buildInfoRow('🏛️', 'المحافظة', order.province),
+                          _buildInfoRow('🏠', 'المدينة', order.city),
+                          _buildInfoRow('⚠️', 'حالة الطلب', order.rawStatus),
+                          _buildInfoRow('📅', 'تاريخ الطلب', _formatDate(order.createdAt)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // حقل الملاحظات
+                    Text(
+                      'ملاحظات إضافية:',
+                      style: GoogleFonts.cairo(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: notesController,
+                      maxLines: 4,
+                      style: GoogleFonts.cairo(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'اكتب أي ملاحظات إضافية هنا...',
+                        hintStyle: GoogleFonts.cairo(color: Colors.grey),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(
+                            color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFffd700),
+                          ),
+                        ),
+                        contentPadding: const EdgeInsets.all(12),
+                        filled: true,
+                        fillColor: const Color(0xFF16213e),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(
+                    'إلغاء',
+                    style: GoogleFonts.cairo(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading ? null : () async {
+                    setState(() {
+                      isLoading = true;
+                    });
+                    await _sendSupportRequest(order, notesController.text);
+                    setState(() {
+                      isLoading = false;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF28a745),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          'إرسال للدعم',
+                          style: GoogleFonts.cairo(),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // بناء صف معلومات
+  Widget _buildInfoRow(String emoji, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$emoji ',
+            style: const TextStyle(fontSize: 14),
+          ),
+          Text(
+            '$label: ',
+            style: GoogleFonts.cairo(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: const Color(0xFFffd700),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.cairo(
+                fontSize: 12,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // إرسال طلب الدعم
+  Future<void> _sendSupportRequest(Order order, String notes) async {
+
+    try {
+      // إرسال طلب الدعم للخادم
+      final response = await http.post(
+        Uri.parse('https://montajati-backend.onrender.com/api/support/send-support-request'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'orderId': order.id,
+          'customerName': order.customerName,
+          'primaryPhone': order.primaryPhone,
+          'alternativePhone': order.secondaryPhone,
+          'governorate': order.province,
+          'address': order.city,
+          'orderStatus': order.rawStatus,
+          'notes': notes,
+        }),
+      );
+
+      final responseData = json.decode(response.body);
+
+      if (response.statusCode != 200 || !responseData['success']) {
+        throw Exception(responseData['message'] ?? 'فشل في إرسال الطلب');
+      }
+
+      if (!mounted) return;
+
+      // إغلاق النافذة
+      Navigator.of(context).pop();
+
+      // إظهار رسالة نجاح
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'تم إرسال الطلب للدعم بنجاح',
+                style: GoogleFonts.cairo(),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF28a745),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+
+      // تحديث الطلب محلياً
+      await _loadOrders(); // إعادة تحميل الطلبات
+
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                'خطأ: ${error.toString()}',
+                style: GoogleFonts.cairo(),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFFdc3545),
+          duration: const Duration(seconds: 5),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      );
+    }
   }
 
   // عرض تفاصيل الطلب

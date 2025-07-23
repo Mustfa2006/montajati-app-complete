@@ -20,6 +20,7 @@ class Order {
   final List<OrderItem> items;
   final DateTime? scheduledDate;
   final String? scheduleNotes;
+  final bool? supportRequested;
 
   Order({
     required this.id,
@@ -39,6 +40,7 @@ class Order {
     required this.items,
     this.scheduledDate,
     this.scheduleNotes,
+    this.supportRequested,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -66,6 +68,7 @@ class Order {
           ? DateTime.parse(json['scheduled_date'])
           : null,
       scheduleNotes: json['schedule_notes'],
+      supportRequested: json['support_requested'],
     );
   }
 
