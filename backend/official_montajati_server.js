@@ -451,26 +451,24 @@ class OfficialMontajatiServer {
       server.timeout = 30000; // 30 ثانية
 
       // بدء النظام الإنتاجي للمزامنة (بدلاً من النظام القديم)
-      if (this.config.features.orderMonitoring) {
-        try {
-          console.log('\n🚀 بدء النظام الإنتاجي للمزامنة...');
-          const productionSystem = require('./production/main');
-          this.state.services = this.state.services || {};
-          this.state.services.productionSync = productionSystem;
-          await productionSystem.start();
-          console.log('✅ تم بدء النظام الإنتاجي للمزامنة بنجاح');
+      try {
+        console.log('\n🚀 بدء النظام الإنتاجي للمزامنة...');
+        const productionSystem = require('./production/main');
+        this.state.services = this.state.services || {};
+        this.state.services.productionSync = productionSystem;
+        await productionSystem.start();
+        console.log('✅ تم بدء النظام الإنتاجي للمزامنة بنجاح');
 
-          // إيقاف النظام القديم لتوفير الذاكرة
-          if (this.state.services.sync) {
-            console.log('🔄 إيقاف نظام المزامنة القديم لتوفير الذاكرة...');
-            await this.state.services.sync.shutdown();
-            this.state.services.sync = null;
-          }
-
-        } catch (error) {
-          console.warn('⚠️ فشل بدء النظام الإنتاجي:', error.message);
-          console.log('📋 الخادم سيعمل بدون المزامنة الإنتاجية');
+        // إيقاف النظام القديم لتوفير الذاكرة
+        if (this.state.services.sync) {
+          console.log('🔄 إيقاف نظام المزامنة القديم لتوفير الذاكرة...');
+          await this.state.services.sync.shutdown();
+          this.state.services.sync = null;
         }
+
+      } catch (error) {
+        console.warn('⚠️ فشل بدء النظام الإنتاجي:', error.message);
+        console.log('📋 الخادم سيعمل بدون المزامنة الإنتاجية');
       }
 
       return server;
