@@ -464,6 +464,11 @@ class OfficialMontajatiServer {
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         environment: this.environment,
+        server: {
+          isInitialized: this.state.isInitialized,
+          isRunning: this.state.isRunning,
+          startedAt: this.state.startedAt
+        },
         services: {},
         system: {
           memory: process.memoryUsage(),
@@ -475,32 +480,50 @@ class OfficialMontajatiServer {
       };
 
       // فحص خدمة الإشعارات
-      if (this.state.services.notifications?.state.isInitialized) {
+      if (this.state.services.notifications &&
+          (this.state.services.notifications.state?.isInitialized ||
+           this.state.services.notifications.isInitialized)) {
         health.services.notifications = 'healthy';
         health.checks.push({ service: 'notifications', status: 'pass' });
       } else {
         health.services.notifications = 'unhealthy';
-        health.checks.push({ service: 'notifications', status: 'fail' });
+        health.checks.push({
+          service: 'notifications',
+          status: 'fail',
+          error: 'خدمة الإشعارات غير مهيأة'
+        });
         health.status = 'degraded';
       }
 
       // فحص خدمة المزامنة
-      if (this.state.services.sync?.state.isInitialized) {
+      if (this.state.services.sync &&
+          (this.state.services.sync.state?.isInitialized ||
+           this.state.services.sync.isInitialized)) {
         health.services.sync = 'healthy';
         health.checks.push({ service: 'sync', status: 'pass' });
       } else {
         health.services.sync = 'unhealthy';
-        health.checks.push({ service: 'sync', status: 'fail' });
+        health.checks.push({
+          service: 'sync',
+          status: 'fail',
+          error: 'خدمة المزامنة غير مهيأة'
+        });
         health.status = 'degraded';
       }
 
       // فحص خدمة المراقبة
-      if (this.state.services.monitor?.state.isInitialized) {
+      if (this.state.services.monitor &&
+          (this.state.services.monitor.state?.isInitialized ||
+           this.state.services.monitor.isInitialized)) {
         health.services.monitor = 'healthy';
         health.checks.push({ service: 'monitor', status: 'pass' });
       } else {
         health.services.monitor = 'unhealthy';
-        health.checks.push({ service: 'monitor', status: 'fail' });
+        health.checks.push({
+          service: 'monitor',
+          status: 'fail',
+          error: 'خدمة المراقبة غير مهيأة'
+        });
         health.status = 'degraded';
       }
 
