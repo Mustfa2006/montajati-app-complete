@@ -27,10 +27,12 @@ void main() async {
   // إعداد معالج الأخطاء العام
   FlutterError.onError = (FlutterErrorDetails details) {
     debugPrint('❌ خطأ Flutter: ${details.exception}');
-    debugPrint('📍 Stack trace: ${details.stack}');
+    if (kDebugMode) {
+      debugPrint('📍 Stack trace: ${details.stack}');
+    }
   };
 
-  // إعداد ErrorWidget مخصص
+  // إعداد ErrorWidget مبسط
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return MaterialApp(
       home: Scaffold(
@@ -45,15 +47,15 @@ void main() async {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Text(
-                'الخطأ: ${details.exception}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14),
-              ),
+              if (kDebugMode)
+                Text(
+                  'الخطأ: ${details.exception}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14),
+                ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  // إعادة تشغيل التطبيق
                   SystemNavigator.pop();
                 },
                 child: const Text('إعادة تشغيل التطبيق'),
@@ -65,9 +67,6 @@ void main() async {
     );
   };
 
-  // إخفاء شريط الحالة لجميع الصفحات
-  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-
   try {
     // رسالة ترحيب للتطوير
     if (kDebugMode) {
@@ -78,6 +77,70 @@ void main() async {
       debugPrint('===============================================');
     }
 
+    // إضافة timeout عام للتهيئة
+    await Future.any([
+      _initializeAllServices(),
+      Future.delayed(const Duration(seconds: 30), () {
+        debugPrint('⏰ انتهت مهلة التهيئة - سيتم تشغيل التطبيق');
+      }),
+    ]);
+
+  } catch (e, stackTrace) {
+    // في حالة فشل تهيئة الخدمات، استمر في تشغيل التطبيق
+    debugPrint('❌ خطأ عام في تهيئة الخدمات: $e');
+    debugPrint('📍 Stack trace: $stackTrace');
+
+    // محاولة تشغيل التطبيق حتى لو فشلت بعض الخدمات
+    debugPrint('⚠️ سيتم تشغيل التطبيق مع الخدمات المتاحة فقط');
+  }
+
+  // تشغيل التطبيق مع معالجة الأخطاء
+  try {
+    debugPrint('🚀 بدء تشغيل التطبيق...');
+    runApp(
+      MultiProvider(
+        providers: [ChangeNotifierProvider(create: (_) => OrderStatusProvider())],
+        child: const MontajatiApp(),
+      ),
+    );
+    debugPrint('✅ تم تشغيل التطبيق بنجاح');
+  } catch (e, stackTrace) {
+    debugPrint('❌ خطأ في تشغيل التطبيق: $e');
+    debugPrint('📍 Stack trace: $stackTrace');
+
+    // تشغيل نسخة احتياطية من التطبيق
+    runApp(
+      MaterialApp(
+        title: 'منتجاتي',
+        home: Scaffold(
+          appBar: AppBar(title: const Text('منتجاتي')),
+          body: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.warning, size: 64, color: Colors.orange),
+                SizedBox(height: 16),
+                Text(
+                  'التطبيق يعمل في الوضع الآمن',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'يرجى إعادة تشغيل التطبيق',
+                  style: TextStyle(fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// دالة تهيئة جميع الخدمات
+Future<void> _initializeAllServices() async {
+  try {
     // طباعة إعدادات API
     try {
       ApiConfig.printConfig();
@@ -93,6 +156,7 @@ void main() async {
       debugPrint('✅ تم تهيئة Supabase بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في تهيئة Supabase: $e');
+      // لا نوقف التطبيق، نكمل بدون Supabase
     }
 
 
@@ -104,6 +168,7 @@ void main() async {
       debugPrint('✅ تم تشغيل تحديثات قاعدة البيانات بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في تحديثات قاعدة البيانات: $e');
+      // نكمل بدون التحديثات
     }
 
     // 🚀 تهيئة خدمة التخزين المؤقت للمواقع (مرة واحدة فقط)
@@ -113,13 +178,17 @@ void main() async {
       debugPrint('✅ تم تهيئة خدمة التخزين المؤقت للمواقع بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في تهيئة خدمة التخزين المؤقت للمواقع: $e');
+      // نكمل بدون الخدمة
     }
 
     // 🔔 تهيئة خدمة الإشعارات الفورية FCM
     try {
+      debugPrint('🔄 بدء تهيئة خدمة الإشعارات...');
       await FCMService().initialize();
+      debugPrint('✅ تم تهيئة خدمة الإشعارات بنجاح');
     } catch (e) {
-      // تجاهل الأخطاء في الإنتاج
+      debugPrint('❌ خطأ في تهيئة خدمة الإشعارات: $e');
+      // نكمل بدون الإشعارات
     }
 
     // 🧠 تفعيل نظام مراقبة الأرباح الذكي
@@ -132,6 +201,7 @@ void main() async {
       await SmartProfitTransfer.testTransfer();
     } catch (e) {
       debugPrint('❌ خطأ في تفعيل نظام مراقبة الأرباح: $e');
+      // نكمل بدون النظام
     }
 
 
@@ -143,6 +213,7 @@ void main() async {
       debugPrint('✅ تم بدء المراقبة التلقائية المستمرة للطلبات بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في بدء المراقبة التلقائية المستمرة للطلبات: $e');
+      // نكمل بدون المراقبة التلقائية
     }
 
     // بدء مراقبة الطلبات في الوقت الفعلي للإشعارات الفورية
@@ -152,6 +223,7 @@ void main() async {
       debugPrint('✅ تم بدء مراقبة الطلبات للإشعارات الفورية بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في بدء مراقبة الطلبات للإشعارات الفورية: $e');
+      // نكمل بدون المراقبة الفورية
     }
 
     debugPrint('✅ تم تهيئة جميع الخدمات بنجاح - المراقبة التلقائية والإشعارات الفورية نشطة');
@@ -163,13 +235,6 @@ void main() async {
     // محاولة تشغيل التطبيق حتى لو فشلت بعض الخدمات
     debugPrint('⚠️ سيتم تشغيل التطبيق مع الخدمات المتاحة فقط');
   }
-
-  runApp(
-    MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => OrderStatusProvider())],
-      child: const MontajatiApp(),
-    ),
-  );
 }
 
 class MontajatiApp extends StatelessWidget {
