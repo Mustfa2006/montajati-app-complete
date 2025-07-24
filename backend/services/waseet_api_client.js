@@ -8,11 +8,17 @@ const { URLSearchParams } = require('url');
 
 class WaseetAPIClient {
   constructor(username, password) {
-    this.username = username;
-    this.password = password;
+    // استخدام متغيرات البيئة إذا لم يتم تمرير البيانات
+    this.username = username || process.env.WASEET_USERNAME;
+    this.password = password || process.env.WASEET_PASSWORD;
     this.baseURL = 'https://api.alwaseet-iq.net/v1/merchant';
     this.token = null;
     this.tokenExpiresAt = null;
+
+    // التحقق من وجود بيانات المصادقة
+    if (!this.username || !this.password) {
+      throw new Error('بيانات المصادقة مطلوبة: WASEET_USERNAME و WASEET_PASSWORD');
+    }
   }
 
   // تسجيل الدخول والحصول على Token
@@ -94,6 +100,125 @@ class WaseetAPIClient {
       console.error('❌ خطأ في جلب حالات الطلبات:', error.message);
       return null;
     }
+  }
+
+  // إنشاء طلب جديد
+  async createOrder(orderData) {
+    try {
+      console.log('📦 إنشاء طلب جديد في الوسيط...');
+      console.log('📋 بيانات الطلب:', orderData);
+
+      if (!await this.ensureAuthenticated()) {
+        throw new Error('فشل في المصادقة');
+      }
+
+      // تحضير بيانات الطلب
+      const formData = new URLSearchParams();
+      formData.append('token', this.token);
+      formData.append('clientName', orderData.clientName);
+      formData.append('clientMobile', orderData.clientMobile);
+      if (orderData.clientMobile2) {
+        formData.append('clientMobile2', orderData.clientMobile2);
+      }
+      formData.append('cityId', orderData.cityId);
+      formData.append('regionId', orderData.regionId);
+      formData.append('location', orderData.location);
+      formData.append('typeName', orderData.typeName);
+      formData.append('itemsNumber', orderData.itemsNumber);
+      formData.append('price', orderData.price);
+      formData.append('packageSize', orderData.packageSize);
+      if (orderData.merchantNotes) {
+        formData.append('merchantNotes', orderData.merchantNotes);
+      }
+      formData.append('replacement', orderData.replacement || 0);
+
+      const response = await this.makeRequest('POST', '/create-order', formData.toString(), {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      });
+
+      if (response.data && response.data.status === true && response.data.data) {
+        const orderResult = response.data.data;
+        console.log('✅ تم إنشاء الطلب بنجاح');
+        console.log(`🆔 QR ID: ${orderResult.qrId || orderResult.id}`);
+
+        return {
+          success: true,
+          qrId: orderResult.qrId || orderResult.id,
+          data: orderResult
+        };
+      } else {
+        console.error('❌ فشل في إنشاء الطلب:', response.data);
+        return {
+          success: false,
+          error: response.data?.message || 'فشل في إنشاء الطلب'
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ خطأ في إنشاء الطلب:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // جلب حالة طلب محدد
+  async getOrderStatus(qrId) {
+    try {
+      console.log(`🔍 جلب حالة الطلب ${qrId}...`);
+
+      if (!await this.ensureAuthenticated()) {
+        throw new Error('فشل في المصادقة');
+      }
+
+      const formData = new URLSearchParams();
+      formData.append('token', this.token);
+      formData.append('qrId', qrId);
+
+      const response = await this.makeRequest('POST', '/get-order-status', formData.toString(), {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      });
+
+      if (response.data && response.data.status === true && response.data.data) {
+        const orderStatus = response.data.data;
+        console.log(`✅ تم جلب حالة الطلب ${qrId}: ${orderStatus.status}`);
+
+        return {
+          success: true,
+          status: orderStatus.status,
+          localStatus: this.mapWaseetStatusToLocal(orderStatus.status),
+          data: orderStatus
+        };
+      } else {
+        console.error(`❌ فشل في جلب حالة الطلب ${qrId}:`, response.data);
+        return {
+          success: false,
+          error: response.data?.message || 'فشل في جلب حالة الطلب'
+        };
+      }
+
+    } catch (error) {
+      console.error(`❌ خطأ في جلب حالة الطلب ${qrId}:`, error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // تحويل حالة الوسيط إلى حالة محلية
+  mapWaseetStatusToLocal(waseetStatus) {
+    const statusMap = {
+      'pending': 'in_delivery',
+      'picked_up': 'in_delivery',
+      'in_transit': 'in_delivery',
+      'delivered': 'delivered',
+      'returned': 'returned',
+      'cancelled': 'cancelled'
+    };
+
+    return statusMap[waseetStatus] || 'in_delivery';
   }
 
   // جلب جميع الطلبات

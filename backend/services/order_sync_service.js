@@ -78,11 +78,10 @@ class OrderSyncService {
         await this.supabase
           .from('orders')
           .update({
-            waseet_sent: true,
-            waseet_sent_at: new Date().toISOString(),
-            waseet_qr_id: waseetResult.qrId,
+            waseet_order_id: waseetResult.qrId,
             waseet_status: 'تم الإرسال للوسيط',
-            waseet_response: waseetResult
+            waseet_data: JSON.stringify(waseetResult),
+            updated_at: new Date().toISOString()
           })
           .eq('id', orderId);
 
@@ -232,9 +231,8 @@ class OrderSyncService {
       // جلب جميع الطلبات المرسلة للوسيط
       const { data: orders, error } = await this.supabase
         .from('orders')
-        .select('id, waseet_qr_id, status, customer_name')
-        .eq('waseet_sent', true)
-        .not('waseet_qr_id', 'is', null);
+        .select('id, waseet_order_id, status, customer_name')
+        .not('waseet_order_id', 'is', null);
 
       if (error) {
         console.error(`❌ خطأ في جلب الطلبات المرسلة للوسيط:`, error);
@@ -247,7 +245,7 @@ class OrderSyncService {
 
       for (const order of orders) {
         try {
-          const statusResult = await this.checkOrderStatus(order.waseet_qr_id);
+          const statusResult = await this.checkOrderStatus(order.waseet_order_id);
           
           if (statusResult && statusResult.status !== order.status) {
             // تحديث حالة الطلب

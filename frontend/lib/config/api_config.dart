@@ -2,13 +2,13 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConfig {
-  // ✅ إجبار استخدام الإنتاج دائماً - لا localhost
+  // ✅ إعداد الإنتاج النهائي
   static const bool isProduction = true;
 
-  // ✅ رابط الإنتاج الوحيد
+  // ✅ رابط الإنتاج الرسمي
   static const String _productionBaseUrl = 'https://montajati-backend.onrender.com';
 
-  // ✅ الرابط الأساسي للـ API - إنتاج فقط
+  // ✅ الرابط الأساسي للـ API - إنتاج نهائي
   static String get baseUrl => _productionBaseUrl;
   
   // روابط API مختلفة

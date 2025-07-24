@@ -3,6 +3,9 @@
 // Test Order-Waseet Integration
 // ===================================
 
+// تحميل متغيرات البيئة
+require('dotenv').config();
+
 const { createClient } = require('@supabase/supabase-js');
 const OrderSyncService = require('./services/order_sync_service');
 
@@ -26,9 +29,8 @@ async function testOrderWaseetIntegration() {
     console.log('\n2️⃣ البحث عن طلب للاختبار...');
     const { data: testOrders, error: ordersError } = await supabase
       .from('orders')
-      .select('id, customer_name, status, waseet_sent')
+      .select('id, customer_name, status, waseet_order_id')
       .eq('status', 'active')
-      .eq('waseet_sent', false)
       .limit(1);
 
     if (ordersError) {
@@ -102,7 +104,7 @@ async function testOrderWaseetIntegration() {
     console.log('\n5️⃣ التحقق من تحديث قاعدة البيانات...');
     const { data: updatedOrder, error: checkError } = await supabase
       .from('orders')
-      .select('waseet_sent, waseet_sent_at, waseet_qr_id, waseet_status')
+      .select('status, waseet_order_id, waseet_status, waseet_data')
       .eq('id', testOrder.id)
       .single();
 
@@ -112,10 +114,10 @@ async function testOrderWaseetIntegration() {
     }
 
     console.log('📊 حالة الطلب بعد الإرسال:');
-    console.log(`   - تم الإرسال: ${updatedOrder.waseet_sent}`);
-    console.log(`   - وقت الإرسال: ${updatedOrder.waseet_sent_at}`);
-    console.log(`   - QR ID: ${updatedOrder.waseet_qr_id}`);
-    console.log(`   - حالة الوسيط: ${updatedOrder.waseet_status}`);
+    console.log(`   - الحالة: ${updatedOrder.status}`);
+    console.log(`   - معرف الوسيط: ${updatedOrder.waseet_order_id || 'غير محدد'}`);
+    console.log(`   - حالة الوسيط: ${updatedOrder.waseet_status || 'غير محدد'}`);
+    console.log(`   - بيانات الوسيط: ${updatedOrder.waseet_data ? 'موجودة' : 'غير موجودة'}`);
 
     // 6. اختبار مزامنة الحالات
     console.log('\n6️⃣ اختبار مزامنة الحالات...');

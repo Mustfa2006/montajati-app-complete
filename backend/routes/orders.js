@@ -215,22 +215,36 @@ router.put('/:id/status', async (req, res) => {
         // إرسال الطلب لشركة الوسيط
         const waseetResult = await orderSyncService.sendOrderToWaseet(id);
 
-        if (waseetResult) {
+        if (waseetResult && waseetResult.success) {
           console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
 
           // تحديث الطلب بمعلومات الوسيط
           await supabase
             .from('orders')
             .update({
-              waseet_sent: true,
-              waseet_sent_at: new Date().toISOString(),
-              waseet_qr_id: waseetResult.qrId || null,
-              waseet_status: 'تم الإرسال للوسيط'
+              waseet_order_id: waseetResult.qrId || null,
+              waseet_status: 'تم الإرسال للوسيط',
+              waseet_data: JSON.stringify(waseetResult),
+              updated_at: new Date().toISOString()
             })
             .eq('id', id);
 
         } else {
-          console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط`);
+          console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
+
+          // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
+          await supabase
+            .from('orders')
+            .update({
+              waseet_status: 'في انتظار الإرسال للوسيط',
+              waseet_data: JSON.stringify({
+                error: waseetResult?.error || 'فشل في الإرسال',
+                retry_needed: true,
+                last_attempt: new Date().toISOString()
+              }),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
         }
 
       } catch (waseetError) {
@@ -318,7 +332,7 @@ router.post('/:id/send-to-waseet', async (req, res) => {
     // التحقق من وجود الطلب
     const { data: existingOrder, error: fetchError } = await supabase
       .from('orders')
-      .select('id, customer_name, waseet_sent')
+      .select('id, customer_name, waseet_order_id')
       .eq('id', id)
       .single();
 
@@ -330,7 +344,7 @@ router.post('/:id/send-to-waseet', async (req, res) => {
     }
 
     // التحقق من أن الطلب لم يتم إرساله مسبقاً
-    if (existingOrder.waseet_sent) {
+    if (existingOrder.waseet_order_id) {
       return res.status(400).json({
         success: false,
         error: 'تم إرسال هذا الطلب لشركة الوسيط مسبقاً'
@@ -399,6 +413,86 @@ router.post('/sync-waseet-statuses', async (req, res) => {
 
   } catch (error) {
     console.error('❌ خطأ في مزامنة حالات الطلبات:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
+// ===================================
+// POST /api/orders/retry-failed-waseet - إعادة محاولة إرسال الطلبات الفاشلة للوسيط
+// ===================================
+router.post('/retry-failed-waseet', async (req, res) => {
+  try {
+    console.log(`🔄 إعادة محاولة إرسال الطلبات الفاشلة للوسيط...`);
+
+    // جلب الطلبات التي فشل إرسالها للوسيط
+    const { data: failedOrders, error: fetchError } = await supabase
+      .from('orders')
+      .select('id, customer_name, waseet_status, waseet_data')
+      .eq('status', 'in_delivery')
+      .eq('waseet_status', 'في انتظار الإرسال للوسيط');
+
+    if (fetchError) {
+      console.error('❌ خطأ في جلب الطلبات الفاشلة:', fetchError);
+      return res.status(500).json({
+        success: false,
+        error: 'خطأ في جلب الطلبات الفاشلة'
+      });
+    }
+
+    if (!failedOrders || failedOrders.length === 0) {
+      return res.json({
+        success: true,
+        message: 'لا توجد طلبات فاشلة لإعادة المحاولة',
+        retried: 0
+      });
+    }
+
+    console.log(`📊 تم العثور على ${failedOrders.length} طلب فاشل`);
+
+    const OrderSyncService = require('../services/order_sync_service');
+    const orderSyncService = new OrderSyncService();
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const order of failedOrders) {
+      try {
+        console.log(`🔄 إعادة محاولة إرسال الطلب ${order.id}...`);
+
+        const waseetResult = await orderSyncService.sendOrderToWaseet(order.id);
+
+        if (waseetResult && waseetResult.success) {
+          successCount++;
+          console.log(`✅ تم إرسال الطلب ${order.id} بنجاح`);
+        } else {
+          failCount++;
+          console.log(`❌ فشل في إرسال الطلب ${order.id}`);
+        }
+
+        // انتظار قصير بين الطلبات لتجنب الضغط على API
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+      } catch (orderError) {
+        failCount++;
+        console.error(`❌ خطأ في إعادة محاولة الطلب ${order.id}:`, orderError);
+      }
+    }
+
+    console.log(`✅ انتهت إعادة المحاولة - نجح: ${successCount}, فشل: ${failCount}`);
+
+    res.json({
+      success: true,
+      message: `تم إعادة محاولة ${failedOrders.length} طلب`,
+      retried: failedOrders.length,
+      successful: successCount,
+      failed: failCount
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في إعادة محاولة الطلبات الفاشلة:', error);
     res.status(500).json({
       success: false,
       error: 'خطأ في الخادم'
