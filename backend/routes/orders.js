@@ -204,47 +204,71 @@ router.put('/:id/status', async (req, res) => {
     console.log(`✅ تم تحديث حالة الطلب ${id} بنجاح`);
 
     // 🚀 إرسال الطلب لشركة الوسيط عند تغيير الحالة إلى "قيد التوصيل"
-    if (status === 'in_delivery' || status === 'قيد التوصيل') {
-      console.log(`📦 الحالة الجديدة هي "قيد التوصيل" - سيتم إرسال الطلب لشركة الوسيط...`);
+    const deliveryStatuses = [
+      'in_delivery',
+      'قيد التوصيل',
+      'قيد التوصيل الى الزبون (في عهدة المندوب)',
+      'قيد التوصيل الى الزبون',
+      'في عهدة المندوب',
+      'قيد التوصيل للزبون'
+    ];
+
+    if (deliveryStatuses.includes(status)) {
+      console.log(`📦 الحالة الجديدة هي "${status}" - سيتم إرسال الطلب لشركة الوسيط...`);
 
       try {
-        // استيراد خدمة إرسال الطلبات للوسيط
-        const OrderSyncService = require('../services/order_sync_service');
-        const orderSyncService = new OrderSyncService();
+        // التحقق من أن الطلب لم يتم إرساله مسبقاً
+        const { data: currentOrder, error: checkError } = await supabase
+          .from('orders')
+          .select('waseet_order_id, waseet_status')
+          .eq('id', id)
+          .single();
 
-        // إرسال الطلب لشركة الوسيط
-        const waseetResult = await orderSyncService.sendOrderToWaseet(id);
-
-        if (waseetResult && waseetResult.success) {
-          console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
-
-          // تحديث الطلب بمعلومات الوسيط
-          await supabase
-            .from('orders')
-            .update({
-              waseet_order_id: waseetResult.qrId || null,
-              waseet_status: 'تم الإرسال للوسيط',
-              waseet_data: JSON.stringify(waseetResult),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', id);
-
+        if (checkError) {
+          console.error('❌ خطأ في فحص حالة الوسيط:', checkError);
+        } else if (currentOrder.waseet_order_id) {
+          console.log(`ℹ️ الطلب ${id} تم إرساله مسبقاً للوسيط (ID: ${currentOrder.waseet_order_id})`);
         } else {
-          console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
+          console.log(`🚀 إرسال الطلب ${id} لشركة الوسيط...`);
 
-          // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
-          await supabase
-            .from('orders')
-            .update({
-              waseet_status: 'في انتظار الإرسال للوسيط',
-              waseet_data: JSON.stringify({
-                error: waseetResult?.error || 'فشل في الإرسال',
-                retry_needed: true,
-                last_attempt: new Date().toISOString()
-              }),
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', id);
+          // استيراد خدمة إرسال الطلبات للوسيط
+          const OrderSyncService = require('../services/order_sync_service');
+          const orderSyncService = new OrderSyncService();
+
+          // إرسال الطلب لشركة الوسيط
+          const waseetResult = await orderSyncService.sendOrderToWaseet(id);
+
+          if (waseetResult && waseetResult.success) {
+            console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
+
+            // تحديث الطلب بمعلومات الوسيط
+            await supabase
+              .from('orders')
+              .update({
+                waseet_order_id: waseetResult.qrId || null,
+                waseet_status: 'sent',
+                waseet_data: JSON.stringify(waseetResult),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', id);
+
+          } else {
+            console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
+
+            // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
+            await supabase
+              .from('orders')
+              .update({
+                waseet_status: 'في انتظار الإرسال للوسيط',
+                waseet_data: JSON.stringify({
+                  error: waseetResult?.error || 'فشل في الإرسال',
+                  retry_needed: true,
+                  last_attempt: new Date().toISOString()
+                }),
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', id);
+          }
         }
 
       } catch (waseetError) {
