@@ -78,15 +78,24 @@ app.get('/health', (req, res) => {
 
   // فحص خدمة المزامنة
   try {
-    if (global.orderSyncService && global.orderSyncService.isInitialized) {
-      if (global.orderSyncService.waseetClient && global.orderSyncService.waseetClient.isConfigured) {
-        checks.push({ service: 'sync', status: 'pass' });
+    if (global.orderSyncService) {
+      if (global.orderSyncService.isInitialized === true) {
+        if (global.orderSyncService.waseetClient && global.orderSyncService.waseetClient.isConfigured) {
+          checks.push({ service: 'sync', status: 'pass' });
+        } else {
+          checks.push({ service: 'sync', status: 'warn', error: 'خدمة المزامنة مهيأة لكن بيانات الوسيط غير موجودة' });
+          overallStatus = 'degraded';
+        }
+      } else if (global.orderSyncService.isInitialized === false) {
+        checks.push({ service: 'sync', status: 'warn', error: 'خدمة المزامنة مهيأة لكن عميل الوسيط غير مهيأ' });
+        overallStatus = 'degraded';
       } else {
-        checks.push({ service: 'sync', status: 'warn', error: 'خدمة المزامنة مهيأة لكن بيانات الوسيط غير موجودة' });
+        // خدمة احتياطية
+        checks.push({ service: 'sync', status: 'warn', error: 'خدمة المزامنة الاحتياطية نشطة' });
         overallStatus = 'degraded';
       }
     } else {
-      checks.push({ service: 'sync', status: 'fail', error: 'خدمة المزامنة غير مهيأة' });
+      checks.push({ service: 'sync', status: 'fail', error: 'خدمة المزامنة غير موجودة' });
       overallStatus = 'degraded';
     }
   } catch (error) {
@@ -236,13 +245,48 @@ async function initializeSyncService() {
     console.log('🔄 بدء تهيئة خدمة مزامنة الطلبات مع الوسيط...');
 
     // استيراد خدمة المزامنة
+    console.log('📦 استيراد OrderSyncService...');
     const OrderSyncService = require('./services/order_sync_service');
-    global.orderSyncService = new OrderSyncService();
+    console.log('✅ تم استيراد OrderSyncService بنجاح');
 
+    // إنشاء instance من الخدمة
+    console.log('🔧 إنشاء instance من OrderSyncService...');
+    const syncService = new OrderSyncService();
+    console.log('✅ تم إنشاء instance بنجاح');
+
+    // التحقق من حالة التهيئة
+    if (syncService.isInitialized === false) {
+      console.warn('⚠️ خدمة المزامنة مهيأة لكن عميل الوسيط غير مهيأ (بيانات المصادقة ناقصة)');
+      console.warn('💡 يرجى إضافة WASEET_USERNAME و WASEET_PASSWORD في متغيرات البيئة');
+    } else {
+      console.log('✅ خدمة المزامنة مهيأة بالكامل مع عميل الوسيط');
+    }
+
+    global.orderSyncService = syncService;
     console.log('✅ تم تهيئة خدمة مزامنة الطلبات مع الوسيط بنجاح');
     return true;
+
   } catch (error) {
     console.error('❌ خطأ في تهيئة خدمة مزامنة الطلبات مع الوسيط:', error.message);
+    console.error('📋 تفاصيل الخطأ:', error.stack);
+
+    // إنشاء خدمة مزامنة احتياطية
+    console.log('🔧 إنشاء خدمة مزامنة احتياطية...');
+    global.orderSyncService = {
+      isInitialized: false,
+      waseetClient: null,
+      sendOrderToWaseet: async (orderId) => {
+        console.log(`📦 محاولة إرسال الطلب ${orderId} للوسيط...`);
+        console.error('❌ خدمة المزامنة غير متاحة:', error.message);
+        return {
+          success: false,
+          error: `خطأ في خدمة المزامنة: ${error.message}`,
+          needsConfiguration: true
+        };
+      }
+    };
+
+    console.log('⚠️ تم إنشاء خدمة مزامنة احتياطية');
     return false;
   }
 }
