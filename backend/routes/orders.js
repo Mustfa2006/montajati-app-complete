@@ -203,6 +203,42 @@ router.put('/:id/status', async (req, res) => {
 
     console.log(`✅ تم تحديث حالة الطلب ${id} بنجاح`);
 
+    // 🚀 إرسال الطلب لشركة الوسيط عند تغيير الحالة إلى "قيد التوصيل"
+    if (status === 'in_delivery' || status === 'قيد التوصيل') {
+      console.log(`📦 الحالة الجديدة هي "قيد التوصيل" - سيتم إرسال الطلب لشركة الوسيط...`);
+
+      try {
+        // استيراد خدمة إرسال الطلبات للوسيط
+        const OrderSyncService = require('../services/order_sync_service');
+        const orderSyncService = new OrderSyncService();
+
+        // إرسال الطلب لشركة الوسيط
+        const waseetResult = await orderSyncService.sendOrderToWaseet(id);
+
+        if (waseetResult) {
+          console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
+
+          // تحديث الطلب بمعلومات الوسيط
+          await supabase
+            .from('orders')
+            .update({
+              waseet_sent: true,
+              waseet_sent_at: new Date().toISOString(),
+              waseet_qr_id: waseetResult.qrId || null,
+              waseet_status: 'تم الإرسال للوسيط'
+            })
+            .eq('id', id);
+
+        } else {
+          console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط`);
+        }
+
+      } catch (waseetError) {
+        console.error(`❌ خطأ في إرسال الطلب ${id} لشركة الوسيط:`, waseetError);
+        // لا نوقف العملية، فقط نسجل الخطأ
+      }
+    }
+
     res.json({
       success: true,
       message: 'تم تحديث حالة الطلب بنجاح',
@@ -266,6 +302,106 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message
+    });
+  }
+});
+
+// ===================================
+// POST /api/orders/:id/send-to-waseet - إرسال طلب محدد لشركة الوسيط يدوياً
+// ===================================
+router.post('/:id/send-to-waseet', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`📦 طلب إرسال الطلب ${id} لشركة الوسيط يدوياً...`);
+
+    // التحقق من وجود الطلب
+    const { data: existingOrder, error: fetchError } = await supabase
+      .from('orders')
+      .select('id, customer_name, waseet_sent')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingOrder) {
+      return res.status(404).json({
+        success: false,
+        error: 'الطلب غير موجود'
+      });
+    }
+
+    // التحقق من أن الطلب لم يتم إرساله مسبقاً
+    if (existingOrder.waseet_sent) {
+      return res.status(400).json({
+        success: false,
+        error: 'تم إرسال هذا الطلب لشركة الوسيط مسبقاً'
+      });
+    }
+
+    // إرسال الطلب لشركة الوسيط
+    const OrderSyncService = require('../services/order_sync_service');
+    const orderSyncService = new OrderSyncService();
+
+    const waseetResult = await orderSyncService.sendOrderToWaseet(id);
+
+    if (waseetResult && waseetResult.success) {
+      console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
+
+      res.json({
+        success: true,
+        message: 'تم إرسال الطلب لشركة الوسيط بنجاح',
+        data: {
+          orderId: id,
+          qrId: waseetResult.qrId,
+          waseetResponse: waseetResult.waseetResponse
+        }
+      });
+    } else {
+      console.error(`❌ فشل في إرسال الطلب ${id} لشركة الوسيط`);
+
+      res.status(500).json({
+        success: false,
+        error: 'فشل في إرسال الطلب لشركة الوسيط'
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ خطأ في إرسال الطلب لشركة الوسيط:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
+// ===================================
+// POST /api/orders/sync-waseet-statuses - مزامنة حالات جميع الطلبات مع شركة الوسيط
+// ===================================
+router.post('/sync-waseet-statuses', async (req, res) => {
+  try {
+    console.log(`🔄 طلب مزامنة حالات الطلبات مع شركة الوسيط...`);
+
+    const OrderSyncService = require('../services/order_sync_service');
+    const orderSyncService = new OrderSyncService();
+
+    const syncResult = await orderSyncService.syncAllOrderStatuses();
+
+    if (syncResult) {
+      res.json({
+        success: true,
+        message: 'تم مزامنة حالات الطلبات بنجاح'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'فشل في مزامنة حالات الطلبات'
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ خطأ في مزامنة حالات الطلبات:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
     });
   }
 });
