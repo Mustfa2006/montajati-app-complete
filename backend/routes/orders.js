@@ -231,12 +231,37 @@ router.put('/:id/status', async (req, res) => {
         } else {
           console.log(`🚀 إرسال الطلب ${id} لشركة الوسيط...`);
 
-          // استيراد خدمة إرسال الطلبات للوسيط
-          const OrderSyncService = require('../services/order_sync_service');
-          const orderSyncService = new OrderSyncService();
+          // التحقق من وجود خدمة المزامنة المهيأة
+          if (!global.orderSyncService) {
+            console.error('❌ خدمة المزامنة غير متاحة - محاولة إنشاء خدمة جديدة...');
+
+            try {
+              const OrderSyncService = require('../services/order_sync_service');
+              global.orderSyncService = new OrderSyncService();
+              console.log('✅ تم إنشاء خدمة مزامنة جديدة');
+            } catch (serviceError) {
+              console.error('❌ فشل في إنشاء خدمة المزامنة:', serviceError.message);
+
+              // تحديث الطلب بحالة الخطأ
+              await supabase
+                .from('orders')
+                .update({
+                  waseet_status: 'في انتظار الإرسال للوسيط',
+                  waseet_data: JSON.stringify({
+                    error: `خطأ في خدمة المزامنة: ${serviceError.message}`,
+                    retry_needed: true,
+                    last_attempt: new Date().toISOString()
+                  }),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', id);
+
+              return; // توقف هنا
+            }
+          }
 
           // إرسال الطلب لشركة الوسيط
-          const waseetResult = await orderSyncService.sendOrderToWaseet(id);
+          const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
 
           if (waseetResult && waseetResult.success) {
             console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
