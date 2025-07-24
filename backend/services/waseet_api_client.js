@@ -15,17 +15,28 @@ class WaseetAPIClient {
     this.token = null;
     this.tokenExpiresAt = null;
 
-    // التحقق من وجود بيانات المصادقة
+    // التحقق من وجود بيانات المصادقة (تحذير فقط، لا نرمي خطأ)
     if (!this.username || !this.password) {
-      throw new Error('بيانات المصادقة مطلوبة: WASEET_USERNAME و WASEET_PASSWORD');
+      console.warn('⚠️ بيانات المصادقة مع الوسيط غير موجودة: WASEET_USERNAME و WASEET_PASSWORD');
+      console.warn('💡 سيتم تخطي إرسال الطلبات للوسيط حتى يتم إضافة البيانات');
+      this.isConfigured = false;
+    } else {
+      this.isConfigured = true;
+      console.log('✅ تم العثور على بيانات المصادقة مع الوسيط');
     }
   }
 
   // تسجيل الدخول والحصول على Token
   async login() {
     try {
+      // التحقق من وجود بيانات المصادقة
+      if (!this.isConfigured) {
+        console.warn('⚠️ لا يمكن تسجيل الدخول - بيانات المصادقة غير موجودة');
+        return false;
+      }
+
       console.log('🔐 تسجيل الدخول إلى API الوسيط الرسمي...');
-      
+
       const formData = new URLSearchParams();
       formData.append('username', this.username);
       formData.append('password', this.password);
@@ -105,6 +116,16 @@ class WaseetAPIClient {
   // إنشاء طلب جديد
   async createOrder(orderData) {
     try {
+      // التحقق من وجود بيانات المصادقة
+      if (!this.isConfigured) {
+        console.warn('⚠️ لا يمكن إنشاء طلب - بيانات المصادقة مع الوسيط غير موجودة');
+        return {
+          success: false,
+          error: 'بيانات المصادقة مع الوسيط غير موجودة (WASEET_USERNAME, WASEET_PASSWORD)',
+          needsConfiguration: true
+        };
+      }
+
       console.log('📦 إنشاء طلب جديد في الوسيط...');
       console.log('📋 بيانات الطلب:', orderData);
 

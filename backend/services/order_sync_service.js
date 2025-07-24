@@ -12,7 +12,16 @@ class OrderSyncService {
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
-    this.waseetClient = new WaseetAPIClient();
+
+    try {
+      this.waseetClient = new WaseetAPIClient();
+      this.isInitialized = true;
+      console.log('✅ تم تهيئة خدمة مزامنة الطلبات مع الوسيط بنجاح');
+    } catch (error) {
+      console.error('❌ خطأ في تهيئة عميل الوسيط:', error.message);
+      this.waseetClient = null;
+      this.isInitialized = false;
+    }
   }
 
   /**
@@ -21,6 +30,16 @@ class OrderSyncService {
   async sendOrderToWaseet(orderId) {
     try {
       console.log(`📦 بدء إرسال الطلب ${orderId} إلى شركة الوسيط...`);
+
+      // التحقق من تهيئة عميل الوسيط
+      if (!this.waseetClient) {
+        console.error('❌ عميل الوسيط غير مهيأ - لا يمكن إرسال الطلب');
+        return {
+          success: false,
+          error: 'عميل الوسيط غير مهيأ - تحقق من بيانات المصادقة',
+          needsConfiguration: true
+        };
+      }
 
       // جلب بيانات الطلب من قاعدة البيانات
       const { data: order, error: orderError } = await this.supabase

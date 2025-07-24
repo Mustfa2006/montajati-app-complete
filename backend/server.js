@@ -78,8 +78,13 @@ app.get('/health', (req, res) => {
 
   // فحص خدمة المزامنة
   try {
-    if (global.orderSyncService) {
-      checks.push({ service: 'sync', status: 'pass' });
+    if (global.orderSyncService && global.orderSyncService.isInitialized) {
+      if (global.orderSyncService.waseetClient && global.orderSyncService.waseetClient.isConfigured) {
+        checks.push({ service: 'sync', status: 'pass' });
+      } else {
+        checks.push({ service: 'sync', status: 'warn', error: 'خدمة المزامنة مهيأة لكن بيانات الوسيط غير موجودة' });
+        overallStatus = 'degraded';
+      }
     } else {
       checks.push({ service: 'sync', status: 'fail', error: 'خدمة المزامنة غير مهيأة' });
       overallStatus = 'degraded';
@@ -114,7 +119,12 @@ app.get('/health', (req, res) => {
     },
     services: {
       notifications: checks.find(c => c.service === 'notifications')?.status === 'pass' ? 'healthy' : 'unhealthy',
-      sync: checks.find(c => c.service === 'sync')?.status === 'pass' ? 'healthy' : 'unhealthy',
+      sync: (() => {
+        const syncCheck = checks.find(c => c.service === 'sync');
+        if (syncCheck?.status === 'pass') return 'healthy';
+        if (syncCheck?.status === 'warn') return 'warning';
+        return 'unhealthy';
+      })(),
       monitor: checks.find(c => c.service === 'monitor')?.status === 'pass' ? 'healthy' : 'unhealthy'
     },
     system: {
