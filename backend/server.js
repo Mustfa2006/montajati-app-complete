@@ -60,11 +60,70 @@ app.get('/', (req, res) => {
 
 // Health check endpoint
 app.get('/health', (req, res) => {
+  const checks = [];
+  let overallStatus = 'healthy';
+
+  // فحص خدمة الإشعارات
+  try {
+    if (targetedNotificationService && targetedNotificationService.isInitialized) {
+      checks.push({ service: 'notifications', status: 'pass' });
+    } else {
+      checks.push({ service: 'notifications', status: 'fail', error: 'خدمة الإشعارات غير مهيأة' });
+      overallStatus = 'degraded';
+    }
+  } catch (error) {
+    checks.push({ service: 'notifications', status: 'fail', error: error.message });
+    overallStatus = 'degraded';
+  }
+
+  // فحص خدمة المزامنة
+  try {
+    if (global.orderSyncService) {
+      checks.push({ service: 'sync', status: 'pass' });
+    } else {
+      checks.push({ service: 'sync', status: 'fail', error: 'خدمة المزامنة غير مهيأة' });
+      overallStatus = 'degraded';
+    }
+  } catch (error) {
+    checks.push({ service: 'sync', status: 'fail', error: error.message });
+    overallStatus = 'degraded';
+  }
+
+  // فحص خدمة المراقبة
+  try {
+    if (tokenManagementService) {
+      checks.push({ service: 'monitor', status: 'pass' });
+    } else {
+      checks.push({ service: 'monitor', status: 'fail', error: 'خدمة المراقبة غير مهيأة' });
+      overallStatus = 'degraded';
+    }
+  } catch (error) {
+    checks.push({ service: 'monitor', status: 'fail', error: error.message });
+    overallStatus = 'degraded';
+  }
+
   res.json({
-    status: 'healthy',
-    message: 'الخادم يعمل بشكل طبيعي',
+    status: overallStatus,
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    server: {
+      isInitialized: true,
+      isRunning: true,
+      startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString()
+    },
+    services: {
+      notifications: checks.find(c => c.service === 'notifications')?.status === 'pass' ? 'healthy' : 'unhealthy',
+      sync: checks.find(c => c.service === 'sync')?.status === 'pass' ? 'healthy' : 'unhealthy',
+      monitor: checks.find(c => c.service === 'monitor')?.status === 'pass' ? 'healthy' : 'unhealthy'
+    },
+    system: {
+      memory: process.memoryUsage(),
+      cpu: process.cpuUsage(),
+      platform: process.platform,
+      nodeVersion: process.version
+    },
+    checks: checks
   });
 });
 
@@ -161,6 +220,23 @@ async function initializeNotificationService() {
   }
 }
 
+// تهيئة خدمة مزامنة الطلبات مع الوسيط
+async function initializeSyncService() {
+  try {
+    console.log('🔄 بدء تهيئة خدمة مزامنة الطلبات مع الوسيط...');
+
+    // استيراد خدمة المزامنة
+    const OrderSyncService = require('./services/order_sync_service');
+    global.orderSyncService = new OrderSyncService();
+
+    console.log('✅ تم تهيئة خدمة مزامنة الطلبات مع الوسيط بنجاح');
+    return true;
+  } catch (error) {
+    console.error('❌ خطأ في تهيئة خدمة مزامنة الطلبات مع الوسيط:', error.message);
+    return false;
+  }
+}
+
 // تشغيل الخادم
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, '0.0.0.0', async () => {
@@ -174,6 +250,9 @@ app.listen(PORT, '0.0.0.0', async () => {
 
   // تهيئة خدمة الإشعارات
   await initializeNotificationService();
+
+  // تهيئة خدمة مزامنة الطلبات مع الوسيط
+  await initializeSyncService();
 
   // بدء مهام الصيانة الدورية
   startMaintenanceTasks();
