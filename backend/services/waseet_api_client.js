@@ -133,27 +133,33 @@ class WaseetAPIClient {
         throw new Error('فشل في المصادقة');
       }
 
-      // تحضير بيانات الطلب
+      // تحضير بيانات الطلب حسب التعليمات الرسمية من شركة الوسيط
       const formData = new URLSearchParams();
-      formData.append('token', this.token);
-      formData.append('clientName', orderData.clientName);
-      formData.append('clientMobile', orderData.clientMobile);
-      if (orderData.clientMobile2) {
-        formData.append('clientMobile2', orderData.clientMobile2);
+
+      // البيانات المطلوبة حسب التعليمات الرسمية
+      formData.append('client_name', orderData.clientName || orderData.client_name);
+      formData.append('client_mobile', orderData.clientMobile || orderData.client_mobile);
+
+      if (orderData.clientMobile2 || orderData.client_mobile2) {
+        formData.append('client_mobile2', orderData.clientMobile2 || orderData.client_mobile2);
       }
-      formData.append('cityId', orderData.cityId);
-      formData.append('regionId', orderData.regionId);
+
+      formData.append('city_id', orderData.cityId || orderData.city_id);
+      formData.append('region_id', orderData.regionId || orderData.region_id);
       formData.append('location', orderData.location);
-      formData.append('typeName', orderData.typeName);
-      formData.append('itemsNumber', orderData.itemsNumber);
+      formData.append('type_name', orderData.typeName || orderData.type_name);
+      formData.append('items_number', orderData.itemsNumber || orderData.items_number);
       formData.append('price', orderData.price);
-      formData.append('packageSize', orderData.packageSize);
-      if (orderData.merchantNotes) {
-        formData.append('merchantNotes', orderData.merchantNotes);
+      formData.append('package_size', orderData.packageSize || orderData.package_size);
+
+      if (orderData.merchantNotes || orderData.merchant_notes) {
+        formData.append('merchant_notes', orderData.merchantNotes || orderData.merchant_notes);
       }
+
       formData.append('replacement', orderData.replacement || 0);
 
-      const response = await this.makeRequest('POST', '/create-order', formData.toString(), {
+      // إرسال الطلب مع token في URL كما هو مطلوب
+      const response = await this.makeRequest('POST', `/create-order?token=${this.token}`, formData.toString(), {
         'Content-Type': 'application/x-www-form-urlencoded'
       });
 
@@ -194,10 +200,9 @@ class WaseetAPIClient {
       }
 
       const formData = new URLSearchParams();
-      formData.append('token', this.token);
       formData.append('qrId', qrId);
 
-      const response = await this.makeRequest('POST', '/get-order-status', formData.toString(), {
+      const response = await this.makeRequest('POST', `/get-order-status?token=${this.token}`, formData.toString(), {
         'Content-Type': 'application/x-www-form-urlencoded'
       });
 

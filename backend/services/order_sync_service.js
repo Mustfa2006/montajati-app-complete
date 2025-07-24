@@ -73,19 +73,39 @@ class OrderSyncService {
         waseetData = await this.createDefaultWaseetData(order);
       }
 
-      // إرسال الطلب لشركة الوسيط
+      // تحضير رقم الهاتف بالتنسيق الصحيح
+      let clientMobile = order.customer_phone || order.primary_phone;
+      if (clientMobile && !clientMobile.startsWith('+964')) {
+        // إضافة رمز العراق إذا لم يكن موجوداً
+        if (clientMobile.startsWith('07')) {
+          clientMobile = '+964' + clientMobile.substring(1);
+        } else if (clientMobile.startsWith('7')) {
+          clientMobile = '+964' + clientMobile;
+        }
+      }
+
+      let clientMobile2 = order.alternative_phone || order.secondary_phone;
+      if (clientMobile2 && !clientMobile2.startsWith('+964')) {
+        if (clientMobile2.startsWith('07')) {
+          clientMobile2 = '+964' + clientMobile2.substring(1);
+        } else if (clientMobile2.startsWith('7')) {
+          clientMobile2 = '+964' + clientMobile2;
+        }
+      }
+
+      // إرسال الطلب لشركة الوسيط بالتنسيق الصحيح حسب التعليمات الرسمية
       const waseetResult = await this.waseetClient.createOrder({
-        clientName: order.customer_name,
-        clientMobile: order.customer_phone || order.primary_phone,
-        clientMobile2: order.alternative_phone || order.secondary_phone,
-        cityId: waseetData.cityId || '1', // بغداد افتراضياً
-        regionId: waseetData.regionId || '1',
+        client_name: order.customer_name,
+        client_mobile: clientMobile,
+        client_mobile2: clientMobile2,
+        city_id: waseetData.cityId || '1', // بغداد افتراضياً
+        region_id: waseetData.regionId || '1',
         location: order.customer_address || order.notes || 'عنوان العميل',
-        typeName: waseetData.typeName || 'عادي',
-        itemsNumber: waseetData.itemsCount || 1,
+        type_name: waseetData.typeName || 'عادي',
+        items_number: waseetData.itemsCount || 1,
         price: waseetData.totalPrice || order.total || 0,
-        packageSize: '1',
-        merchantNotes: `طلب من تطبيق منتجاتي - رقم الطلب: ${orderId}`,
+        package_size: 1, // ID رقمي
+        merchant_notes: `طلب من تطبيق منتجاتي - رقم الطلب: ${orderId}`,
         replacement: 0
       });
 
