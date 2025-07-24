@@ -500,4 +500,59 @@ router.post('/retry-failed-waseet', async (req, res) => {
   }
 });
 
+// ===================================
+// POST /api/orders/create-test-order - إنشاء طلب تجريبي للاختبار
+// ===================================
+router.post('/create-test-order', async (req, res) => {
+  try {
+    console.log('📦 إنشاء طلب تجريبي للاختبار...');
+
+    const testOrder = {
+      id: `test_order_${Date.now()}`,
+      customer_name: 'عميل اختبار النظام',
+      customer_phone: '07501234567',
+      primary_phone: '07501234567',
+      secondary_phone: '07701234567',
+      customer_address: 'بغداد - الكرادة - شارع الكرادة الداخل',
+      province: 'بغداد',
+      city: 'الكرادة',
+      total: 85000,
+      status: 'active',
+      notes: 'طلب تجريبي لاختبار نظام الوسيط',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('orders')
+      .insert(testOrder)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ خطأ في إنشاء الطلب التجريبي:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في إنشاء الطلب التجريبي',
+        details: error
+      });
+    }
+
+    console.log(`✅ تم إنشاء طلب تجريبي: ${data.id}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'تم إنشاء الطلب التجريبي بنجاح',
+      data: data
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في API إنشاء الطلب التجريبي:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
