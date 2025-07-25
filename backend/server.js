@@ -299,6 +299,7 @@ const PORT = process.env.PORT || 3003;
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
   console.log(`🌐 البيئة: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🕐 وقت البدء: ${new Date().toISOString()}`);
   if (process.env.NODE_ENV === 'production') {
     console.log(`🌍 الخادم متاح على: https://montajati-backend.onrender.com`);
   } else {
