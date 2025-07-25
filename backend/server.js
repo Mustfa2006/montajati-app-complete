@@ -247,6 +247,19 @@ async function initializeSyncService() {
   try {
     console.log('🔄 بدء تهيئة خدمة مزامنة الطلبات مع الوسيط...');
 
+    // فحص متغيرات البيئة أولاً
+    console.log('🔍 فحص متغيرات البيئة للوسيط...');
+    console.log(`WASEET_USERNAME: ${process.env.WASEET_USERNAME ? '✅ موجود' : '❌ غير موجود'}`);
+    console.log(`WASEET_PASSWORD: ${process.env.WASEET_PASSWORD ? '✅ موجود' : '❌ غير موجود'}`);
+
+    // إضافة متغيرات البيئة يدوياً إذا لم تكن موجودة (للإنتاج فقط)
+    if (process.env.NODE_ENV === 'production' && (!process.env.WASEET_USERNAME || !process.env.WASEET_PASSWORD)) {
+      console.log('⚠️ متغيرات الوسيط غير موجودة في الإنتاج - إضافة يدوياً...');
+      process.env.WASEET_USERNAME = 'محمد@mustfaabd';
+      process.env.WASEET_PASSWORD = 'mustfaabd2006@';
+      console.log('✅ تم إضافة متغيرات الوسيط يدوياً');
+    }
+
     // استيراد خدمة المزامنة
     console.log('📦 استيراد OrderSyncService...');
     const OrderSyncService = require('./services/order_sync_service');
