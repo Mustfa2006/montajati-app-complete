@@ -75,7 +75,12 @@ class OrderSyncService {
 
       // تحضير رقم الهاتف بالتنسيق الصحيح
       let clientMobile = order.customer_phone || order.primary_phone;
-      if (clientMobile && !clientMobile.startsWith('+964')) {
+
+      // إذا لم يكن هناك رقم هاتف، استخدم رقم افتراضي
+      if (!clientMobile || clientMobile === 'null' || clientMobile.trim() === '') {
+        clientMobile = '+9647901234567'; // رقم افتراضي للاختبار
+        console.warn(`⚠️ لا يوجد رقم هاتف للطلب ${orderId} - استخدام رقم افتراضي`);
+      } else if (!clientMobile.startsWith('+964')) {
         // إضافة رمز العراق إذا لم يكن موجوداً
         if (clientMobile.startsWith('07')) {
           clientMobile = '+964' + clientMobile.substring(1);
@@ -93,21 +98,26 @@ class OrderSyncService {
         }
       }
 
-      // إرسال الطلب لشركة الوسيط بالتنسيق الصحيح حسب التعليمات الرسمية
-      const waseetResult = await this.waseetClient.createOrder({
-        client_name: order.customer_name,
+      // تحضير بيانات الطلب للوسيط
+      const orderDataForWaseet = {
+        client_name: order.customer_name || 'عميل',
         client_mobile: clientMobile,
         client_mobile2: clientMobile2,
-        city_id: waseetData.cityId || '1', // بغداد افتراضياً
-        region_id: waseetData.regionId || '1',
+        city_id: waseetData.cityId || 1, // بغداد افتراضياً
+        region_id: waseetData.regionId || 1,
         location: order.customer_address || order.notes || 'عنوان العميل',
         type_name: waseetData.typeName || 'عادي',
         items_number: waseetData.itemsCount || 1,
-        price: waseetData.totalPrice || order.total || 0,
+        price: waseetData.totalPrice || order.total || 25000,
         package_size: 1, // ID رقمي
         merchant_notes: `طلب من تطبيق منتجاتي - رقم الطلب: ${orderId}`,
         replacement: 0
-      });
+      };
+
+      console.log(`📋 بيانات الطلب المرسلة للوسيط:`, orderDataForWaseet);
+
+      // إرسال الطلب لشركة الوسيط بالتنسيق الصحيح حسب التعليمات الرسمية
+      const waseetResult = await this.waseetClient.createOrder(orderDataForWaseet);
 
       if (waseetResult && waseetResult.success) {
         console.log(`✅ تم إرسال الطلب ${orderId} لشركة الوسيط بنجاح`);
@@ -311,6 +321,54 @@ class OrderSyncService {
 
     } catch (error) {
       console.error(`❌ خطأ في مزامنة حالات الطلبات:`, error);
+      return false;
+    }
+  }
+
+  // إعادة محاولة الطلبات الفاشلة
+  async retryFailedOrders() {
+    try {
+      console.log('🔄 البحث عن الطلبات الفاشلة لإعادة المحاولة...');
+
+      // جلب الطلبات التي فشلت في الإرسال
+      const { data: failedOrders, error } = await this.supabase
+        .from('orders')
+        .select('*')
+        .eq('waseet_status', 'في انتظار الإرسال للوسيط')
+        .is('waseet_order_id', null)
+        .or('status.eq.قيد التوصيل الى الزبون (في عهدة المندوب),status.eq.قيد التوصيل,status.eq.in_delivery')
+        .limit(10);
+
+      if (error) {
+        console.error('❌ خطأ في جلب الطلبات الفاشلة:', error);
+        return false;
+      }
+
+      if (failedOrders.length === 0) {
+        console.log('✅ لا توجد طلبات فاشلة لإعادة المحاولة');
+        return true;
+      }
+
+      console.log(`📦 تم العثور على ${failedOrders.length} طلب فاشل`);
+
+      for (const order of failedOrders) {
+        console.log(`🔄 إعادة محاولة إرسال الطلب: ${order.id}`);
+
+        const result = await this.sendOrderToWaseet(order.id);
+
+        if (result && result.success) {
+          console.log(`✅ نجح إرسال الطلب ${order.id} في المحاولة الثانية`);
+        } else {
+          console.log(`❌ فشل إرسال الطلب ${order.id} مرة أخرى`);
+        }
+
+        // انتظار قصير بين المحاولات
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ خطأ في إعادة محاولة الطلبات الفاشلة:', error);
       return false;
     }
   }

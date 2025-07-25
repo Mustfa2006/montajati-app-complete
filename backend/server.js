@@ -308,6 +308,20 @@ app.listen(PORT, '0.0.0.0', async () => {
   // تهيئة خدمة مزامنة الطلبات مع الوسيط
   await initializeSyncService();
 
+  // بدء مهمة دورية لإعادة محاولة الطلبات الفاشلة كل 10 دقائق
+  if (global.orderSyncService && global.orderSyncService.retryFailedOrders) {
+    setInterval(async () => {
+      try {
+        console.log('🔄 تشغيل مهمة إعادة محاولة الطلبات الفاشلة...');
+        await global.orderSyncService.retryFailedOrders();
+      } catch (error) {
+        console.error('❌ خطأ في مهمة إعادة المحاولة:', error);
+      }
+    }, 10 * 60 * 1000); // كل 10 دقائق
+
+    console.log('✅ تم تشغيل مهمة إعادة محاولة الطلبات الفاشلة');
+  }
+
   // بدء مهام الصيانة الدورية
   startMaintenanceTasks();
 });
