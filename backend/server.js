@@ -173,6 +173,15 @@ try {
   console.log('تحذير: لم يتم العثور على routes/products');
 }
 
+// Routes للطلبات
+try {
+  const orderRoutes = require('./routes/orders');
+  app.use('/api/orders', orderRoutes);
+  console.log('✅ تم تحميل مسارات الطلبات');
+} catch (error) {
+  console.log('تحذير: لم يتم العثور على routes/orders');
+}
+
 // Routes لرفع الصور
 try {
   const uploadRoutes = require('./routes/upload');
