@@ -63,6 +63,9 @@ class OfficialMontajatiServer {
   // إعداد Express
   // ===================================
   setupExpress() {
+    // ✅ إعداد trust proxy لـ Render
+    this.app.set('trust proxy', true);
+
     // ✅ إعدادات الأمان المحسنة
     this.app.use(secureHelmet);
 
@@ -88,17 +91,17 @@ class OfficialMontajatiServer {
     this.app.use('/api/notifications/', apiRateLimit);
 
     // معالجة البيانات
-    this.app.use(express.json({ 
+    this.app.use(express.json({
       limit: '10mb',
       verify: (req, res, buf) => {
-        try {
-          JSON.parse(buf);
-        } catch (e) {
-          res.status(400).json({
-            success: false,
-            message: 'بيانات JSON غير صحيحة'
-          });
-          throw new Error('Invalid JSON');
+        // فقط للطلبات التي تحتوي على بيانات
+        if (buf && buf.length > 0) {
+          try {
+            JSON.parse(buf);
+          } catch (e) {
+            // لا نرسل استجابة هنا، فقط نرمي الخطأ
+            throw new Error('Invalid JSON');
+          }
         }
       }
     }));
@@ -127,18 +130,21 @@ class OfficialMontajatiServer {
     // معالجة الأخطاء العامة
     this.app.use((err, req, res, next) => {
       console.error(`❌ خطأ في الطلب ${req.requestId}:`, err);
-      
+
       // تسجيل الخطأ في النظام
       this.logError(err, req);
-      
-      res.status(err.status || 500).json({
-        success: false,
-        message: this.environment === 'production' 
-          ? 'حدث خطأ داخلي في الخادم'
-          : err.message,
-        requestId: req.requestId,
-        timestamp: new Date().toISOString()
-      });
+
+      // التحقق من أن الاستجابة لم يتم إرسالها بعد
+      if (!res.headersSent) {
+        res.status(err.status || 500).json({
+          success: false,
+          message: this.environment === 'production'
+            ? 'حدث خطأ داخلي في الخادم'
+            : err.message,
+          requestId: req.requestId,
+          timestamp: new Date().toISOString()
+        });
+      }
     });
   }
 
@@ -367,6 +373,17 @@ class OfficialMontajatiServer {
     }
 
     console.log('✅ انتهى تحميل جميع المسارات');
+
+    // معالج 404 للمسارات غير الموجودة
+    this.app.use('*', (req, res) => {
+      res.status(404).json({
+        success: false,
+        message: 'المسار غير موجود',
+        path: req.originalUrl,
+        method: req.method,
+        timestamp: new Date().toISOString()
+      });
+    });
   }
 
   // ===================================

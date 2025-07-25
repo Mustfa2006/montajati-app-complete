@@ -7,7 +7,6 @@ const express = require('express');
 const router = express.Router();
 const waseetStatusManager = require('../services/waseet_status_manager');
 const { supabase } = require('../config/supabase');
-const { supabase } = require('../config/supabase');
 
 // ===================================
 // الحصول على جميع الحالات المعتمدة
