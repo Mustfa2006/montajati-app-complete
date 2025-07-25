@@ -294,44 +294,79 @@ class OfficialMontajatiServer {
   // تحميل المسارات الأساسية
   // ===================================
   loadCoreRoutes() {
+    // مسارات FCM
     try {
-      // مسارات FCM
       const fcmRoutes = require('./routes/fcm_tokens');
       this.app.use('/api/fcm', fcmRoutes);
+      console.log('✅ تم تحميل مسارات FCM');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات FCM:', error.message);
+    }
 
-      // مسارات الإشعارات
+    // مسارات الإشعارات
+    try {
       const notificationRoutes = require('./routes/notifications');
       this.app.use('/api/notifications', notificationRoutes);
+      console.log('✅ تم تحميل مسارات الإشعارات');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات الإشعارات:', error.message);
+    }
 
-      // مسارات الطلبات
+    // مسارات الطلبات
+    try {
       const orderRoutes = require('./routes/orders');
       this.app.use('/api/orders', orderRoutes);
+      console.log('✅ تم تحميل مسارات الطلبات');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات الطلبات:', error.message);
+    }
 
-      // مسارات المستخدمين
+    // مسارات المستخدمين
+    try {
       const userRoutes = require('./routes/users');
       this.app.use('/api/users', userRoutes);
+      console.log('✅ تم تحميل مسارات المستخدمين');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات المستخدمين:', error.message);
+    }
 
-      // مسارات المنتجات
+    // مسارات المنتجات
+    try {
       const productRoutes = require('./routes/products');
       this.app.use('/api/products', productRoutes);
+      console.log('✅ تم تحميل مسارات المنتجات');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات المنتجات:', error.message);
+    }
 
-      // مسارات المصادقة
+    // مسارات المصادقة
+    try {
       const authRoutes = require('./routes/auth');
       this.app.use('/api/auth', authRoutes);
+      console.log('✅ تم تحميل مسارات المصادقة');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات المصادقة:', error.message);
+    }
 
-      // مسارات حالات الوسيط
+    // مسارات حالات الوسيط
+    try {
       const waseetStatusesRoutes = require('./routes/waseet_statuses');
       this.app.use('/api/waseet-statuses', waseetStatusesRoutes);
+      console.log('✅ تم تحميل مسارات حالات الوسيط');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات حالات الوسيط:', error.message);
+    }
 
-      // مسارات دعم الطلبات
+    // مسارات دعم الطلبات
+    try {
       const orderSupportRoutes = require('./routes/order_support');
       this.app.use('/api/support', orderSupportRoutes);
-
-      console.log('✅ تم تحميل جميع المسارات الأساسية');
-
+      console.log('✅ تم تحميل مسارات دعم الطلبات');
     } catch (error) {
-      console.warn('⚠️ تحذير في تحميل بعض المسارات:', error.message);
+      console.warn('⚠️ تحذير في تحميل مسارات دعم الطلبات:', error.message);
     }
+
+    console.log('✅ انتهى تحميل جميع المسارات');
   }
 
   // ===================================
