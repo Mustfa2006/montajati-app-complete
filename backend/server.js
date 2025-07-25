@@ -16,6 +16,9 @@ dotenv.config();
 
 const app = express();
 
+// إعداد trust proxy لـ Render
+app.set('trust proxy', 1);
+
 // إعداد Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
