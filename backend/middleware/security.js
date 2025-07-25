@@ -46,6 +46,12 @@ const createRateLimit = (windowMs, max, message) => {
     },
     standardHeaders: true,
     legacyHeaders: false,
+    // إعدادات trust proxy آمنة لـ Render
+    trustProxy: true,
+    keyGenerator: (req) => {
+      // استخدام IP الحقيقي من Render
+      return req.ip || req.connection.remoteAddress || 'unknown';
+    },
     handler: (req, res) => {
       console.warn(`⚠️ Rate limit exceeded for IP: ${req.ip}`);
       res.status(429).json({

@@ -242,6 +242,8 @@ router.put('/:id/status', async (req, res) => {
             console.log(`🚀 الطلب ${id} لم يتم إرساله للوسيط - سيتم الإرسال الآن...`);
 
             // التحقق من وجود خدمة المزامنة المهيأة
+            console.log(`🔍 فحص خدمة المزامنة: ${global.orderSyncService ? '✅ موجودة' : '❌ غير موجودة'}`);
+
           if (!global.orderSyncService) {
             console.error('❌ خدمة المزامنة غير متاحة - محاولة إنشاء خدمة جديدة...');
 
@@ -271,7 +273,13 @@ router.put('/:id/status', async (req, res) => {
           }
 
           // إرسال الطلب لشركة الوسيط
+            console.log(`🚀 بدء إرسال الطلب ${id} لشركة الوسيط...`);
+            console.log(`🔧 خدمة المزامنة: ${global.orderSyncService.constructor.name}`);
+            console.log(`🔧 حالة الخدمة: ${global.orderSyncService.isInitialized ? 'مهيأة' : 'غير مهيأة'}`);
+
           const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
+
+            console.log(`📋 نتيجة إرسال الطلب للوسيط:`, waseetResult);
 
           if (waseetResult && waseetResult.success) {
             console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);

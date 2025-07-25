@@ -491,33 +491,8 @@ class OfficialMontajatiServer {
       // إعداد timeout للخادم
       server.timeout = 30000; // 30 ثانية
 
-      // بدء النظام الإنتاجي للمزامنة (بدلاً من النظام القديم)
-      try {
-        console.log('\n🚀 بدء النظام الإنتاجي للمزامنة...');
-        const productionSystem = require('./production/main');
-        this.state.services = this.state.services || {};
-        this.state.services.productionSync = productionSystem;
-        await productionSystem.start();
-        console.log('✅ تم بدء النظام الإنتاجي للمزامنة بنجاح');
-
-        // إيقاف النظام القديم لتوفير الذاكرة
-        if (this.state.services.sync) {
-          // إيقاف النظام القديم بصمت
-          await this.state.services.sync.shutdown();
-          this.state.services.sync = null;
-        }
-
-      // إيقاف نظام المراقبة القديم أيضاً
-      if (this.state.services.monitor) {
-        // إيقاف نظام المراقبة القديم بصمت
-        await this.state.services.monitor.shutdown();
-        this.state.services.monitor = null;
-      }
-
-      } catch (error) {
-        console.warn('⚠️ فشل بدء النظام الإنتاجي:', error.message);
-        console.log('📋 الخادم سيعمل بدون المزامنة الإنتاجية');
-      }
+      // استخدام النظام المتقدم فقط (بدون النظام الإنتاجي المتضارب)
+      console.log('✅ النظام يعمل بخدمة المزامنة المتقدمة المدمجة');
 
       return server;
 
