@@ -428,10 +428,31 @@ class OfficialMontajatiServer {
       console.log(`📊 البيئة: ${this.environment}`);
       console.log(`🌐 المنفذ: ${this.port}`);
 
-      // تهيئة الخدمات الأساسية فقط (بدون النظام القديم)
+      // تهيئة الخدمات الأساسية
       await this.notificationManager.initialize();
       this.state.services.notifications = this.notificationManager;
 
+      // تهيئة خدمة المزامنة المتقدمة
+      try {
+        await this.syncManager.initialize();
+        this.state.services.sync = this.syncManager;
+        console.log('✅ تم تهيئة خدمة المزامنة بنجاح');
+
+        // تهيئة global.orderSyncService للمسارات القديمة
+        try {
+          const OrderSyncService = require('./services/order_sync_service');
+          global.orderSyncService = new OrderSyncService();
+          console.log('✅ تم تهيئة global.orderSyncService للمسارات');
+        } catch (globalError) {
+          console.warn('⚠️ تحذير: فشل في تهيئة global.orderSyncService:', globalError.message);
+        }
+
+      } catch (error) {
+        console.error('❌ فشل في تهيئة خدمة المزامنة:', error);
+        this.state.services.sync = null;
+      }
+
+      // تهيئة خدمة تنظيف FCM
       try {
         this.fcmCleanupService.start();
         this.state.services.fcmCleanup = this.fcmCleanupService;
