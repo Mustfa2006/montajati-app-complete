@@ -240,17 +240,44 @@ class OrderSyncService {
       console.log(`   - city: "${city}"`);
       console.log(`   - address: "${address}"`);
 
+      // تنظيف النصوص العربية للبحث الدقيق
+      function normalizeArabicText(text) {
+        if (!text) return '';
+        return text
+          .trim()
+          .toLowerCase()
+          // توحيد الألف
+          .replace(/[أإآا]/g, 'ا')
+          // توحيد الياء
+          .replace(/[يى]/g, 'ي')
+          // توحيد التاء المربوطة
+          .replace(/[ةه]/g, 'ة')
+          // إزالة التشكيل
+          .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+          // إزالة المسافات الزائدة
+          .replace(/\s+/g, ' ');
+      }
+
       // البحث في المحافظة أولاً، ثم المدينة، ثم العنوان
-      const searchTexts = [province, city, address].filter(text => text.length > 0);
+      const searchTexts = [province, city, address].filter(text => text && text.length > 0);
 
       console.log(`🔍 بدء البحث في النصوص: [${searchTexts.join(', ')}]`);
 
       for (const searchText of searchTexts) {
-        console.log(`🔍 البحث في النص: "${searchText}"`);
+        const normalizedSearchText = normalizeArabicText(searchText);
+        console.log(`🔍 البحث في النص: "${searchText}" -> منظف: "${normalizedSearchText}"`);
+
         for (const [cityName, data] of Object.entries(cityMapping)) {
-          const cityNameLower = cityName.toLowerCase();
-          console.log(`   - فحص المحافظة: "${cityName}" (${cityNameLower}) في "${searchText}"`);
-          if (searchText.includes(cityNameLower)) {
+          const normalizedCityName = normalizeArabicText(cityName);
+          console.log(`   - فحص المحافظة: "${cityName}" -> منظف: "${normalizedCityName}"`);
+
+          // البحث بطرق متعددة
+          const isMatch = normalizedSearchText.includes(normalizedCityName) ||
+                         normalizedCityName.includes(normalizedSearchText) ||
+                         searchText.includes(cityName) ||
+                         cityName.includes(searchText);
+
+          if (isMatch) {
             cityData = data;
             console.log(`✅ تم العثور على المحافظة: ${cityName} -> cityId=${cityData.cityId} في النص: "${searchText}"`);
             break;
