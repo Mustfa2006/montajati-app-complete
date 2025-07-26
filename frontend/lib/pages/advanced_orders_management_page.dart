@@ -34,6 +34,7 @@ class _AdvancedOrdersManagementPageState
   bool _isRefreshing = false;
   bool _isLoadingMore = false;
   bool _isSelectMode = false;
+  bool _isBatchConverting = false;
 
   // متغيرات pagination
   int _currentPage = 0;
@@ -535,6 +536,13 @@ class _AdvancedOrdersManagementPageState
           icon: Icons.schedule,
           label: 'الطلبات المجدولة',
           onPressed: _showScheduledOrders,
+        ),
+        const SizedBox(width: 10),
+        _buildHeaderButton(
+          icon: Icons.local_shipping,
+          label: 'تحويل للتوصيل (20)',
+          onPressed: _batchConvertToDelivery,
+          isLoading: _isBatchConverting,
         ),
       ],
     );
@@ -1195,6 +1203,103 @@ class _AdvancedOrdersManagementPageState
     );
   }
 
+  // تحويل الطلبات النشطة إلى حالة التوصيل (20 طلب في كل مرة)
+  Future<void> _batchConvertToDelivery() async {
+    try {
+      setState(() => _isBatchConverting = true);
+
+      // جلب الطلبات النشطة (أول 20 طلب)
+      final activeOrders = await AdminService.getOrdersSummary(
+        statusFilter: 'active',
+        limit: 20,
+        offset: 0,
+      );
+
+      if (activeOrders.isEmpty) {
+        _showInfoSnackBar('لا توجد طلبات نشطة للتحويل');
+        return;
+      }
+
+      // تأكيد من المستخدم
+      final confirmed = await _showConfirmationDialog(
+        'تحويل ${activeOrders.length} طلب للتوصيل',
+        'هل أنت متأكد من تحويل ${activeOrders.length} طلب من الحالة النشطة إلى حالة "قيد التوصيل الى الزبون (في عهدة المندوب)"؟\n\nسيتم إرسال هذه الطلبات إلى شركة الوسيط تلقائياً.',
+      );
+
+      if (!confirmed) return;
+
+      // تحويل الطلبات واحد تلو الآخر
+      int successCount = 0;
+      int failCount = 0;
+
+      for (final orderSummary in activeOrders) {
+        try {
+          await AdminService.updateOrderStatus(
+            orderSummary.id,
+            'قيد التوصيل الى الزبون (في عهدة المندوب)',
+            notes: 'تم التحويل للتوصيل بواسطة التحويل المجمع',
+            updatedBy: 'admin',
+          );
+          successCount++;
+        } catch (e) {
+          failCount++;
+          debugPrint('❌ فشل في تحويل الطلب ${orderSummary.id}: $e');
+        }
+      }
+
+      // عرض النتيجة
+      if (successCount > 0) {
+        _showSuccessSnackBar(
+          'تم تحويل $successCount طلب بنجاح${failCount > 0 ? ' (فشل $failCount طلب)' : ''}',
+        );
+        _refreshOrders(); // تحديث القائمة
+      } else {
+        _showErrorSnackBar('فشل في تحويل جميع الطلبات');
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في التحويل المجمع: $e');
+      _showErrorSnackBar('حدث خطأ أثناء تحويل الطلبات');
+    } finally {
+      setState(() => _isBatchConverting = false);
+    }
+  }
+
+  // دالة مساعدة لعرض تأكيد
+  Future<bool> _showConfirmationDialog(String title, String message) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF16213e),
+        title: Text(
+          title,
+          style: const TextStyle(color: Color(0xFFffd700)),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'إلغاء',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFffd700),
+              foregroundColor: const Color(0xFF1a1a2e),
+            ),
+            child: const Text('تأكيد'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
   void _showAdvancedFilters() {
     showDialog(
       context: context,
@@ -1501,6 +1606,16 @@ class _AdvancedOrdersManagementPageState
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
       ),
     );
