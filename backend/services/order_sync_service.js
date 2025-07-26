@@ -199,118 +199,61 @@ class OrderSyncService {
    */
   async createDefaultWaseetData(order) {
     try {
-      // محاولة تحديد المحافظة والمنطقة بناءً على عنوان العميل
-      const cityMapping = {
-        'بغداد': { cityId: '1', regionId: '1' },
-        'البصرة': { cityId: '2', regionId: '1' },
-        'أربيل': { cityId: '3', regionId: '1' },
-        'النجف': { cityId: '4', regionId: '1' },
-        'كربلاء': { cityId: '5', regionId: '1' },
-        'الموصل': { cityId: '6', regionId: '1' },
-        'السليمانية': { cityId: '7', regionId: '1' },
-        'ديالى': { cityId: '8', regionId: '1' },
-        'الأنبار': { cityId: '9', regionId: '1' },
-        'دهوك': { cityId: '10', regionId: '1' },
-        'كركوك': { cityId: '11', regionId: '1' },
-        'بابل': { cityId: '12', regionId: '1' },
-        'نينوى': { cityId: '13', regionId: '1' },
-        'واسط': { cityId: '14', regionId: '1' },
-        'صلاح الدين': { cityId: '15', regionId: '1' },
-        'القادسية': { cityId: '16', regionId: '1' },
-        'المثنى': { cityId: '17', regionId: '1' },
-        'ذي قار': { cityId: '18', regionId: '1' },
-        'ميسان': { cityId: '19', regionId: '1' }
-      };
-
-      // البحث عن المحافظة في العنوان
-      let cityData = { cityId: '1', regionId: '1' }; // بغداد افتراضياً
-
       console.log(`🔍 فحص بيانات الطلب للوسيط:`);
       console.log(`   - المحافظة: "${order.province}"`);
       console.log(`   - المدينة: "${order.city}"`);
       console.log(`   - العنوان: "${order.customer_address}"`);
 
-      // فحص الأحرف بدقة
+      // البحث في قاعدة البيانات عن المحافظة والمدينة
+      let cityData = { cityId: '1', regionId: '1' }; // بغداد افتراضياً
+
+      // البحث عن المحافظة في قاعدة البيانات
       if (order.province) {
-        console.log(`🔤 فحص أحرف المحافظة "${order.province}":`);
-        for (let i = 0; i < order.province.length; i++) {
-          console.log(`   [${i}]: "${order.province[i]}" (Unicode: ${order.province.charCodeAt(i)})`);
-        }
-      }
+        console.log(`🔍 البحث عن المحافظة "${order.province}" في قاعدة البيانات...`);
 
-      // البحث في المحافظة أولاً (بدون تحويل إلى lowercase)
-      const province = (order.province || '').trim();
-      const city = (order.city || '').trim();
-      const address = (order.customer_address || '').trim();
+        const { data: provinces, error: provinceError } = await this.supabase
+          .from('provinces')
+          .select('id, name, external_id')
+          .eq('provider_name', 'alwaseet')
+          .ilike('name', `%${order.province}%`);
 
-      console.log(`🔍 البحث في النصوص:`);
-      console.log(`   - province: "${province}"`);
-      console.log(`   - city: "${city}"`);
-      console.log(`   - address: "${address}"`);
+        if (provinceError) {
+          console.log(`❌ خطأ في البحث عن المحافظة: ${provinceError.message}`);
+        } else if (provinces && provinces.length > 0) {
+          const province = provinces[0];
+          console.log(`✅ تم العثور على المحافظة: ${province.name} (ID: ${province.id}, External ID: ${province.external_id})`);
 
-      // تنظيف النصوص العربية للبحث الدقيق
-      function normalizeArabicText(text) {
-        if (!text) return '';
-        return text
-          .trim()
-          .toLowerCase()
-          // توحيد الألف
-          .replace(/[أإآا]/g, 'ا')
-          // توحيد الياء
-          .replace(/[يى]/g, 'ي')
-          // توحيد التاء المربوطة
-          .replace(/[ةه]/g, 'ة')
-          // إزالة التشكيل
-          .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
-          // إزالة المسافات الزائدة
-          .replace(/\s+/g, ' ');
-      }
+          cityData.cityId = province.external_id || '1';
 
-      // البحث في المحافظة أولاً، ثم المدينة، ثم العنوان
-      const searchTexts = [province, city, address].filter(text => text && text.length > 0);
+          // البحث عن المدينة في نفس المحافظة
+          if (order.city) {
+            console.log(`🔍 البحث عن المدينة "${order.city}" في المحافظة "${province.name}"...`);
 
-      console.log(`🔍 بدء البحث في النصوص: [${searchTexts.join(', ')}]`);
+            const { data: cities, error: cityError } = await this.supabase
+              .from('cities')
+              .select('id, name, external_id')
+              .eq('provider_name', 'alwaseet')
+              .eq('province_id', province.id)
+              .ilike('name', `%${order.city}%`);
 
-      for (const searchText of searchTexts) {
-        const normalizedSearchText = normalizeArabicText(searchText);
-        console.log(`🔍 البحث في النص: "${searchText}" -> منظف: "${normalizedSearchText}"`);
-
-        for (const [cityName, data] of Object.entries(cityMapping)) {
-          const normalizedCityName = normalizeArabicText(cityName);
-          console.log(`   - فحص المحافظة: "${cityName}" -> منظف: "${normalizedCityName}"`);
-
-          // فحص الأحرف بدقة للمحافظة في cityMapping
-          if (cityName === 'كربلاء') {
-            console.log(`🔤 فحص أحرف "كربلاء" في cityMapping:`);
-            for (let i = 0; i < cityName.length; i++) {
-              console.log(`   [${i}]: "${cityName[i]}" (Unicode: ${cityName.charCodeAt(i)})`);
+            if (cityError) {
+              console.log(`❌ خطأ في البحث عن المدينة: ${cityError.message}`);
+            } else if (cities && cities.length > 0) {
+              const city = cities[0];
+              console.log(`✅ تم العثور على المدينة: ${city.name} (ID: ${city.id}, External ID: ${city.external_id})`);
+              cityData.regionId = city.external_id || '1';
+            } else {
+              console.log(`❌ لم يتم العثور على المدينة "${order.city}" في المحافظة "${province.name}"`);
             }
           }
-
-          // البحث بطرق متعددة
-          const isMatch = normalizedSearchText.includes(normalizedCityName) ||
-                         normalizedCityName.includes(normalizedSearchText) ||
-                         searchText.includes(cityName) ||
-                         cityName.includes(searchText);
-
-          console.log(`   - نتيجة البحث: ${isMatch ? '✅ مطابقة' : '❌ لا مطابقة'}`);
-
-          if (isMatch) {
-            cityData = data;
-            console.log(`✅ تم العثور على المحافظة: ${cityName} -> cityId=${cityData.cityId} في النص: "${searchText}"`);
-            break;
-          }
-        }
-        if (cityData.cityId !== '1') {
-          console.log(`✅ تم العثور على مطابقة، توقف البحث`);
-          break; // إذا وجدنا مطابقة، توقف
+        } else {
+          console.log(`❌ لم يتم العثور على المحافظة "${order.province}" في قاعدة البيانات`);
         }
       }
 
-      if (cityData.cityId === '1') {
-        console.log(`⚠️ لم يتم العثور على محافظة مطابقة، استخدام بغداد افتراضياً`);
-        console.log(`🔍 النصوص المفحوصة: ${searchTexts.join(', ')}`);
-      }
+      console.log(`🎯 النتيجة النهائية:`);
+      console.log(`   - cityId: ${cityData.cityId}`);
+      console.log(`   - regionId: ${cityData.regionId}`);
 
       // حساب عدد المنتجات والسعر الإجمالي
       let itemsCount = 1;
