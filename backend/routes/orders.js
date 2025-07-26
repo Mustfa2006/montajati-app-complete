@@ -270,64 +270,81 @@ router.put('/:id/status', async (req, res) => {
             // التحقق من وجود خدمة المزامنة المهيأة
             console.log(`🔍 فحص خدمة المزامنة: ${global.orderSyncService ? '✅ موجودة' : '❌ غير موجودة'}`);
 
-          if (!global.orderSyncService) {
-            console.error('❌ خدمة المزامنة غير متاحة - محاولة إنشاء خدمة جديدة...');
+            if (!global.orderSyncService) {
+              console.error('❌ خدمة المزامنة غير متاحة - محاولة إنشاء خدمة جديدة...');
 
-            try {
-              const OrderSyncService = require('../services/order_sync_service');
-              global.orderSyncService = new OrderSyncService();
-              console.log('✅ تم إنشاء خدمة مزامنة جديدة');
-            } catch (serviceError) {
-              console.error('❌ فشل في إنشاء خدمة المزامنة:', serviceError.message);
+              try {
+                const OrderSyncService = require('../services/order_sync_service');
+                global.orderSyncService = new OrderSyncService();
+                console.log('✅ تم إنشاء خدمة مزامنة جديدة');
+              } catch (serviceError) {
+                console.error('❌ فشل في إنشاء خدمة المزامنة:', serviceError.message);
 
-              // تحديث الطلب بحالة الخطأ
-              await supabase
-                .from('orders')
-                .update({
-                  waseet_status: 'في انتظار الإرسال للوسيط',
-                  waseet_data: JSON.stringify({
-                    error: `خطأ في خدمة المزامنة: ${serviceError.message}`,
-                    retry_needed: true,
-                    last_attempt: new Date().toISOString()
-                  }),
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', id);
+                // تحديث الطلب بحالة الخطأ
+                await supabase
+                  .from('orders')
+                  .update({
+                    waseet_status: 'في انتظار الإرسال للوسيط',
+                    waseet_data: JSON.stringify({
+                      error: `خطأ في خدمة المزامنة: ${serviceError.message}`,
+                      retry_needed: true,
+                      last_attempt: new Date().toISOString()
+                    }),
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', id);
 
-              // لا تتوقف هنا - استمر لإرسال الاستجابة
-              console.log('⚠️ سيتم إرسال الاستجابة رغم فشل خدمة المزامنة');
+                // لا تتوقف هنا - استمر لإرسال الاستجابة
+                console.log('⚠️ سيتم إرسال الاستجابة رغم فشل خدمة المزامنة');
+              }
             }
-          }
 
-          // إرسال الطلب لشركة الوسيط (فقط إذا كانت الخدمة متاحة)
-          if (global.orderSyncService) {
-            console.log(`🚀 بدء إرسال الطلب ${id} لشركة الوسيط...`);
-            console.log(`🔧 خدمة المزامنة: ${global.orderSyncService.constructor.name}`);
-            console.log(`🔧 حالة الخدمة: ${global.orderSyncService.isInitialized ? 'مهيأة' : 'غير مهيأة'}`);
+            // إرسال الطلب لشركة الوسيط (فقط إذا كانت الخدمة متاحة)
+            if (global.orderSyncService) {
+              console.log(`🚀 بدء إرسال الطلب ${id} لشركة الوسيط...`);
+              console.log(`🔧 خدمة المزامنة: ${global.orderSyncService.constructor.name}`);
+              console.log(`🔧 حالة الخدمة: ${global.orderSyncService.isInitialized ? 'مهيأة' : 'غير مهيأة'}`);
 
-            const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
+              const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
 
-            console.log(`📋 نتيجة إرسال الطلب للوسيط:`, waseetResult);
+              console.log(`📋 نتيجة إرسال الطلب للوسيط:`, waseetResult);
 
-            if (waseetResult && waseetResult.success) {
-              console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
-              console.log(`🆔 QR ID: ${waseetResult.qrId}`);
+              if (waseetResult && waseetResult.success) {
+                console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
+                console.log(`🆔 QR ID: ${waseetResult.qrId}`);
 
-              // تحديث الطلب بمعلومات الوسيط
-              await supabase
-                .from('orders')
-                .update({
-                  waseet_order_id: waseetResult.qrId || null,
-                  waseet_status: 'تم الإرسال للوسيط',
-                  waseet_data: JSON.stringify(waseetResult),
-                  updated_at: new Date().toISOString()
-                })
-                .eq('id', id);
+                // تحديث الطلب بمعلومات الوسيط
+                await supabase
+                  .from('orders')
+                  .update({
+                    waseet_order_id: waseetResult.qrId || null,
+                    waseet_status: 'تم الإرسال للوسيط',
+                    waseet_data: JSON.stringify(waseetResult),
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', id);
 
-              console.log(`🎉 تم تحديث الطلب ${id} بمعرف الوسيط: ${waseetResult.qrId}`);
+                console.log(`🎉 تم تحديث الطلب ${id} بمعرف الوسيط: ${waseetResult.qrId}`);
 
+              } else {
+                console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
+
+                // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
+                await supabase
+                  .from('orders')
+                  .update({
+                    waseet_status: 'في انتظار الإرسال للوسيط',
+                    waseet_data: JSON.stringify({
+                      error: waseetResult?.error || 'فشل في الإرسال',
+                      retry_needed: true,
+                      last_attempt: new Date().toISOString()
+                    }),
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', id);
+              }
             } else {
-              console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
+              console.log(`⚠️ خدمة المزامنة غير متاحة - سيتم المحاولة لاحقاً`);
 
               // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
               await supabase
@@ -335,7 +352,7 @@ router.put('/:id/status', async (req, res) => {
                 .update({
                   waseet_status: 'في انتظار الإرسال للوسيط',
                   waseet_data: JSON.stringify({
-                    error: waseetResult?.error || 'فشل في الإرسال',
+                    error: 'خدمة المزامنة غير متاحة',
                     retry_needed: true,
                     last_attempt: new Date().toISOString()
                   }),
@@ -343,22 +360,6 @@ router.put('/:id/status', async (req, res) => {
                 })
                 .eq('id', id);
             }
-          } else {
-            console.log(`⚠️ خدمة المزامنة غير متاحة - سيتم المحاولة لاحقاً`);
-
-            // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
-            await supabase
-              .from('orders')
-              .update({
-                waseet_status: 'في انتظار الإرسال للوسيط',
-                waseet_data: JSON.stringify({
-                  error: 'خدمة المزامنة غير متاحة',
-                  retry_needed: true,
-                  last_attempt: new Date().toISOString()
-                }),
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', id);
           }
         }
 
@@ -384,7 +385,7 @@ router.put('/:id/status', async (req, res) => {
         }
       }
     } else {
-      console.log(`ℹ️ الحالة "${status}" ليست حالة توصيل - لن يتم إرسال الطلب للوسيط`);
+      console.log(`ℹ️ الحالة "${normalizedStatus}" ليست حالة توصيل - لن يتم إرسال الطلب للوسيط`);
     }
 
     res.json({
