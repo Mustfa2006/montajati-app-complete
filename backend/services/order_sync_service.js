@@ -282,12 +282,12 @@ class OrderSyncService {
           itemsCount = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
           totalPrice = orderItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0);
 
-          // تكوين نص أسماء المنتجات مع عدد القطع
+          // تكوين نص أسماء المنتجات مع عدد القطع (كل منتج في سطر منفصل)
           const productList = orderItems.map(item => {
             const productName = item.products?.name || 'منتج';
             const quantity = item.quantity || 1;
             return `${productName} - ${quantity}`;
-          }).join('، ');
+          }).join('\n');
 
           productNames = productList;
           console.log(`✅ تم جلب ${orderItems.length} عنصر للطلب - إجمالي القطع: ${itemsCount}`);
