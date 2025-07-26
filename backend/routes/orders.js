@@ -170,12 +170,17 @@ router.get('/:id', async (req, res) => {
 // ===================================
 router.put('/:id/status', async (req, res) => {
   try {
+    console.log('\n🚀 ===== بداية تحديث حالة الطلب =====');
+    console.log(`⏰ الوقت: ${new Date().toISOString()}`);
+
     const { id } = req.params;
     const { status, notes, changedBy = 'admin' } = req.body;
 
-    console.log(`🔄 تحديث حالة الطلب ${id} إلى ${status}`);
+    console.log(`🆔 معرف الطلب: ${id}`);
+    console.log(`📊 الحالة الجديدة: "${status}"`);
     console.log(`📝 ملاحظات: ${notes || 'لا توجد'}`);
     console.log(`👤 تم التغيير بواسطة: ${changedBy}`);
+    console.log(`📦 البيانات الكاملة المستلمة:`, JSON.stringify(req.body, null, 2));
 
     // التحقق من البيانات المطلوبة
     if (!status) {

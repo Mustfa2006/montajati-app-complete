@@ -213,6 +213,12 @@ class OfficialOrderService {
     String changedBy = 'admin',
   }) async {
     try {
+      print('\n🚀 ===== بداية تحديث حالة الطلب =====');
+      print('⏰ الوقت: ${DateTime.now().toIso8601String()}');
+      print('🆔 معرف الطلب: $orderId');
+      print('📊 الحالة الجديدة: "$status"');
+      print('📝 السبب: ${reason ?? "غير محدد"}');
+      print('👤 تم التغيير بواسطة: $changedBy');
       debugPrint('🔄 تحديث حالة الطلب $orderId إلى $status');
 
       final requestBody = {
@@ -220,6 +226,10 @@ class OfficialOrderService {
         'reason': reason,
         'changedBy': changedBy,
       };
+
+      print('📦 البيانات المرسلة: ${jsonEncode(requestBody)}');
+      print('🌐 URL: $_baseUrl/orders/$orderId/status');
+      print('📤 إرسال الطلب...');
 
       final response = await http
           .put(
@@ -232,14 +242,23 @@ class OfficialOrderService {
           )
           .timeout(_timeout);
 
+      print('📥 استجابة الخادم:');
+      print('   📊 Status Code: ${response.statusCode}');
+      print('   📄 Response Body: ${response.body}');
+
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
+        print('✅ تم تحديث حالة الطلب بنجاح');
+        print('📋 النتيجة: ${jsonEncode(result)}');
         debugPrint('✅ تم تحديث حالة الطلب بنجاح');
         return result;
       } else {
+        print('❌ فشل في تحديث الحالة - Status: ${response.statusCode}');
+        print('❌ Response: ${response.body}');
         throw Exception('HTTP ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
+      print('❌ خطأ في تحديث حالة الطلب: $e');
       debugPrint('❌ خطأ في تحديث حالة الطلب: $e');
       throw Exception('فشل في تحديث حالة الطلب: $e');
     }
