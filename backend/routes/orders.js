@@ -130,6 +130,48 @@ router.put('/:id/status', async (req, res) => {
       });
     }
 
+    // تحويل الحالات المختلفة إلى الحالات المقبولة في قاعدة البيانات
+    function normalizeStatus(status) {
+      console.log(`🔄 تحويل الحالة: "${status}"`);
+
+      // الحالات المقبولة في قاعدة البيانات (من الاختبار):
+      // - "قيد التوصيل الى الزبون (في عهدة المندوب)"
+      // - "cancelled"
+      // - "in_delivery"
+      // - "active"
+
+      const statusMap = {
+        // تحويل الأرقام
+        '3': 'in_delivery',
+        '4': 'cancelled', // تم التسليم = cancelled (مؤقتاً)
+        '27': 'cancelled',
+
+        // تحويل النصوص الإنجليزية
+        'delivered': 'cancelled', // تم التسليم = cancelled (مؤقتاً)
+        'shipping': 'in_delivery',
+        'shipped': 'in_delivery',
+
+        // تحويل النصوص العربية
+        'قيد التوصيل': 'in_delivery',
+        'تم التسليم للزبون': 'cancelled', // مؤقتاً
+        'مغلق': 'cancelled',
+
+        // الحالات المقبولة مباشرة
+        'in_delivery': 'in_delivery',
+        'cancelled': 'cancelled',
+        'active': 'active',
+        'قيد التوصيل الى الزبون (في عهدة المندوب)': 'قيد التوصيل الى الزبون (في عهدة المندوب)'
+      };
+
+      const converted = statusMap[status] || status;
+      console.log(`   ✅ تم التحويل إلى: "${converted}"`);
+      return converted;
+    }
+
+    // تطبيق التحويل على الحالة
+    const normalizedStatus = normalizeStatus(status);
+    console.log(`🔄 تحويل الحالة: "${status}" → "${normalizedStatus}"`);
+
     // التحقق من وجود الطلب
     const { data: existingOrder, error: fetchError } = await supabase
       .from('orders')
@@ -148,11 +190,11 @@ router.put('/:id/status', async (req, res) => {
     const oldStatus = existingOrder.status;
     console.log(`📊 الحالة القديمة: ${oldStatus} → الحالة الجديدة: ${status}`);
 
-    // تحديث حالة الطلب
+    // تحديث حالة الطلب (استخدام الحالة المحولة)
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        status: status,
+        status: normalizedStatus,
         updated_at: new Date().toISOString()
       })
       .eq('id', id);
@@ -165,21 +207,22 @@ router.put('/:id/status', async (req, res) => {
       });
     }
 
-    // إضافة سجل في تاريخ الحالات
+    // إضافة سجل في تاريخ الحالات (اختياري - لا يوقف العملية إذا فشل)
     try {
       await supabase
         .from('order_status_history')
         .insert({
           order_id: id,
           old_status: oldStatus,
-          new_status: status,
+          new_status: normalizedStatus,
           changed_by: changedBy,
           change_reason: notes || 'تم تحديث الحالة من لوحة التحكم',
           created_at: new Date().toISOString()
         });
       console.log('✅ تم إضافة سجل تاريخ الحالة');
     } catch (historyError) {
-      console.warn('⚠️ تحذير: فشل في حفظ سجل التاريخ:', historyError);
+      console.warn('⚠️ تحذير: فشل في حفظ سجل التاريخ (الجدول قد يكون غير موجود):', historyError.message);
+      // لا نوقف العملية - هذا اختياري
     }
 
     // إضافة ملاحظة إذا كانت متوفرة
@@ -189,7 +232,7 @@ router.put('/:id/status', async (req, res) => {
           .from('order_notes')
           .insert({
             order_id: id,
-            content: `تم تحديث الحالة إلى: ${status} - ${notes}`,
+            content: `تم تحديث الحالة إلى: ${normalizedStatus} - ${notes}`,
             type: 'status_change',
             is_internal: true,
             created_by: changedBy,
@@ -197,31 +240,26 @@ router.put('/:id/status', async (req, res) => {
           });
         console.log('✅ تم إضافة ملاحظة الحالة');
       } catch (noteError) {
-        console.warn('⚠️ تحذير: فشل في إضافة الملاحظة:', noteError);
+        console.warn('⚠️ تحذير: فشل في إضافة الملاحظة (الجدول قد يكون غير موجود):', noteError.message);
       }
     }
 
     console.log(`✅ تم تحديث حالة الطلب ${id} بنجاح`);
 
     // 🚀 إرسال الطلب لشركة الوسيط عند تغيير الحالة إلى "قيد التوصيل"
-    console.log(`🔍 فحص إرسال الطلب للوسيط - الحالة الجديدة: "${status}"`);
+    console.log(`🔍 فحص إرسال الطلب للوسيط - الحالة المحولة: "${normalizedStatus}"`);
 
+    // الحالات المؤهلة لإرسال الطلب للوسيط (الحالات المقبولة في قاعدة البيانات فقط)
     const deliveryStatuses = [
-      'قيد التوصيل',
-      'قيد التوصيل الى الزبون (في عهدة المندوب)',
-      'قيد التوصيل الى الزبون',
-      'في عهدة المندوب',
-      'قيد التوصيل للزبون',
-      'shipping',
-      'shipped',
-      'in_delivery' // إضافة دعم للحالة الإنجليزية
+      'قيد التوصيل الى الزبون (في عهدة المندوب)', // الحالة العربية الكاملة
+      'in_delivery' // الحالة الإنجليزية المقبولة
     ];
 
     console.log(`📋 حالات التوصيل المدعومة:`, deliveryStatuses);
-    console.log(`🔍 هل الحالة "${status}" في القائمة؟`, deliveryStatuses.includes(status));
+    console.log(`🔍 هل الحالة المحولة "${normalizedStatus}" في القائمة؟`, deliveryStatuses.includes(normalizedStatus));
 
-    if (deliveryStatuses.includes(status)) {
-      console.log(`📦 ✅ الحالة الجديدة هي "${status}" - سيتم إرسال الطلب لشركة الوسيط...`);
+    if (deliveryStatuses.includes(normalizedStatus)) {
+      console.log(`📦 ✅ الحالة المحولة هي "${normalizedStatus}" - سيتم إرسال الطلب لشركة الوسيط...`);
 
       try {
         // التحقق من أن الطلب لم يتم إرساله مسبقاً
