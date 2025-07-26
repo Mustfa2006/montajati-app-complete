@@ -135,24 +135,12 @@ class OrderSyncService {
 
       console.log(`✅ العنوان النهائي للوسيط: "${location}"`);
 
-      // ✅ استخدام المعرفات المحفوظة في قاعدة البيانات أولاً
-      let cityId = order.city_id || waseetData.cityId || 1;
-      let regionId = order.region_id || waseetData.regionId || 1;
-
-      console.log(`🔍 فحص معرفات الموقع:`);
-      console.log(`   - city_id من قاعدة البيانات: ${order.city_id}`);
-      console.log(`   - region_id من قاعدة البيانات: ${order.region_id}`);
-      console.log(`   - cityId من waseetData: ${waseetData.cityId}`);
-      console.log(`   - regionId من waseetData: ${waseetData.regionId}`);
-      console.log(`   - cityId المستخدم: ${cityId}`);
-      console.log(`   - regionId المستخدم: ${regionId}`);
-
       const orderDataForWaseet = {
         client_name: order.customer_name || 'عميل',
         client_mobile: clientMobile,
         client_mobile2: clientMobile2,
-        city_id: cityId, // ✅ استخدام المعرف الصحيح
-        region_id: regionId, // ✅ استخدام المعرف الصحيح
+        city_id: waseetData.cityId || 1, // بغداد افتراضياً
+        region_id: waseetData.regionId || 1,
         location: location,
         type_name: waseetData.typeName || 'عادي',
         items_number: waseetData.itemsCount || 1,
@@ -204,56 +192,38 @@ class OrderSyncService {
    */
   async createDefaultWaseetData(order) {
     try {
-      console.log(`🔍 إنشاء بيانات وسيط افتراضية للطلب ${order.id}`);
+      // محاولة تحديد المحافظة والمنطقة بناءً على عنوان العميل
+      const cityMapping = {
+        'بغداد': { cityId: '1', regionId: '1' },
+        'البصرة': { cityId: '2', regionId: '1' },
+        'أربيل': { cityId: '3', regionId: '1' },
+        'النجف': { cityId: '4', regionId: '1' },
+        'كربلاء': { cityId: '5', regionId: '1' },
+        'الموصل': { cityId: '6', regionId: '1' },
+        'السليمانية': { cityId: '7', regionId: '1' },
+        'ديالى': { cityId: '8', regionId: '1' },
+        'الأنبار': { cityId: '9', regionId: '1' },
+        'دهوك': { cityId: '10', regionId: '1' },
+        'كركوك': { cityId: '11', regionId: '1' },
+        'بابل': { cityId: '12', regionId: '1' },
+        'نينوى': { cityId: '13', regionId: '1' },
+        'واسط': { cityId: '14', regionId: '1' },
+        'صلاح الدين': { cityId: '15', regionId: '1' },
+        'القادسية': { cityId: '16', regionId: '1' },
+        'المثنى': { cityId: '17', regionId: '1' },
+        'ذي قار': { cityId: '18', regionId: '1' },
+        'ميسان': { cityId: '19', regionId: '1' }
+      };
 
-      // ✅ أولاً: استخدام المعرفات المحفوظة في قاعدة البيانات
+      // البحث عن المحافظة في العنوان
       let cityData = { cityId: '1', regionId: '1' }; // بغداد افتراضياً
 
-      if (order.city_id && order.region_id) {
-        cityData = {
-          cityId: order.city_id.toString(),
-          regionId: order.region_id.toString()
-        };
-        console.log(`✅ استخدام المعرفات المحفوظة: cityId=${cityData.cityId}, regionId=${cityData.regionId}`);
-      } else {
-        console.log(`⚠️ لا توجد معرفات محفوظة، سيتم البحث في النص...`);
+      const address = (order.customer_address || order.province || order.city || '').toLowerCase();
 
-        // محاولة تحديد المحافظة والمنطقة بناءً على عنوان العميل
-        const cityMapping = {
-          'بغداد': { cityId: '1', regionId: '1' },
-          'البصرة': { cityId: '2', regionId: '1' },
-          'أربيل': { cityId: '3', regionId: '1' },
-          'النجف': { cityId: '4', regionId: '1' },
-          'كربلاء': { cityId: '5', regionId: '1' },
-          'الموصل': { cityId: '6', regionId: '1' },
-          'السليمانية': { cityId: '7', regionId: '1' },
-          'ديالى': { cityId: '8', regionId: '1' },
-          'الأنبار': { cityId: '9', regionId: '1' },
-          'دهوك': { cityId: '10', regionId: '1' },
-          'كركوك': { cityId: '11', regionId: '1' },
-          'بابل': { cityId: '12', regionId: '1' },
-          'نينوى': { cityId: '13', regionId: '1' },
-          'واسط': { cityId: '14', regionId: '1' },
-          'صلاح الدين': { cityId: '15', regionId: '1' },
-          'القادسية': { cityId: '16', regionId: '1' },
-          'المثنى': { cityId: '17', regionId: '1' },
-          'ذي قار': { cityId: '18', regionId: '1' },
-          'ميسان': { cityId: '19', regionId: '1' }
-        };
-
-        const address = (order.customer_address || order.province || order.city || '').toLowerCase();
-        console.log(`🔍 البحث في العنوان: "${address}"`);
-
-        for (const [city, data] of Object.entries(cityMapping)) {
-          if (address.includes(city.toLowerCase())) {
-            cityData = data;
-            console.log(`✅ تم العثور على المحافظة: ${city} -> cityId=${cityData.cityId}`);
-            break;
-          }
-        }
-
-        if (cityData.cityId === '1') {
-          console.log(`⚠️ لم يتم العثور على محافظة مطابقة، استخدام بغداد افتراضياً`);
+      for (const [city, data] of Object.entries(cityMapping)) {
+        if (address.includes(city.toLowerCase())) {
+          cityData = data;
+          break;
         }
       }
 

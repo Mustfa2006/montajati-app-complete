@@ -28,6 +28,44 @@ class OrderSummaryPage extends StatefulWidget {
 
 class _OrderSummaryPageState extends State<OrderSummaryPage> {
   bool _isProcessing = false;
+
+  /// الحصول على معرف المحافظة بناءً على اسم المحافظة
+  String? _getProvinceId(String? provinceName) {
+    if (provinceName == null) return null;
+
+    final provinceMapping = {
+      'بغداد': '1',
+      'البصرة': '2',
+      'أربيل': '3',
+      'النجف': '4',
+      'كربلاء': '5',
+      'الموصل': '6',
+      'السليمانية': '7',
+      'ديالى': '8',
+      'الأنبار': '9',
+      'دهوك': '10',
+      'كركوك': '11',
+      'بابل': '12',
+      'نينوى': '13',
+      'واسط': '14',
+      'صلاح الدين': '15',
+      'القادسية': '16',
+      'المثنى': '17',
+      'ذي قار': '18',
+      'ميسان': '19'
+    };
+
+    return provinceMapping[provinceName];
+  }
+
+  /// الحصول على معرف المدينة بناءً على اسم المحافظة والمدينة
+  String? _getCityId(String? provinceName, String? cityName) {
+    if (provinceName == null) return null;
+
+    // لنفس المحافظة، نستخدم نفس معرف المحافظة كمعرف المدينة
+    // هذا تبسيط - يمكن تحسينه لاحقاً بمعرفات مدن مختلفة
+    return _getProvinceId(provinceName);
+  }
   bool _orderConfirmed = false; // ✅ لإخفاء أيقونة كلفة التوصيل بعد التأكيد
   int _deliveryFee = 5000; // ✅ البدء من 5000 بدلاً من 0
   final List<int> _deliveryOptions = [
@@ -1021,9 +1059,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               secondaryPhone: finalOrderData['secondaryPhone'],
               province: finalOrderData['province'] ?? 'غير محدد',
               city: finalOrderData['city'] ?? 'غير محدد',
-              provinceId: finalOrderData['provinceId'], // ✅ إضافة معرف المحافظة
-              cityId: finalOrderData['cityId'], // ✅ إضافة معرف المدينة
-              regionId: finalOrderData['regionId'], // ✅ إضافة معرف المنطقة
+              // ✅ إضافة معرفات المحافظة والمدينة (مع قيم افتراضية)
+              provinceId: _getProvinceId(finalOrderData['province']),
+              cityId: _getCityId(finalOrderData['province'], finalOrderData['city']),
+              regionId: '1', // افتراضياً
               notes: finalOrderData['notes'],
               items:
                   finalOrderData['items'], // استخدام items من البيانات النهائية

@@ -124,9 +124,6 @@ class OfficialOrdersService extends ChangeNotifier {
         'secondary_phone': secondaryPhone,
         'province': province,
         'city': city,
-        'province_id': provinceId, // ✅ إضافة معرف المحافظة
-        'city_id': cityId, // ✅ إضافة معرف المدينة
-        'region_id': regionId, // ✅ إضافة معرف المنطقة
         'customer_address': customerAddress ?? '$province - $city',
         'customer_notes': notes, // ✅ حفظ في عمود customer_notes
         'subtotal': totals['subtotal'] ?? 0,
