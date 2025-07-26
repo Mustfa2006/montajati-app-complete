@@ -269,22 +269,16 @@ class OrderSyncService {
       try {
         const { data: orderItems } = await this.supabase
           .from('order_items')
-          .select(`
-            quantity,
-            price,
-            products (
-              name
-            )
-          `)
+          .select('quantity, customer_price, product_name')
           .eq('order_id', order.id);
 
         if (orderItems && orderItems.length > 0) {
           itemsCount = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
-          totalPrice = orderItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0);
+          totalPrice = orderItems.reduce((sum, item) => sum + ((item.customer_price || 0) * (item.quantity || 1)), 0);
 
           // تكوين نص أسماء المنتجات مع عدد القطع (كل منتج في سطر منفصل)
           const productList = orderItems.map(item => {
-            const productName = item.products?.name || 'منتج';
+            const productName = item.product_name || 'منتج';
             const quantity = item.quantity || 1;
             return `${productName} - ${quantity}`;
           }).join('\n');
