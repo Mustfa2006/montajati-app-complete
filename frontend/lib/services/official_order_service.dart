@@ -252,6 +252,21 @@ class OfficialOrderService {
         print('📋 النتيجة: ${jsonEncode(result)}');
         debugPrint('✅ تم تحديث حالة الطلب بنجاح');
         return result;
+      } else if (response.statusCode == 429) {
+        // معالجة خاصة لخطأ تجاوز الحد المسموح
+        print('⚠️ تجاوز الحد المسموح من الطلبات - Status: ${response.statusCode}');
+        print('⚠️ Response: ${response.body}');
+
+        try {
+          final errorData = jsonDecode(response.body);
+          final retryAfterMinutes = errorData['retryAfterMinutes'] ?? 1;
+          throw Exception('تجاوزت العدد المسموح من الطلبات. حاول مرة أخرى بعد $retryAfterMinutes دقيقة.');
+        } catch (e) {
+          if (e.toString().contains('تجاوزت العدد المسموح')) {
+            rethrow;
+          }
+          throw Exception('تجاوزت العدد المسموح من الطلبات. حاول مرة أخرى بعد 1 دقيقة.');
+        }
       } else {
         print('❌ فشل في تحديث الحالة - Status: ${response.statusCode}');
         print('❌ Response: ${response.body}');

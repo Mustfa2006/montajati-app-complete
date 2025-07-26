@@ -1152,6 +1152,13 @@ class AdminService {
         debugPrint('❌ خطأ في الاتصال بالشبكة');
       }
 
+      // إذا كان الخطأ يتعلق بتجاوز الحد المسموح (Rate Limiting)
+      if (e.toString().contains('تجاوزت العدد المسموح')) {
+        debugPrint('⚠️ تجاوز الحد المسموح من الطلبات');
+        // إعادة رمي الخطأ مع الرسالة الواضحة
+        rethrow;
+      }
+
       return false;
     }
   }

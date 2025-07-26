@@ -53,10 +53,13 @@ const createRateLimit = (windowMs, max, message) => {
       return req.ip || req.connection.remoteAddress || 'unknown';
     },
     handler: (req, res) => {
+      const retryAfterMinutes = Math.ceil(windowMs / 60000);
       console.warn(`⚠️ Rate limit exceeded for IP: ${req.ip}`);
       res.status(429).json({
         error: message,
-        retryAfter: Math.ceil(windowMs / 1000)
+        retryAfter: Math.ceil(windowMs / 1000),
+        retryAfterMinutes: retryAfterMinutes,
+        message_ar: `${message} (انتظر ${retryAfterMinutes} دقيقة)`
       });
     }
   });
@@ -66,19 +69,19 @@ const createRateLimit = (windowMs, max, message) => {
 const generalRateLimit = createRateLimit(
   15 * 60 * 1000, // 15 دقيقة
   500, // 500 طلب (زيادة من 100 إلى 500)
-  'تم تجاوز الحد المسموح من الطلبات. حاول مرة أخرى لاحقاً.'
+  'تجاوزت العدد المسموح من الطلبات. حاول مرة أخرى بعد 15 دقيقة.'
 );
 
 const authRateLimit = createRateLimit(
   15 * 60 * 1000, // 15 دقيقة
   5, // 5 محاولات تسجيل دخول
-  'تم تجاوز محاولات تسجيل الدخول. حاول مرة أخرى بعد 15 دقيقة.'
+  'تجاوزت عدد محاولات تسجيل الدخول المسموح. حاول مرة أخرى بعد 15 دقيقة.'
 );
 
 const apiRateLimit = createRateLimit(
   1 * 60 * 1000, // دقيقة واحدة
   300, // 300 طلب (زيادة من 60 إلى 300)
-  'تم تجاوز حد طلبات API. حاول مرة أخرى بعد دقيقة.'
+  'تجاوزت العدد المسموح من الطلبات. حاول مرة أخرى بعد 1 دقيقة.'
 );
 
 /**
