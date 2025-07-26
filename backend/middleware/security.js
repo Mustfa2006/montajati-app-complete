@@ -65,7 +65,7 @@ const createRateLimit = (windowMs, max, message) => {
 // Rate limits مختلفة للمسارات المختلفة
 const generalRateLimit = createRateLimit(
   15 * 60 * 1000, // 15 دقيقة
-  100, // 100 طلب
+  500, // 500 طلب (زيادة من 100 إلى 500)
   'تم تجاوز الحد المسموح من الطلبات. حاول مرة أخرى لاحقاً.'
 );
 
@@ -77,7 +77,7 @@ const authRateLimit = createRateLimit(
 
 const apiRateLimit = createRateLimit(
   1 * 60 * 1000, // دقيقة واحدة
-  60, // 60 طلب
+  300, // 300 طلب (زيادة من 60 إلى 300)
   'تم تجاوز حد طلبات API. حاول مرة أخرى بعد دقيقة.'
 );
 
