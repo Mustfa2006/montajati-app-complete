@@ -695,6 +695,61 @@ router.post('/create-test-order', async (req, res) => {
   }
 });
 
+// ===================================
+// GET /api/orders/debug-waseet - فحص مفصل لحالة الوسيط
+// ===================================
+router.get('/debug-waseet', async (req, res) => {
+  try {
+    console.log('🔍 فحص مفصل لحالة الوسيط...');
+
+    const debugInfo = {
+      timestamp: new Date().toISOString(),
+      globalService: {
+        exists: !!global.orderSyncService,
+        type: global.orderSyncService ? global.orderSyncService.constructor.name : null,
+        isInitialized: global.orderSyncService ? global.orderSyncService.isInitialized : null,
+        methods: global.orderSyncService ? Object.getOwnPropertyNames(Object.getPrototypeOf(global.orderSyncService)) : null
+      },
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        hasSupabaseUrl: !!process.env.SUPABASE_URL,
+        hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+      }
+    };
+
+    // اختبار تهيئة خدمة جديدة
+    try {
+      const OrderSyncService = require('../services/order_sync_service');
+      const testService = new OrderSyncService();
+      debugInfo.testService = {
+        canCreate: true,
+        isInitialized: testService.isInitialized || false,
+        methods: Object.getOwnPropertyNames(Object.getPrototypeOf(testService))
+      };
+    } catch (serviceError) {
+      debugInfo.testService = {
+        canCreate: false,
+        error: serviceError.message
+      };
+    }
+
+    console.log('📋 معلومات التشخيص:', JSON.stringify(debugInfo, null, 2));
+
+    res.json({
+      success: true,
+      debug: debugInfo
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في فحص الوسيط:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // تم حذف الـ endpoint المكرر - نستخدم فقط /:id/status
 
 module.exports = router;
