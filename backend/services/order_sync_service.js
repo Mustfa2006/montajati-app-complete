@@ -150,7 +150,14 @@ class OrderSyncService {
         replacement: 0
       };
 
-      console.log(`📋 بيانات الطلب المرسلة للوسيط:`, orderDataForWaseet);
+      console.log(`📋 بيانات الطلب المرسلة للوسيط:`);
+      console.log(`   - اسم العميل: ${orderDataForWaseet.client_name}`);
+      console.log(`   - رقم الهاتف: ${orderDataForWaseet.client_mobile}`);
+      console.log(`   - معرف المحافظة: ${orderDataForWaseet.city_id}`);
+      console.log(`   - معرف المنطقة: ${orderDataForWaseet.region_id}`);
+      console.log(`   - العنوان: ${orderDataForWaseet.location}`);
+      console.log(`   - السعر: ${orderDataForWaseet.price}`);
+      console.log(`📋 البيانات الكاملة:`, orderDataForWaseet);
 
       // إرسال الطلب لشركة الوسيط بالتنسيق الصحيح حسب التعليمات الرسمية
       const waseetResult = await this.waseetClient.createOrder(orderDataForWaseet);
@@ -236,15 +243,23 @@ class OrderSyncService {
       // البحث في المحافظة أولاً، ثم المدينة، ثم العنوان
       const searchTexts = [province, city, address].filter(text => text.length > 0);
 
+      console.log(`🔍 بدء البحث في النصوص: [${searchTexts.join(', ')}]`);
+
       for (const searchText of searchTexts) {
+        console.log(`🔍 البحث في النص: "${searchText}"`);
         for (const [cityName, data] of Object.entries(cityMapping)) {
-          if (searchText.includes(cityName.toLowerCase())) {
+          const cityNameLower = cityName.toLowerCase();
+          console.log(`   - فحص المحافظة: "${cityName}" (${cityNameLower}) في "${searchText}"`);
+          if (searchText.includes(cityNameLower)) {
             cityData = data;
             console.log(`✅ تم العثور على المحافظة: ${cityName} -> cityId=${cityData.cityId} في النص: "${searchText}"`);
             break;
           }
         }
-        if (cityData.cityId !== '1') break; // إذا وجدنا مطابقة، توقف
+        if (cityData.cityId !== '1') {
+          console.log(`✅ تم العثور على مطابقة، توقف البحث`);
+          break; // إذا وجدنا مطابقة، توقف
+        }
       }
 
       if (cityData.cityId === '1') {
