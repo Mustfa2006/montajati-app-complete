@@ -135,6 +135,10 @@ class OrderSyncService {
 
       console.log(`✅ العنوان النهائي للوسيط: "${location}"`);
 
+      // تحضير ملاحظات التاجر
+      const merchantNotes = order.notes || order.customer_notes || '';
+      console.log(`📝 ملاحظات التاجر: "${merchantNotes}"`);
+
       const orderDataForWaseet = {
         client_name: order.customer_name || 'عميل',
         client_mobile: clientMobile,
@@ -146,7 +150,7 @@ class OrderSyncService {
         items_number: waseetData.itemsCount || 1,
         price: waseetData.totalPrice || order.total || 25000,
         package_size: 1, // ID رقمي
-        merchant_notes: `طلب من تطبيق منتجاتي - رقم الطلب: ${orderId}`,
+        merchant_notes: merchantNotes,
         replacement: 0
       };
 
@@ -259,16 +263,35 @@ class OrderSyncService {
       let itemsCount = 1;
       let totalPrice = order.total || 0;
 
-      // محاولة جلب عناصر الطلب
+      // محاولة جلب عناصر الطلب مع أسماء المنتجات
+      let productNames = 'عادي'; // افتراضي
+
       try {
         const { data: orderItems } = await this.supabase
           .from('order_items')
-          .select('quantity, price')
+          .select(`
+            quantity,
+            price,
+            products (
+              name
+            )
+          `)
           .eq('order_id', order.id);
 
         if (orderItems && orderItems.length > 0) {
           itemsCount = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
           totalPrice = orderItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0);
+
+          // تكوين نص أسماء المنتجات مع عدد القطع
+          const productList = orderItems.map(item => {
+            const productName = item.products?.name || 'منتج';
+            const quantity = item.quantity || 1;
+            return `${productName} - ${quantity}`;
+          }).join('، ');
+
+          productNames = productList;
+          console.log(`✅ تم جلب ${orderItems.length} عنصر للطلب - إجمالي القطع: ${itemsCount}`);
+          console.log(`📦 أسماء المنتجات: ${productNames}`);
         }
       } catch (itemsError) {
         console.warn(`⚠️ تحذير: فشل في جلب عناصر الطلب ${order.id}:`, itemsError);
@@ -277,7 +300,7 @@ class OrderSyncService {
       const defaultData = {
         cityId: cityData.cityId,
         regionId: cityData.regionId,
-        typeName: 'عادي',
+        typeName: productNames,
         itemsCount: itemsCount,
         totalPrice: totalPrice,
         packageSize: '1',
