@@ -161,15 +161,72 @@ router.get('/support-status/:orderId', async (req, res) => {
 });
 
 /**
+ * تحديث حالة الدعم (عند إرسال الرسالة من المستخدم)
+ */
+router.post('/mark-support-sent', async (req, res) => {
+  try {
+    const { orderId, notes } = req.body;
+
+    // التحقق من البيانات المطلوبة
+    if (!orderId) {
+      return res.status(400).json({
+        success: false,
+        message: 'معرف الطلب مطلوب'
+      });
+    }
+
+    // تحديث حالة الطلب في قاعدة البيانات
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        support_requested: true,
+        support_requested_at: new Date().toISOString(),
+        support_notes: notes || null
+      })
+      .eq('id', orderId);
+
+    if (updateError) {
+      console.error('خطأ في تحديث قاعدة البيانات:', updateError);
+      return res.status(500).json({
+        success: false,
+        message: 'فشل في تحديث حالة الدعم'
+      });
+    }
+
+    // تسجيل طلب الدعم
+    await supabase
+      .from('support_requests')
+      .insert({
+        order_id: orderId,
+        notes: notes || null,
+        sent_via_user: true, // إشارة أن الرسالة أرسلت من المستخدم
+        created_at: new Date().toISOString()
+      });
+
+    res.json({
+      success: true,
+      message: 'تم تحديث حالة الدعم بنجاح'
+    });
+
+  } catch (error) {
+    console.error('خطأ في تحديث حالة الدعم:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم'
+    });
+  }
+});
+
+/**
  * اختبار خدمة التليجرام
  */
 router.post('/test-telegram', async (req, res) => {
   try {
     const connectionTest = await telegramService.testConnection();
-    
+
     if (connectionTest.success) {
       const testMessage = await telegramService.sendTestMessage();
-      
+
       res.json({
         success: true,
         message: 'تم اختبار التليجرام بنجاح',

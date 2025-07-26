@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:url_launcher/url_launcher.dart';
 
 class OrderProcessingWidget extends StatefulWidget {
   final Map<String, dynamic> order;
@@ -269,53 +270,38 @@ class _OrderProcessingWidgetState extends State<OrderProcessingWidget> {
       final statusId = widget.order['status_id'];
       final statusName = statusesNeedProcessing[statusId] ?? 'غير محدد';
 
-      final response = await http.post(
-        Uri.parse('${_getBaseUrl()}/api/support/send-support-request'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'orderId': widget.order['id'],
-          'customerName': widget.order['customer_name'],
-          'primaryPhone': widget.order['customer_phone'],
-          'alternativePhone': widget.order['alternative_phone'],
-          'governorate': widget.order['governorate'],
-          'address': widget.order['customer_address'],
-          'orderStatus': statusName,
-          'notes': _notesController.text.trim(),
-        }),
+      // تحضير رسالة التلغرام
+      final message = _prepareTelegramMessage(statusName);
+
+      // إرسال الرسالة عبر التلغرام من حساب المستخدم
+      await _sendToTelegramFromUser(message);
+
+      // تحديث حالة الطلب في قاعدة البيانات
+      await _updateOrderSupportStatus();
+
+      // التحقق من أن الويدجت لا يزال مُحمّل
+      if (!mounted) return;
+
+      // إغلاق النافذة
+      Navigator.of(context).pop();
+
+      // إظهار رسالة نجاح
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.telegram, color: Colors.white),
+              const SizedBox(width: 8),
+              const Text('تم فتح التلغرام لإرسال الرسالة للدعم'),
+            ],
+          ),
+          backgroundColor: Colors.blue.shade600,
+          duration: const Duration(seconds: 3),
+        ),
       );
 
-      final responseData = json.decode(response.body);
-
-      if (response.statusCode == 200 && responseData['success']) {
-        // التحقق من أن الويدجت لا يزال مُحمّل
-        if (!mounted) return;
-
-        // إغلاق النافذة
-        Navigator.of(context).pop();
-
-        // إظهار رسالة نجاح
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                const Text('تم إرسال الطلب للدعم بنجاح'),
-              ],
-            ),
-            backgroundColor: Colors.green.shade600,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-
-        // تحديث حالة الطلب
-        widget.onProcessed();
-
-      } else {
-        throw Exception(responseData['message'] ?? 'فشل في إرسال الطلب');
-      }
+      // تحديث حالة الطلب
+      widget.onProcessed();
 
     } catch (error) {
       if (!mounted) return;
@@ -337,6 +323,87 @@ class _OrderProcessingWidgetState extends State<OrderProcessingWidget> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  String _prepareTelegramMessage(String statusName) {
+    final orderDate = widget.order['created_at'] != null
+        ? DateTime.parse(widget.order['created_at']).toLocal().toString().split(' ')[0]
+        : 'غير محدد';
+
+    return '''🚨 طلب دعم جديد - منتجاتي 🚨
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👤 معلومات الزبون:
+📝 الاسم: ${widget.order['customer_name'] ?? 'غير محدد'}
+📞 الهاتف الأساسي: ${widget.order['customer_phone'] ?? 'غير محدد'}
+📱 الهاتف البديل: ${widget.order['alternative_phone'] ?? 'غير متوفر'}
+
+📍 معلومات العنوان:
+🏛️ المحافظة: ${widget.order['governorate'] ?? 'غير محدد'}
+🏠 العنوان: ${widget.order['customer_address'] ?? 'غير محدد'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📦 معلومات الطلب:
+🆔 رقم الطلب: ${widget.order['order_number'] ?? widget.order['id']}
+📅 تاريخ الطلب: $orderDate
+⚠️ حالة الطلب: $statusName
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💬 ملاحظات المستخدم:
+${_notesController.text.trim().isNotEmpty ? _notesController.text.trim() : 'لا توجد ملاحظات إضافية'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚡ يرجى المتابعة مع الزبون في أقرب وقت ممكن ⚡''';
+  }
+
+  Future<void> _sendToTelegramFromUser(String message) async {
+    try {
+      // رقم أو معرف الدعم في التلغرام
+      const supportUsername = 'montajati_support'; // ضع معرف قناة الدعم هنا
+
+      // ترميز الرسالة للـ URL
+      final encodedMessage = Uri.encodeComponent(message);
+
+      // إنشاء رابط التلغرام
+      final telegramUrl = 'https://t.me/$supportUsername?text=$encodedMessage';
+
+      // فتح التلغرام مع الرسالة الجاهزة
+      if (await canLaunchUrl(Uri.parse(telegramUrl))) {
+        await launchUrl(
+          Uri.parse(telegramUrl),
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        throw Exception('لا يمكن فتح التلغرام. تأكد من تثبيت التطبيق.');
+      }
+    } catch (e) {
+      throw Exception('فشل في فتح التلغرام: $e');
+    }
+  }
+
+  Future<void> _updateOrderSupportStatus() async {
+    try {
+      final response = await http.post(
+        Uri.parse('${_getBaseUrl()}/api/support/mark-support-sent'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'orderId': widget.order['id'],
+          'notes': _notesController.text.trim(),
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        print('⚠️ تحذير: فشل في تحديث حالة الدعم في قاعدة البيانات');
+      }
+    } catch (e) {
+      print('⚠️ تحذير: خطأ في تحديث حالة الدعم: $e');
     }
   }
 
