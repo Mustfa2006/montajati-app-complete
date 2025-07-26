@@ -165,14 +165,20 @@ class SimpleOrdersService extends ChangeNotifier {
 
   /// دالة تحويل حالة الطلب من AdminOrder إلى OrderStatus
   OrderStatus _convertAdminStatusToOrderStatus(String adminStatus) {
+    // التحقق من النص العربي أولاً
+    if (adminStatus == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
+        adminStatus == 'قيد التوصيل') {
+      return OrderStatus.inDelivery;
+    }
+
     switch (adminStatus.toLowerCase()) {
       case 'pending':
         return OrderStatus.pending;
       case 'confirmed':
       case 'active': // ✅ إضافة حالة active لتحويلها إلى confirmed
         return OrderStatus.confirmed;
-      case 'in_delivery':
-      case 'indelivery':
+      case 'shipping':
+      case 'shipped':
         return OrderStatus.inDelivery;
       case 'delivered':
         return OrderStatus.delivered;

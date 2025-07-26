@@ -1071,6 +1071,11 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
           _buildInfoRow('تاريخ الإنشاء', _formatDate(order.createdAt)),
           _buildInfoRow('الحالة الحالية', _getStatusText(order.status)),
           _buildInfoRow('عدد المنتجات', order.itemsCount.toString()),
+
+          // عرض معرف الوسيط إذا كان موجوداً
+          if (order.waseetQrId != null && order.waseetQrId!.isNotEmpty)
+            _buildWaseetInfoRow('معرف الوسيط (QR ID)', order.waseetQrId!),
+
           if (order.deliveryCost > 0)
             _buildInfoRow(
               'رسوم التوصيل',
@@ -1111,6 +1116,103 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
         ],
       ),
     );
+  }
+
+  // دالة خاصة لعرض معرف الوسيط مع تنسيق مميز
+  Widget _buildWaseetInfoRow(String label, String qrId) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: GoogleFonts.cairo(color: Colors.white70, fontSize: 14),
+              softWrap: false,
+              overflow: TextOverflow.visible,
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF28a745).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFF28a745).withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    FontAwesomeIcons.qrcode,
+                    color: Color(0xFF28a745),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      qrId,
+                      style: GoogleFonts.cairo(
+                        color: const Color(0xFF28a745),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => _openWaseetLink(qrId),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF28a745).withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        FontAwesomeIcons.upRightFromSquare,
+                        color: Color(0xFF28a745),
+                        size: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // فتح رابط الوسيط
+  void _openWaseetLink(String qrId) async {
+    final url = 'https://alwaseet-iq.net/merchant/print-single-tcpdf?id=$qrId';
+    try {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('لا يمكن فتح الرابط: $url'),
+              backgroundColor: const Color(0xFFF44336),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في فتح الرابط: $e'),
+            backgroundColor: const Color(0xFFF44336),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildDeliveryInfo() {

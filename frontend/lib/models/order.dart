@@ -104,7 +104,10 @@ class Order {
         return OrderStatus.pending;
       case 'confirmed':
         return OrderStatus.confirmed;
-      case 'in_delivery':
+      case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
+      case 'قيد التوصيل':
+      case 'shipping':
+      case 'shipped':
         return OrderStatus.inDelivery;
       case 'delivered':
         return OrderStatus.delivered;

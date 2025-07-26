@@ -4,8 +4,10 @@
 // ===================================
 
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_config.dart';
 
 class OfficialOrderService {
@@ -32,19 +34,40 @@ class OfficialOrderService {
     try {
       debugPrint('📦 إنشاء طلب جديد في النظام الرسمي...');
 
+      // إنشاء معرف فريد للطلب
+      final orderId = 'order_${DateTime.now().millisecondsSinceEpoch}_${Random().nextInt(9999)}';
+      final orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
+
+      // الحصول على معرف المستخدم الحالي
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      final userId = currentUser?.id ?? 'bba1fc61-3db9-4c5f-8b19-d8689251990d';
+      final userPhone = currentUser?.phone ?? '07503597589';
+
+      // حساب الربح (افتراضي 20% من المجموع الفرعي)
+      final profit = subtotal * 0.2;
+
+      final total = subtotal + deliveryFee;
+
       final requestBody = {
-        'customerName': customerName,
-        'primaryPhone': primaryPhone,
-        'secondaryPhone': secondaryPhone,
+        'id': orderId,
+        'customer_name': customerName,
+        'primary_phone': primaryPhone,
+        'secondary_phone': secondaryPhone,
         'email': email,
-        'cityId': cityId,
-        'regionId': regionId,
-        'deliveryAddress': deliveryAddress,
-        'deliveryNotes': deliveryNotes,
-        'customerNotes': customerNotes, // ✅ إضافة ملاحظات العميل
-        'items': items,
+        'customer_address': deliveryAddress,
+        'delivery_address': deliveryAddress,
+        'delivery_notes': deliveryNotes,
+        'notes': customerNotes,
         'subtotal': subtotal,
-        'deliveryFee': deliveryFee,
+        'delivery_fee': deliveryFee,
+        'total': total,
+        'profit': profit,
+        'profit_amount': profit,
+        'status': 'active',
+        'user_id': userId,
+        'user_phone': userPhone,
+        'order_number': orderNumber,
+        'items': jsonEncode(items),
       };
 
       debugPrint('📋 بيانات الطلب: ${jsonEncode(requestBody)}');

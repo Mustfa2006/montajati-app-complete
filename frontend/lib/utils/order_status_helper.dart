@@ -64,6 +64,7 @@ class OrderStatusHelper {
       case 'processing':
       case 'shipped':
       case 'قيد التوصيل':
+      case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
       case '2':
       case '3': // قيد التوصيل الى الزبون (في عهدة المندوب)
       case 'shipping':

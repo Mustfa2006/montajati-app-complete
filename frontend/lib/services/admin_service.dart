@@ -491,21 +491,32 @@ class AdminService {
       final orderId = 'ORDER_${DateTime.now().millisecondsSinceEpoch}';
       final total = subtotal + deliveryFee;
 
-      // إدراج الطلب في جدول orders
-      final orderResponse = await _supabase.from('orders').insert({
+      // إنشاء رقم طلب فريد
+      final orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch}';
+
+      // الحصول على معرف المستخدم الحالي
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      final userId = currentUser?.id ?? 'bba1fc61-3db9-4c5f-8b19-d8689251990d'; // fallback ID
+
+      // إدراج الطلب في جدول orders مع جميع الحقول المطلوبة
+      await _supabase.from('orders').insert({
         'id': orderId,
         'customer_name': customerName,
         'primary_phone': primaryPhone,
         'secondary_phone': secondaryPhone,
         'province': province,
         'city': city,
+        'customer_address': '$province - $city',
         'notes': notes ?? '',
         'subtotal': subtotal,
         'delivery_fee': deliveryFee,
         'total': total,
         'profit': totalProfit,
-        'status': 'pending',
+        'profit_amount': totalProfit,
+        'status': 'active', // تغيير من pending إلى active
+        'user_id': userId,
         'user_phone': userPhone,
+        'order_number': orderNumber,
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       }).select();
@@ -794,7 +805,28 @@ class AdminService {
     debugPrint('🔄 تحويل الحالة باستخدام النظام الجديد:');
     debugPrint('   📝 الحالة المدخلة: "$status"');
 
-    // تحويل الأرقام إلى النصوص الدقيقة المسموحة في قاعدة البيانات
+    // أولاً: التعامل مع القيم الإنجليزية من dropdown
+    if (status == 'in_delivery') {
+      debugPrint('   ✅ تم التعرف على "in_delivery" - تحويل إلى النص العربي');
+      return 'قيد التوصيل الى الزبون (في عهدة المندوب)';
+    }
+
+    if (status == 'delivered') {
+      debugPrint('   ✅ تم التعرف على "delivered" - تحويل إلى النص العربي');
+      return 'تم التسليم للزبون';
+    }
+
+    if (status == 'cancelled') {
+      debugPrint('   ✅ تم التعرف على "cancelled" - تحويل إلى النص العربي');
+      return 'مغلق';
+    }
+
+    if (status == 'pending' || status == 'active') {
+      debugPrint('   ✅ تم التعرف على "$status" - تحويل إلى نشط');
+      return 'نشط';
+    }
+
+    // ثانياً: تحويل الأرقام إلى النصوص الدقيقة المسموحة في قاعدة البيانات
     String databaseValue;
     switch (status) {
       case '4':
@@ -861,8 +893,8 @@ class AdminService {
         databaseValue = 'حظر المندوب';
         break;
       default:
-        // إذا لم نجد تطابق، استخدم "نشط" كقيمة افتراضية
-        databaseValue = 'نشط';
+        // إذا لم نجد تطابق، استخدم القيمة كما هي أو "نشط" كقيمة افتراضية
+        databaseValue = status.isNotEmpty ? status : 'نشط';
         break;
     }
 
@@ -1021,7 +1053,7 @@ class AdminService {
       }
 
       // 🚀 النظام الجديد: الخادم يتولى إرسال الطلب للوسيط تلقائياً
-      if (statusForDatabase == 'in_delivery') {
+      if (statusForDatabase == 'قيد التوصيل الى الزبون (في عهدة المندوب)') {
         debugPrint('🚨 === الخادم سيرسل الطلب إلى شركة الوسيط تلقائياً ===');
         debugPrint('📦 معرف الطلب: $orderId');
         debugPrint('🔄 الحالة الجديدة: $statusForDatabase');

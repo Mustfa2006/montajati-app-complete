@@ -1,15 +1,20 @@
 import java.util.Properties
 import java.io.FileInputStream
 
-// إعدادات Kotlin محسنة ومستقرة
+// إعدادات Kotlin محسنة لحل مشاكل daemon
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "1.8"
         freeCompilerArgs += listOf(
             "-Xjvm-default=all",
-            "-Xopt-in=kotlin.RequiresOptIn"
+            "-Xopt-in=kotlin.RequiresOptIn",
+            "-Xno-call-assertions",
+            "-Xno-param-assertions",
+            "-Xno-receiver-assertions"
         )
     }
+    // تعطيل daemon للتجميع
+    useDaemonFallbackStrategy = false
 }
 
 plugins {
@@ -34,13 +39,13 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "1.8"
     }
 
     defaultConfig {

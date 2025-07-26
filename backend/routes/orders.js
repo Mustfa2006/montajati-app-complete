@@ -207,12 +207,14 @@ router.put('/:id/status', async (req, res) => {
     console.log(`🔍 فحص إرسال الطلب للوسيط - الحالة الجديدة: "${status}"`);
 
     const deliveryStatuses = [
-      'in_delivery',
       'قيد التوصيل',
       'قيد التوصيل الى الزبون (في عهدة المندوب)',
       'قيد التوصيل الى الزبون',
       'في عهدة المندوب',
-      'قيد التوصيل للزبون'
+      'قيد التوصيل للزبون',
+      'shipping',
+      'shipped',
+      'in_delivery' // إضافة دعم للحالة الإنجليزية
     ];
 
     console.log(`📋 حالات التوصيل المدعومة:`, deliveryStatuses);
@@ -283,6 +285,7 @@ router.put('/:id/status', async (req, res) => {
 
           if (waseetResult && waseetResult.success) {
             console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
+            console.log(`🆔 QR ID: ${waseetResult.qrId}`);
 
             // تحديث الطلب بمعلومات الوسيط
             await supabase
@@ -294,6 +297,8 @@ router.put('/:id/status', async (req, res) => {
                 updated_at: new Date().toISOString()
               })
               .eq('id', id);
+
+            console.log(`🎉 تم تحديث الطلب ${id} بمعرف الوسيط: ${waseetResult.qrId}`);
 
           } else {
             console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
@@ -367,9 +372,14 @@ router.post('/', async (req, res) => {
 
     if (error) {
       console.error('❌ خطأ في إنشاء الطلب:', error);
+      console.error('📋 تفاصيل الخطأ:', error.message);
+      console.error('📋 كود الخطأ:', error.code);
+      console.error('📋 البيانات المرسلة:', JSON.stringify(newOrder, null, 2));
       return res.status(500).json({
         success: false,
-        error: 'فشل في إنشاء الطلب'
+        error: 'فشل في إنشاء الطلب',
+        details: error.message,
+        code: error.code
       });
     }
 
