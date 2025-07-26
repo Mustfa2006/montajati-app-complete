@@ -230,10 +230,10 @@ class OrderSyncService {
       console.log(`   - المدينة: "${order.city}"`);
       console.log(`   - العنوان: "${order.customer_address}"`);
 
-      // البحث في المحافظة أولاً
-      const province = (order.province || '').toLowerCase();
-      const city = (order.city || '').toLowerCase();
-      const address = (order.customer_address || '').toLowerCase();
+      // البحث في المحافظة أولاً (بدون تحويل إلى lowercase)
+      const province = (order.province || '').trim();
+      const city = (order.city || '').trim();
+      const address = (order.customer_address || '').trim();
 
       console.log(`🔍 البحث في النصوص:`);
       console.log(`   - province: "${province}"`);
