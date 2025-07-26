@@ -230,6 +230,14 @@ class OrderSyncService {
       console.log(`   - المدينة: "${order.city}"`);
       console.log(`   - العنوان: "${order.customer_address}"`);
 
+      // فحص الأحرف بدقة
+      if (order.province) {
+        console.log(`🔤 فحص أحرف المحافظة "${order.province}":`);
+        for (let i = 0; i < order.province.length; i++) {
+          console.log(`   [${i}]: "${order.province[i]}" (Unicode: ${order.province.charCodeAt(i)})`);
+        }
+      }
+
       // البحث في المحافظة أولاً (بدون تحويل إلى lowercase)
       const province = (order.province || '').trim();
       const city = (order.city || '').trim();
@@ -271,11 +279,21 @@ class OrderSyncService {
           const normalizedCityName = normalizeArabicText(cityName);
           console.log(`   - فحص المحافظة: "${cityName}" -> منظف: "${normalizedCityName}"`);
 
+          // فحص الأحرف بدقة للمحافظة في cityMapping
+          if (cityName === 'كربلاء') {
+            console.log(`🔤 فحص أحرف "كربلاء" في cityMapping:`);
+            for (let i = 0; i < cityName.length; i++) {
+              console.log(`   [${i}]: "${cityName[i]}" (Unicode: ${cityName.charCodeAt(i)})`);
+            }
+          }
+
           // البحث بطرق متعددة
           const isMatch = normalizedSearchText.includes(normalizedCityName) ||
                          normalizedCityName.includes(normalizedSearchText) ||
                          searchText.includes(cityName) ||
                          cityName.includes(searchText);
+
+          console.log(`   - نتيجة البحث: ${isMatch ? '✅ مطابقة' : '❌ لا مطابقة'}`);
 
           if (isMatch) {
             cityData = data;
