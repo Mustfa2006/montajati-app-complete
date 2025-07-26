@@ -130,37 +130,23 @@ router.put('/:id/status', async (req, res) => {
       });
     }
 
-    // تحويل الحالات المختلفة إلى الحالات المقبولة في قاعدة البيانات
+    // تحويل الحالات المختلفة إلى الحالة الصحيحة الوحيدة للوسيط
     function normalizeStatus(status) {
       console.log(`🔄 تحويل الحالة: "${status}"`);
 
-      // الحالات المقبولة في قاعدة البيانات (من الاختبار):
-      // - "قيد التوصيل الى الزبون (في عهدة المندوب)"
-      // - "cancelled"
-      // - "in_delivery"
-      // - "active"
+      // الحالة الوحيدة المؤهلة للإرسال للوسيط:
+      // ID: 3 - "قيد التوصيل الى الزبون (في عهدة المندوب)"
 
       const statusMap = {
-        // تحويل الأرقام
-        '3': 'in_delivery',
-        '4': 'cancelled', // تم التسليم = cancelled (مؤقتاً)
-        '27': 'cancelled',
+        // تحويل الرقم 3 إلى النص العربي الصحيح
+        '3': 'قيد التوصيل الى الزبون (في عهدة المندوب)',
 
-        // تحويل النصوص الإنجليزية
-        'delivered': 'cancelled', // تم التسليم = cancelled (مؤقتاً)
-        'shipping': 'in_delivery',
-        'shipped': 'in_delivery',
+        // الحالة الصحيحة تبقى كما هي
+        'قيد التوصيل الى الزبون (في عهدة المندوب)': 'قيد التوصيل الى الزبون (في عهدة المندوب)',
 
-        // تحويل النصوص العربية
-        'قيد التوصيل': 'in_delivery',
-        'تم التسليم للزبون': 'cancelled', // مؤقتاً
-        'مغلق': 'cancelled',
-
-        // الحالات المقبولة مباشرة
-        'in_delivery': 'in_delivery',
-        'cancelled': 'cancelled',
+        // باقي الحالات تبقى كما هي (لا تتحول)
         'active': 'active',
-        'قيد التوصيل الى الزبون (في عهدة المندوب)': 'قيد التوصيل الى الزبون (في عهدة المندوب)'
+        'cancelled': 'cancelled'
       };
 
       const converted = statusMap[status] || status;
@@ -249,17 +235,17 @@ router.put('/:id/status', async (req, res) => {
     // 🚀 إرسال الطلب لشركة الوسيط عند تغيير الحالة إلى "قيد التوصيل"
     console.log(`🔍 فحص إرسال الطلب للوسيط - الحالة المحولة: "${normalizedStatus}"`);
 
-    // الحالات المؤهلة لإرسال الطلب للوسيط (الحالات المقبولة في قاعدة البيانات فقط)
+    // الحالة الوحيدة المؤهلة لإرسال الطلب للوسيط
+    // ID: 3 - "قيد التوصيل الى الزبون (في عهدة المندوب)"
     const deliveryStatuses = [
-      'قيد التوصيل الى الزبون (في عهدة المندوب)', // الحالة العربية الكاملة
-      'in_delivery' // الحالة الإنجليزية المقبولة
+      'قيد التوصيل الى الزبون (في عهدة المندوب)' // الحالة الوحيدة المؤهلة
     ];
 
-    console.log(`📋 حالات التوصيل المدعومة:`, deliveryStatuses);
-    console.log(`🔍 هل الحالة المحولة "${normalizedStatus}" في القائمة؟`, deliveryStatuses.includes(normalizedStatus));
+    console.log(`📋 الحالة الوحيدة المؤهلة للوسيط: "${deliveryStatuses[0]}"`);
+    console.log(`🔍 هل الحالة المحولة "${normalizedStatus}" مؤهلة؟`, deliveryStatuses.includes(normalizedStatus));
 
     if (deliveryStatuses.includes(normalizedStatus)) {
-      console.log(`📦 ✅ الحالة المحولة هي "${normalizedStatus}" - سيتم إرسال الطلب لشركة الوسيط...`);
+      console.log(`📦 ✅ الحالة "${normalizedStatus}" مؤهلة - سيتم إرسال الطلب لشركة الوسيط...`);
 
       try {
         // التحقق من أن الطلب لم يتم إرساله مسبقاً
@@ -669,6 +655,136 @@ router.post('/create-test-order', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message
+    });
+  }
+});
+
+// ===================================
+// PUT /api/orders/:id/status-fixed - تحديث حالة الطلب (الإصدار المُصلح)
+// ===================================
+router.put('/:id/status-fixed', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, notes, changedBy = 'admin' } = req.body;
+
+    console.log(`🔄 [FIXED] تحديث حالة الطلب ${id} إلى ${status}`);
+
+    // التحقق من البيانات المطلوبة
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        error: 'الحالة الجديدة مطلوبة'
+      });
+    }
+
+    // تحويل الحالات المختلفة إلى الحالات المقبولة في قاعدة البيانات
+    function normalizeStatusFixed(status) {
+      console.log(`🔄 [FIXED] تحويل الحالة: "${status}"`);
+
+      const statusMap = {
+        // تحويل الأرقام
+        '3': 'in_delivery',
+        '4': 'cancelled',
+        '27': 'cancelled',
+
+        // تحويل النصوص الإنجليزية
+        'delivered': 'cancelled',
+        'shipping': 'in_delivery',
+        'shipped': 'in_delivery',
+
+        // تحويل النصوص العربية
+        'قيد التوصيل': 'in_delivery',
+        'تم التسليم للزبون': 'cancelled',
+        'مغلق': 'cancelled',
+
+        // الحالات المقبولة مباشرة
+        'in_delivery': 'in_delivery',
+        'cancelled': 'cancelled',
+        'active': 'active',
+        'قيد التوصيل الى الزبون (في عهدة المندوب)': 'قيد التوصيل الى الزبون (في عهدة المندوب)'
+      };
+
+      const converted = statusMap[status] || status;
+      console.log(`   ✅ [FIXED] تم التحويل إلى: "${converted}"`);
+      return converted;
+    }
+
+    // تطبيق التحويل على الحالة
+    const normalizedStatus = normalizeStatusFixed(status);
+
+    // التحقق من وجود الطلب
+    const { data: existingOrder, error: fetchError } = await supabase
+      .from('orders')
+      .select('id, status, customer_name, customer_id')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingOrder) {
+      console.error('❌ [FIXED] الطلب غير موجود:', fetchError);
+      return res.status(404).json({
+        success: false,
+        error: 'الطلب غير موجود'
+      });
+    }
+
+    const oldStatus = existingOrder.status;
+    console.log(`📊 [FIXED] الحالة القديمة: ${oldStatus} → الحالة الجديدة: ${normalizedStatus}`);
+
+    // تحديث حالة الطلب
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        status: normalizedStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    if (updateError) {
+      console.error('❌ [FIXED] خطأ في تحديث الطلب:', updateError);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في تحديث حالة الطلب',
+        details: updateError
+      });
+    }
+
+    console.log(`✅ [FIXED] تم تحديث حالة الطلب ${id} بنجاح`);
+
+    // إرسال الطلب لشركة الوسيط إذا كانت الحالة مؤهلة
+    const deliveryStatuses = ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'];
+
+    if (deliveryStatuses.includes(normalizedStatus)) {
+      console.log(`📦 [FIXED] الحالة "${normalizedStatus}" مؤهلة للإرسال للوسيط`);
+
+      try {
+        if (global.orderSyncService) {
+          const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
+          if (waseetResult && waseetResult.success) {
+            console.log(`✅ [FIXED] تم إرسال الطلب للوسيط - QR ID: ${waseetResult.qrId}`);
+          }
+        }
+      } catch (waseetError) {
+        console.warn('⚠️ [FIXED] خطأ في إرسال الطلب للوسيط:', waseetError.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'تم تحديث حالة الطلب بنجاح (الإصدار المُصلح)',
+      data: {
+        orderId: id,
+        oldStatus: oldStatus,
+        newStatus: normalizedStatus,
+        updatedAt: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ [FIXED] خطأ في تحديث حالة الطلب:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'خطأ داخلي في الخادم',
+      details: error.message
     });
   }
 });
