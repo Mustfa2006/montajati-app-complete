@@ -294,38 +294,57 @@ router.put('/:id/status', async (req, res) => {
                 })
                 .eq('id', id);
 
-              return; // توقف هنا
+              // لا تتوقف هنا - استمر لإرسال الاستجابة
+              console.log('⚠️ سيتم إرسال الاستجابة رغم فشل خدمة المزامنة');
             }
           }
 
-          // إرسال الطلب لشركة الوسيط
+          // إرسال الطلب لشركة الوسيط (فقط إذا كانت الخدمة متاحة)
+          if (global.orderSyncService) {
             console.log(`🚀 بدء إرسال الطلب ${id} لشركة الوسيط...`);
             console.log(`🔧 خدمة المزامنة: ${global.orderSyncService.constructor.name}`);
             console.log(`🔧 حالة الخدمة: ${global.orderSyncService.isInitialized ? 'مهيأة' : 'غير مهيأة'}`);
 
-          const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
+            const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
 
             console.log(`📋 نتيجة إرسال الطلب للوسيط:`, waseetResult);
 
-          if (waseetResult && waseetResult.success) {
-            console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
-            console.log(`🆔 QR ID: ${waseetResult.qrId}`);
+            if (waseetResult && waseetResult.success) {
+              console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
+              console.log(`🆔 QR ID: ${waseetResult.qrId}`);
 
-            // تحديث الطلب بمعلومات الوسيط
-            await supabase
-              .from('orders')
-              .update({
-                waseet_order_id: waseetResult.qrId || null,
-                waseet_status: 'sent',
-                waseet_data: JSON.stringify(waseetResult),
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', id);
+              // تحديث الطلب بمعلومات الوسيط
+              await supabase
+                .from('orders')
+                .update({
+                  waseet_order_id: waseetResult.qrId || null,
+                  waseet_status: 'تم الإرسال للوسيط',
+                  waseet_data: JSON.stringify(waseetResult),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', id);
 
-            console.log(`🎉 تم تحديث الطلب ${id} بمعرف الوسيط: ${waseetResult.qrId}`);
+              console.log(`🎉 تم تحديث الطلب ${id} بمعرف الوسيط: ${waseetResult.qrId}`);
 
+            } else {
+              console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
+
+              // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
+              await supabase
+                .from('orders')
+                .update({
+                  waseet_status: 'في انتظار الإرسال للوسيط',
+                  waseet_data: JSON.stringify({
+                    error: waseetResult?.error || 'فشل في الإرسال',
+                    retry_needed: true,
+                    last_attempt: new Date().toISOString()
+                  }),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', id);
+            }
           } else {
-            console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
+            console.log(`⚠️ خدمة المزامنة غير متاحة - سيتم المحاولة لاحقاً`);
 
             // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
             await supabase
@@ -333,20 +352,36 @@ router.put('/:id/status', async (req, res) => {
               .update({
                 waseet_status: 'في انتظار الإرسال للوسيط',
                 waseet_data: JSON.stringify({
-                  error: waseetResult?.error || 'فشل في الإرسال',
+                  error: 'خدمة المزامنة غير متاحة',
                   retry_needed: true,
                   last_attempt: new Date().toISOString()
                 }),
                 updated_at: new Date().toISOString()
               })
               .eq('id', id);
-            }
           }
         }
 
       } catch (waseetError) {
         console.error(`❌ خطأ في إرسال الطلب ${id} لشركة الوسيط:`, waseetError);
-        // لا نوقف العملية، فقط نسجل الخطأ
+
+        // تحديث الطلب بحالة الخطأ
+        try {
+          await supabase
+            .from('orders')
+            .update({
+              waseet_status: 'في انتظار الإرسال للوسيط',
+              waseet_data: JSON.stringify({
+                error: `خطأ في الإرسال: ${waseetError.message}`,
+                retry_needed: true,
+                last_attempt: new Date().toISOString()
+              }),
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+        } catch (updateError) {
+          console.error('❌ خطأ في تحديث حالة الخطأ:', updateError);
+        }
       }
     } else {
       console.log(`ℹ️ الحالة "${status}" ليست حالة توصيل - لن يتم إرسال الطلب للوسيط`);
