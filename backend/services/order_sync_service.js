@@ -218,13 +218,38 @@ class OrderSyncService {
       // البحث عن المحافظة في العنوان
       let cityData = { cityId: '1', regionId: '1' }; // بغداد افتراضياً
 
-      const address = (order.customer_address || order.province || order.city || '').toLowerCase();
+      console.log(`🔍 فحص بيانات الطلب للوسيط:`);
+      console.log(`   - المحافظة: "${order.province}"`);
+      console.log(`   - المدينة: "${order.city}"`);
+      console.log(`   - العنوان: "${order.customer_address}"`);
 
-      for (const [city, data] of Object.entries(cityMapping)) {
-        if (address.includes(city.toLowerCase())) {
-          cityData = data;
-          break;
+      // البحث في المحافظة أولاً
+      const province = (order.province || '').toLowerCase();
+      const city = (order.city || '').toLowerCase();
+      const address = (order.customer_address || '').toLowerCase();
+
+      console.log(`🔍 البحث في النصوص:`);
+      console.log(`   - province: "${province}"`);
+      console.log(`   - city: "${city}"`);
+      console.log(`   - address: "${address}"`);
+
+      // البحث في المحافظة أولاً، ثم المدينة، ثم العنوان
+      const searchTexts = [province, city, address].filter(text => text.length > 0);
+
+      for (const searchText of searchTexts) {
+        for (const [cityName, data] of Object.entries(cityMapping)) {
+          if (searchText.includes(cityName.toLowerCase())) {
+            cityData = data;
+            console.log(`✅ تم العثور على المحافظة: ${cityName} -> cityId=${cityData.cityId} في النص: "${searchText}"`);
+            break;
+          }
         }
+        if (cityData.cityId !== '1') break; // إذا وجدنا مطابقة، توقف
+      }
+
+      if (cityData.cityId === '1') {
+        console.log(`⚠️ لم يتم العثور على محافظة مطابقة، استخدام بغداد افتراضياً`);
+        console.log(`🔍 النصوص المفحوصة: ${searchTexts.join(', ')}`);
       }
 
       // حساب عدد المنتجات والسعر الإجمالي
