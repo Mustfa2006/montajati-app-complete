@@ -172,6 +172,9 @@ class OrderSyncService {
     String? secondaryPhone,
     required String province,
     required String city,
+    String? provinceId, // ✅ إضافة معرف المحافظة
+    String? cityId, // ✅ إضافة معرف المدينة
+    String? regionId, // ✅ إضافة معرف المنطقة
     String? notes,
     required List<dynamic> items,
     required Map<String, int> totals,
@@ -191,6 +194,10 @@ class OrderSyncService {
         'secondary_phone': secondaryPhone,
         'province': province,
         'city': city,
+        'province_id': provinceId, // ✅ إضافة معرف المحافظة
+        'city_id': cityId, // ✅ إضافة معرف المدينة
+        'region_id': regionId, // ✅ إضافة معرف المنطقة
+        'customer_address': '$province - $city', // ✅ العنوان الكامل
         'notes': notes,
         'status': 'active', // حالة نشط - بانتظار الموافقة
         'total': totals['total'],

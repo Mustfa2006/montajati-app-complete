@@ -1021,6 +1021,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               secondaryPhone: finalOrderData['secondaryPhone'],
               province: finalOrderData['province'] ?? 'غير محدد',
               city: finalOrderData['city'] ?? 'غير محدد',
+              provinceId: finalOrderData['provinceId'], // ✅ إضافة معرف المحافظة
+              cityId: finalOrderData['cityId'], // ✅ إضافة معرف المدينة
+              regionId: finalOrderData['regionId'], // ✅ إضافة معرف المنطقة
               notes: finalOrderData['notes'],
               items:
                   finalOrderData['items'], // استخدام items من البيانات النهائية

@@ -22,6 +22,9 @@ class OfficialOrdersService extends ChangeNotifier {
     String? secondaryPhone,
     required String province,
     required String city,
+    String? provinceId, // ✅ إضافة معرف المحافظة
+    String? cityId, // ✅ إضافة معرف المدينة
+    String? regionId, // ✅ إضافة معرف المنطقة
     String? customerAddress,
     String? notes,
     required List<OrderItem> items,
@@ -121,6 +124,9 @@ class OfficialOrdersService extends ChangeNotifier {
         'secondary_phone': secondaryPhone,
         'province': province,
         'city': city,
+        'province_id': provinceId, // ✅ إضافة معرف المحافظة
+        'city_id': cityId, // ✅ إضافة معرف المدينة
+        'region_id': regionId, // ✅ إضافة معرف المنطقة
         'customer_address': customerAddress ?? '$province - $city',
         'customer_notes': notes, // ✅ حفظ في عمود customer_notes
         'subtotal': totals['subtotal'] ?? 0,

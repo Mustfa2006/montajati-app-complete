@@ -10,6 +10,7 @@ import '../utils/order_status_helper.dart';
 import 'smart_profits_manager.dart';
 import 'order_status_monitor.dart';
 import 'smart_profit_transfer.dart';
+import 'official_order_service.dart';
 
 
 class AdminService {
@@ -985,26 +986,28 @@ class AdminService {
         '   📋 النص العربي: "${OrderStatusHelper.getArabicStatus(statusForDatabase)}"',
       );
 
-      // 🚀 تحديث مباشر في Supabase (النظام الرسمي النهائي)
-      debugPrint('🔧 تحديث مباشر في Supabase: $orderId');
+      // 🚀 استخدام API endpoint للتحديث (يتضمن منطق الوسيط)
+      debugPrint('🔧 استدعاء API endpoint: $orderId');
       debugPrint('🔧 نوع المعرف: ${orderId.runtimeType}');
       debugPrint('🔧 الحالة الجديدة: $statusForDatabase');
       debugPrint('🔧 الحالة القديمة: ${existingOrder['status']}');
 
-      // تحضير بيانات التحديث
-      final updateData = {
-        'status': statusForDatabase,
-        'updated_at': DateTime.now().toIso8601String(),
-      };
-      debugPrint('🔧 بيانات التحديث: $updateData');
+      // استدعاء API endpoint بدلاً من التحديث المباشر
+      final apiResult = await OfficialOrderService.updateOrderStatus(
+        orderId: orderId,
+        status: statusForDatabase,
+        reason: notes,
+        changedBy: updatedBy ?? 'admin',
+      );
 
-      // تحديث حالة الطلب مباشرة في Supabase
-      debugPrint('🔧 بدء عملية التحديث...');
-      final updateResult = await _supabase
-          .from('orders')
-          .update(updateData)
-          .eq('id', orderId)
-          .select();
+      debugPrint('🔧 نتيجة API: $apiResult');
+
+      if (!apiResult['success']) {
+        throw Exception('فشل في تحديث الحالة عبر API: ${apiResult['error']}');
+      }
+
+      // الحصول على البيانات المحدثة من API response
+      final updateResult = [apiResult['data'] ?? {}];
 
       debugPrint('🔧 نتيجة التحديث: $updateResult');
       debugPrint('🔧 عدد الصفوف المحدثة: ${updateResult.length}');
@@ -1029,35 +1032,15 @@ class AdminService {
         return false;
       }
 
-      debugPrint('🔥 SUCCESS: تم تحديث حالة الطلب مباشرة في Supabase');
-      debugPrint('🔥 UPDATE RESULT: ${updateResult.first}');
+      debugPrint('🔥 SUCCESS: تم تحديث حالة الطلب عبر API');
+      debugPrint('🔥 API RESULT: ${apiResult}');
 
-      // إضافة سجل تاريخ الحالة مباشرة في Supabase
-      debugPrint(
-        '📝 إضافة سجل تاريخ الحالة من ${existingOrder['status']} إلى $statusForDatabase',
-      );
-
-      try {
-        await _supabase.from('order_status_history').insert({
-          'order_id': orderId,
-          'old_status': existingOrder['status'],
-          'new_status': statusForDatabase,
-          'changed_by': updatedBy ?? 'admin',
-          'change_reason': notes ?? 'تم تحديث الحالة من لوحة التحكم',
-          'created_at': DateTime.now().toIso8601String(),
-        });
-        debugPrint('✅ تم إضافة سجل تاريخ الحالة بنجاح');
-      } catch (historyError) {
-        debugPrint('⚠️ تحذير: فشل في إضافة سجل التاريخ: $historyError');
-        // لا نوقف العملية لأن التحديث الأساسي نجح
-      }
-
-      // 🚀 النظام الجديد: الخادم يتولى إرسال الطلب للوسيط تلقائياً
+      // 🚀 API endpoint يتولى كل شيء: تحديث الحالة + سجل التاريخ + إرسال للوسيط
       if (statusForDatabase == 'قيد التوصيل الى الزبون (في عهدة المندوب)') {
-        debugPrint('🚨 === الخادم سيرسل الطلب إلى شركة الوسيط تلقائياً ===');
+        debugPrint('🚨 === API endpoint سيرسل الطلب إلى شركة الوسيط تلقائياً ===');
         debugPrint('📦 معرف الطلب: $orderId');
         debugPrint('🔄 الحالة الجديدة: $statusForDatabase');
-        debugPrint('✅ === الخادم يتولى العملية بالكامل ===');
+        debugPrint('✅ === API endpoint يتولى العملية بالكامل ===');
       }
 
       // إرسال إشعار تغيير حالة الطلب للمستخدم صاحب الطلب (النظام الرسمي)
