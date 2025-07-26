@@ -262,26 +262,40 @@ class _OrderProcessingWidgetState extends State<OrderProcessingWidget> {
   }
 
   Future<void> _sendSupportRequest() async {
+    print('🔍 === بدء عملية إرسال طلب الدعم ===');
+
     setState(() {
       _isLoading = true;
     });
 
     try {
+      print('📋 Step 1: جلب معلومات الطلب...');
       final statusId = widget.order['status_id'];
       final statusName = statusesNeedProcessing[statusId] ?? 'غير محدد';
+      print('📋 معرف الحالة: $statusId');
+      print('📋 اسم الحالة: $statusName');
+      print('📋 معلومات الطلب: ${widget.order}');
 
-      // تحضير رسالة التلغرام
+      print('📝 Step 2: تحضير رسالة التلغرام...');
       final message = _prepareTelegramMessage(statusName);
+      print('📝 طول الرسالة: ${message.length} حرف');
+      print('📝 أول 100 حرف من الرسالة: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
 
-      // إرسال الرسالة عبر التلغرام من حساب المستخدم
+      print('📱 Step 3: محاولة فتح التلغرام...');
       await _sendToTelegramFromUser(message);
+      print('✅ تم فتح التلغرام بنجاح');
 
-      // تحديث حالة الطلب في قاعدة البيانات
+      print('💾 Step 4: تحديث حالة الطلب في قاعدة البيانات...');
       await _updateOrderSupportStatus();
+      print('✅ تم تحديث حالة الطلب بنجاح');
 
       // التحقق من أن الويدجت لا يزال مُحمّل
-      if (!mounted) return;
+      if (!mounted) {
+        print('⚠️ الويدجت لم يعد محمل - إيقاف العملية');
+        return;
+      }
 
+      print('🚪 Step 5: إغلاق النافذة وإظهار رسالة النجاح...');
       // إغلاق النافذة
       Navigator.of(context).pop();
 
@@ -302,9 +316,18 @@ class _OrderProcessingWidgetState extends State<OrderProcessingWidget> {
 
       // تحديث حالة الطلب
       widget.onProcessed();
+      print('🎉 === تمت عملية إرسال طلب الدعم بنجاح ===');
 
-    } catch (error) {
-      if (!mounted) return;
+    } catch (error, stackTrace) {
+      print('❌ === خطأ في عملية إرسال طلب الدعم ===');
+      print('❌ نوع الخطأ: ${error.runtimeType}');
+      print('❌ رسالة الخطأ: ${error.toString()}');
+      print('❌ Stack Trace: $stackTrace');
+
+      if (!mounted) {
+        print('⚠️ الويدجت لم يعد محمل - لا يمكن إظهار رسالة الخطأ');
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -312,26 +335,34 @@ class _OrderProcessingWidgetState extends State<OrderProcessingWidget> {
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 8),
-              Text('خطأ: ${error.toString()}'),
+              Expanded(child: Text('خطأ: ${error.toString()}')),
             ],
           ),
           backgroundColor: Colors.red.shade600,
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 8),
         ),
       );
     } finally {
+      print('🔄 تنظيف الحالة...');
       setState(() {
         _isLoading = false;
       });
+      print('✅ تم تنظيف الحالة');
     }
   }
 
   String _prepareTelegramMessage(String statusName) {
-    final orderDate = widget.order['created_at'] != null
-        ? DateTime.parse(widget.order['created_at']).toLocal().toString().split(' ')[0]
-        : 'غير محدد';
+    print('📝 === تحضير رسالة التلغرام ===');
 
-    return '''🚨 طلب دعم جديد - منتجاتي 🚨
+    try {
+      print('📅 معالجة تاريخ الطلب...');
+      final orderDate = widget.order['created_at'] != null
+          ? DateTime.parse(widget.order['created_at']).toLocal().toString().split(' ')[0]
+          : 'غير محدد';
+      print('📅 تاريخ الطلب: $orderDate');
+
+      print('📝 بناء الرسالة...');
+      final message = '''🚨 طلب دعم جديد - منتجاتي 🚨
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -359,51 +390,97 @@ ${_notesController.text.trim().isNotEmpty ? _notesController.text.trim() : 'لا
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚡ يرجى المتابعة مع الزبون في أقرب وقت ممكن ⚡''';
+
+      print('✅ تم بناء الرسالة بنجاح - الطول: ${message.length} حرف');
+      return message;
+
+    } catch (error, stackTrace) {
+      print('❌ خطأ في تحضير رسالة التلغرام: $error');
+      print('❌ Stack Trace: $stackTrace');
+      rethrow;
+    }
   }
 
   Future<void> _sendToTelegramFromUser(String message) async {
+    print('📱 === محاولة فتح التلغرام ===');
+
     try {
       // رقم أو معرف الدعم في التلغرام
       const supportUsername = 'montajati_support'; // ضع معرف قناة الدعم هنا
+      print('📱 معرف الدعم: $supportUsername');
 
-      // ترميز الرسالة للـ URL
+      print('🔗 ترميز الرسالة للـ URL...');
       final encodedMessage = Uri.encodeComponent(message);
+      print('🔗 طول الرسالة المرمزة: ${encodedMessage.length} حرف');
 
       // إنشاء رابط التلغرام
       final telegramUrl = 'https://t.me/$supportUsername?text=$encodedMessage';
+      print('🔗 رابط التلغرام: ${telegramUrl.substring(0, telegramUrl.length > 200 ? 200 : telegramUrl.length)}...');
 
-      // فتح التلغرام مع الرسالة الجاهزة
-      if (await canLaunchUrl(Uri.parse(telegramUrl))) {
+      print('🔍 فحص إمكانية فتح الرابط...');
+      final canLaunch = await canLaunchUrl(Uri.parse(telegramUrl));
+      print('🔍 هل يمكن فتح الرابط؟ $canLaunch');
+
+      if (canLaunch) {
+        print('🚀 محاولة فتح التلغرام...');
         await launchUrl(
           Uri.parse(telegramUrl),
           mode: LaunchMode.externalApplication,
         );
+        print('✅ تم فتح التلغرام بنجاح');
       } else {
+        print('❌ لا يمكن فتح التلغرام');
         throw Exception('لا يمكن فتح التلغرام. تأكد من تثبيت التطبيق.');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ خطأ في فتح التلغرام: $e');
+      print('❌ Stack Trace: $stackTrace');
       throw Exception('فشل في فتح التلغرام: $e');
     }
   }
 
   Future<void> _updateOrderSupportStatus() async {
+    print('💾 === تحديث حالة الدعم في قاعدة البيانات ===');
+
     try {
+      final baseUrl = _getBaseUrl();
+      final orderId = widget.order['id'];
+      final notes = _notesController.text.trim();
+
+      print('💾 الخادم: $baseUrl');
+      print('💾 معرف الطلب: $orderId');
+      print('💾 الملاحظات: $notes');
+
+      final url = Uri.parse('$baseUrl/api/support/mark-support-sent');
+      print('💾 الرابط: $url');
+
+      final requestBody = json.encode({
+        'orderId': orderId,
+        'notes': notes,
+      });
+      print('💾 محتوى الطلب: $requestBody');
+
+      print('📡 إرسال الطلب...');
       final response = await http.post(
-        Uri.parse('${_getBaseUrl()}/api/support/mark-support-sent'),
+        url,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: json.encode({
-          'orderId': widget.order['id'],
-          'notes': _notesController.text.trim(),
-        }),
+        body: requestBody,
       );
 
-      if (response.statusCode != 200) {
-        print('⚠️ تحذير: فشل في تحديث حالة الدعم في قاعدة البيانات');
+      print('📡 رمز الاستجابة: ${response.statusCode}');
+      print('📡 محتوى الاستجابة: ${response.body}');
+
+      if (response.statusCode == 200) {
+        print('✅ تم تحديث حالة الدعم بنجاح');
+      } else {
+        print('⚠️ تحذير: فشل في تحديث حالة الدعم - رمز: ${response.statusCode}');
+        print('⚠️ رسالة الخطأ: ${response.body}');
       }
-    } catch (e) {
-      print('⚠️ تحذير: خطأ في تحديث حالة الدعم: $e');
+    } catch (e, stackTrace) {
+      print('❌ خطأ في تحديث حالة الدعم: $e');
+      print('❌ Stack Trace: $stackTrace');
     }
   }
 
