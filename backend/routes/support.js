@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { supabase } = require('../config/supabase');
 
 /**
  * إرسال طلب دعم للتليجرام - نسخة مبسطة للاختبار
@@ -37,11 +38,7 @@ router.post('/send-support-request', async (req, res) => {
 
     // تحضير الرسالة
     const currentDate = new Date().toLocaleDateString('ar-EG');
-    const message = `🚨 طلب دعم جديد - منتجاتي 🚨
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-👤 معلومات الزبون:
+    const message = `👤 معلومات الزبون:
 📝 الاسم: ${customerName}
 📞 الهاتف الأساسي: ${primaryPhone}
 📱 الهاتف البديل: ${alternativePhone || 'غير متوفر'}
@@ -50,21 +47,13 @@ router.post('/send-support-request', async (req, res) => {
 🏛️ المحافظة: ${governorate || 'غير محدد'}
 🏠 العنوان: ${address || 'غير محدد'}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 📦 معلومات الطلب:
 🆔 رقم الطلب: ${orderId}
 📅 تاريخ الطلب: ${currentDate}
 ⚠️ حالة الطلب: ${orderStatus}
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
 💬 ملاحظات المستخدم:
-${notes && notes.trim() ? notes.trim() : 'لا توجد ملاحظات إضافية'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚡ يرجى المتابعة مع الزبون في أقرب وقت ممكن ⚡`;
+${notes && notes.trim() ? notes.trim() : 'لا توجد ملاحظات إضافية'}`;
 
     console.log('📝 تم تحضير الرسالة - الطول:', message.length);
 
