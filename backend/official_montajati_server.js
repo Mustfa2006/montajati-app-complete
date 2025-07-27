@@ -365,11 +365,11 @@ class OfficialMontajatiServer {
 
     // مسارات دعم الطلبات
     try {
-      const orderSupportRoutes = require('./routes/order_support');
-      this.app.use('/api/support', orderSupportRoutes);
-      console.log('✅ تم تحميل مسارات دعم الطلبات');
+      const supportRoutes = require('./routes/support');
+      this.app.use('/api/support', supportRoutes);
+      console.log('✅ تم تحميل مسارات الدعم التلقائي للتلغرام');
     } catch (error) {
-      console.warn('⚠️ تحذير في تحميل مسارات دعم الطلبات:', error.message);
+      console.warn('⚠️ تحذير في تحميل مسارات الدعم:', error.message);
     }
 
     console.log('✅ انتهى تحميل جميع المسارات');
