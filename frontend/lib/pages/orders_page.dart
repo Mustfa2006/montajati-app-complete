@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+
 import '../services/simple_orders_service.dart';
 import '../services/scheduled_orders_service.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
@@ -16,7 +17,6 @@ import '../models/order.dart';
 import '../models/order_item.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../widgets/common_header.dart';
-import '../widgets/order_processing_widget.dart';
 import '../utils/order_status_helper.dart';
 
 class OrdersPage extends StatefulWidget {
@@ -1528,9 +1528,14 @@ class _OrdersPageState extends State<OrdersPage> {
 
   // إرسال طلب الدعم
   Future<void> _sendSupportRequest(Order order, String notes) async {
+    print('🔥 === تم النقر على زر إرسال للدعم - إرسال تلقائي ===');
+    print('🔥 معلومات الطلب: ${order.toJson()}');
+    print('🔥 الملاحظات: $notes');
 
     try {
-      // إرسال طلب الدعم للخادم
+      print('📡 Step 1: إرسال طلب الدعم للخادم...');
+
+      // إرسال طلب الدعم للخادم (سيرسل تلقائياً للتلغرام)
       final response = await http.post(
         Uri.parse('https://montajati-backend.onrender.com/api/support/send-support-request'),
         headers: {
@@ -1548,11 +1553,16 @@ class _OrdersPageState extends State<OrdersPage> {
         }),
       );
 
+      print('📡 رمز الاستجابة: ${response.statusCode}');
+      print('📡 محتوى الاستجابة: ${response.body}');
+
       final responseData = json.decode(response.body);
 
       if (response.statusCode != 200 || !responseData['success']) {
-        throw Exception(responseData['message'] ?? 'فشل في إرسال الطلب');
+        throw Exception(responseData['message'] ?? 'فشل في إرسال الطلب للدعم');
       }
+
+      print('✅ تم إرسال طلب الدعم بنجاح');
 
       if (!mounted) return;
 
@@ -1567,7 +1577,7 @@ class _OrdersPageState extends State<OrdersPage> {
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 8),
               Text(
-                'تم إرسال الطلب للدعم بنجاح',
+                'تم إرسال طلب الدعم بنجاح',
                 style: GoogleFonts.cairo(),
               ),
             ],
@@ -1584,7 +1594,12 @@ class _OrdersPageState extends State<OrdersPage> {
       // تحديث الطلب محلياً
       await _loadOrders(); // إعادة تحميل الطلبات
 
-    } catch (error) {
+    } catch (error, stackTrace) {
+      print('❌ === خطأ في عملية إرسال طلب الدعم ===');
+      print('❌ نوع الخطأ: ${error.runtimeType}');
+      print('❌ رسالة الخطأ: ${error.toString()}');
+      print('❌ Stack Trace: $stackTrace');
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1593,14 +1608,16 @@ class _OrdersPageState extends State<OrdersPage> {
             children: [
               const Icon(Icons.error, color: Colors.white),
               const SizedBox(width: 8),
-              Text(
-                'خطأ: ${error.toString()}',
-                style: GoogleFonts.cairo(),
+              Expanded(
+                child: Text(
+                  'خطأ: Exception فشل في إرسال الطلب للدعم',
+                  style: GoogleFonts.cairo(),
+                ),
               ),
             ],
           ),
           backgroundColor: const Color(0xFFdc3545),
-          duration: const Duration(seconds: 5),
+          duration: const Duration(seconds: 8),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -1889,4 +1906,6 @@ class _OrdersPageState extends State<OrdersPage> {
       ],
     };
   }
+
+
 }
