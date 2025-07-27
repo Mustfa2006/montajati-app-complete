@@ -81,7 +81,7 @@ class TokenManagementService {
         .eq('is_active', true);
       
       if (error) {
-        throw new Error(`خطأ في جلب الرموز: ${error.message}`);
+        throw new Error(`خطأ في جلب الرموز: ${error.message}`); ى
       }
       
       if (!tokens || tokens.length === 0) {

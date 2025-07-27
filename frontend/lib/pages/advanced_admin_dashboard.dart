@@ -7143,7 +7143,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
-                  Icons.template_outlined,
+                  Icons.text_snippet,
                   color: Color(0xFFf59e0b),
                   size: 20,
                 ),
