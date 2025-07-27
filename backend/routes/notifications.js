@@ -710,4 +710,171 @@ router.get('/history', async (req, res) => {
   }
 });
 
+// ===== إنشاء جداول قاعدة البيانات =====
+router.post('/setup-database', async (req, res) => {
+  try {
+    console.log('🔧 إنشاء جداول قاعدة البيانات للإشعارات...');
+
+    const { createClient } = require('@supabase/supabase-js');
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    // إنشاء جدول الإشعارات
+    const createNotificationsTable = `
+      CREATE TABLE IF NOT EXISTS notifications (
+          id SERIAL PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          body TEXT NOT NULL,
+          type VARCHAR(50) DEFAULT 'general',
+          status VARCHAR(50) DEFAULT 'sent',
+          recipients_count INTEGER DEFAULT 0,
+          delivery_rate INTEGER DEFAULT 0,
+          sent_at TIMESTAMP WITH TIME ZONE,
+          scheduled_for TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          notification_data JSONB,
+          created_by VARCHAR(100)
+      );
+    `;
+
+    // إنشاء جدول الإحصائيات
+    const createStatsTable = `
+      CREATE TABLE IF NOT EXISTS notification_stats (
+          id SERIAL PRIMARY KEY,
+          total_sent INTEGER DEFAULT 0,
+          total_delivered INTEGER DEFAULT 0,
+          total_opened INTEGER DEFAULT 0,
+          total_clicked INTEGER DEFAULT 0,
+          date DATE DEFAULT CURRENT_DATE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(date)
+      );
+    `;
+
+    // إنشاء دالة الإحصائيات
+    const createStatsFunction = `
+      CREATE OR REPLACE FUNCTION get_notification_statistics()
+      RETURNS JSON AS $$
+      DECLARE
+          result JSON;
+      BEGIN
+          SELECT json_build_object(
+              'total_sent', COALESCE(SUM(total_sent), 0),
+              'total_delivered', COALESCE(SUM(total_delivered), 0),
+              'total_opened', COALESCE(SUM(total_opened), 0),
+              'total_clicked', COALESCE(SUM(total_clicked), 0),
+              'last_updated', MAX(updated_at)
+          ) INTO result
+          FROM notification_stats;
+
+          RETURN result;
+      END;
+      $$ LANGUAGE plpgsql;
+    `;
+
+    // إنشاء دالة التاريخ
+    const createHistoryFunction = `
+      CREATE OR REPLACE FUNCTION get_notification_history(limit_count INTEGER DEFAULT 50)
+      RETURNS JSON AS $$
+      DECLARE
+          result JSON;
+      BEGIN
+          SELECT json_agg(
+              json_build_object(
+                  'id', id,
+                  'title', title,
+                  'body', body,
+                  'type', type,
+                  'status', status,
+                  'recipients_count', recipients_count,
+                  'delivery_rate', delivery_rate,
+                  'sent_at', sent_at,
+                  'created_at', created_at
+              )
+              ORDER BY created_at DESC
+          ) INTO result
+          FROM notifications
+          LIMIT limit_count;
+
+          RETURN COALESCE(result, '[]'::json);
+      END;
+      $$ LANGUAGE plpgsql;
+    `;
+
+    // تنفيذ الاستعلامات
+    await supabase.rpc('exec_sql', { sql: createNotificationsTable });
+    await supabase.rpc('exec_sql', { sql: createStatsTable });
+    await supabase.rpc('exec_sql', { sql: createStatsFunction });
+    await supabase.rpc('exec_sql', { sql: createHistoryFunction });
+
+    // إدراج سجل إحصائيات أولي
+    const { error: insertError } = await supabase
+      .from('notification_stats')
+      .insert([{ date: new Date().toISOString().split('T')[0] }])
+      .select();
+
+    console.log('✅ تم إنشاء جداول قاعدة البيانات بنجاح');
+
+    res.json({
+      success: true,
+      message: 'تم إنشاء جداول قاعدة البيانات بنجاح',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في إنشاء جداول قاعدة البيانات:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إنشاء جداول قاعدة البيانات',
+      error: error.message
+    });
+  }
+});
+
+// ===== اختبار النظام =====
+router.post('/test-system', async (req, res) => {
+  try {
+    console.log('🧪 اختبار نظام الإشعارات...');
+
+    const manager = await initializeNotificationManager();
+
+    // اختبار جلب المستخدمين
+    const users = await manager.getAllActiveUsers();
+    console.log(`👥 عدد المستخدمين النشطين: ${users.length}`);
+
+    // اختبار الإحصائيات
+    const stats = await manager.getNotificationStats();
+    console.log('📊 الإحصائيات:', stats);
+
+    // اختبار التاريخ
+    const history = await manager.getNotificationHistory();
+    console.log(`📜 عدد الإشعارات في التاريخ: ${history.length}`);
+
+    res.json({
+      success: true,
+      message: 'تم اختبار النظام بنجاح',
+      data: {
+        active_users_count: users.length,
+        stats: stats,
+        history_count: history.length,
+        system_status: 'operational'
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في اختبار النظام:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في اختبار النظام',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 module.exports = router;
