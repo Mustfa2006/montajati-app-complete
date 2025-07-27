@@ -1,21 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { supabase } = require('../config/supabase');
 
 /**
- * إرسال طلب دعم للتليجرام
+ * إرسال طلب دعم للتليجرام - نسخة مبسطة للاختبار
  */
 router.post('/send-support-request', async (req, res) => {
   console.log('🔥 === تم استلام طلب دعم جديد ===');
-  
+
   try {
     const {
       orderId,
       customerName,
       primaryPhone,
-      alternativePhone,
-      governorate,
-      address,
       orderStatus,
       notes
     } = req.body;
@@ -127,8 +123,34 @@ async function sendToTelegram(message) {
     console.log('📡 إرسال الرسالة للتلغرام...');
     console.log('🤖 Bot Token:', botToken ? 'موجود' : 'غير موجود');
 
-    // أولاً نحتاج للحصول على chat_id للمستخدم @montajati_support
-    // سنحاول إرسال رسالة مباشرة باستخدام username
+    // أولاً نحصل على معرف المحادثة من البوت
+    console.log('🔍 البحث عن معرف المحادثة...');
+
+    // نحصل على آخر الرسائل للعثور على chat_id
+    const getUpdatesUrl = `https://api.telegram.org/bot${botToken}/getUpdates`;
+    const updatesResponse = await fetch(getUpdatesUrl);
+    const updatesResult = await updatesResponse.json();
+
+    console.log('📨 عدد التحديثات:', updatesResult.result ? updatesResult.result.length : 0);
+
+    let chatId = null;
+
+    // البحث عن chat_id من آخر الرسائل
+    if (updatesResult.ok && updatesResult.result.length > 0) {
+      // نأخذ آخر رسالة
+      const lastUpdate = updatesResult.result[updatesResult.result.length - 1];
+      if (lastUpdate.message) {
+        chatId = lastUpdate.message.chat.id;
+        console.log('✅ تم العثور على معرف المحادثة:', chatId);
+      }
+    }
+
+    // إذا لم نجد chat_id، نستخدم username
+    if (!chatId) {
+      console.log('⚠️ لم يتم العثور على معرف المحادثة، سنستخدم username');
+      chatId = '@montajati_support';
+    }
+
     const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
 
     const response = await fetch(telegramUrl, {
@@ -137,7 +159,7 @@ async function sendToTelegram(message) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        chat_id: '@montajati_support', // استخدام username مباشرة
+        chat_id: chatId,
         text: message,
         parse_mode: 'HTML'
       }),
