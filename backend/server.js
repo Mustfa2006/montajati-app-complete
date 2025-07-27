@@ -221,9 +221,9 @@ try {
 try {
   const supportRoutes = require('./routes/support');
   app.use('/api/support', supportRoutes);
-  console.log('✅ تم تحميل مسارات الدعم');
+  console.log('✅ تم تحميل مسارات الدعم بنجاح');
 } catch (error) {
-  console.log('تحذير: لم يتم العثور على routes/support');
+  console.log('❌ خطأ في تحميل routes/support:', error.message);
 }
 
 // معالجة الأخطاء العامة
