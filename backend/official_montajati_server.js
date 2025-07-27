@@ -367,7 +367,7 @@ class OfficialMontajatiServer {
     try {
       const supportRoutes = require('./routes/support');
       this.app.use('/api/support', supportRoutes);
-      console.log('✅ تم تحميل مسارات الدعم التلقائي للتلغرام');
+      console.log('✅ تم تحميل مسارات الدعم التلقائي للتلغرام - v2.0');
     } catch (error) {
       console.warn('⚠️ تحذير في تحميل مسارات الدعم:', error.message);
     }
