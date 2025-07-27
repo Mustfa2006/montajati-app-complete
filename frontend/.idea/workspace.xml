@@ -5,9 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8412364a-30ad-4613-97eb-1510ee1dd4d9" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/lib/pages/orders_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/orders_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/widgets/enhanced_order_card.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/widgets/order_processing_widget.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../backend/ORDER_PROCESSING_SYSTEM_GUIDE.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../backend/database/create_support_tables.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../backend/routes/order_support.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../backend/server.js" beforeDir="false" afterPath="$PROJECT_DIR$/../backend/server.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../backend/services/telegram_support_service.js" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

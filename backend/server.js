@@ -217,6 +217,15 @@ try {
   console.log('تحذير: لم يتم العثور على routes/waseet_statuses');
 }
 
+// Routes للدعم
+try {
+  const supportRoutes = require('./routes/support');
+  app.use('/api/support', supportRoutes);
+  console.log('✅ تم تحميل مسارات الدعم');
+} catch (error) {
+  console.log('تحذير: لم يتم العثور على routes/support');
+}
+
 // معالجة الأخطاء العامة
 app.use((err, req, res, next) => {
   console.error('خطأ في الخادم:', err.stack);
