@@ -12,6 +12,9 @@ router.post('/send-support-request', async (req, res) => {
       orderId,
       customerName,
       primaryPhone,
+      alternativePhone,
+      governorate,
+      address,
       orderStatus,
       notes
     } = req.body;
