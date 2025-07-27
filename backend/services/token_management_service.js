@@ -326,6 +326,59 @@ class TokenManagementService {
   }
 
   /**
+   * جلب جميع المستخدمين النشطين
+   * @returns {Promise<Array>} قائمة المستخدمين النشطين
+   */
+  async getAllActiveUsers() {
+    try {
+      console.log('👥 جلب جميع المستخدمين النشطين...');
+
+      // جلب المستخدمين الذين لديهم رموز نشطة
+      const { data: activeTokens, error } = await this.supabase
+        .from('fcm_tokens')
+        .select('user_phone, fcm_token')
+        .eq('is_active', true);
+
+      if (error) {
+        throw new Error(`خطأ في جلب الرموز النشطة: ${error.message}`);
+      }
+
+      if (!activeTokens || activeTokens.length === 0) {
+        console.log('ℹ️ لا توجد رموز نشطة');
+        return [];
+      }
+
+      // إنشاء قائمة فريدة من المستخدمين
+      const uniqueUsers = [];
+      const seenPhones = new Set();
+
+      for (const token of activeTokens) {
+        if (!seenPhones.has(token.user_phone)) {
+          seenPhones.add(token.user_phone);
+          uniqueUsers.push({
+            phone: token.user_phone,
+            fcm_token: token.fcm_token
+          });
+        }
+      }
+
+      console.log(`✅ تم جلب ${uniqueUsers.length} مستخدم نشط فريد`);
+      return uniqueUsers;
+
+    } catch (error) {
+      console.error('❌ خطأ في جلب المستخدمين النشطين:', error.message);
+      return [];
+    }
+  }
+
+  /**
+   * جلب إحصائيات الرموز (alias للتوافق)
+   */
+  async getTokenStats() {
+    return await this.getTokenStatistics();
+  }
+
+  /**
    * إيقاف الخدمة
    */
   async shutdown() {

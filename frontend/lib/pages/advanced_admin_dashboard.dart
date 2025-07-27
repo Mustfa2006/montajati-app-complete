@@ -19,6 +19,8 @@ import 'users_management_page.dart';
 import 'reports_page.dart';
 import 'settings_page.dart';
 import 'admin_settings_page.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class AdvancedAdminDashboard extends StatefulWidget {
   const AdvancedAdminDashboard({super.key});
@@ -65,6 +67,21 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   // متغيرات الصور الإعلانية
   List<Map<String, dynamic>> _advertisementBanners = [];
   bool _isLoadingBanners = false;
+
+  // متغيرات إدارة الإشعارات
+  final TextEditingController _notificationTitleController = TextEditingController();
+  final TextEditingController _notificationBodyController = TextEditingController();
+  String _selectedNotificationType = 'general';
+  bool _isScheduled = false;
+  DateTime? _scheduledDateTime;
+  bool _isSendingNotification = false;
+  List<Map<String, dynamic>> _sentNotifications = [];
+  Map<String, int> _notificationStats = {
+    'total_sent': 0,
+    'total_delivered': 0,
+    'total_opened': 0,
+    'total_clicked': 0,
+  };
 
   @override
   void initState() {
@@ -380,9 +397,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       {'icon': Icons.people, 'title': 'المستخدمين', 'index': 2},
       {'icon': Icons.inventory, 'title': 'المنتجات', 'index': 3},
       {'icon': Icons.image, 'title': 'الصور الإعلانية', 'index': 4},
-      {'icon': Icons.account_balance_wallet, 'title': 'المالية', 'index': 5},
-      {'icon': Icons.analytics, 'title': 'التقارير', 'index': 6},
-      {'icon': Icons.settings, 'title': 'الإعدادات', 'index': 7},
+      {'icon': Icons.notifications, 'title': 'الإشعارات', 'index': 5},
+      {'icon': Icons.account_balance_wallet, 'title': 'المالية', 'index': 6},
+      {'icon': Icons.analytics, 'title': 'التقارير', 'index': 7},
+      {'icon': Icons.settings, 'title': 'الإعدادات', 'index': 8},
     ];
 
     return Expanded(
@@ -477,10 +495,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       case 4:
         return _buildAdvertisementBannersManagement();
       case 5:
-        return _buildFinancialManagement();
+        return _buildNotificationsManagement();
       case 6:
-        return _buildReportsSection();
+        return _buildFinancialManagement();
       case 7:
+        return _buildReportsSection();
+      case 8:
         return _buildSettingsSection();
       default:
         return _buildDashboardOverview();
@@ -6352,6 +6372,1368 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     } catch (e) {
       debugPrint('❌ خطأ في حذف الصورة الإعلانية: $e');
       _showErrorSnackBar('خطأ في حذف الصورة الإعلانية: $e');
+    }
+  }
+
+  // ===== إدارة الإشعارات =====
+  Widget _buildNotificationsManagement() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildNotificationsHeader(),
+          const SizedBox(height: 20),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildNotificationStats(),
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildNotificationComposer(),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          children: [
+                            _buildNotificationPreview(),
+                            const SizedBox(height: 20),
+                            _buildQuickNotificationTemplates(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _buildSentNotificationsList(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationsHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366f1), Color(0xFF8b5cf6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6366f1).withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.notifications_active,
+              color: Colors.white,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 15),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'إدارة الإشعارات',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'إرسال إشعارات مخصصة لجميع المستخدمين',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildNotificationQuickActions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationQuickActions() {
+    return Row(
+      children: [
+        _buildQuickActionButton(
+          'إشعار سريع',
+          Icons.flash_on,
+          const Color(0xFFffd700),
+          () => _sendQuickNotification(),
+        ),
+        const SizedBox(width: 10),
+        _buildQuickActionButton(
+          'تحديث الإحصائيات',
+          Icons.refresh,
+          Colors.white.withOpacity(0.2),
+          () => _loadNotificationStats(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationStats() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildNotificationStatCard(
+            'إجمالي المرسل',
+            _notificationStats['total_sent'].toString(),
+            Icons.send,
+            const Color(0xFF3b82f6),
+          ),
+        ),
+        const SizedBox(width: 15),
+        Expanded(
+          child: _buildNotificationStatCard(
+            'تم التسليم',
+            _notificationStats['total_delivered'].toString(),
+            Icons.check_circle,
+            const Color(0xFF10b981),
+          ),
+        ),
+        const SizedBox(width: 15),
+        Expanded(
+          child: _buildNotificationStatCard(
+            'تم الفتح',
+            _notificationStats['total_opened'].toString(),
+            Icons.visibility,
+            const Color(0xFFf59e0b),
+          ),
+        ),
+        const SizedBox(width: 15),
+        Expanded(
+          child: _buildNotificationStatCard(
+            'تم النقر',
+            _notificationStats['total_clicked'].toString(),
+            Icons.touch_app,
+            const Color(0xFFef4444),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const Spacer(),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationComposer() {
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366f1).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.edit_notifications,
+                  color: Color(0xFF6366f1),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'إنشاء إشعار جديد',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1f2937),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 25),
+
+          // نوع الإشعار
+          _buildNotificationTypeSelector(),
+          const SizedBox(height: 20),
+
+          // عنوان الإشعار
+          _buildInputField(
+            controller: _notificationTitleController,
+            label: 'عنوان الإشعار',
+            hint: 'أدخل عنوان جذاب للإشعار',
+            icon: Icons.title,
+            maxLength: 50,
+          ),
+          const SizedBox(height: 20),
+
+          // محتوى الإشعار
+          _buildInputField(
+            controller: _notificationBodyController,
+            label: 'محتوى الإشعار',
+            hint: 'اكتب محتوى الإشعار هنا...',
+            icon: Icons.message,
+            maxLines: 4,
+            maxLength: 200,
+          ),
+          const SizedBox(height: 25),
+
+          // خيارات الإرسال
+          _buildSendingOptions(),
+          const SizedBox(height: 25),
+
+          // أزرار الإجراءات
+          _buildNotificationActions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationTypeSelector() {
+    final types = [
+      {'value': 'general', 'label': 'عام', 'icon': Icons.info, 'color': const Color(0xFF6366f1)},
+      {'value': 'promotion', 'label': 'عرض خاص', 'icon': Icons.local_offer, 'color': const Color(0xFFf59e0b)},
+      {'value': 'update', 'label': 'تحديث', 'icon': Icons.system_update, 'color': const Color(0xFF10b981)},
+      {'value': 'urgent', 'label': 'عاجل', 'icon': Icons.priority_high, 'color': const Color(0xFFef4444)},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'نوع الإشعار',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          children: types.map((type) {
+            final isSelected = _selectedNotificationType == type['value'];
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedNotificationType = type['value'] as String;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? (type['color'] as Color) : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: isSelected ? (type['color'] as Color) : Colors.grey.shade300,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      type['icon'] as IconData,
+                      size: 16,
+                      color: isSelected ? Colors.white : Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      type['label'] as String,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    int maxLines = 1,
+    int? maxLength,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          maxLines: maxLines,
+          maxLength: maxLength,
+          decoration: InputDecoration(
+            hintText: hint,
+            prefixIcon: Icon(icon, color: const Color(0xFF6366f1)),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF6366f1), width: 2),
+            ),
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            counterStyle: const TextStyle(fontSize: 12),
+          ),
+          onChanged: (value) {
+            setState(() {}); // لتحديث المعاينة
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSendingOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'خيارات الإرسال',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF374151),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isScheduled = false;
+                    _scheduledDateTime = null;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: !_isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: !_isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.send,
+                        color: !_isScheduled ? Colors.white : Colors.grey.shade600,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'إرسال فوري',
+                        style: TextStyle(
+                          color: !_isScheduled ? Colors.white : Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _isScheduled = true;
+                  });
+                  _selectScheduleDateTime();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: _isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.schedule,
+                        color: _isScheduled ? Colors.white : Colors.grey.shade600,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'إرسال مجدول',
+                        style: TextStyle(
+                          color: _isScheduled ? Colors.white : Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_isScheduled && _scheduledDateTime != null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6366f1).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.access_time, color: Color(0xFF6366f1), size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'موعد الإرسال: ${_formatDateTime(_scheduledDateTime!)}',
+                  style: const TextStyle(
+                    color: Color(0xFF6366f1),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildNotificationActions() {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: _isSendingNotification ? null : _sendNotification,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6366f1),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: _isSendingNotification
+                ? const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text('جاري الإرسال...'),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.send, size: 18),
+                      const SizedBox(width: 8),
+                      Text(_isScheduled ? 'جدولة الإشعار' : 'إرسال الإشعار'),
+                    ],
+                  ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        ElevatedButton(
+          onPressed: _clearNotificationForm,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.grey.shade100,
+            foregroundColor: Colors.grey.shade700,
+            padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            elevation: 0,
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.clear, size: 18),
+              SizedBox(width: 5),
+              Text('مسح'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationPreview() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10b981).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.preview,
+                  color: Color(0xFF10b981),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'معاينة الإشعار',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1f2937),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _getNotificationTypeColor(),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        _getNotificationTypeIcon(),
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _notificationTitleController.text.isEmpty
+                                ? 'عنوان الإشعار'
+                                : _notificationTitleController.text,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: _notificationTitleController.text.isEmpty
+                                  ? Colors.grey.shade400
+                                  : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _notificationBodyController.text.isEmpty
+                                ? 'محتوى الإشعار سيظهر هنا...'
+                                : _notificationBodyController.text,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _notificationBodyController.text.isEmpty
+                                  ? Colors.grey.shade400
+                                  : Colors.grey.shade600,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'الآن',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickNotificationTemplates() {
+    final templates = [
+      {
+        'title': 'عرض خاص',
+        'body': 'خصم 50% على جميع المنتجات! لفترة محدودة فقط',
+        'type': 'promotion',
+      },
+      {
+        'title': 'تحديث التطبيق',
+        'body': 'تحديث جديد متاح الآن مع مميزات رائعة',
+        'type': 'update',
+      },
+      {
+        'title': 'إشعار عاجل',
+        'body': 'إشعار مهم يتطلب انتباهكم الفوري',
+        'type': 'urgent',
+      },
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFf59e0b).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.template_outlined,
+                  color: Color(0xFFf59e0b),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'قوالب سريعة',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1f2937),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+          ...templates.map((template) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: GestureDetector(
+                onTap: () => _applyTemplate(template),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        template['title'] as String,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1f2937),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        template['body'] as String,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSentNotificationsList() {
+    return Container(
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8b5cf6).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.history,
+                  color: Color(0xFF8b5cf6),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'الإشعارات المرسلة',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1f2937),
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _loadSentNotifications,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('تحديث'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF8b5cf6),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if (_sentNotifications.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.notifications_off,
+                    size: 64,
+                    color: Colors.grey.shade300,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'لا توجد إشعارات مرسلة بعد',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'ابدأ بإرسال أول إشعار لك',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey.shade400,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _sentNotifications.length,
+              itemBuilder: (context, index) {
+                final notification = _sentNotifications[index];
+                return _buildNotificationHistoryItem(notification);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationHistoryItem(Map<String, dynamic> notification) {
+    final type = notification['type'] ?? 'general';
+    final color = _getTypeColor(type);
+    final icon = _getTypeIcon(type);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  notification['title'] ?? 'بدون عنوان',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1f2937),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  notification['body'] ?? 'بدون محتوى',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.access_time, size: 12, color: Colors.grey.shade400),
+                    const SizedBox(width: 4),
+                    Text(
+                      _formatDateTime(DateTime.parse(notification['sent_at'] ?? DateTime.now().toIso8601String())),
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(Icons.people, size: 12, color: Colors.grey.shade400),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${notification['recipients_count'] ?? 0} مستخدم',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(notification['status']).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _getStatusText(notification['status']),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: _getStatusColor(notification['status']),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${notification['delivery_rate'] ?? 0}%',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===== دوال مساعدة للإشعارات =====
+  Color _getNotificationTypeColor() {
+    switch (_selectedNotificationType) {
+      case 'promotion':
+        return const Color(0xFFf59e0b);
+      case 'update':
+        return const Color(0xFF10b981);
+      case 'urgent':
+        return const Color(0xFFef4444);
+      default:
+        return const Color(0xFF6366f1);
+    }
+  }
+
+  IconData _getNotificationTypeIcon() {
+    switch (_selectedNotificationType) {
+      case 'promotion':
+        return Icons.local_offer;
+      case 'update':
+        return Icons.system_update;
+      case 'urgent':
+        return Icons.priority_high;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Color _getTypeColor(String type) {
+    switch (type) {
+      case 'promotion':
+        return const Color(0xFFf59e0b);
+      case 'update':
+        return const Color(0xFF10b981);
+      case 'urgent':
+        return const Color(0xFFef4444);
+      default:
+        return const Color(0xFF6366f1);
+    }
+  }
+
+  IconData _getTypeIcon(String type) {
+    switch (type) {
+      case 'promotion':
+        return Icons.local_offer;
+      case 'update':
+        return Icons.system_update;
+      case 'urgent':
+        return Icons.priority_high;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Color _getStatusColor(String? status) {
+    switch (status) {
+      case 'sent':
+        return const Color(0xFF10b981);
+      case 'scheduled':
+        return const Color(0xFFf59e0b);
+      case 'failed':
+        return const Color(0xFFef4444);
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getStatusText(String? status) {
+    switch (status) {
+      case 'sent':
+        return 'تم الإرسال';
+      case 'scheduled':
+        return 'مجدول';
+      case 'failed':
+        return 'فشل';
+      default:
+        return 'غير معروف';
+    }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  void _applyTemplate(Map<String, dynamic> template) {
+    setState(() {
+      _notificationTitleController.text = template['title'] as String;
+      _notificationBodyController.text = template['body'] as String;
+      _selectedNotificationType = template['type'] as String;
+    });
+  }
+
+  void _clearNotificationForm() {
+    setState(() {
+      _notificationTitleController.clear();
+      _notificationBodyController.clear();
+      _selectedNotificationType = 'general';
+      _isScheduled = false;
+      _scheduledDateTime = null;
+    });
+  }
+
+  Future<void> _selectScheduleDateTime() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(hours: 1)),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 30)),
+    );
+
+    if (date != null) {
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+
+      if (time != null) {
+        setState(() {
+          _scheduledDateTime = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            time.hour,
+            time.minute,
+          );
+        });
+      }
+    }
+  }
+
+  // ===== وظائف الإشعارات الأساسية =====
+  Future<void> _sendNotification() async {
+    if (_notificationTitleController.text.trim().isEmpty) {
+      _showErrorSnackBar('يرجى إدخال عنوان الإشعار');
+      return;
+    }
+
+    if (_notificationBodyController.text.trim().isEmpty) {
+      _showErrorSnackBar('يرجى إدخال محتوى الإشعار');
+      return;
+    }
+
+    if (_isScheduled && _scheduledDateTime == null) {
+      _showErrorSnackBar('يرجى تحديد موعد الإرسال');
+      return;
+    }
+
+    setState(() {
+      _isSendingNotification = true;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://localhost:3000/api/notifications/send'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'title': _notificationTitleController.text.trim(),
+          'body': _notificationBodyController.text.trim(),
+          'type': _selectedNotificationType,
+          'isScheduled': _isScheduled,
+          'scheduledDateTime': _scheduledDateTime?.toIso8601String(),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          _showSuccessSnackBar(
+            _isScheduled
+                ? 'تم جدولة الإشعار بنجاح'
+                : 'تم إرسال الإشعار بنجاح لجميع المستخدمين'
+          );
+
+          _clearNotificationForm();
+          await _loadSentNotifications();
+          await _loadNotificationStats();
+        } else {
+          _showErrorSnackBar(responseData['message'] ?? 'فشل في إرسال الإشعار');
+        }
+      } else {
+        _showErrorSnackBar('خطأ في الاتصال بالخادم');
+      }
+    } catch (e) {
+      debugPrint('خطأ في إرسال الإشعار: $e');
+      _showErrorSnackBar('خطأ في إرسال الإشعار: $e');
+    } finally {
+      setState(() {
+        _isSendingNotification = false;
+      });
+    }
+  }
+
+  Future<void> _sendQuickNotification() async {
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => _buildQuickNotificationDialog(),
+    );
+
+    if (result != null) {
+      setState(() {
+        _notificationTitleController.text = result['title'] ?? '';
+        _notificationBodyController.text = result['body'] ?? '';
+        _selectedNotificationType = result['type'] ?? 'general';
+        _isScheduled = false;
+        _scheduledDateTime = null;
+      });
+
+      await _sendNotification();
+    }
+  }
+
+  Widget _buildQuickNotificationDialog() {
+    final titleController = TextEditingController();
+    final bodyController = TextEditingController();
+    String selectedType = 'general';
+
+    return StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.flash_on, color: Color(0xFFffd700)),
+              SizedBox(width: 10),
+              Text('إشعار سريع'),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'العنوان',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                TextField(
+                  controller: bodyController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'المحتوى',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 15),
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'النوع',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'general', child: Text('عام')),
+                    DropdownMenuItem(value: 'promotion', child: Text('عرض خاص')),
+                    DropdownMenuItem(value: 'update', child: Text('تحديث')),
+                    DropdownMenuItem(value: 'urgent', child: Text('عاجل')),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedType = value ?? 'general';
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (titleController.text.trim().isNotEmpty &&
+                    bodyController.text.trim().isNotEmpty) {
+                  Navigator.of(context).pop({
+                    'title': titleController.text.trim(),
+                    'body': bodyController.text.trim(),
+                    'type': selectedType,
+                  });
+                }
+              },
+              child: const Text('إرسال'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _loadNotificationStats() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:3000/api/notifications/stats'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _notificationStats = Map<String, int>.from(data['stats'] ?? {});
+        });
+      }
+    } catch (e) {
+      debugPrint('خطأ في تحميل إحصائيات الإشعارات: $e');
+    }
+  }
+
+  Future<void> _loadSentNotifications() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://localhost:3000/api/notifications/history'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _sentNotifications = List<Map<String, dynamic>>.from(data['notifications'] ?? []);
+        });
+      }
+    } catch (e) {
+      debugPrint('خطأ في تحميل تاريخ الإشعارات: $e');
     }
   }
 }

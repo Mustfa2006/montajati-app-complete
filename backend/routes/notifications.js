@@ -12,6 +12,15 @@ const OfficialNotificationManager = require('../services/official_notification_m
 // إنشاء instance من مدير الإشعارات
 let notificationManager = null;
 
+// دالة تهيئة مدير الإشعارات
+async function initializeNotificationManager() {
+  if (!notificationManager) {
+    notificationManager = new OfficialNotificationManager();
+    await notificationManager.initialize();
+  }
+  return notificationManager;
+}
+
 // تهيئة مدير الإشعارات
 async function initializeNotificationManager() {
   if (!notificationManager) {
@@ -522,6 +531,181 @@ router.post('/tokens/maintenance', async (req, res) => {
       success: false,
       message: 'خطأ في الخادم',
       error: error.message
+    });
+  }
+});
+
+// ===== إرسال إشعار لجميع المستخدمين =====
+router.post('/send', async (req, res) => {
+  try {
+    console.log('📢 === طلب إرسال إشعار جماعي جديد ===');
+
+    const {
+      title,
+      body,
+      type = 'general',
+      isScheduled = false,
+      scheduledDateTime
+    } = req.body;
+
+    // التحقق من البيانات المطلوبة
+    if (!title || !body) {
+      return res.status(400).json({
+        success: false,
+        message: 'العنوان والمحتوى مطلوبان'
+      });
+    }
+
+    console.log(`📝 العنوان: ${title}`);
+    console.log(`📝 المحتوى: ${body}`);
+    console.log(`📝 النوع: ${type}`);
+    console.log(`📝 مجدول: ${isScheduled}`);
+
+    // تهيئة مدير الإشعارات
+    const manager = await initializeNotificationManager();
+
+    // جلب جميع المستخدمين النشطين
+    const activeUsers = await manager.getAllActiveUsers();
+    const recipientsCount = activeUsers.length;
+
+    console.log(`👥 عدد المستخدمين المستهدفين: ${recipientsCount}`);
+
+    if (recipientsCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'لا توجد مستخدمين نشطين لإرسال الإشعار إليهم'
+      });
+    }
+
+    // إنشاء سجل الإشعار
+    const notificationData = {
+      title,
+      body,
+      type,
+      isScheduled,
+      scheduledDateTime,
+      recipientsCount,
+      createdAt: new Date().toISOString()
+    };
+
+    if (!isScheduled) {
+      // إرسال فوري
+      console.log('🚀 بدء إرسال الإشعارات الفورية...');
+
+      const results = await manager.sendBulkNotification({
+        title,
+        body,
+        data: {
+          type,
+          timestamp: Date.now().toString(),
+          action: 'open_app'
+        }
+      }, activeUsers);
+
+      // حفظ الإشعار في قاعدة البيانات
+      await manager.saveNotificationRecord({
+        ...notificationData,
+        status: 'sent',
+        sentAt: new Date().toISOString(),
+        results
+      });
+
+      console.log(`✅ تم إرسال الإشعار لـ ${recipientsCount} مستخدم`);
+      console.log(`📊 نتائج الإرسال:`, results);
+
+      res.json({
+        success: true,
+        message: 'تم إرسال الإشعار بنجاح لجميع المستخدمين',
+        data: {
+          recipients_count: recipientsCount,
+          results,
+          notification_id: `bulk_${Date.now()}`
+        }
+      });
+    } else {
+      // إرسال مجدول
+      console.log(`⏰ تم جدولة الإشعار للإرسال في: ${scheduledDateTime}`);
+
+      // حفظ الإشعار المجدول
+      await manager.saveNotificationRecord({
+        ...notificationData,
+        status: 'scheduled',
+        scheduledFor: scheduledDateTime
+      });
+
+      res.json({
+        success: true,
+        message: 'تم جدولة الإشعار بنجاح',
+        data: {
+          recipients_count: recipientsCount,
+          scheduled_time: scheduledDateTime,
+          notification_id: `scheduled_${Date.now()}`
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ خطأ في إرسال الإشعار الجماعي:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إرسال الإشعار',
+      error: error.message
+    });
+  }
+});
+
+// ===== جلب إحصائيات الإشعارات =====
+router.get('/stats', async (req, res) => {
+  try {
+    console.log('📊 طلب إحصائيات الإشعارات');
+
+    const manager = await initializeNotificationManager();
+    const stats = await manager.getNotificationStats();
+
+    res.json({
+      success: true,
+      stats: stats || {
+        total_sent: 0,
+        total_delivered: 0,
+        total_opened: 0,
+        total_clicked: 0,
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب الإحصائيات:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب الإحصائيات',
+      stats: {
+        total_sent: 0,
+        total_delivered: 0,
+        total_opened: 0,
+        total_clicked: 0,
+      }
+    });
+  }
+});
+
+// ===== جلب تاريخ الإشعارات المرسلة =====
+router.get('/history', async (req, res) => {
+  try {
+    console.log('📜 طلب تاريخ الإشعارات');
+
+    const manager = await initializeNotificationManager();
+    const notifications = await manager.getNotificationHistory();
+
+    res.json({
+      success: true,
+      notifications: notifications || []
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب تاريخ الإشعارات:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في جلب تاريخ الإشعارات',
+      notifications: []
     });
   }
 });

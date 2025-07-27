@@ -1,6 +1,7 @@
 // 🚀 خدمة الطلبات المبسطة والموثوقة
 // تطبيق منتجاتي - نظام إدارة الدروب شيبنگ
 
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -551,6 +552,19 @@ class SimpleOrdersService extends ChangeNotifier {
             }).toList() ??
             [];
 
+        // ✅ استخراج رقم الطلب من waseet_data
+        String? waseetQrId;
+        try {
+          final waseetDataStr = orderData['waseet_data'];
+          if (waseetDataStr != null && waseetDataStr.toString().isNotEmpty) {
+            final waseetData = json.decode(waseetDataStr.toString());
+            waseetQrId = waseetData['qrId']?.toString();
+            debugPrint('🔍 استخراج رقم الوسيط للطلب ${orderData['id']}: $waseetQrId');
+          }
+        } catch (e) {
+          debugPrint('⚠️ خطأ في استخراج رقم الوسيط للطلب ${orderData['id']}: $e');
+        }
+
         return AdminOrder(
           id: orderData['id'] ?? '',
           orderNumber: orderData['order_number'] ?? orderData['id'] ?? '',
@@ -572,6 +586,7 @@ class SimpleOrdersService extends ChangeNotifier {
           userName: 'المستخدم', // يمكن تحسينه لاحقاً
           userPhone: orderData['user_phone'] ?? '',
           items: orderItems,
+          waseetQrId: waseetQrId, // ✅ إضافة رقم الطلب في الوسيط
         );
       }).toList();
 
