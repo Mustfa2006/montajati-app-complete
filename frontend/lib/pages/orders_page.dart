@@ -1143,19 +1143,23 @@ class _OrdersPageState extends State<OrdersPage> {
           Row(
             children: [
               // زر المعالجة (للطلبات التي تحتاج معالجة)
-              if (_needsProcessing(order))
+              if (_needsProcessing(order) || (order.supportRequested ?? false))
                 GestureDetector(
-                  onTap: () => _showProcessingDialog(order),
+                  onTap: (order.supportRequested ?? false) ? null : () => _showProcessingDialog(order),
                   child: Container(
-                    width: 55,
+                    width: (order.supportRequested ?? false) ? 75 : 55,
                     height: 24,
                     margin: const EdgeInsets.only(left: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFff8c00),
+                      color: (order.supportRequested ?? false)
+                          ? const Color(0xFF28a745) // أخضر للمعالج
+                          : const Color(0xFFff8c00), // برتقالي للمعالجة
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFff8c00).withValues(alpha: 0.3),
+                          color: ((order.supportRequested ?? false)
+                              ? const Color(0xFF28a745)
+                              : const Color(0xFFff8c00)).withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1164,16 +1168,18 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          FontAwesomeIcons.headset,
+                        Icon(
+                          (order.supportRequested ?? false)
+                              ? FontAwesomeIcons.circleCheck
+                              : FontAwesomeIcons.headset,
                           color: Colors.white,
                           size: 8,
                         ),
                         const SizedBox(width: 2),
                         Text(
-                          'معالجة',
+                          (order.supportRequested ?? false) ? 'تم المعالجة' : 'معالجة',
                           style: GoogleFonts.cairo(
-                            fontSize: 8,
+                            fontSize: 7,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
                           ),
@@ -1550,6 +1556,7 @@ class _OrdersPageState extends State<OrdersPage> {
           'address': order.city,
           'orderStatus': order.rawStatus,
           'notes': notes,
+          'waseetOrderId': order.waseetOrderId, // ✅ إضافة رقم الطلب في الوسيط
         }),
       );
 
@@ -1563,6 +1570,35 @@ class _OrdersPageState extends State<OrdersPage> {
       }
 
       print('✅ تم إرسال طلب الدعم بنجاح');
+
+      // ✅ تحديث حالة الطلب فوراً
+      setState(() {
+        // إنشاء طلب محدث مع حالة الدعم
+        final updatedOrder = Order(
+          id: order.id,
+          customerName: order.customerName,
+          primaryPhone: order.primaryPhone,
+          secondaryPhone: order.secondaryPhone,
+          province: order.province,
+          city: order.city,
+          notes: order.notes,
+          totalCost: order.totalCost,
+          totalProfit: order.totalProfit,
+          subtotal: order.subtotal,
+          total: order.total,
+          status: order.status,
+          rawStatus: order.rawStatus,
+          createdAt: order.createdAt,
+          items: order.items,
+          scheduledDate: order.scheduledDate,
+          scheduleNotes: order.scheduleNotes,
+          supportRequested: true, // ✅ تم إرسال الدعم
+          waseetOrderId: order.waseetOrderId, // ✅ الاحتفاظ برقم الطلب في الوسيط
+        );
+
+        // تحديث الطلب في الخدمة باستخدام دالة التحديث
+        _ordersService.updateOrderSupportStatus(order.id, true);
+      });
 
       if (!mounted) return;
 
@@ -1591,8 +1627,7 @@ class _OrdersPageState extends State<OrdersPage> {
         ),
       );
 
-      // تحديث الطلب محلياً
-      await _loadOrders(); // إعادة تحميل الطلبات
+
 
     } catch (error, stackTrace) {
       print('❌ === خطأ في عملية إرسال طلب الدعم ===');

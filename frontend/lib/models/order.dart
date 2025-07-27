@@ -21,6 +21,7 @@ class Order {
   final DateTime? scheduledDate;
   final String? scheduleNotes;
   final bool? supportRequested;
+  final String? waseetOrderId; // رقم الطلب في الوسيط
 
   Order({
     required this.id,
@@ -41,6 +42,7 @@ class Order {
     this.scheduledDate,
     this.scheduleNotes,
     this.supportRequested,
+    this.waseetOrderId,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -69,6 +71,7 @@ class Order {
           : null,
       scheduleNotes: json['schedule_notes'],
       supportRequested: json['support_requested'],
+      waseetOrderId: json['waseet_order_id'],
     );
   }
 
@@ -89,6 +92,7 @@ class Order {
       'order_items': items.map((item) => item.toJson()).toList(),
       'scheduled_date': scheduledDate?.toIso8601String(),
       'schedule_notes': scheduleNotes,
+      'waseet_order_id': waseetOrderId,
     };
   }
 

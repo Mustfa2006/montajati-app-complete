@@ -113,6 +113,7 @@ class SimpleOrdersService extends ChangeNotifier {
                 .toList(),
             scheduledDate: null,
             scheduleNotes: null,
+            waseetOrderId: adminOrder.waseetQrId, // ✅ إضافة رقم الطلب في الوسيط
           );
           _orders.add(order);
         } catch (e) {
@@ -137,6 +138,7 @@ class SimpleOrdersService extends ChangeNotifier {
             items: [], // قائمة فارغة في حالة الخطأ
             scheduledDate: null,
             scheduleNotes: null,
+            waseetOrderId: adminOrder.waseetQrId, // ✅ إضافة رقم الطلب في الوسيط
           );
           _orders.add(order);
         }
@@ -219,6 +221,37 @@ class SimpleOrdersService extends ChangeNotifier {
   void updateOrder(Order updatedOrder) {
     final index = _orders.indexWhere((order) => order.id == updatedOrder.id);
     if (index != -1) {
+      _orders[index] = updatedOrder;
+      notifyListeners();
+    }
+  }
+
+  /// تحديث حالة الدعم للطلب
+  void updateOrderSupportStatus(String orderId, bool supportRequested) {
+    final index = _orders.indexWhere((order) => order.id == orderId);
+    if (index != -1) {
+      final order = _orders[index];
+      final updatedOrder = Order(
+        id: order.id,
+        customerName: order.customerName,
+        primaryPhone: order.primaryPhone,
+        secondaryPhone: order.secondaryPhone,
+        province: order.province,
+        city: order.city,
+        notes: order.notes,
+        totalCost: order.totalCost,
+        totalProfit: order.totalProfit,
+        subtotal: order.subtotal,
+        total: order.total,
+        status: order.status,
+        rawStatus: order.rawStatus,
+        createdAt: order.createdAt,
+        items: order.items,
+        scheduledDate: order.scheduledDate,
+        scheduleNotes: order.scheduleNotes,
+        supportRequested: supportRequested, // ✅ تحديث حالة الدعم
+        waseetOrderId: order.waseetOrderId, // ✅ الاحتفاظ برقم الطلب في الوسيط
+      );
       _orders[index] = updatedOrder;
       notifyListeners();
     }

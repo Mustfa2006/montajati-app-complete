@@ -17,7 +17,8 @@ router.post('/send-support-request', async (req, res) => {
       governorate,
       address,
       orderStatus,
-      notes
+      notes,
+      waseetOrderId
     } = req.body;
 
     console.log('📋 معلومات الطلب:', {
@@ -51,6 +52,7 @@ router.post('/send-support-request', async (req, res) => {
 🆔 رقم الطلب: ${orderId}
 📅 تاريخ الطلب: ${currentDate}
 ⚠️ حالة الطلب: ${orderStatus}
+🚚 رقم الطلب في التوصيل: ${waseetOrderId || 'لم يتم الإرسال للتوصيل بعد'}
 
 💬 ملاحظات المستخدم:
 ${notes && notes.trim() ? notes.trim() : 'لا توجد ملاحظات إضافية'}`;
