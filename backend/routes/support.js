@@ -118,8 +118,7 @@ ${notes && notes.trim() ? notes.trim() : 'لا توجد ملاحظات إضاف�
 async function sendToTelegram(message) {
   try {
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = '@montajati_support'; // معرف قناة الدعم
-    
+
     if (!botToken) {
       console.log('❌ TELEGRAM_BOT_TOKEN غير موجود في متغيرات البيئة');
       return { success: false, error: 'Bot token not configured' };
@@ -127,24 +126,25 @@ async function sendToTelegram(message) {
 
     console.log('📡 إرسال الرسالة للتلغرام...');
     console.log('🤖 Bot Token:', botToken ? 'موجود' : 'غير موجود');
-    console.log('💬 Chat ID:', chatId);
 
+    // أولاً نحتاج للحصول على chat_id للمستخدم @montajati_support
+    // سنحاول إرسال رسالة مباشرة باستخدام username
     const telegramUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
-    
+
     const response = await fetch(telegramUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        chat_id: chatId,
+        chat_id: '@montajati_support', // استخدام username مباشرة
         text: message,
         parse_mode: 'HTML'
       }),
     });
 
     const result = await response.json();
-    
+
     console.log('📡 استجابة التلغرام:', {
       status: response.status,
       ok: result.ok,
@@ -152,19 +152,30 @@ async function sendToTelegram(message) {
     });
 
     if (result.ok) {
+      console.log('✅ تم إرسال الرسالة بنجاح إلى @montajati_support');
       return { success: true };
     } else {
-      return { 
-        success: false, 
-        error: result.description || 'Unknown error' 
+      console.log('❌ فشل في الإرسال:', result.description);
+
+      // إذا فشل الإرسال للمستخدم، قد يكون البوت لم يبدأ محادثة معه بعد
+      if (result.description && result.description.includes('chat not found')) {
+        return {
+          success: false,
+          error: 'المستخدم @montajati_support لم يبدأ محادثة مع البوت بعد. يجب على المستخدم إرسال /start للبوت أولاً.'
+        };
+      }
+
+      return {
+        success: false,
+        error: result.description || 'Unknown error'
       };
     }
 
   } catch (error) {
     console.error('❌ خطأ في إرسال الرسالة للتلغرام:', error);
-    return { 
-      success: false, 
-      error: error.message 
+    return {
+      success: false,
+      error: error.message
     };
   }
 }
