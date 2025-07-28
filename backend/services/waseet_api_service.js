@@ -15,9 +15,9 @@ class WaseetAPIService {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    // إعدادات شركة الوسيط حسب التعليمات الرسمية
+    // إعدادات شركة الوسيط - الرابط الصحيح
     this.config = {
-      baseUrl: 'https://api.alwaseet-iq.net',
+      baseUrl: 'https://merchant.alwaseet-iq.net',
       username: process.env.WASEET_USERNAME || 'محمد@mustfaabd',
       password: process.env.WASEET_PASSWORD || 'mustfaabd2006@',
       timeout: 30000
@@ -47,14 +47,9 @@ class WaseetAPIService {
         password: this.config.password
       });
 
-      // قائمة المسارات المحتملة للتسجيل
+      // المسار الصحيح لتسجيل الدخول
       const loginPaths = [
-        '/v1/login',
-        '/login',
-        '/v1/auth/login',
-        '/auth/login',
-        '/api/login',
-        '/api/v1/login'
+        '/merchant/login'
       ];
 
       let lastError = null;
