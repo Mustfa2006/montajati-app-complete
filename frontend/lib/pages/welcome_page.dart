@@ -221,7 +221,7 @@ class _WelcomePageState extends State<WelcomePage>
           child: Text(
             'منـتجـاتــي',
             style: GoogleFonts.cairo(
-              fontSize: 56,
+              fontSize: 45,
               fontWeight: FontWeight.w800,
               color: Colors.white,
               shadows: [

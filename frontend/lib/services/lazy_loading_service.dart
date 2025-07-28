@@ -78,8 +78,12 @@ class LazyLoadingService {
   /// تحميل صفحة الأرباح
   static Future<void> _loadProfitsPage() async {
     // تحميل بيانات الأرباح وتهيئة الحسابات
-    await Future.delayed(const Duration(milliseconds: 150));
-    debugPrint('💰 تم تحميل بيانات الأرباح');
+    debugPrint('💰 بدء تحميل صفحة الأرباح...');
+
+    // محاكاة تحميل البيانات
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    debugPrint('💰 تم تحميل بيانات الأرباح بنجاح');
   }
 
   /// تحميل صفحة العملاء

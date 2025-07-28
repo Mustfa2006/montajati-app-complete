@@ -46,7 +46,19 @@ class _ProfitsPageState extends State<ProfitsPage>
   void initState() {
     super.initState();
     _initializeAnimations();
-    _initializeProfitsPage();
+
+    // تهيئة الصفحة بشكل صحيح
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeProfitsPage();
+    });
+
+    // تحميل فوري للأرباح كخطة احتياطية
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && _realizedProfits == 0.0 && _pendingProfits == 0.0) {
+        debugPrint('🔄 تحميل احتياطي للأرباح...');
+        _loadProfitsFromDatabase();
+      }
+    });
 
     // 🛡️ تم إزالة الاستماع لتغييرات الطلبات لمنع الحلقة اللا نهائية
     // الأرباح تُحدث فقط عند فتح الصفحة أو السحب للتحديث
@@ -55,11 +67,27 @@ class _ProfitsPageState extends State<ProfitsPage>
 
   /// تهيئة صفحة الأرباح مع التحميل التدريجي
   Future<void> _initializeProfitsPage() async {
-    // تحميل الصفحة عند الحاجة فقط
-    await LazyLoadingService.loadPageIfNeeded('profits');
+    try {
+      debugPrint('🚀 === بدء تهيئة صفحة الأرباح ===');
 
-    // تحميل البيانات
-    await _loadAndCalculateProfits();
+      // تحميل الصفحة عند الحاجة فقط
+      await LazyLoadingService.loadPageIfNeeded('profits');
+      debugPrint('✅ تم تحميل خدمة التحميل التدريجي');
+
+      // تحميل البيانات
+      debugPrint('🔄 بدء تحميل بيانات الأرباح...');
+      await _loadAndCalculateProfits();
+      debugPrint('✅ تم الانتهاء من تهيئة صفحة الأرباح');
+
+    } catch (e) {
+      debugPrint('❌ خطأ في تهيئة صفحة الأرباح: $e');
+      // في حالة الخطأ، حاول تحميل البيانات مباشرة
+      try {
+        await _loadProfitsFromDatabase();
+      } catch (e2) {
+        debugPrint('❌ خطأ في التحميل المباشر: $e2');
+      }
+    }
   }
 
   // دالة تحديث البيانات
