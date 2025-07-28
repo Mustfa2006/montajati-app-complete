@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'notification_service.dart';
 
 
 /// خدمة إدارة السحوبات المالية - نظام متقدم وآمن
@@ -518,29 +519,51 @@ class WithdrawalService {
           debugPrint('💰 إرجاع $amount د.ع إلى الأرباح المحققة للمستخدم $userId');
 
           try {
+            // الحصول على رقم الهاتف أولاً
+            final userPhone = await _getUserPhone(userId);
+            if (userPhone.isEmpty) {
+              throw Exception('لم يتم العثور على رقم هاتف المستخدم');
+            }
+
+            debugPrint('📱 رقم هاتف المستخدم: $userPhone');
+
             final addResult = await _supabase.rpc('safe_add_profits', params: {
-              'p_user_phone': await _getUserPhone(userId),
+              'p_user_phone': userPhone,
               'p_achieved_amount': amount,
               'p_expected_amount': 0,
               'p_reason': 'إرجاع مبلغ سحب ملغي',
-              'p_authorized_by': 'WITHDRAWAL_SYSTEM'
+              'p_authorized_by': 'WITHDRAWAL_CANCELLATION_SYSTEM'
             });
 
-            if (addResult['success'] == true) {
+            debugPrint('📊 نتيجة إرجاع الأرباح: $addResult');
+
+            if (addResult != null && addResult['success'] == true) {
               debugPrint('✅ تم إرجاع الأرباح بنجاح باستخدام الدالة الآمنة');
             } else {
-              debugPrint('❌ فشل في إرجاع الأرباح: ${addResult['error']}');
+              debugPrint('❌ فشل في إرجاع الأرباح: ${addResult?['error'] ?? 'خطأ غير معروف'}');
+              throw Exception('فشل في إرجاع الأرباح');
             }
           } catch (e) {
             debugPrint('❌ خطأ في استخدام الدالة الآمنة: $e');
             // fallback إلى الطريقة القديمة
-            await _returnToAchievedProfits(userId, amount);
+            try {
+              await _returnToAchievedProfits(userId, amount);
+              debugPrint('✅ تم إرجاع الأرباح باستخدام الطريقة البديلة');
+            } catch (e2) {
+              debugPrint('❌ فشل في الطريقة البديلة أيضاً: $e2');
+              throw Exception('فشل في إرجاع الأرباح نهائياً');
+            }
           }
           break;
       }
 
-      // إرسال إشعار للمستخدم
-      await _notifyUserOfStatusChange(userId, requestId, newStatus);
+      // إرسال إشعار للمستخدم باستخدام الخدمة المحسنة
+      await NotificationService.sendWithdrawalStatusNotification(
+        userId: userId,
+        requestId: requestId,
+        newStatus: newStatus,
+        amount: amount,
+      );
     } catch (e) {
       debugPrint('خطأ في معالجة تغيير الحالة: $e');
     }
@@ -724,21 +747,32 @@ class WithdrawalService {
           .eq('id', requestId)
           .single();
 
+      final amount = (requestData['amount'] as num?)?.toDouble() ?? 0.0;
+
+      // تحديد عنوان ونص الإشعار حسب الحالة الجديدة
+      String notificationTitle = '';
+      String notificationBody = '';
+
+      switch (newStatus) {
+        case 'completed':
+          notificationTitle = '🎉 مبروك! تم التحويل';
+          notificationBody = 'تم تحويل مبلغ ${amount.toStringAsFixed(0)} د.ع إلى حسابك بنجاح! 💰✨';
+          break;
+
+        case 'cancelled':
+          notificationTitle = '😔 إلغاء السحب';
+          notificationBody = 'تم إلغاء سحبك بمبلغ ${amount.toStringAsFixed(0)} د.ع. تم إرجاع المبلغ إلى رصيدك 💰';
+          break;
+
+        default:
+          notificationTitle = 'تحديث حالة السحب';
+          notificationBody = 'تم تحديث حالة طلب السحب الخاص بك';
+      }
+
       // استخدام ID كرقم طلب مؤقت حتى يتم إصلاح قاعدة البيانات
       final requestNumber = _generateRequestNumber(
         requestData['id']?.toString() ?? 'غير محدد',
       );
-      final amount = (requestData['amount'] as num?)?.toStringAsFixed(0) ?? '0';
-
-      // إنشاء رسالة الإشعار المخصصة حسب الحالة
-      final notificationData = _createCustomNotification(
-        newStatus,
-        amount,
-        requestNumber,
-      );
-
-      final notificationTitle = notificationData['title']!;
-      final notificationBody = notificationData['body']!;
 
       // إرسال الإشعار عبر قاعدة البيانات (للتطبيق)
       await _sendDatabaseNotification(
@@ -767,6 +801,12 @@ class WithdrawalService {
         },
       );
 
+      // طباعة تفاصيل الإشعار
+      debugPrint('📱 === إشعار تم إرساله ===');
+      debugPrint('👤 المستخدم: $userId');
+      debugPrint('📋 العنوان: $notificationTitle');
+      debugPrint('💬 النص: $notificationBody');
+      debugPrint('💰 المبلغ: ${amount.toStringAsFixed(0)} د.ع');
       debugPrint('✅ تم إرسال الإشعار بنجاح للمستخدم $userId');
     } catch (e) {
       debugPrint('❌ خطأ في إرسال الإشعار: $e');
