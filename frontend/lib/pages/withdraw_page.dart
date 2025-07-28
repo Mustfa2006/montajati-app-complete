@@ -1290,7 +1290,7 @@ class _WithdrawPageState extends State<WithdrawPage>
       }
 
       // ✅ خصم المبلغ من الرصيد القابل للسحب
-      final newBalance = _availableBalance - amount;
+      double newBalance = _availableBalance - amount;
 
       debugPrint('🎯 === عملية السحب ===');
       debugPrint('💰 الرصيد الحالي: $_availableBalance د.ع');
@@ -1318,39 +1318,46 @@ class _WithdrawPageState extends State<WithdrawPage>
         // لا نتوقف هنا، نكمل العملية
       }
 
-      // ✅ تحديث الأرباح المحققة في قاعدة البيانات مع التحقق من النجاح
+      // ✅ استخدام الدالة الآمنة لسحب الأرباح مع الحماية القوية
       bool databaseUpdateSuccess = false;
 
       try {
-        final updateData = {
-          'achieved_profits': newBalance,
-          'updated_at': DateTime.now().toIso8601String(),
-        };
+        debugPrint('🔐 استخدام الدالة الآمنة لسحب $amount د.ع من رقم $currentUserPhone');
 
-        // محاولة التحديث برقم الهاتف أولاً
-        final updateResult = await Supabase.instance.client
-            .from('users')
-            .update(updateData)
-            .eq('phone', currentUserPhone)
-            .select();
+        // استخدام الدالة الآمنة لسحب الأرباح
+        final withdrawResult = await Supabase.instance.client.rpc(
+          'safe_withdraw_profits',
+          params: {
+            'p_user_phone': currentUserPhone,
+            'p_amount': amount,
+            'p_authorized_by': 'USER_WITHDRAWAL_APP'
+          }
+        );
 
-        debugPrint('📊 نتيجة تحديث قاعدة البيانات: $updateResult');
+        debugPrint('📊 نتيجة الدالة الآمنة: $withdrawResult');
 
-        if (updateResult.isNotEmpty) {
+        if (withdrawResult != null && withdrawResult['success'] == true) {
           databaseUpdateSuccess = true;
-          debugPrint('✅ تم تحديث الأرباح المحققة في قاعدة البيانات بنجاح');
-          debugPrint('📊 الأرباح الجديدة: $newBalance د.ع');
+          final newBalanceFromDB = withdrawResult['new_balance'];
+          debugPrint('✅ تم سحب الأرباح بنجاح باستخدام الدالة الآمنة');
+          debugPrint('📊 الرصيد القديم: ${withdrawResult['old_balance']} د.ع');
+          debugPrint('📊 المبلغ المسحوب: ${withdrawResult['withdrawn_amount']} د.ع');
+          debugPrint('📊 الرصيد الجديد: $newBalanceFromDB د.ع');
+
+          // تحديث الرصيد المحلي بالقيمة الفعلية من قاعدة البيانات
+          newBalance = (newBalanceFromDB as num).toDouble();
         } else {
-          debugPrint('⚠️ لم يتم العثور على المستخدم للتحديث');
+          debugPrint('❌ فشل في سحب الأرباح: ${withdrawResult?['error'] ?? 'خطأ غير معروف'}');
+          databaseUpdateSuccess = false;
         }
       } catch (e) {
-        debugPrint('❌ خطأ خطير في تحديث الأرباح المحققة: $e');
+        debugPrint('❌ خطأ خطير في استخدام الدالة الآمنة: $e');
         databaseUpdateSuccess = false;
       }
 
       // ✅ التحقق من نجاح العملية
       if (!databaseUpdateSuccess) {
-        debugPrint('🚨 فشل تحديث قاعدة البيانات - إرجاع المبلغ');
+        debugPrint('🚨 فشل في سحب الأرباح من قاعدة البيانات - إرجاع المبلغ');
 
         // إرجاع المبلغ للأرباح المحققة
         setState(() {
@@ -1362,7 +1369,9 @@ class _WithdrawPageState extends State<WithdrawPage>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'فشل في تحديث قاعدة البيانات. تم إرجاع المبلغ.',
+                '❌ فشل في سحب الأرباح من قاعدة البيانات\n'
+                '💰 تم إرجاع المبلغ إلى رصيدك\n'
+                '🔄 يرجى المحاولة مرة أخرى',
                 style: GoogleFonts.cairo(),
               ),
               backgroundColor: Colors.red,
@@ -1375,28 +1384,83 @@ class _WithdrawPageState extends State<WithdrawPage>
         return;
       }
 
-      // ✅ تحديث الرصيد المحلي فوراً
+      // ✅ تحقق إضافي من قاعدة البيانات للتأكد من نجاح السحب
+      bool finalVerificationSuccess = false;
+      try {
+        debugPrint('🔍 التحقق النهائي من قاعدة البيانات...');
+
+        final verificationResult = await Supabase.instance.client
+            .from('users')
+            .select('achieved_profits')
+            .eq('phone', currentUserPhone)
+            .single();
+
+        final actualBalance = (verificationResult['achieved_profits'] as num?)?.toDouble() ?? 0.0;
+
+        debugPrint('📊 الرصيد الفعلي في قاعدة البيانات: $actualBalance د.ع');
+        debugPrint('📊 الرصيد المتوقع: $newBalance د.ع');
+
+        if ((actualBalance - newBalance).abs() < 0.01) { // تسامح صغير للأرقام العشرية
+          finalVerificationSuccess = true;
+          newBalance = actualBalance; // استخدام القيمة الفعلية من قاعدة البيانات
+          debugPrint('✅ تم التحقق من نجاح السحب في قاعدة البيانات');
+        } else {
+          debugPrint('❌ عدم تطابق الرصيد! الفعلي: $actualBalance، المتوقع: $newBalance');
+        }
+      } catch (e) {
+        debugPrint('❌ خطأ في التحقق النهائي: $e');
+      }
+
+      if (!finalVerificationSuccess) {
+        debugPrint('🚨 فشل التحقق النهائي - إلغاء العملية');
+
+        setState(() {
+          _availableBalance = _availableBalance + amount; // إرجاع المبلغ
+          isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '❌ فشل في التحقق من نجاح السحب\n'
+                '💰 تم إرجاع المبلغ إلى رصيدك\n'
+                '🔄 يرجى المحاولة مرة أخرى',
+                style: GoogleFonts.cairo(),
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+
+      // ✅ تحديث الرصيد المحلي بالقيمة المؤكدة من قاعدة البيانات
       setState(() {
         _availableBalance = newBalance;
         isLoading = false;
       });
 
-      debugPrint('✅ تم خصم $amount د.ع من الأرباح المحققة');
-      debugPrint('💰 الرصيد الجديد: $newBalance د.ع');
+      debugPrint('✅ تم خصم $amount د.ع من الأرباح المحققة بنجاح');
+      debugPrint('💰 الرصيد الجديد المؤكد: $newBalance د.ع');
 
       // ✅ إعادة تحميل صفحة الأرباح لتحديث الأرباح المحققة
       _loadUserProfits();
 
       if (mounted) {
-        // عرض رسالة نجاح
+        // عرض رسالة نجاح مؤكدة
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'تم إرسال طلب السحب وخصم المبلغ بنجاح!\nالرصيد الجديد: ${NumberFormatter.formatCurrency(newBalance)}',
+              '✅ تم سحب الأرباح بنجاح!\n'
+              '💰 المبلغ المسحوب: ${NumberFormatter.formatCurrency(amount)}\n'
+              '📊 الرصيد الجديد: ${NumberFormatter.formatCurrency(newBalance)}\n'
+              '🔐 تم التحقق من قاعدة البيانات بنجاح',
               style: GoogleFonts.cairo(),
             ),
             backgroundColor: const Color(0xFF28a745),
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 5),
           ),
         );
 
