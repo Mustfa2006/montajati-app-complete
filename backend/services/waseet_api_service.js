@@ -78,30 +78,81 @@ class WaseetAPIService {
               dataLength: response.data?.length || 'N/A'
             });
 
-            // البحث عن التوكن في الاستجابة JSON
+            // البحث عن التوكن في الاستجابة JSON أولاً
             if (response.data && typeof response.data === 'object') {
               console.log(`📄 بيانات JSON:`, response.data);
 
               if (response.data.token || response.data.access_token || response.data.loginToken) {
                 this.loginToken = response.data.token || response.data.access_token || response.data.loginToken;
                 this.tokenExpiry = Date.now() + (30 * 60 * 1000);
-                console.log(`✅ تم الحصول على loginToken من ${path}: ${this.loginToken}`);
+                console.log(`✅ تم الحصول على loginToken من JSON: ${this.loginToken}`);
                 return this.loginToken;
               }
             }
 
-            // البحث عن التوكن في الكوكيز كبديل
+            // إذا لم نجد في JSON، جرب الحصول على التوكن من صفحة التاجر
             const cookies = response.headers['set-cookie'];
             if (cookies) {
               const cookieString = cookies.map(cookie => cookie.split(';')[0]).join('; ');
+              console.log(`🍪 تم الحصول على الكوكيز: ${cookieString}`);
 
-              // استخراج session ID كـ loginToken
-              const sessionMatch = cookieString.match(/ci_session=([^;]+)/);
-              if (sessionMatch) {
-                this.loginToken = sessionMatch[1]; // فقط قيمة الـ session
-                this.tokenExpiry = Date.now() + (30 * 60 * 1000);
-                console.log(`✅ تم استخراج loginToken من الكوكيز: ${this.loginToken}`);
-                return this.loginToken;
+              // الآن استخدم الكوكيز للوصول لصفحة التاجر والبحث عن التوكن الحقيقي
+              try {
+                const merchantResponse = await axios.get('https://merchant.alwaseet-iq.net/merchant', {
+                  headers: {
+                    'Cookie': cookieString,
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                  },
+                  timeout: this.config.timeout
+                });
+
+                console.log(`📄 تم جلب صفحة التاجر للبحث عن التوكن`);
+
+                // البحث عن التوكن في الصفحة
+                const pageContent = merchantResponse.data;
+
+                // جرب أنماط مختلفة للبحث عن التوكن
+                const tokenPatterns = [
+                  /token['":\s]*['"]([^'"]+)['"]/gi,
+                  /loginToken['":\s]*['"]([^'"]+)['"]/gi,
+                  /api_token['":\s]*['"]([^'"]+)['"]/gi,
+                  /access_token['":\s]*['"]([^'"]+)['"]/gi,
+                  /_token['":\s]*['"]([^'"]+)['"]/gi
+                ];
+
+                for (const pattern of tokenPatterns) {
+                  const matches = pageContent.match(pattern);
+                  if (matches && matches.length > 0) {
+                    const tokenMatch = matches[0].match(/['"]([^'"]+)['"]/);
+                    if (tokenMatch && tokenMatch[1] && tokenMatch[1].length > 10) {
+                      this.loginToken = tokenMatch[1];
+                      this.tokenExpiry = Date.now() + (30 * 60 * 1000);
+                      console.log(`✅ تم العثور على التوكن في الصفحة: ${this.loginToken}`);
+                      return this.loginToken;
+                    }
+                  }
+                }
+
+                // إذا لم نجد توكن، استخدم session ID كبديل
+                const sessionMatch = cookieString.match(/ci_session=([^;]+)/);
+                if (sessionMatch) {
+                  this.loginToken = sessionMatch[1];
+                  this.tokenExpiry = Date.now() + (30 * 60 * 1000);
+                  console.log(`⚠️ لم يتم العثور على توكن API، استخدام session ID: ${this.loginToken}`);
+                  return this.loginToken;
+                }
+
+              } catch (merchantError) {
+                console.log(`❌ فشل جلب صفحة التاجر: ${merchantError.message}`);
+
+                // استخدم session ID كبديل
+                const sessionMatch = cookieString.match(/ci_session=([^;]+)/);
+                if (sessionMatch) {
+                  this.loginToken = sessionMatch[1];
+                  this.tokenExpiry = Date.now() + (30 * 60 * 1000);
+                  console.log(`⚠️ استخدام session ID كبديل: ${this.loginToken}`);
+                  return this.loginToken;
+                }
               }
             }
           }
