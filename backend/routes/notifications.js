@@ -1242,73 +1242,81 @@ router.post('/send-bulk', async (req, res) => {
     console.log('📋 [SEND-BULK] سجل الإشعار:', notificationData);
 
     if (!isScheduled) {
-      // إرسال فوري
-      diagnostics.step = 'إرسال الإشعارات الفورية';
+      // إرسال فوري - رد سريع ثم إرسال في الخلفية
+      diagnostics.step = 'بدء الإرسال الفوري';
       diagnostics.performance.steps.push({ step: 'بدء الإرسال الفوري', timestamp: Date.now() });
       console.log('🚀 [SEND-BULK] بدء إرسال الإشعارات الفورية...');
 
-      try {
-        const notificationPayload = {
-          title,
-          body,
-          data: {
-            type,
-            timestamp: Date.now().toString(),
-            action: 'open_app'
-          }
-        };
+      const notificationPayload = {
+        title,
+        body,
+        data: {
+          type,
+          timestamp: Date.now().toString(),
+          action: 'open_app'
+        }
+      };
 
-        diagnostics.details.notificationPayload = notificationPayload;
-        console.log('📦 [SEND-BULK] حمولة الإشعار:', notificationPayload);
+      diagnostics.details.notificationPayload = notificationPayload;
+      console.log('📦 [SEND-BULK] حمولة الإشعار:', notificationPayload);
 
-        const results = await manager.sendBulkNotification(notificationPayload, activeUsers);
+      // رد سريع للتطبيق
+      const notificationId = `bulk_${Date.now()}`;
+      diagnostics.step = 'رد سريع للتطبيق';
+      diagnostics.performance.totalTime = Date.now() - diagnostics.performance.startTime;
 
-        diagnostics.step = 'معالجة نتائج الإرسال';
-        diagnostics.performance.steps.push({ step: 'انتهاء الإرسال', timestamp: Date.now() });
-        diagnostics.details.sendResults = results;
+      console.log(`⚡ [SEND-BULK] رد سريع للتطبيق - سيتم الإرسال في الخلفية`);
 
-        console.log(`📊 [SEND-BULK] نتائج الإرسال:`, results);
+      res.json({
+        success: true,
+        message: 'تم بدء إرسال الإشعار بنجاح - سيتم الإرسال في الخلفية',
+        data: {
+          recipients_count: recipientsCount,
+          notification_id: notificationId,
+          status: 'processing'
+        },
+        diagnostics: diagnostics
+      });
 
-        // حفظ الإشعار في قاعدة البيانات
-        diagnostics.step = 'حفظ سجل الإشعار';
-        console.log('💾 [SEND-BULK] حفظ سجل الإشعار في قاعدة البيانات...');
+      // إرسال الإشعارات في الخلفية (بدون انتظار)
+      setImmediate(async () => {
+        try {
+          console.log('🔄 [SEND-BULK-BG] بدء الإرسال في الخلفية...');
 
-        await manager.saveNotificationRecord({
-          ...notificationData,
-          status: 'sent',
-          sentAt: new Date().toISOString(),
-          results
-        });
+          const results = await manager.sendBulkNotification(notificationPayload, activeUsers);
 
-        diagnostics.step = 'اكتمال العملية بنجاح';
-        diagnostics.performance.totalTime = Date.now() - diagnostics.performance.startTime;
+          console.log(`📊 [SEND-BULK-BG] نتائج الإرسال:`, results);
 
-        console.log(`✅ [SEND-BULK] تم إرسال الإشعار لـ ${recipientsCount} مستخدم`);
-        console.log(`⏱️ [SEND-BULK] إجمالي الوقت: ${diagnostics.performance.totalTime}ms`);
+          // حفظ الإشعار في قاعدة البيانات
+          console.log('💾 [SEND-BULK-BG] حفظ سجل الإشعار في قاعدة البيانات...');
 
-        res.json({
-          success: true,
-          message: 'تم إرسال الإشعار بنجاح لجميع المستخدمين',
-          data: {
-            recipients_count: recipientsCount,
+          await manager.saveNotificationRecord({
+            ...notificationData,
+            status: 'sent',
+            sentAt: new Date().toISOString(),
             results,
-            notification_id: `bulk_${Date.now()}`
-          },
-          diagnostics: diagnostics
-        });
+            notification_id: notificationId
+          });
 
-      } catch (sendError) {
-        diagnostics.step = 'خطأ في الإرسال';
-        diagnostics.errors.push({
-          type: 'send_error',
-          message: sendError.message,
-          stack: sendError.stack,
-          timestamp: new Date().toISOString()
-        });
+          console.log(`✅ [SEND-BULK-BG] تم إرسال الإشعار لـ ${recipientsCount} مستخدم بنجاح`);
 
-        console.error('❌ [SEND-BULK] خطأ في إرسال الإشعارات:', sendError);
-        throw sendError;
-      }
+        } catch (sendError) {
+          console.error('❌ [SEND-BULK-BG] خطأ في إرسال الإشعارات في الخلفية:', sendError);
+
+          // حفظ سجل الخطأ
+          try {
+            await manager.saveNotificationRecord({
+              ...notificationData,
+              status: 'failed',
+              sentAt: new Date().toISOString(),
+              error: sendError.message,
+              notification_id: notificationId
+            });
+          } catch (saveError) {
+            console.error('❌ [SEND-BULK-BG] خطأ في حفظ سجل الخطأ:', saveError);
+          }
+        }
+      });
     } else {
       // إرسال مجدول
       diagnostics.step = 'جدولة الإشعار';
