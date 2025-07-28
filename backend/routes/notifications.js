@@ -1128,4 +1128,227 @@ router.post('/system-test', async (req, res) => {
   }
 });
 
+// ===== إرسال إشعار جماعي - مسار جديد لتجنب التداخل =====
+router.post('/send-bulk', async (req, res) => {
+  const diagnostics = {
+    timestamp: new Date().toISOString(),
+    requestId: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    step: 'بدء العملية',
+    details: {},
+    errors: [],
+    warnings: [],
+    performance: {
+      startTime: Date.now(),
+      steps: []
+    }
+  };
+
+  try {
+    console.log('📢 === [SEND-BULK] طلب إرسال إشعار جماعي جديد ===');
+    console.log('🔍 [SEND-BULK] معرف الطلب:', diagnostics.requestId);
+
+    diagnostics.step = 'تحليل البيانات الواردة';
+    diagnostics.performance.steps.push({ step: 'بدء العملية', timestamp: Date.now() });
+
+    const {
+      title,
+      body,
+      type = 'general',
+      isScheduled = false,
+      scheduledDateTime
+    } = req.body;
+
+    diagnostics.details.requestData = { title, body, type, isScheduled, scheduledDateTime };
+    console.log('📝 [SEND-BULK] بيانات الطلب:', JSON.stringify(diagnostics.details.requestData, null, 2));
+
+    // التحقق من البيانات المطلوبة
+    if (!title || !body) {
+      diagnostics.step = 'فشل التحقق من البيانات';
+      diagnostics.errors.push('العنوان أو المحتوى مفقود');
+      console.log('❌ [SEND-BULK] بيانات مفقودة: العنوان أو المحتوى');
+
+      return res.status(400).json({
+        success: false,
+        message: 'العنوان والمحتوى مطلوبان',
+        diagnostics: diagnostics
+      });
+    }
+
+    console.log(`📝 [SEND-BULK] العنوان: ${title}`);
+    console.log(`📝 [SEND-BULK] المحتوى: ${body}`);
+    console.log(`📝 [SEND-BULK] النوع: ${type}`);
+    console.log(`📝 [SEND-BULK] مجدول: ${isScheduled}`);
+
+    // تهيئة مدير الإشعارات
+    diagnostics.step = 'تهيئة مدير الإشعارات';
+    diagnostics.performance.steps.push({ step: 'تهيئة مدير الإشعارات', timestamp: Date.now() });
+    console.log('🔧 [SEND-BULK] تهيئة مدير الإشعارات...');
+
+    const manager = await initializeNotificationManager();
+    console.log('✅ [SEND-BULK] تم تهيئة مدير الإشعارات بنجاح');
+
+    // جلب جميع المستخدمين النشطين
+    diagnostics.step = 'جلب المستخدمين النشطين';
+    diagnostics.performance.steps.push({ step: 'جلب المستخدمين', timestamp: Date.now() });
+    console.log('👥 [SEND-BULK] جلب المستخدمين النشطين...');
+
+    const activeUsers = await manager.getAllActiveUsers();
+    const recipientsCount = activeUsers.length;
+
+    diagnostics.details.activeUsers = {
+      count: recipientsCount,
+      sample: activeUsers.slice(0, 3).map(user => ({ phone: user.phone, hasToken: !!user.fcm_token }))
+    };
+
+    console.log(`👥 [SEND-BULK] عدد المستخدمين المستهدفين: ${recipientsCount}`);
+    console.log('👥 [SEND-BULK] عينة من المستخدمين:', diagnostics.details.activeUsers.sample);
+
+    if (recipientsCount === 0) {
+      diagnostics.step = 'لا توجد مستخدمين نشطين';
+      diagnostics.warnings.push('لا توجد مستخدمين نشطين');
+      console.log('⚠️ [SEND-BULK] لا توجد مستخدمين نشطين');
+
+      return res.status(400).json({
+        success: false,
+        message: 'لا توجد مستخدمين نشطين لإرسال الإشعار إليهم',
+        diagnostics: diagnostics
+      });
+    }
+
+    // إنشاء سجل الإشعار
+    diagnostics.step = 'إنشاء سجل الإشعار';
+    diagnostics.performance.steps.push({ step: 'إنشاء سجل الإشعار', timestamp: Date.now() });
+
+    const notificationData = {
+      title,
+      body,
+      type,
+      isScheduled,
+      scheduledDateTime,
+      recipientsCount,
+      createdAt: new Date().toISOString()
+    };
+
+    diagnostics.details.notificationData = notificationData;
+    console.log('📋 [SEND-BULK] سجل الإشعار:', notificationData);
+
+    if (!isScheduled) {
+      // إرسال فوري
+      diagnostics.step = 'إرسال الإشعارات الفورية';
+      diagnostics.performance.steps.push({ step: 'بدء الإرسال الفوري', timestamp: Date.now() });
+      console.log('🚀 [SEND-BULK] بدء إرسال الإشعارات الفورية...');
+
+      try {
+        const notificationPayload = {
+          title,
+          body,
+          data: {
+            type,
+            timestamp: Date.now().toString(),
+            action: 'open_app'
+          }
+        };
+
+        diagnostics.details.notificationPayload = notificationPayload;
+        console.log('📦 [SEND-BULK] حمولة الإشعار:', notificationPayload);
+
+        const results = await manager.sendBulkNotification(notificationPayload, activeUsers);
+
+        diagnostics.step = 'معالجة نتائج الإرسال';
+        diagnostics.performance.steps.push({ step: 'انتهاء الإرسال', timestamp: Date.now() });
+        diagnostics.details.sendResults = results;
+
+        console.log(`📊 [SEND-BULK] نتائج الإرسال:`, results);
+
+        // حفظ الإشعار في قاعدة البيانات
+        diagnostics.step = 'حفظ سجل الإشعار';
+        console.log('💾 [SEND-BULK] حفظ سجل الإشعار في قاعدة البيانات...');
+
+        await manager.saveNotificationRecord({
+          ...notificationData,
+          status: 'sent',
+          sentAt: new Date().toISOString(),
+          results
+        });
+
+        diagnostics.step = 'اكتمال العملية بنجاح';
+        diagnostics.performance.totalTime = Date.now() - diagnostics.performance.startTime;
+
+        console.log(`✅ [SEND-BULK] تم إرسال الإشعار لـ ${recipientsCount} مستخدم`);
+        console.log(`⏱️ [SEND-BULK] إجمالي الوقت: ${diagnostics.performance.totalTime}ms`);
+
+        res.json({
+          success: true,
+          message: 'تم إرسال الإشعار بنجاح لجميع المستخدمين',
+          data: {
+            recipients_count: recipientsCount,
+            results,
+            notification_id: `bulk_${Date.now()}`
+          },
+          diagnostics: diagnostics
+        });
+
+      } catch (sendError) {
+        diagnostics.step = 'خطأ في الإرسال';
+        diagnostics.errors.push({
+          type: 'send_error',
+          message: sendError.message,
+          stack: sendError.stack,
+          timestamp: new Date().toISOString()
+        });
+
+        console.error('❌ [SEND-BULK] خطأ في إرسال الإشعارات:', sendError);
+        throw sendError;
+      }
+    } else {
+      // إرسال مجدول
+      diagnostics.step = 'جدولة الإشعار';
+      diagnostics.performance.steps.push({ step: 'جدولة الإشعار', timestamp: Date.now() });
+      console.log(`⏰ [SEND-BULK] تم جدولة الإشعار للإرسال في: ${scheduledDateTime}`);
+
+      // حفظ الإشعار المجدول
+      await manager.saveNotificationRecord({
+        ...notificationData,
+        status: 'scheduled',
+        scheduledFor: scheduledDateTime
+      });
+
+      diagnostics.step = 'اكتمال الجدولة';
+      diagnostics.performance.totalTime = Date.now() - diagnostics.performance.startTime;
+
+      res.json({
+        success: true,
+        message: 'تم جدولة الإشعار بنجاح',
+        data: {
+          recipients_count: recipientsCount,
+          scheduled_time: scheduledDateTime,
+          notification_id: `scheduled_${Date.now()}`
+        },
+        diagnostics: diagnostics
+      });
+    }
+
+  } catch (error) {
+    diagnostics.step = 'خطأ عام في العملية';
+    diagnostics.performance.totalTime = Date.now() - diagnostics.performance.startTime;
+    diagnostics.errors.push({
+      type: 'general_error',
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+      step: diagnostics.step
+    });
+
+    console.error('❌ [SEND-BULK] خطأ في إرسال الإشعار الجماعي:', error);
+    console.error('📊 [SEND-BULK] تشخيص شامل للخطأ:', JSON.stringify(diagnostics, null, 2));
+
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في إرسال الإشعار',
+      error: error.message,
+      diagnostics: diagnostics
+    });
+  }
+});
+
 module.exports = router;
