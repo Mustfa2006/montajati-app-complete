@@ -6802,8 +6802,17 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           controller: controller,
           maxLines: maxLines,
           maxLength: maxLength,
+          style: const TextStyle(
+            fontSize: 16,
+            color: Color(0xFF1F2937), // لون النص الأساسي - رمادي داكن
+            fontWeight: FontWeight.w500,
+          ),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 14,
+            ),
             prefixIcon: Icon(icon, color: const Color(0xFF6366f1)),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -6814,8 +6823,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               borderSide: const BorderSide(color: Color(0xFF6366f1), width: 2),
             ),
             filled: true,
-            fillColor: Colors.grey.shade50,
-            counterStyle: const TextStyle(fontSize: 12),
+            fillColor: Colors.white, // خلفية بيضاء لتباين أفضل
+            counterStyle: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF6B7280),
+            ),
           ),
           onChanged: (value) {
             setState(() {}); // لتحديث المعاينة
