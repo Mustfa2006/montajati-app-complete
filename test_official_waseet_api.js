@@ -12,13 +12,13 @@ async function testOfficialWaseetAPI() {
     console.log('✅ تم تسجيل الدخول بنجاح');
     console.log(`🎫 التوكن: ${token.substring(0, 50)}...`);
     
-    console.log('\n📊 اختبار جلب حالات الطلبات...');
+    console.log('\n📊 اختبار جلب حالات الطلبات من API الرسمي...');
     const statusesResult = await apiService.getOrderStatuses();
-    
+
     if (statusesResult.success) {
       console.log(`✅ تم جلب ${statusesResult.total} حالة بنجاح`);
       console.log('\n📋 الحالات المتاحة:');
-      
+
       statusesResult.statuses.forEach((status, index) => {
         console.log(`${index + 1}. ID: ${status.id} - الحالة: ${status.status}`);
       });
