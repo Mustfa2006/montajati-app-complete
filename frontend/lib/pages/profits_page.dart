@@ -11,6 +11,7 @@ import '../utils/number_formatter.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../widgets/common_header.dart';
 import '../services/smart_profits_manager.dart';
+import '../services/lazy_loading_service.dart';
 
 class ProfitsPage extends StatefulWidget {
   const ProfitsPage({super.key});
@@ -45,11 +46,20 @@ class _ProfitsPageState extends State<ProfitsPage>
   void initState() {
     super.initState();
     _initializeAnimations();
-    _loadAndCalculateProfits();
+    _initializeProfitsPage();
 
     // 🛡️ تم إزالة الاستماع لتغييرات الطلبات لمنع الحلقة اللا نهائية
     // الأرباح تُحدث فقط عند فتح الصفحة أو السحب للتحديث
     // _ordersService.addListener(_onOrdersChanged);
+  }
+
+  /// تهيئة صفحة الأرباح مع التحميل التدريجي
+  Future<void> _initializeProfitsPage() async {
+    // تحميل الصفحة عند الحاجة فقط
+    await LazyLoadingService.loadPageIfNeeded('profits');
+
+    // تحميل البيانات
+    await _loadAndCalculateProfits();
   }
 
   // دالة تحديث البيانات
