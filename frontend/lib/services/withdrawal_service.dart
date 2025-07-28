@@ -404,12 +404,12 @@ class WithdrawalService {
     try {
       debugPrint('🔄 تحديث حالة طلب السحب: $requestId إلى $newStatus');
 
-      // التحقق من صحة الحالة الجديدة
-      final validStatuses = ['pending', 'approved', 'rejected', 'completed'];
+      // التحقق من صحة الحالة الجديدة - فقط الحالات المسموحة
+      final validStatuses = ['completed', 'cancelled'];
       if (!validStatuses.contains(newStatus)) {
         return {
           'success': false,
-          'message': 'حالة غير صحيحة',
+          'message': 'حالة غير صحيحة. الحالات المسموحة: تم التحويل، ملغي',
           'errorCode': 'INVALID_STATUS',
         };
       }
@@ -489,41 +489,52 @@ class WithdrawalService {
       debugPrint('🔄 معالجة تغيير الحالة من $oldStatus إلى $newStatus');
 
       switch (newStatus) {
-        case 'approved':
-          // عند الموافقة: تأكيد تجميد المبلغ
-          await _confirmBalanceFreeze(userId, amount);
-          break;
-
         case 'completed':
-          // عند الإكمال: خصم المبلغ نهائياً من الرصيد
-          await _deductFromUserBalance(userId, amount);
-          break;
+          // عند الإكمال: استخدام الدالة الآمنة لسحب الأرباح
+          debugPrint('💰 تأكيد سحب $amount د.ع للمستخدم $userId');
 
-        case 'rejected':
-          // عند الرفض: إرجاع المبلغ إلى الأرباح المحققة
-          debugPrint(
-            '💰 إرجاع $amount د.ع إلى الأرباح المحققة للمستخدم $userId (مرفوض)',
-          );
-          await _returnToAchievedProfits(userId, amount);
+          // استخدام الدالة الآمنة لسحب الأرباح
+          try {
+            final withdrawResult = await _supabase.rpc('safe_withdraw_profits', params: {
+              'p_user_phone': await _getUserPhone(userId),
+              'p_amount': amount,
+              'p_authorized_by': 'WITHDRAWAL_SYSTEM'
+            });
+
+            if (withdrawResult['success'] == true) {
+              debugPrint('✅ تم سحب الأرباح بنجاح باستخدام الدالة الآمنة');
+            } else {
+              debugPrint('❌ فشل في سحب الأرباح: ${withdrawResult['error']}');
+            }
+          } catch (e) {
+            debugPrint('❌ خطأ في استخدام الدالة الآمنة: $e');
+            // fallback إلى الطريقة القديمة
+            await _deductFromUserBalance(userId, amount);
+          }
           break;
 
         case 'cancelled':
-          // عند الإلغاء: إرجاع المبلغ إلى الأرباح المحققة
-          debugPrint(
-            '💰 إرجاع $amount د.ع إلى الأرباح المحققة للمستخدم $userId',
-          );
-          await _returnToAchievedProfits(userId, amount);
-          break;
+          // عند الإلغاء: استخدام الدالة الآمنة لإرجاع الأرباح
+          debugPrint('💰 إرجاع $amount د.ع إلى الأرباح المحققة للمستخدم $userId');
 
-        case 'pending':
-          // إذا تم تغيير الحالة إلى معلق من حالة أخرى
-          if (oldStatus == 'rejected' || oldStatus == 'cancelled') {
-            // خصم المبلغ من الأرباح المحققة وإعادة تجميده
-            debugPrint(
-              '🔄 خصم $amount د.ع من الأرباح المحققة وإعادة تجميده (من $oldStatus إلى pending)',
-            );
-            await _deductFromAchievedProfits(userId, amount);
-            await _freezeUserBalance(userId, amount);
+          try {
+            final addResult = await _supabase.rpc('safe_add_profits', params: {
+              'p_user_phone': await _getUserPhone(userId),
+              'p_achieved_amount': amount,
+              'p_expected_amount': 0,
+              'p_reason': 'إرجاع مبلغ سحب ملغي',
+              'p_authorized_by': 'WITHDRAWAL_SYSTEM'
+            });
+
+            if (addResult['success'] == true) {
+              debugPrint('✅ تم إرجاع الأرباح بنجاح باستخدام الدالة الآمنة');
+            } else {
+              debugPrint('❌ فشل في إرجاع الأرباح: ${addResult['error']}');
+            }
+          } catch (e) {
+            debugPrint('❌ خطأ في استخدام الدالة الآمنة: $e');
+            // fallback إلى الطريقة القديمة
+            await _returnToAchievedProfits(userId, amount);
           }
           break;
       }
@@ -676,6 +687,22 @@ class WithdrawalService {
       }
     } catch (e) {
       debugPrint('❌ خطأ في إرسال إشعار تغيير حالة السحب: $e');
+    }
+  }
+
+  /// الحصول على رقم هاتف المستخدم
+  static Future<String> _getUserPhone(String userId) async {
+    try {
+      final response = await _supabase
+          .from('users')
+          .select('phone')
+          .eq('id', userId)
+          .single();
+
+      return response['phone'] ?? '';
+    } catch (e) {
+      debugPrint('❌ خطأ في الحصول على رقم الهاتف: $e');
+      return '';
     }
   }
 

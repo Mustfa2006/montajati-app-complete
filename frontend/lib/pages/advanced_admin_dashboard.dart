@@ -3927,18 +3927,6 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             onPressed: () => Navigator.pop(context),
             child: Text('إغلاق', style: GoogleFonts.cairo(color: Colors.grey)),
           ),
-          if (request['status'] == 'pending') ...[
-            ElevatedButton(
-              onPressed: () => _approveWithdrawal(request['id']),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: Text('موافقة', style: GoogleFonts.cairo()),
-            ),
-            ElevatedButton(
-              onPressed: () => _rejectWithdrawal(request['id']),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: Text('رفض', style: GoogleFonts.cairo()),
-            ),
-          ],
         ],
       ),
     );
@@ -3972,11 +3960,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Widget _buildStatusSelector(Map<String, dynamic> request) {
     final currentStatus = request['status'] as String;
     final statuses = [
-      {'value': 'pending', 'label': 'معلق', 'color': Colors.orange},
-      {'value': 'approved', 'label': 'موافق عليه', 'color': Colors.blue},
-      {'value': 'completed', 'label': 'مكتمل', 'color': Colors.green},
-      {'value': 'rejected', 'label': 'مرفوض', 'color': Colors.red},
-      {'value': 'cancelled', 'label': 'ملغي', 'color': Colors.grey},
+      {'value': 'completed', 'label': 'تم التحويل', 'color': Colors.green},
+      {'value': 'cancelled', 'label': 'ملغي', 'color': Colors.red},
     ];
 
     return Wrap(
@@ -4070,14 +4055,24 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       if (result['success']) {
         // تحديث الحالة في البيانات المحلية فوراً
         request['status'] = newStatus;
+        request['process_date'] = DateTime.now().toIso8601String();
 
         // إغلاق نافذة التفاصيل
         Navigator.pop(context);
 
-        // تحديث الواجهة مباشرة
+        // تحديث الواجهة مباشرة مع إعادة تحميل البيانات
         setState(() {
-          // إعادة تعيين المتغيرات لإجبار إعادة البناء
+          // إجبار إعادة بناء جميع FutureBuilder
           _refreshData();
+        });
+
+        // تأخير قصير ثم تحديث إضافي للتأكد
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            setState(() {
+              _refreshData();
+            });
+          }
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -4899,29 +4894,21 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   // دوال مساعدة لتنسيق بيانات السحب
   Color _getWithdrawalStatusColor(String? status) {
     switch (status) {
-      case 'pending':
-        return const Color(0xFFffc107); // أصفر
-      case 'approved':
-        return const Color(0xFF17a2b8); // أزرق
       case 'completed':
-        return const Color(0xFF28a745); // أخضر
-      case 'rejected':
-        return const Color(0xFFdc3545); // أحمر
+        return const Color(0xFF28a745); // أخضر - تم التحويل
+      case 'cancelled':
+        return const Color(0xFFdc3545); // أحمر - ملغي
       default:
-        return const Color(0xFF6c757d); // رمادي
+        return const Color(0xFF6c757d); // رمادي - غير محدد
     }
   }
 
   String _getWithdrawalStatusText(String? status) {
     switch (status) {
-      case 'pending':
-        return 'قيد المراجعة';
-      case 'approved':
-        return 'تمت الموافقة';
       case 'completed':
-        return 'مكتمل';
-      case 'rejected':
-        return 'مرفوض';
+        return 'تم التحويل';
+      case 'cancelled':
+        return 'ملغي';
       default:
         return 'غير محدد';
     }
