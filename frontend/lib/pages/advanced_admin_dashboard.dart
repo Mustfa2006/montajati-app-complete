@@ -6485,20 +6485,53 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Widget _buildNotificationQuickActions() {
     return Row(
       children: [
-        _buildQuickActionButton(
+        _buildNotificationActionButton(
           'إشعار سريع',
           Icons.flash_on,
           const Color(0xFFffd700),
           () => _sendQuickNotification(),
         ),
         const SizedBox(width: 10),
-        _buildQuickActionButton(
+        _buildNotificationActionButton(
           'تحديث الإحصائيات',
           Icons.refresh,
           Colors.white.withOpacity(0.2),
           () => _loadNotificationStats(),
         ),
       ],
+    );
+  }
+
+  Widget _buildNotificationActionButton(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -7560,7 +7593,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/api/notifications/send'),
+        Uri.parse('https://montajati-backend.onrender.com/api/notifications/send'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -7706,7 +7739,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Future<void> _loadNotificationStats() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3000/api/notifications/stats'),
+        Uri.parse('https://montajati-backend.onrender.com/api/notifications/stats'),
       );
 
       if (response.statusCode == 200) {
@@ -7723,7 +7756,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Future<void> _loadSentNotifications() async {
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3000/api/notifications/history'),
+        Uri.parse('https://montajati-backend.onrender.com/api/notifications/history'),
       );
 
       if (response.statusCode == 200) {
