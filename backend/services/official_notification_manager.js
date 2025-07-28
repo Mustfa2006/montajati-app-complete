@@ -103,17 +103,41 @@ class OfficialNotificationManager extends EventEmitter {
   }
 
   /**
-   * إرسال إشعار عام
+   * إرسال إشعار عام مع تشخيص مفصل
    */
   async sendGeneralNotification(data) {
+    const notificationDiagnostic = {
+      timestamp: new Date().toISOString(),
+      notificationId: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      step: 'بدء إرسال الإشعار',
+      details: {},
+      errors: [],
+      warnings: [],
+      performance: {
+        startTime: Date.now()
+      }
+    };
+
     try {
       if (!this.isInitialized) {
+        notificationDiagnostic.step = 'فشل التهيئة';
+        notificationDiagnostic.errors.push('مدير الإشعارات غير مهيأ');
         throw new Error('مدير الإشعارات غير مهيأ');
       }
 
       const { userPhone, title, message, additionalData } = data;
 
-      console.log(`📢 إرسال إشعار عام للعميل: ${userPhone}`);
+      notificationDiagnostic.details.userPhone = userPhone;
+      notificationDiagnostic.details.title = title;
+      notificationDiagnostic.details.message = message;
+      notificationDiagnostic.details.additionalData = additionalData;
+
+      console.log(`📢 [NOTIF-DIAGNOSTIC] إرسال إشعار عام للعميل: ${userPhone}`);
+      console.log(`🔍 [NOTIF-DIAGNOSTIC] معرف الإشعار: ${notificationDiagnostic.notificationId}`);
+      console.log(`📝 [NOTIF-DIAGNOSTIC] العنوان: ${title}`);
+      console.log(`📝 [NOTIF-DIAGNOSTIC] الرسالة: ${message}`);
+
+      notificationDiagnostic.step = 'إرسال الإشعار عبر الخدمة المستهدفة';
 
       // إرسال الإشعار
       const result = await this.targetedService.sendGeneralNotification(
@@ -123,24 +147,51 @@ class OfficialNotificationManager extends EventEmitter {
         additionalData
       );
 
+      notificationDiagnostic.step = 'معالجة نتيجة الإرسال';
+      notificationDiagnostic.performance.endTime = Date.now();
+      notificationDiagnostic.performance.totalTime = notificationDiagnostic.performance.endTime - notificationDiagnostic.performance.startTime;
+      notificationDiagnostic.details.result = result;
+
       // تحديث الإحصائيات
       this.stats.totalSent++;
       if (result.success) {
         this.stats.successfulSent++;
+        console.log(`✅ [NOTIF-DIAGNOSTIC] نجح إرسال الإشعار للعميل ${userPhone} في ${notificationDiagnostic.performance.totalTime}ms`);
       } else {
         this.stats.failedSent++;
+        notificationDiagnostic.warnings.push(`فشل الإرسال: ${result.error}`);
+        console.log(`❌ [NOTIF-DIAGNOSTIC] فشل إرسال الإشعار للعميل ${userPhone}: ${result.error}`);
       }
+
+      notificationDiagnostic.step = 'اكتمال العملية';
+      result.diagnostic = notificationDiagnostic;
 
       return result;
     } catch (error) {
-      console.error('❌ خطأ في إرسال الإشعار العام:', error);
+      notificationDiagnostic.step = 'خطأ في العملية';
+      notificationDiagnostic.performance.endTime = Date.now();
+      notificationDiagnostic.performance.totalTime = notificationDiagnostic.performance.endTime - notificationDiagnostic.performance.startTime;
+      notificationDiagnostic.errors.push({
+        type: 'notification_error',
+        message: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
+
+      console.error(`❌ [NOTIF-DIAGNOSTIC] خطأ في إرسال الإشعار العام للعميل ${data.userPhone}:`, error);
+      console.error(`📊 [NOTIF-DIAGNOSTIC] تشخيص الخطأ:`, JSON.stringify(notificationDiagnostic, null, 2));
+
       this.stats.totalSent++;
       this.stats.failedSent++;
 
       // إرسال حدث خطأ
       this.emit('error', error);
 
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error.message,
+        diagnostic: notificationDiagnostic
+      };
     }
   }
 
@@ -248,26 +299,67 @@ class OfficialNotificationManager extends EventEmitter {
   }
 
   /**
-   * إرسال إشعار جماعي
+   * إرسال إشعار جماعي مع تشخيص شامل
    */
   async sendBulkNotification(notification, users) {
+    const bulkDiagnostics = {
+      timestamp: new Date().toISOString(),
+      bulkId: `bulk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      step: 'بدء الإرسال الجماعي',
+      details: {},
+      errors: [],
+      warnings: [],
+      performance: {
+        startTime: Date.now(),
+        steps: []
+      }
+    };
+
     try {
+      console.log('📢 [BULK-DIAGNOSTIC] بدء إرسال إشعار جماعي...');
+      console.log('🔍 [BULK-DIAGNOSTIC] معرف الإرسال الجماعي:', bulkDiagnostics.bulkId);
+
       if (!this.isInitialized) {
+        bulkDiagnostics.step = 'فشل التهيئة';
+        bulkDiagnostics.errors.push('مدير الإشعارات غير مهيأ');
         throw new Error('مدير الإشعارات غير مهيأ');
       }
 
-      console.log(`📢 إرسال إشعار جماعي لـ ${users.length} مستخدم...`);
+      bulkDiagnostics.details.notification = notification;
+      bulkDiagnostics.details.usersCount = users.length;
+      bulkDiagnostics.details.usersSample = users.slice(0, 3).map(u => ({
+        phone: u.phone,
+        hasToken: !!u.fcm_token,
+        tokenPreview: u.fcm_token ? u.fcm_token.substring(0, 20) + '...' : 'لا يوجد'
+      }));
+
+      console.log(`📢 [BULK-DIAGNOSTIC] إرسال إشعار جماعي لـ ${users.length} مستخدم...`);
+      console.log('📦 [BULK-DIAGNOSTIC] بيانات الإشعار:', notification);
+      console.log('👥 [BULK-DIAGNOSTIC] عينة من المستخدمين:', bulkDiagnostics.details.usersSample);
 
       const results = {
         total: users.length,
         successful: 0,
         failed: 0,
-        errors: []
+        errors: [],
+        diagnostics: bulkDiagnostics
       };
 
-      // إرسال الإشعارات بشكل متوازي
-      const promises = users.map(async (user) => {
+      bulkDiagnostics.step = 'إرسال الإشعارات بشكل متوازي';
+      bulkDiagnostics.performance.steps.push({ step: 'بدء الإرسال المتوازي', timestamp: Date.now() });
+
+      // إرسال الإشعارات بشكل متوازي مع تشخيص مفصل
+      const promises = users.map(async (user, index) => {
+        const userDiagnostic = {
+          userIndex: index,
+          phone: user.phone,
+          hasToken: !!user.fcm_token,
+          startTime: Date.now()
+        };
+
         try {
+          console.log(`📱 [BULK-DIAGNOSTIC] إرسال للمستخدم ${index + 1}/${users.length}: ${user.phone}`);
+
           const result = await this.sendGeneralNotification({
             userPhone: user.phone,
             title: notification.title,
@@ -275,39 +367,83 @@ class OfficialNotificationManager extends EventEmitter {
             additionalData: notification.data
           });
 
+          userDiagnostic.endTime = Date.now();
+          userDiagnostic.duration = userDiagnostic.endTime - userDiagnostic.startTime;
+          userDiagnostic.result = result;
+
           if (result.success) {
             results.successful++;
+            console.log(`✅ [BULK-DIAGNOSTIC] نجح الإرسال للمستخدم ${user.phone} في ${userDiagnostic.duration}ms`);
           } else {
             results.failed++;
             results.errors.push({
               user: user.phone,
-              error: result.error
+              error: result.error,
+              diagnostic: userDiagnostic
             });
+            console.log(`❌ [BULK-DIAGNOSTIC] فشل الإرسال للمستخدم ${user.phone}: ${result.error}`);
           }
 
           return result;
         } catch (error) {
+          userDiagnostic.endTime = Date.now();
+          userDiagnostic.duration = userDiagnostic.endTime - userDiagnostic.startTime;
+          userDiagnostic.error = error.message;
+
           results.failed++;
           results.errors.push({
             user: user.phone,
-            error: error.message
+            error: error.message,
+            diagnostic: userDiagnostic
           });
+
+          console.error(`❌ [BULK-DIAGNOSTIC] خطأ في الإرسال للمستخدم ${user.phone}:`, error);
           return { success: false, error: error.message };
         }
       });
 
+      bulkDiagnostics.step = 'انتظار انتهاء جميع الإرسالات';
       await Promise.all(promises);
 
-      console.log(`✅ انتهى الإرسال الجماعي - نجح: ${results.successful}, فشل: ${results.failed}`);
+      bulkDiagnostics.step = 'اكتمال الإرسال الجماعي';
+      bulkDiagnostics.performance.endTime = Date.now();
+      bulkDiagnostics.performance.totalTime = bulkDiagnostics.performance.endTime - bulkDiagnostics.performance.startTime;
+      bulkDiagnostics.details.finalResults = {
+        total: results.total,
+        successful: results.successful,
+        failed: results.failed,
+        successRate: ((results.successful / results.total) * 100).toFixed(2) + '%'
+      };
+
+      console.log(`✅ [BULK-DIAGNOSTIC] انتهى الإرسال الجماعي - نجح: ${results.successful}, فشل: ${results.failed}`);
+      console.log(`⏱️ [BULK-DIAGNOSTIC] إجمالي الوقت: ${bulkDiagnostics.performance.totalTime}ms`);
+      console.log(`📊 [BULK-DIAGNOSTIC] معدل النجاح: ${bulkDiagnostics.details.finalResults.successRate}`);
+
+      if (results.failed > 0) {
+        console.log('❌ [BULK-DIAGNOSTIC] أخطاء الإرسال:', results.errors.slice(0, 5)); // أول 5 أخطاء فقط
+      }
 
       return results;
     } catch (error) {
-      console.error('❌ خطأ في الإرسال الجماعي:', error);
+      bulkDiagnostics.step = 'خطأ عام في الإرسال الجماعي';
+      bulkDiagnostics.performance.endTime = Date.now();
+      bulkDiagnostics.performance.totalTime = bulkDiagnostics.performance.endTime - bulkDiagnostics.performance.startTime;
+      bulkDiagnostics.errors.push({
+        type: 'bulk_error',
+        message: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
+
+      console.error('❌ [BULK-DIAGNOSTIC] خطأ في الإرسال الجماعي:', error);
+      console.error('📊 [BULK-DIAGNOSTIC] تشخيص شامل للخطأ:', JSON.stringify(bulkDiagnostics, null, 2));
+
       return {
         total: users.length,
         successful: 0,
         failed: users.length,
-        errors: [{ error: error.message }]
+        errors: [{ error: error.message }],
+        diagnostics: bulkDiagnostics
       };
     }
   }

@@ -7570,65 +7570,130 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     }
   }
 
-  // ===== وظائف الإشعارات الأساسية =====
+  // ===== وظائف الإشعارات مع تشخيص شامل =====
   Future<void> _sendNotification() async {
+    // بدء التشخيص
+    final diagnosticId = 'notif_${DateTime.now().millisecondsSinceEpoch}';
+    final startTime = DateTime.now();
+
+    print('🚀 [DIAGNOSTIC-$diagnosticId] بدء عملية إرسال الإشعار في ${startTime.toIso8601String()}');
+    print('📱 [DIAGNOSTIC-$diagnosticId] الخطوة 1: التحقق من صحة البيانات المدخلة');
+
+    // التحقق من البيانات
     if (_notificationTitleController.text.trim().isEmpty) {
+      print('❌ [DIAGNOSTIC-$diagnosticId] فشل: عنوان الإشعار فارغ');
       _showErrorSnackBar('يرجى إدخال عنوان الإشعار');
       return;
     }
+    print('✅ [DIAGNOSTIC-$diagnosticId] عنوان الإشعار صحيح: "${_notificationTitleController.text.trim()}"');
 
     if (_notificationBodyController.text.trim().isEmpty) {
+      print('❌ [DIAGNOSTIC-$diagnosticId] فشل: محتوى الإشعار فارغ');
       _showErrorSnackBar('يرجى إدخال محتوى الإشعار');
       return;
     }
+    print('✅ [DIAGNOSTIC-$diagnosticId] محتوى الإشعار صحيح: "${_notificationBodyController.text.trim()}"');
 
     if (_isScheduled && _scheduledDateTime == null) {
+      print('❌ [DIAGNOSTIC-$diagnosticId] فشل: موعد الجدولة غير محدد');
       _showErrorSnackBar('يرجى تحديد موعد الإرسال');
       return;
     }
+
+    print('📝 [DIAGNOSTIC-$diagnosticId] الخطوة 2: إعداد بيانات الطلب');
+    final requestData = {
+      'title': _notificationTitleController.text.trim(),
+      'body': _notificationBodyController.text.trim(),
+      'type': _selectedNotificationType,
+      'isScheduled': _isScheduled,
+      'scheduledDateTime': _scheduledDateTime?.toIso8601String(),
+    };
+
+    print('📦 [DIAGNOSTIC-$diagnosticId] بيانات الطلب: ${json.encode(requestData)}');
+    print('🔗 [DIAGNOSTIC-$diagnosticId] الخطوة 3: تحديث واجهة المستخدم (بدء التحميل)');
 
     setState(() {
       _isSendingNotification = true;
     });
 
     try {
+      print('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
+      print('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-backend.onrender.com/api/notifications/send');
+
+      final requestStartTime = DateTime.now();
       final response = await http.post(
         Uri.parse('https://montajati-backend.onrender.com/api/notifications/send'),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: json.encode({
-          'title': _notificationTitleController.text.trim(),
-          'body': _notificationBodyController.text.trim(),
-          'type': _selectedNotificationType,
-          'isScheduled': _isScheduled,
-          'scheduledDateTime': _scheduledDateTime?.toIso8601String(),
-        }),
+        body: json.encode(requestData),
       );
+      final requestEndTime = DateTime.now();
+      final requestDuration = requestEndTime.difference(requestStartTime);
+
+      print('📡 [DIAGNOSTIC-$diagnosticId] الخطوة 5: استلام الاستجابة من الخادم');
+      print('⏱️ [DIAGNOSTIC-$diagnosticId] مدة الطلب: ${requestDuration.inMilliseconds}ms');
+      print('📊 [DIAGNOSTIC-$diagnosticId] رمز الاستجابة: ${response.statusCode}');
+      print('📄 [DIAGNOSTIC-$diagnosticId] محتوى الاستجابة: ${response.body}');
 
       if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
+        print('✅ [DIAGNOSTIC-$diagnosticId] الخطوة 6: تحليل الاستجابة الناجحة');
 
-        if (responseData['success'] == true) {
-          _showSuccessSnackBar(
-            _isScheduled
-                ? 'تم جدولة الإشعار بنجاح'
-                : 'تم إرسال الإشعار بنجاح لجميع المستخدمين'
-          );
+        try {
+          final responseData = json.decode(response.body);
+          print('📋 [DIAGNOSTIC-$diagnosticId] بيانات الاستجابة المحللة: ${json.encode(responseData)}');
 
-          _clearNotificationForm();
-          await _loadSentNotifications();
-          await _loadNotificationStats();
-        } else {
-          _showErrorSnackBar(responseData['message'] ?? 'فشل في إرسال الإشعار');
+          if (responseData['success'] == true) {
+            print('🎉 [DIAGNOSTIC-$diagnosticId] الخطوة 7: نجح الإرسال');
+
+            // طباعة تفاصيل التشخيص إذا كانت متوفرة
+            if (responseData['diagnostics'] != null) {
+              print('🔍 [DIAGNOSTIC-$diagnosticId] تشخيص الخادم: ${json.encode(responseData['diagnostics'])}');
+            }
+
+            if (responseData['data'] != null) {
+              print('📊 [DIAGNOSTIC-$diagnosticId] بيانات النتيجة: ${json.encode(responseData['data'])}');
+            }
+
+            _showSuccessSnackBar(
+              _isScheduled
+                  ? 'تم جدولة الإشعار بنجاح'
+                  : 'تم إرسال الإشعار بنجاح لجميع المستخدمين'
+            );
+
+            print('🧹 [DIAGNOSTIC-$diagnosticId] الخطوة 8: تنظيف النموذج وتحديث البيانات');
+            _clearNotificationForm();
+            await _loadSentNotifications();
+            await _loadNotificationStats();
+          } else {
+            print('❌ [DIAGNOSTIC-$diagnosticId] فشل الإرسال: ${responseData['message']}');
+            if (responseData['diagnostics'] != null) {
+              print('🔍 [DIAGNOSTIC-$diagnosticId] تشخيص الفشل: ${json.encode(responseData['diagnostics'])}');
+            }
+            _showErrorSnackBar(responseData['message'] ?? 'فشل في إرسال الإشعار');
+          }
+        } catch (parseError) {
+          print('❌ [DIAGNOSTIC-$diagnosticId] خطأ في تحليل JSON: $parseError');
+          print('📄 [DIAGNOSTIC-$diagnosticId] النص الخام: ${response.body}');
+          _showErrorSnackBar('خطأ في تحليل استجابة الخادم');
         }
       } else {
-        _showErrorSnackBar('خطأ في الاتصال بالخادم');
+        print('❌ [DIAGNOSTIC-$diagnosticId] خطأ HTTP: ${response.statusCode}');
+        print('📄 [DIAGNOSTIC-$diagnosticId] رسالة الخطأ: ${response.body}');
+        _showErrorSnackBar('خطأ في الاتصال بالخادم (${response.statusCode})');
       }
-    } catch (e) {
-      debugPrint('خطأ في إرسال الإشعار: $e');
+    } catch (e, stackTrace) {
+      print('❌ [DIAGNOSTIC-$diagnosticId] خطأ في الشبكة أو الاتصال: $e');
+      print('📚 [DIAGNOSTIC-$diagnosticId] تتبع المكدس: $stackTrace');
       _showErrorSnackBar('خطأ في إرسال الإشعار: $e');
     } finally {
+      final endTime = DateTime.now();
+      final totalDuration = endTime.difference(startTime);
+
+      print('🏁 [DIAGNOSTIC-$diagnosticId] انتهاء العملية في ${endTime.toIso8601String()}');
+      print('⏱️ [DIAGNOSTIC-$diagnosticId] إجمالي المدة: ${totalDuration.inMilliseconds}ms');
+      print('🔄 [DIAGNOSTIC-$diagnosticId] الخطوة الأخيرة: إيقاف مؤشر التحميل');
+
       setState(() {
         _isSendingNotification = false;
       });

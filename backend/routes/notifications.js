@@ -535,10 +535,27 @@ router.post('/tokens/maintenance', async (req, res) => {
   }
 });
 
-// ===== إرسال إشعار لجميع المستخدمين =====
+// ===== إرسال إشعار لجميع المستخدمين مع تشخيص شامل =====
 router.post('/send', async (req, res) => {
+  const diagnostics = {
+    timestamp: new Date().toISOString(),
+    requestId: `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    step: 'بدء العملية',
+    details: {},
+    errors: [],
+    warnings: [],
+    performance: {
+      startTime: Date.now(),
+      steps: []
+    }
+  };
+
   try {
-    console.log('📢 === طلب إرسال إشعار جماعي جديد ===');
+    console.log('📢 === [DIAGNOSTIC] طلب إرسال إشعار جماعي جديد ===');
+    console.log('🔍 [DIAGNOSTIC] معرف الطلب:', diagnostics.requestId);
+
+    diagnostics.step = 'تحليل البيانات الواردة';
+    diagnostics.performance.steps.push({ step: 'بدء العملية', timestamp: Date.now() });
 
     const {
       title,
@@ -548,36 +565,67 @@ router.post('/send', async (req, res) => {
       scheduledDateTime
     } = req.body;
 
+    diagnostics.details.requestData = { title, body, type, isScheduled, scheduledDateTime };
+    console.log('📝 [DIAGNOSTIC] بيانات الطلب:', JSON.stringify(diagnostics.details.requestData, null, 2));
+
     // التحقق من البيانات المطلوبة
     if (!title || !body) {
+      diagnostics.step = 'فشل التحقق من البيانات';
+      diagnostics.errors.push('العنوان أو المحتوى مفقود');
+      console.log('❌ [DIAGNOSTIC] بيانات مفقودة: العنوان أو المحتوى');
+
       return res.status(400).json({
         success: false,
-        message: 'العنوان والمحتوى مطلوبان'
+        message: 'العنوان والمحتوى مطلوبان',
+        diagnostics: diagnostics
       });
     }
 
-    console.log(`📝 العنوان: ${title}`);
-    console.log(`📝 المحتوى: ${body}`);
-    console.log(`📝 النوع: ${type}`);
-    console.log(`📝 مجدول: ${isScheduled}`);
+    console.log(`📝 [DIAGNOSTIC] العنوان: ${title}`);
+    console.log(`📝 [DIAGNOSTIC] المحتوى: ${body}`);
+    console.log(`📝 [DIAGNOSTIC] النوع: ${type}`);
+    console.log(`📝 [DIAGNOSTIC] مجدول: ${isScheduled}`);
 
     // تهيئة مدير الإشعارات
+    diagnostics.step = 'تهيئة مدير الإشعارات';
+    diagnostics.performance.steps.push({ step: 'تهيئة مدير الإشعارات', timestamp: Date.now() });
+    console.log('🔧 [DIAGNOSTIC] تهيئة مدير الإشعارات...');
+
     const manager = await initializeNotificationManager();
+    console.log('✅ [DIAGNOSTIC] تم تهيئة مدير الإشعارات بنجاح');
 
     // جلب جميع المستخدمين النشطين
+    diagnostics.step = 'جلب المستخدمين النشطين';
+    diagnostics.performance.steps.push({ step: 'جلب المستخدمين', timestamp: Date.now() });
+    console.log('👥 [DIAGNOSTIC] جلب المستخدمين النشطين...');
+
     const activeUsers = await manager.getAllActiveUsers();
     const recipientsCount = activeUsers.length;
 
-    console.log(`👥 عدد المستخدمين المستهدفين: ${recipientsCount}`);
+    diagnostics.details.activeUsers = {
+      count: recipientsCount,
+      sample: activeUsers.slice(0, 3).map(user => ({ phone: user.phone, hasToken: !!user.fcm_token }))
+    };
+
+    console.log(`👥 [DIAGNOSTIC] عدد المستخدمين المستهدفين: ${recipientsCount}`);
+    console.log('👥 [DIAGNOSTIC] عينة من المستخدمين:', diagnostics.details.activeUsers.sample);
 
     if (recipientsCount === 0) {
+      diagnostics.step = 'لا توجد مستخدمين نشطين';
+      diagnostics.warnings.push('لا توجد مستخدمين نشطين');
+      console.log('⚠️ [DIAGNOSTIC] لا توجد مستخدمين نشطين');
+
       return res.status(400).json({
         success: false,
-        message: 'لا توجد مستخدمين نشطين لإرسال الإشعار إليهم'
+        message: 'لا توجد مستخدمين نشطين لإرسال الإشعار إليهم',
+        diagnostics: diagnostics
       });
     }
 
     // إنشاء سجل الإشعار
+    diagnostics.step = 'إنشاء سجل الإشعار';
+    diagnostics.performance.steps.push({ step: 'إنشاء سجل الإشعار', timestamp: Date.now() });
+
     const notificationData = {
       title,
       body,
@@ -588,43 +636,82 @@ router.post('/send', async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
+    diagnostics.details.notificationData = notificationData;
+    console.log('📋 [DIAGNOSTIC] سجل الإشعار:', notificationData);
+
     if (!isScheduled) {
       // إرسال فوري
-      console.log('🚀 بدء إرسال الإشعارات الفورية...');
+      diagnostics.step = 'إرسال الإشعارات الفورية';
+      diagnostics.performance.steps.push({ step: 'بدء الإرسال الفوري', timestamp: Date.now() });
+      console.log('🚀 [DIAGNOSTIC] بدء إرسال الإشعارات الفورية...');
 
-      const results = await manager.sendBulkNotification({
-        title,
-        body,
-        data: {
-          type,
-          timestamp: Date.now().toString(),
-          action: 'open_app'
-        }
-      }, activeUsers);
+      try {
+        const notificationPayload = {
+          title,
+          body,
+          data: {
+            type,
+            timestamp: Date.now().toString(),
+            action: 'open_app'
+          }
+        };
 
-      // حفظ الإشعار في قاعدة البيانات
-      await manager.saveNotificationRecord({
-        ...notificationData,
-        status: 'sent',
-        sentAt: new Date().toISOString(),
-        results
-      });
+        diagnostics.details.notificationPayload = notificationPayload;
+        console.log('📦 [DIAGNOSTIC] حمولة الإشعار:', notificationPayload);
 
-      console.log(`✅ تم إرسال الإشعار لـ ${recipientsCount} مستخدم`);
-      console.log(`📊 نتائج الإرسال:`, results);
+        const results = await manager.sendBulkNotification(notificationPayload, activeUsers);
 
-      res.json({
-        success: true,
-        message: 'تم إرسال الإشعار بنجاح لجميع المستخدمين',
-        data: {
-          recipients_count: recipientsCount,
-          results,
-          notification_id: `bulk_${Date.now()}`
-        }
-      });
+        diagnostics.step = 'معالجة نتائج الإرسال';
+        diagnostics.performance.steps.push({ step: 'انتهاء الإرسال', timestamp: Date.now() });
+        diagnostics.details.sendResults = results;
+
+        console.log(`📊 [DIAGNOSTIC] نتائج الإرسال:`, results);
+
+        // حفظ الإشعار في قاعدة البيانات
+        diagnostics.step = 'حفظ سجل الإشعار';
+        console.log('💾 [DIAGNOSTIC] حفظ سجل الإشعار في قاعدة البيانات...');
+
+        await manager.saveNotificationRecord({
+          ...notificationData,
+          status: 'sent',
+          sentAt: new Date().toISOString(),
+          results
+        });
+
+        diagnostics.step = 'اكتمال العملية بنجاح';
+        diagnostics.performance.totalTime = Date.now() - diagnostics.performance.startTime;
+
+        console.log(`✅ [DIAGNOSTIC] تم إرسال الإشعار لـ ${recipientsCount} مستخدم`);
+        console.log(`⏱️ [DIAGNOSTIC] إجمالي الوقت: ${diagnostics.performance.totalTime}ms`);
+
+        res.json({
+          success: true,
+          message: 'تم إرسال الإشعار بنجاح لجميع المستخدمين',
+          data: {
+            recipients_count: recipientsCount,
+            results,
+            notification_id: `bulk_${Date.now()}`
+          },
+          diagnostics: diagnostics
+        });
+
+      } catch (sendError) {
+        diagnostics.step = 'خطأ في الإرسال';
+        diagnostics.errors.push({
+          type: 'send_error',
+          message: sendError.message,
+          stack: sendError.stack,
+          timestamp: new Date().toISOString()
+        });
+
+        console.error('❌ [DIAGNOSTIC] خطأ في إرسال الإشعارات:', sendError);
+        throw sendError;
+      }
     } else {
       // إرسال مجدول
-      console.log(`⏰ تم جدولة الإشعار للإرسال في: ${scheduledDateTime}`);
+      diagnostics.step = 'جدولة الإشعار';
+      diagnostics.performance.steps.push({ step: 'جدولة الإشعار', timestamp: Date.now() });
+      console.log(`⏰ [DIAGNOSTIC] تم جدولة الإشعار للإرسال في: ${scheduledDateTime}`);
 
       // حفظ الإشعار المجدول
       await manager.saveNotificationRecord({
@@ -633,6 +720,9 @@ router.post('/send', async (req, res) => {
         scheduledFor: scheduledDateTime
       });
 
+      diagnostics.step = 'اكتمال الجدولة';
+      diagnostics.performance.totalTime = Date.now() - diagnostics.performance.startTime;
+
       res.json({
         success: true,
         message: 'تم جدولة الإشعار بنجاح',
@@ -640,16 +730,30 @@ router.post('/send', async (req, res) => {
           recipients_count: recipientsCount,
           scheduled_time: scheduledDateTime,
           notification_id: `scheduled_${Date.now()}`
-        }
+        },
+        diagnostics: diagnostics
       });
     }
 
   } catch (error) {
-    console.error('❌ خطأ في إرسال الإشعار الجماعي:', error);
+    diagnostics.step = 'خطأ عام في العملية';
+    diagnostics.performance.totalTime = Date.now() - diagnostics.performance.startTime;
+    diagnostics.errors.push({
+      type: 'general_error',
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+      step: diagnostics.step
+    });
+
+    console.error('❌ [DIAGNOSTIC] خطأ في إرسال الإشعار الجماعي:', error);
+    console.error('📊 [DIAGNOSTIC] تشخيص شامل للخطأ:', JSON.stringify(diagnostics, null, 2));
+
     res.status(500).json({
       success: false,
       message: 'خطأ في إرسال الإشعار',
-      error: error.message
+      error: error.message,
+      diagnostics: diagnostics
     });
   }
 });
@@ -873,6 +977,153 @@ router.post('/test-system', async (req, res) => {
       message: 'خطأ في اختبار النظام',
       error: error.message,
       timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// ===== اختبار شامل للنظام مع تشخيص =====
+router.post('/system-test', async (req, res) => {
+  const systemDiagnostics = {
+    timestamp: new Date().toISOString(),
+    testId: `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    step: 'بدء الاختبار الشامل',
+    details: {},
+    errors: [],
+    warnings: [],
+    performance: {
+      startTime: Date.now(),
+      steps: []
+    }
+  };
+
+  try {
+    console.log('🧪 [SYSTEM-TEST] بدء اختبار شامل لنظام الإشعارات...');
+    console.log('🔍 [SYSTEM-TEST] معرف الاختبار:', systemDiagnostics.testId);
+
+    // الخطوة 1: تهيئة مدير الإشعارات
+    systemDiagnostics.step = 'تهيئة مدير الإشعارات';
+    systemDiagnostics.performance.steps.push({ step: 'تهيئة المدير', timestamp: Date.now() });
+    console.log('🔧 [SYSTEM-TEST] تهيئة مدير الإشعارات...');
+
+    const manager = await initializeNotificationManager();
+    console.log('✅ [SYSTEM-TEST] تم تهيئة مدير الإشعارات بنجاح');
+
+    // الخطوة 2: فحص حالة Firebase
+    systemDiagnostics.step = 'فحص حالة Firebase';
+    systemDiagnostics.performance.steps.push({ step: 'فحص Firebase', timestamp: Date.now() });
+    console.log('🔥 [SYSTEM-TEST] فحص حالة Firebase...');
+
+    const firebaseStatus = manager.targetedService ? 'متصل' : 'غير متصل';
+    systemDiagnostics.details.firebaseStatus = firebaseStatus;
+    console.log(`🔥 [SYSTEM-TEST] حالة Firebase: ${firebaseStatus}`);
+
+    // الخطوة 3: جلب المستخدمين النشطين
+    systemDiagnostics.step = 'جلب المستخدمين النشطين';
+    systemDiagnostics.performance.steps.push({ step: 'جلب المستخدمين', timestamp: Date.now() });
+    console.log('👥 [SYSTEM-TEST] جلب المستخدمين النشطين...');
+
+    const activeUsers = await manager.getAllActiveUsers();
+    systemDiagnostics.details.activeUsersCount = activeUsers.length;
+    systemDiagnostics.details.activeUsersSample = activeUsers.slice(0, 3).map(u => ({
+      phone: u.phone,
+      hasToken: !!u.fcm_token,
+      tokenPreview: u.fcm_token ? u.fcm_token.substring(0, 20) + '...' : 'لا يوجد'
+    }));
+
+    console.log(`👥 [SYSTEM-TEST] عدد المستخدمين النشطين: ${activeUsers.length}`);
+
+    // الخطوة 4: اختبار إرسال إشعار تجريبي
+    if (activeUsers.length > 0) {
+      systemDiagnostics.step = 'اختبار إرسال إشعار تجريبي';
+      systemDiagnostics.performance.steps.push({ step: 'اختبار الإرسال', timestamp: Date.now() });
+      console.log('📱 [SYSTEM-TEST] اختبار إرسال إشعار تجريبي...');
+
+      const testUser = activeUsers[0];
+      const testResult = await manager.sendGeneralNotification({
+        userPhone: testUser.phone,
+        title: '🧪 اختبار النظام',
+        message: 'هذا إشعار تجريبي للتأكد من عمل النظام - تم إرساله من الاختبار الشامل',
+        additionalData: {
+          type: 'system_test',
+          testId: systemDiagnostics.testId,
+          timestamp: new Date().toISOString()
+        }
+      });
+
+      systemDiagnostics.details.testResult = testResult;
+      console.log(`📱 [SYSTEM-TEST] نتيجة الاختبار:`, testResult);
+    } else {
+      systemDiagnostics.warnings.push('لا توجد مستخدمين نشطين لاختبار الإرسال');
+      console.log('⚠️ [SYSTEM-TEST] لا توجد مستخدمين نشطين لاختبار الإرسال');
+    }
+
+    // الخطوة 5: فحص قاعدة البيانات
+    systemDiagnostics.step = 'فحص قاعدة البيانات';
+    systemDiagnostics.performance.steps.push({ step: 'فحص قاعدة البيانات', timestamp: Date.now() });
+    console.log('💾 [SYSTEM-TEST] فحص قاعدة البيانات...');
+
+    try {
+      const stats = await manager.getNotificationStats();
+      systemDiagnostics.details.databaseStats = stats;
+      console.log('💾 [SYSTEM-TEST] قاعدة البيانات تعمل بشكل صحيح');
+    } catch (dbError) {
+      systemDiagnostics.warnings.push(`مشكلة في قاعدة البيانات: ${dbError.message}`);
+      console.log('⚠️ [SYSTEM-TEST] مشكلة في قاعدة البيانات:', dbError.message);
+    }
+
+    // الخطوة 6: تقييم النتائج
+    systemDiagnostics.step = 'تقييم النتائج';
+    systemDiagnostics.performance.endTime = Date.now();
+    systemDiagnostics.performance.totalTime = systemDiagnostics.performance.endTime - systemDiagnostics.performance.startTime;
+
+    const systemHealth = {
+      overall: 'صحي',
+      components: {
+        manager: 'صحي',
+        firebase: firebaseStatus === 'متصل' ? 'صحي' : 'مشكلة',
+        database: systemDiagnostics.details.databaseStats ? 'صحي' : 'مشكلة',
+        users: activeUsers.length > 0 ? 'صحي' : 'تحذير'
+      }
+    };
+
+    if (systemDiagnostics.errors.length > 0) {
+      systemHealth.overall = 'مشكلة';
+    } else if (systemDiagnostics.warnings.length > 0) {
+      systemHealth.overall = 'تحذير';
+    }
+
+    systemDiagnostics.details.systemHealth = systemHealth;
+
+    console.log('✅ [SYSTEM-TEST] انتهى الاختبار الشامل');
+    console.log(`⏱️ [SYSTEM-TEST] إجمالي الوقت: ${systemDiagnostics.performance.totalTime}ms`);
+    console.log('🏥 [SYSTEM-TEST] حالة النظام:', systemHealth);
+
+    res.json({
+      success: true,
+      message: 'تم إجراء الاختبار الشامل بنجاح',
+      systemHealth: systemHealth,
+      diagnostics: systemDiagnostics
+    });
+
+  } catch (error) {
+    systemDiagnostics.step = 'خطأ في الاختبار الشامل';
+    systemDiagnostics.performance.endTime = Date.now();
+    systemDiagnostics.performance.totalTime = systemDiagnostics.performance.endTime - systemDiagnostics.performance.startTime;
+    systemDiagnostics.errors.push({
+      type: 'system_test_error',
+      message: error.message,
+      stack: error.stack,
+      timestamp: new Date().toISOString()
+    });
+
+    console.error('❌ [SYSTEM-TEST] خطأ في الاختبار الشامل:', error);
+    console.error('📊 [SYSTEM-TEST] تشخيص شامل للخطأ:', JSON.stringify(systemDiagnostics, null, 2));
+
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الاختبار الشامل',
+      error: error.message,
+      diagnostics: systemDiagnostics
     });
   }
 });
