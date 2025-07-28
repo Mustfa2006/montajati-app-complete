@@ -31,6 +31,7 @@ class WaseetAPIService {
 
   /**
    * تسجيل الدخول للحصول على التوكن
+   * جرب مسارات مختلفة للعثور على الصحيح
    */
   async authenticate() {
     try {
@@ -46,31 +47,69 @@ class WaseetAPIService {
         password: this.config.password
       });
 
-      const response = await axios.post(`${this.config.baseUrl}/v1/login`, loginData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: this.config.timeout,
-        maxRedirects: 0,
-        validateStatus: (status) => status < 400
-      });
+      // قائمة المسارات المحتملة للتسجيل
+      const loginPaths = [
+        '/v1/login',
+        '/login',
+        '/v1/auth/login',
+        '/auth/login',
+        '/api/login',
+        '/api/v1/login'
+      ];
 
-      // استخراج التوكن من الكوكيز
-      const cookies = response.headers['set-cookie'];
-      if (!cookies) {
-        throw new Error('لم يتم الحصول على توكن من تسجيل الدخول');
+      let lastError = null;
+
+      for (const path of loginPaths) {
+        try {
+          console.log(`🔍 جرب مسار: ${this.config.baseUrl}${path}`);
+
+          const response = await axios.post(`${this.config.baseUrl}${path}`, loginData, {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            timeout: this.config.timeout,
+            maxRedirects: 0,
+            validateStatus: (status) => status < 500 // قبول حتى 4xx للتحقق
+          });
+
+          console.log(`📊 استجابة ${path}: ${response.status}`);
+
+          if (response.status === 200 || response.status === 302) {
+            // نجح التسجيل
+            const cookies = response.headers['set-cookie'];
+            if (cookies) {
+              this.loginToken = cookies.map(cookie => cookie.split(';')[0]).join('; ');
+              this.tokenExpiry = Date.now() + (30 * 60 * 1000);
+              console.log(`✅ تم تسجيل الدخول بنجاح عبر ${path}`);
+              return this.loginToken;
+            }
+          }
+
+          // إذا كانت الاستجابة JSON، تحقق من وجود توكن
+          if (response.data && typeof response.data === 'object') {
+            console.log(`📄 استجابة JSON من ${path}:`, response.data);
+
+            if (response.data.token || response.data.access_token) {
+              this.loginToken = response.data.token || response.data.access_token;
+              this.tokenExpiry = Date.now() + (30 * 60 * 1000);
+              console.log(`✅ تم الحصول على توكن من ${path}`);
+              return this.loginToken;
+            }
+          }
+
+        } catch (error) {
+          console.log(`❌ فشل ${path}: ${error.response?.status || error.message}`);
+          lastError = error;
+          continue;
+        }
       }
 
-      this.loginToken = cookies.map(cookie => cookie.split(';')[0]).join('; ');
-      this.tokenExpiry = Date.now() + (30 * 60 * 1000); // 30 دقيقة
-
-      console.log('✅ تم تسجيل الدخول بنجاح');
-      return this.loginToken;
+      throw new Error(`فشل تسجيل الدخول في جميع المسارات. آخر خطأ: ${lastError?.message}`);
 
     } catch (error) {
       console.error('❌ فشل تسجيل الدخول:', error.message);
-      throw new Error(`فشل تسجيل الدخول: ${error.message}`);
+      throw error;
     }
   }
 
