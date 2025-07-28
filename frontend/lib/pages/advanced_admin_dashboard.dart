@@ -7618,11 +7618,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
     try {
       print('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
-      print('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-backend.onrender.com/api/notifications/send');
+      print('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-backend.onrender.com/api/notifications/send-bulk');
 
       final requestStartTime = DateTime.now();
       final response = await http.post(
-        Uri.parse('https://montajati-backend.onrender.com/api/notifications/send'),
+        Uri.parse('https://montajati-backend.onrender.com/api/notifications/send-bulk'),
         headers: {
           'Content-Type': 'application/json',
         },
