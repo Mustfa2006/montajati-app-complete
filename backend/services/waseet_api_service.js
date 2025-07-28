@@ -46,7 +46,7 @@ class WaseetAPIService {
         password: this.config.password
       });
 
-      const response = await axios.post(`${this.config.baseUrl}/login`, loginData, {
+      const response = await axios.post(`${this.config.baseUrl}/v1/login`, loginData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
