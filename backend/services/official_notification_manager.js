@@ -179,7 +179,12 @@ class OfficialNotificationManager extends EventEmitter {
       });
 
       console.error(`❌ [NOTIF-DIAGNOSTIC] خطأ في إرسال الإشعار العام للعميل ${data.userPhone}:`, error);
-      console.error(`📊 [NOTIF-DIAGNOSTIC] تشخيص الخطأ:`, JSON.stringify(notificationDiagnostic, null, 2));
+
+      // تنظيف FCM Token إذا كان منتهي الصلاحية
+      if (error.message && error.message.includes('Requested entity was not found')) {
+        console.log(`🧹 [NOTIF-DIAGNOSTIC] تنظيف FCM Token منتهي الصلاحية للمستخدم ${data.userPhone}`);
+        this.cleanupInvalidToken(data.userPhone);
+      }
 
       this.stats.totalSent++;
       this.stats.failedSent++;
@@ -469,7 +474,12 @@ class OfficialNotificationManager extends EventEmitter {
           notification_data: {
             isScheduled: data.isScheduled,
             scheduledDateTime: data.scheduledDateTime,
-            results: data.results
+            results: data.results ? {
+              total: data.results.total,
+              successful: data.results.successful,
+              failed: data.results.failed,
+              errors_count: data.results.errors ? data.results.errors.length : 0
+            } : null
           },
           created_by: 'admin'
         }]);
@@ -483,6 +493,31 @@ class OfficialNotificationManager extends EventEmitter {
     } catch (error) {
       console.error('❌ خطأ في حفظ سجل الإشعار:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * تنظيف FCM Token منتهي الصلاحية
+   */
+  async cleanupInvalidToken(userPhone) {
+    try {
+      if (!this.supabase) {
+        console.log('⚠️ Supabase غير متاح لتنظيف FCM Token');
+        return;
+      }
+
+      const { error } = await this.supabase
+        .from('users')
+        .update({ fcm_token: null })
+        .eq('phone', userPhone);
+
+      if (error) {
+        console.error(`❌ خطأ في تنظيف FCM Token للمستخدم ${userPhone}:`, error);
+      } else {
+        console.log(`✅ تم تنظيف FCM Token للمستخدم ${userPhone}`);
+      }
+    } catch (error) {
+      console.error(`❌ خطأ في تنظيف FCM Token للمستخدم ${userPhone}:`, error);
     }
   }
 
@@ -532,8 +567,12 @@ class OfficialNotificationManager extends EventEmitter {
     try {
       console.log('📜 جلب تاريخ الإشعارات من قاعدة البيانات...');
 
+      // استخدام استعلام بسيط بدلاً من الدالة المفقودة
       const { data, error } = await this.supabase
-        .rpc('get_notification_history', { limit_count: 50 });
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
 
       if (error) {
         console.error('❌ خطأ في جلب تاريخ الإشعارات من قاعدة البيانات:', error);
