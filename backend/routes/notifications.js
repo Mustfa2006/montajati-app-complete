@@ -1128,6 +1128,15 @@ router.post('/system-test', async (req, res) => {
   }
 });
 
+// ===== اختبار endpoint جديد =====
+router.get('/test-bulk', (req, res) => {
+  res.json({
+    success: true,
+    message: 'endpoint /send-bulk متاح ويعمل',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // ===== إرسال إشعار جماعي - مسار جديد لتجنب التداخل =====
 router.post('/send-bulk', async (req, res) => {
   const diagnostics = {
