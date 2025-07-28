@@ -413,17 +413,17 @@ function startMaintenanceTasks() {
 
 
 
-  // مزامنة تلقائية لحالات الطلبات كل 5 دقائق باستخدام النظام الإنتاجي
+  // مزامنة تلقائية لحالات الطلبات كل 5 دقائق باستخدام API الوسيط الرسمي
   setInterval(async () => {
     try {
-      console.log('🔍 بدء المزامنة التلقائية مع شركة الوسيط...');
+      console.log('🔍 بدء المزامنة التلقائية مع شركة الوسيط (API الرسمي)...');
 
-      // استيراد النظام الإنتاجي الموجود
-      const ProductionSyncService = require('./production/sync_service');
-      const syncService = new ProductionSyncService();
+      // استيراد خدمة API الوسيط الرسمية
+      const WaseetAPIService = require('./services/waseet_api_service');
+      const apiService = new WaseetAPIService();
 
       // تشغيل المزامنة
-      const result = await syncService.performSync();
+      const result = await apiService.syncOrderStatuses();
 
       console.log(`✅ انتهت المزامنة: فحص ${result.checked || 0} طلب، تحديث ${result.updated || 0} طلب`);
 

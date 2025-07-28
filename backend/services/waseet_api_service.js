@@ -222,11 +222,7 @@ class WaseetAPIService {
         console.log(`⚠️ خطأ من API: ${response.data.msg}`);
         console.log(`📋 رمز الخطأ: ${response.data.errNum}`);
 
-        // إذا كان الخطأ متعلق بالصلاحية، جرب طرق أخرى للحصول على التوكن
-        if (response.data.errNum === '21' || response.data.msg?.includes('صلاحية')) {
-          console.log('🔄 محاولة الحصول على توكن API مختلف...');
-          return await this.tryAlternativeTokenMethods();
-        }
+
 
         throw new Error(`خطأ من API: ${response.data.msg || 'خطأ غير معروف'}`);
       }
@@ -258,193 +254,7 @@ class WaseetAPIService {
     }
   }
 
-  /**
-   * محاولة طرق بديلة للحصول على توكن API صالح
-   */
-  async tryAlternativeTokenMethods() {
-    try {
-      console.log('🔄 جرب طرق بديلة للحصول على توكن API...');
 
-      // الطريقة 1: استخدام الكوكيز كاملة
-      const fullCookies = await this.getFullCookies();
-      if (fullCookies) {
-        const result = await this.testTokenWithAPI(fullCookies);
-        if (result.success) return result;
-      }
-
-      // الطريقة 2: البحث عن توكن في صفحة التاجر
-      const pageToken = await this.extractTokenFromPage();
-      if (pageToken) {
-        const result = await this.testTokenWithAPI(pageToken);
-        if (result.success) return result;
-      }
-
-      throw new Error('فشل جميع طرق الحصول على توكن API صالح');
-
-    } catch (error) {
-      console.error('❌ فشل الطرق البديلة:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  /**
-   * الحصول على الكوكيز كاملة
-   */
-  async getFullCookies() {
-    try {
-      const cookieString = await this.authenticate();
-      return `ci_session=${cookieString}`;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
-   * استخراج توكن من صفحة التاجر
-   */
-  async extractTokenFromPage() {
-    try {
-      const cookieString = await this.authenticate();
-
-      const response = await axios.get('https://merchant.alwaseet-iq.net/merchant', {
-        headers: {
-          'Cookie': `ci_session=${cookieString}`,
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: this.config.timeout
-      });
-
-      // البحث عن توكن في الصفحة
-      const tokenMatches = response.data.match(/token['":\s]*['"]([^'"]+)['"]/gi);
-      if (tokenMatches && tokenMatches.length > 0) {
-        const token = tokenMatches[0].match(/['"]([^'"]+)['"]/)[1];
-        console.log(`🎯 تم العثور على توكن في الصفحة: ${token}`);
-        return token;
-      }
-
-      return null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-  /**
-   * اختبار توكن مع API
-   */
-  async testTokenWithAPI(token) {
-    try {
-      const response = await axios.get('https://api.alwaseet-iq.net/v1/merchant/statuses', {
-        params: { token: token },
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: this.config.timeout
-      });
-
-      if (response.data.status && response.data.errNum === 'S000') {
-        console.log(`✅ توكن صالح: ${token}`);
-        return {
-          success: true,
-          statuses: response.data.data,
-          total: response.data.data.length
-        };
-      }
-
-      return { success: false };
-    } catch (error) {
-      return { success: false };
-    }
-  }
-
-  /**
-   * استخراج بيانات الطلبات من صفحة التاجر
-   */
-  extractOrdersFromPage(pageContent) {
-    try {
-      console.log('🔍 استخراج بيانات الطلبات من الصفحة...');
-
-      const orders = [];
-
-      // البحث عن جدول الطلبات باستخدام regex
-      const tableRegex = /<table[^>]*class[^>]*table[^>]*>(.*?)<\/table>/gs;
-      const tableMatch = pageContent.match(tableRegex);
-
-      if (!tableMatch) {
-        console.log('⚠️ لم يتم العثور على جدول الطلبات');
-        return orders;
-      }
-
-      const tableContent = tableMatch[0];
-      const rowRegex = /<tr[^>]*>(.*?)<\/tr>/gs;
-      const rows = tableContent.match(rowRegex) || [];
-
-      console.log(`📊 تم العثور على ${rows.length} صف في الجدول`);
-
-      for (let i = 1; i < rows.length; i++) { // تجاهل الهيدر
-        const row = rows[i];
-        const cellRegex = /<td[^>]*>(.*?)<\/td>/gs;
-        const cells = [];
-        let match;
-
-        while ((match = cellRegex.exec(row)) !== null) {
-          const cellContent = match[1].replace(/<[^>]*>/g, '').trim();
-          cells.push(cellContent);
-        }
-
-        if (cells.length >= 4) {
-          const order = {
-            id: cells[0] || '',
-            order_number: cells[1] || '',
-            client_name: cells[2] || '',
-            status: cells[3] || '',
-            status_id: this.getStatusId(cells[3] || ''),
-            created_at: cells[4] || '',
-            price: cells[5] || '',
-            updated_at: new Date().toISOString()
-          };
-
-          orders.push(order);
-        }
-      }
-
-      console.log(`✅ تم استخراج ${orders.length} طلب من الصفحة`);
-
-      // طباعة عينة من الطلبات
-      if (orders.length > 0) {
-        console.log('📋 عينة من الطلبات:');
-        orders.slice(0, 3).forEach((order, index) => {
-          console.log(`   ${index + 1}. ID: ${order.id}, الحالة: ${order.status}`);
-        });
-      }
-
-      return orders;
-
-    } catch (error) {
-      console.error('❌ فشل استخراج بيانات الطلبات:', error.message);
-      return [];
-    }
-  }
-
-  /**
-   * تحويل نص الحالة إلى ID
-   */
-  getStatusId(statusText) {
-    const statusMap = {
-      'تم الاستلام من قبل المندوب': '1',
-      'قيد التوصيل': '2',
-      'تم التوصيل': '3',
-      'مرتجع': '4',
-      'ملغي': '5',
-      'في انتظار التأكيد': '6',
-      'تم التأكيد': '7'
-    };
-
-    return statusMap[statusText] || '0';
-  }
 
   /**
    * مزامنة حالات الطلبات مع قاعدة البيانات
@@ -453,14 +263,14 @@ class WaseetAPIService {
     try {
       console.log('🔄 بدء مزامنة حالات الطلبات...');
 
-      // جلب الحالات من شركة الوسيط (من صفحة التاجر)
-      const statusesResult = await this.getMerchantPageData();
+      // جلب الحالات من شركة الوسيط (API الرسمي)
+      const statusesResult = await this.getOrderStatuses();
       
       if (!statusesResult.success) {
         throw new Error(`فشل جلب الحالات: ${statusesResult.error}`);
       }
 
-      const waseetOrders = statusesResult.orders;
+      const waseetStatuses = statusesResult.statuses;
       
       // جلب الطلبات من قاعدة البيانات التي لها معرف وسيط
       const { data: orders, error: ordersError } = await this.supabase
@@ -480,20 +290,20 @@ class WaseetAPIService {
       // مزامنة كل طلب
       for (const order of orders) {
         try {
-          // البحث عن الطلب في بيانات الوسيط
-          const waseetOrder = waseetOrders.find(waseetOrder =>
-            waseetOrder.id === order.waseet_order_id ||
-            waseetOrder.id === order.waseet_order_id?.toString()
+          // البحث عن حالة الطلب في بيانات الوسيط
+          const waseetStatus = waseetStatuses.find(status =>
+            status.id === order.waseet_order_id ||
+            status.id === order.waseet_order_id?.toString()
           );
 
-          if (waseetOrder) {
+          if (waseetStatus) {
             // تحديث حالة الطلب إذا تغيرت
-            if (order.waseet_status !== waseetOrder.status) {
+            if (order.waseet_status !== waseetStatus.status) {
               const { error: updateError } = await this.supabase
                 .from('orders')
                 .update({
-                  status: waseetOrder.status,
-                  waseet_status: waseetOrder.status,
+                  status: waseetStatus.status,
+                  waseet_status: waseetStatus.status,
                   last_status_check: new Date().toISOString(),
                   updated_at: new Date().toISOString()
                 })
@@ -502,7 +312,7 @@ class WaseetAPIService {
               if (updateError) {
                 errors.push(`فشل تحديث الطلب ${order.order_number}: ${updateError.message}`);
               } else {
-                console.log(`✅ تم تحديث الطلب ${order.order_number}: ${order.waseet_status} → ${waseetOrder.status}`);
+                console.log(`✅ تم تحديث الطلب ${order.order_number}: ${order.waseet_status} → ${waseetStatus.status}`);
                 updatedCount++;
               }
             }
