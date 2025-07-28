@@ -119,18 +119,7 @@ app.get('/health', (req, res) => {
     overallStatus = 'degraded';
   }
 
-  // فحص نظام المزامنة التلقائي المتقدم
-  try {
-    if (global.advancedSyncService && global.advancedSyncService.isInitialized !== false) {
-      checks.push({ service: 'advanced_sync', status: 'pass' });
-    } else {
-      checks.push({ service: 'advanced_sync', status: 'warn', error: 'نظام المزامنة التلقائي غير مهيأ' });
-      overallStatus = 'degraded';
-    }
-  } catch (error) {
-    checks.push({ service: 'advanced_sync', status: 'fail', error: error.message });
-    overallStatus = 'degraded';
-  }
+
 
   res.json({
     status: overallStatus,
@@ -338,45 +327,7 @@ async function initializeSyncService() {
   }
 }
 
-// تهيئة نظام المزامنة التلقائي المتقدم
-async function initializeAdvancedSyncSystem() {
-  try {
-    console.log('🚀 بدء تهيئة نظام المزامنة التلقائي المتقدم...');
 
-    // استيراد خدمة المزامنة المتقدمة
-    const AdvancedSyncService = require('./sync/order_status_sync_service');
-    console.log('✅ تم استيراد خدمة المزامنة المتقدمة');
-
-    // إنشاء instance من الخدمة
-    const advancedSyncService = new AdvancedSyncService();
-    console.log('✅ تم إنشاء instance من خدمة المزامنة المتقدمة');
-
-    // بدء المزامنة التلقائية
-    console.log('🔄 بدء المزامنة التلقائية لحالات الطلبات...');
-    advancedSyncService.startAutoSync();
-
-    // حفظ المرجع العام
-    global.advancedSyncService = advancedSyncService;
-
-    console.log('✅ تم تهيئة وتشغيل نظام المزامنة التلقائي المتقدم بنجاح');
-    console.log('📊 سيتم فحص حالات الطلبات من الوسيط كل 10 دقائق تلقائياً');
-
-    return true;
-
-  } catch (error) {
-    console.error('❌ خطأ في تهيئة نظام المزامنة التلقائي المتقدم:', error.message);
-    console.error('📋 تفاصيل الخطأ:', error.stack);
-
-    // إنشاء نظام احتياطي
-    global.advancedSyncService = {
-      isInitialized: false,
-      startAutoSync: () => console.log('⚠️ نظام المزامنة التلقائي غير متاح'),
-      stopAutoSync: () => console.log('⚠️ نظام المزامنة التلقائي غير متاح')
-    };
-
-    return false;
-  }
-}
 
 // تشغيل الخادم
 const PORT = process.env.PORT || 3003;
@@ -397,8 +348,7 @@ app.listen(PORT, '0.0.0.0', async () => {
   // تهيئة خدمة مزامنة الطلبات مع الوسيط
   await initializeSyncService();
 
-  // تهيئة وتشغيل نظام المزامنة التلقائي المتقدم
-  await initializeAdvancedSyncSystem();
+
 
   // بدء مهمة دورية لإعادة محاولة الطلبات الفاشلة كل 10 دقائق
   if (global.orderSyncService && global.orderSyncService.retryFailedOrders) {
@@ -461,7 +411,33 @@ function startMaintenanceTasks() {
     timezone: 'Asia/Riyadh'
   });
 
+
+
+  // مزامنة تلقائية لحالات الطلبات كل 5 دقائق
+  setInterval(async () => {
+    try {
+      console.log('🔍 بدء المزامنة التلقائية مع شركة الوسيط...');
+
+      // استيراد النظام الإنتاجي للمزامنة
+      const ProductionSyncService = require('./production/sync_service');
+      const syncService = new ProductionSyncService();
+
+      // تشغيل المزامنة
+      const result = await syncService.performSync();
+
+      console.log(`✅ انتهت المزامنة: فحص ${result.checked || 0} طلب، تحديث ${result.updated || 0} طلب`);
+
+      if (result.errors && result.errors.length > 0) {
+        console.log(`⚠️ أخطاء في ${result.errors.length} طلب`);
+      }
+
+    } catch (error) {
+      console.error('❌ خطأ في المزامنة التلقائية:', error.message);
+    }
+  }, 5 * 60 * 1000); // كل 5 دقائق
+
   console.log('✅ تم جدولة مهام الصيانة الدورية بنجاح');
+  console.log('🔍 سيتم فحص حالات الطلبات من الوسيط كل 5 دقائق تلقائياً');
 }
 
 module.exports = app;
