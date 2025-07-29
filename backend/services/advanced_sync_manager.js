@@ -142,20 +142,25 @@ class AdvancedSyncManager extends EventEmitter {
         return null;
       }
 
-      // استخدام API الوسيط الرسمي الصحيح
-      const WaseetAPIClient = require('./waseet_api_client');
-      const client = new WaseetAPIClient(this.waseetConfig.username, this.waseetConfig.password);
+      // استخدام API الوسيط الرسمي المحدث
+      const OfficialWaseetAPI = require('./official_waseet_api');
+      const client = new OfficialWaseetAPI(this.waseetConfig.username, this.waseetConfig.password);
 
-      const loginSuccess = await client.login();
+      try {
+        const token = await client.authenticate();
 
-      if (loginSuccess) {
-        console.log('✅ تم تسجيل الدخول للوسيط بنجاح عبر API الرسمي');
-        this.state.currentToken = client.token;
-        this.state.tokenExpiresAt = client.tokenExpiresAt;
-        this.emit('tokenRefreshed', this.state.currentToken);
-        return this.state.currentToken;
-      } else {
-        console.warn('⚠️ فشل في تسجيل الدخول للوسيط');
+        if (token) {
+          console.log('✅ تم تسجيل الدخول للوسيط بنجاح عبر API الرسمي المحدث');
+          this.state.currentToken = token;
+          this.state.tokenExpiresAt = client.tokenExpiry;
+          this.emit('tokenRefreshed', this.state.currentToken);
+          return this.state.currentToken;
+        } else {
+          console.warn('⚠️ فشل في تسجيل الدخول للوسيط');
+          return null;
+        }
+      } catch (error) {
+        console.error('❌ خطأ في تسجيل الدخول للوسيط:', error.message);
         return null;
       }
 

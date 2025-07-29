@@ -30,8 +30,8 @@ class WaseetAPIService {
   }
 
   /**
-   * تسجيل الدخول للحصول على التوكن
-   * جرب مسارات مختلفة للعثور على الصحيح
+   * تسجيل الدخول للحصول على التوكن حسب API الرسمي
+   * POST /v1/merchant/login
    */
   async authenticate() {
     try {
@@ -40,55 +40,63 @@ class WaseetAPIService {
         return this.loginToken;
       }
 
-      console.log('🔐 تسجيل الدخول لشركة الوسيط...');
+      console.log('🔐 تسجيل الدخول لشركة الوسيط باستخدام API الرسمي...');
 
-      const loginData = new URLSearchParams({
-        username: this.config.username,
-        password: this.config.password
-      });
+      // إعداد البيانات حسب التوثيق الرسمي - multipart/form-data
+      const FormData = require('form-data');
+      const formData = new FormData();
+      formData.append('username', this.config.username);
+      formData.append('password', this.config.password);
 
-      // المسار الصحيح لتسجيل الدخول
-      const loginPaths = [
-        '/merchant/login'
-      ];
+      // استخدام المسار الرسمي المحدد في التوثيق
+      const loginUrl = 'https://api.alwaseet-iq.net/v1/merchant/login';
+      console.log(`🔗 URL: ${loginUrl}`);
+      console.log(`👤 اسم المستخدم: ${this.config.username}`);
 
-      let lastError = null;
+      try {
+        console.log('📤 إرسال طلب تسجيل الدخول...');
 
-      for (const path of loginPaths) {
-        try {
-          console.log(`🔍 جرب مسار: ${this.config.baseUrl}${path}`);
-
-          const response = await axios.post(`${this.config.baseUrl}${path}`, loginData, {
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        const response = await axios.post(loginUrl, formData, {
+          headers: {
+            ...formData.getHeaders(), // للحصول على Content-Type الصحيح لـ multipart/form-data
+            'User-Agent': 'Montajati-App/2.2.0'
             },
             timeout: this.config.timeout,
             maxRedirects: 0,
             validateStatus: (status) => status < 500 // قبول حتى 4xx للتحقق
           });
 
-          console.log(`📊 استجابة ${path}: ${response.status}`);
+        console.log(`📊 استجابة API: ${response.status}`);
+        console.log(`📄 بيانات الاستجابة:`, response.data);
 
-          if (response.status === 200 || response.status === 302 || response.status === 303) {
-            console.log(`📄 استجابة تسجيل الدخول من ${path}:`, {
-              status: response.status,
-              headers: Object.keys(response.headers),
-              dataType: typeof response.data,
-              dataLength: response.data?.length || 'N/A'
-            });
+        // معالجة الاستجابة حسب التوثيق الرسمي
+        if (response.status === 200 && response.data) {
+          const responseData = response.data;
 
-            // البحث عن التوكن في الاستجابة JSON أولاً
-            if (response.data && typeof response.data === 'object') {
-              console.log(`📄 بيانات JSON:`, response.data);
+          // التحقق من نجاح العملية حسب التوثيق
+          if (responseData.status === true && responseData.errNum === 'S000') {
+            // استخراج التوكن من البيانات
+            if (responseData.data && responseData.data.token) {
+              this.loginToken = responseData.data.token;
+              this.tokenExpiry = Date.now() + (30 * 60 * 1000); // صالح لمدة 30 دقيقة
 
-              if (response.data.token || response.data.access_token || response.data.loginToken) {
-                this.loginToken = response.data.token || response.data.access_token || response.data.loginToken;
-                this.tokenExpiry = Date.now() + (30 * 60 * 1000);
-                console.log(`✅ تم الحصول على loginToken من JSON: ${this.loginToken}`);
-                return this.loginToken;
-              }
+              console.log(`✅ تم تسجيل الدخول بنجاح!`);
+              console.log(`🎫 التوكن: ${this.loginToken.substring(0, 20)}...`);
+              console.log(`📝 رسالة النجاح: ${responseData.msg}`);
+
+              return this.loginToken;
+            } else {
+              throw new Error('لم يتم العثور على التوكن في الاستجابة');
             }
+          } else {
+            // معالجة الأخطاء حسب التوثيق
+            const errorCode = responseData.errNum || 'غير محدد';
+            const errorMessage = responseData.msg || 'خطأ غير معروف';
+            throw new Error(`فشل تسجيل الدخول - كود الخطأ: ${errorCode}, الرسالة: ${errorMessage}`);
+          }
+        } else {
+          throw new Error(`استجابة غير متوقعة من الخادم: ${response.status}`);
+        }
 
             // إذا لم نجد في JSON، جرب الحصول على التوكن من صفحة التاجر
             const cookies = response.headers['set-cookie'];
