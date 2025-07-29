@@ -110,8 +110,9 @@ ${notes && notes.trim() ? notes.trim() : 'لا توجد ملاحظات إضاف�
  */
 async function sendToTelegram(message) {
   try {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    // استخدام متغيرات الدعم المنفصلة
+    const botToken = process.env.TELEGRAM_SUPPORT_BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_SUPPORT_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
 
     if (!botToken) {
       console.log('❌ TELEGRAM_BOT_TOKEN غير موجود في متغيرات البيئة');
