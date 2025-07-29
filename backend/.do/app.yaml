@@ -1,0 +1,113 @@
+# ===================================
+# DigitalOcean App Platform Configuration
+# تكوين منصة التطبيقات DigitalOcean
+# ===================================
+
+name: montajati-backend
+region: fra
+
+# إعدادات الخدمات
+services:
+- name: api
+  # إعدادات المصدر
+  source_dir: /
+  github:
+    repo: Mustfa2006/montajati-app-complete
+    branch: main
+    deploy_on_push: true
+  
+  # إعدادات التشغيل
+  run_command: npm start
+  build_command: npm install --production
+  
+  # إعدادات البيئة
+  environment_slug: node-js
+  instance_count: 1
+  instance_size_slug: basic-xxs  # $5/شهر
+  
+  # إعدادات الشبكة
+  http_port: 3003
+  routes:
+  - path: /
+  
+  # إعدادات الصحة
+  health_check:
+    http_path: /health
+    initial_delay_seconds: 30
+    period_seconds: 10
+    timeout_seconds: 5
+    success_threshold: 1
+    failure_threshold: 3
+  
+  # متغيرات البيئة
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: PORT
+    value: "3003"
+  - key: SUPABASE_URL
+    value: https://fqdhskaolzfavapmqodl.supabase.co
+    type: SECRET
+  - key: SUPABASE_SERVICE_ROLE_KEY
+    scope: RUN_TIME
+    type: SECRET
+  - key: FIREBASE_PROJECT_ID
+    scope: RUN_TIME
+    type: SECRET
+  - key: FIREBASE_PRIVATE_KEY
+    scope: RUN_TIME
+    type: SECRET
+  - key: FIREBASE_CLIENT_EMAIL
+    scope: RUN_TIME
+    type: SECRET
+  - key: WASEET_USERNAME
+    scope: RUN_TIME
+    type: SECRET
+  - key: WASEET_PASSWORD
+    scope: RUN_TIME
+    type: SECRET
+  - key: JWT_SECRET
+    scope: RUN_TIME
+    type: SECRET
+  - key: CLOUDINARY_CLOUD_NAME
+    scope: RUN_TIME
+    type: SECRET
+  - key: CLOUDINARY_API_KEY
+    scope: RUN_TIME
+    type: SECRET
+  - key: CLOUDINARY_API_SECRET
+    scope: RUN_TIME
+    type: SECRET
+
+# إعدادات قاعدة البيانات (اختيارية - نستخدم Supabase)
+# databases:
+# - name: montajati-db
+#   engine: PG
+#   version: "13"
+#   size: basic
+
+# إعدادات النطاق المخصص (اختيارية)
+domains:
+- domain: montajati-api.com
+  type: PRIMARY
+  wildcard: false
+  zone: montajati-api.com
+
+# إعدادات التنبيهات
+alerts:
+- rule: CPU_UTILIZATION
+  value: 80
+- rule: MEM_UTILIZATION  
+  value: 80
+- rule: RESTART_COUNT
+  value: 5
+
+# إعدادات التوسع التلقائي
+autoscaling:
+  min_instance_count: 1
+  max_instance_count: 3
+  metrics:
+  - type: cpu
+    value: 70
+  - type: memory
+    value: 80

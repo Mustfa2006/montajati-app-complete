@@ -1,0 +1,116 @@
+# ===================================
+# DigitalOcean Deployment Configuration
+# تكوين النشر لـ DigitalOcean
+# ===================================
+
+spec:
+  name: montajati-backend
+  region: fra1
+  
+  services:
+  - name: api
+    source_dir: /
+    github:
+      repo: Mustfa2006/montajati-app-complete
+      branch: main
+      deploy_on_push: true
+    
+    run_command: npm start
+    build_command: |
+      npm ci --only=production
+      npm cache clean --force
+    
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    
+    http_port: 3003
+    
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 60
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    
+    # Auto-scaling configuration
+    autoscaling:
+      min_instance_count: 1
+      max_instance_count: 3
+      metrics:
+      - type: cpu
+        value: 70
+    
+    # Environment variables
+    envs:
+    - key: NODE_ENV
+      value: production
+    - key: PORT
+      value: "3003"
+    - key: SUPABASE_URL
+      value: https://fqdhskaolzfavapmqodl.supabase.co
+    - key: SUPABASE_SERVICE_ROLE_KEY
+      scope: RUN_TIME
+      type: SECRET
+    - key: FIREBASE_PROJECT_ID
+      scope: RUN_TIME
+      type: SECRET
+    - key: FIREBASE_PRIVATE_KEY
+      scope: RUN_TIME
+      type: SECRET
+    - key: FIREBASE_CLIENT_EMAIL
+      scope: RUN_TIME
+      type: SECRET
+    - key: WASEET_USERNAME
+      scope: RUN_TIME
+      type: SECRET
+    - key: WASEET_PASSWORD
+      scope: RUN_TIME
+      type: SECRET
+    - key: JWT_SECRET
+      scope: RUN_TIME
+      type: SECRET
+    - key: CLOUDINARY_CLOUD_NAME
+      scope: RUN_TIME
+      type: SECRET
+    - key: CLOUDINARY_API_KEY
+      scope: RUN_TIME
+      type: SECRET
+    - key: CLOUDINARY_API_SECRET
+      scope: RUN_TIME
+      type: SECRET
+
+  # Alerts configuration
+  alerts:
+  - rule: CPU_UTILIZATION
+    value: 80
+  - rule: MEM_UTILIZATION
+    value: 80
+  - rule: RESTART_COUNT
+    value: 5
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+  # Jobs (for background tasks if needed)
+  jobs:
+  - name: maintenance
+    source_dir: /
+    github:
+      repo: Mustfa2006/montajati-app-complete
+      branch: main
+    
+    run_command: node scripts/maintenance.js
+    environment_slug: node-js
+    instance_size_slug: basic-xxs
+    
+    kind: PRE_DEPLOY
+    
+    envs:
+    - key: NODE_ENV
+      value: production
+    - key: SUPABASE_URL
+      value: https://fqdhskaolzfavapmqodl.supabase.co
+    - key: SUPABASE_SERVICE_ROLE_KEY
+      scope: RUN_TIME
+      type: SECRET

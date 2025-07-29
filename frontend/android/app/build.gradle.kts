@@ -1,20 +1,11 @@
 import java.util.Properties
 import java.io.FileInputStream
 
-// إعدادات Kotlin محسنة لحل مشاكل daemon
+// إعدادات Kotlin مبسطة
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
         jvmTarget = "1.8"
-        freeCompilerArgs += listOf(
-            "-Xjvm-default=all",
-            "-Xopt-in=kotlin.RequiresOptIn",
-            "-Xno-call-assertions",
-            "-Xno-param-assertions",
-            "-Xno-receiver-assertions"
-        )
     }
-    // تعطيل daemon للتجميع
-    useDaemonFallbackStrategy = false
 }
 
 plugins {

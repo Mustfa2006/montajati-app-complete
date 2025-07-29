@@ -32,6 +32,8 @@
     "health": "curl http://localhost:3003/health",
     "status": "curl http://localhost:3003/api/system/status",
     "metrics": "curl http://localhost:3003/api/monitor/metrics",
+    "verify:digitalocean": "node scripts/verify_digitalocean_deployment.js",
+    "maintenance": "node scripts/maintenance.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
