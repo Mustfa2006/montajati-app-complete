@@ -35,7 +35,8 @@ class WaseetStatusManager {
       { id: 35, text: "مستلم مسبقا", category: "cancelled", appStatus: "cancelled" },
       { id: 38, text: "العنوان غير دقيق", category: "address_issue", appStatus: "active" },
       { id: 39, text: "لم يطلب", category: "cancelled", appStatus: "cancelled" },
-      { id: 40, text: "حظر المندوب", category: "cancelled", appStatus: "cancelled" }
+      { id: 40, text: "حظر المندوب", category: "cancelled", appStatus: "cancelled" },
+      { id: 23, text: "ارسال الى مخزن الارجاعات", category: "cancelled", appStatus: "cancelled" }
     ];
   }
 

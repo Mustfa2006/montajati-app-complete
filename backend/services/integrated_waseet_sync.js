@@ -182,16 +182,22 @@ class IntegratedWaseetSync {
         const waseetStatusText = waseetOrder.status;
 
         // التحقق من وجود تغيير
-        if (dbOrder.waseet_status_id === waseetStatusId && 
+        if (dbOrder.waseet_status_id === waseetStatusId &&
             dbOrder.waseet_status_text === waseetStatusText) {
           continue;
+        }
+
+        // تحويل حالة الوسيط إلى حالة التطبيق
+        let appStatus = waseetStatusText;
+        if (waseetStatusId === 23 || waseetStatusText === 'ارسال الى مخزن الارجاعات') {
+          appStatus = 'الغاء الطلب';
         }
 
         // تحديث الطلب
         const { error: updateError } = await this.supabase
           .from('orders')
           .update({
-            status: waseetStatusText,
+            status: appStatus,
             waseet_status_id: waseetStatusId,
             waseet_status_text: waseetStatusText,
             last_status_check: new Date().toISOString(),
