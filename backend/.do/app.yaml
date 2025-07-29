@@ -78,6 +78,12 @@ services:
   - key: CLOUDINARY_API_SECRET
     scope: RUN_TIME
     type: SECRET
+  - key: TELEGRAM_BOT_TOKEN
+    scope: RUN_TIME
+    type: SECRET
+  - key: TELEGRAM_CHAT_ID
+    scope: RUN_TIME
+    type: SECRET
 
 # إعدادات قاعدة البيانات (اختيارية - نستخدم Supabase)
 # databases:

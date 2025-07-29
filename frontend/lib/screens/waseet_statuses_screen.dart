@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../utils/error_handler.dart';
 
 class WaseetStatusesScreen extends StatefulWidget {
   const WaseetStatusesScreen({Key? key}) : super(key: key);
@@ -60,7 +61,7 @@ class _WaseetStatusesScreenState extends State<WaseetStatusesScreen> {
       }
     } catch (e) {
       setState(() {
-        error = e.toString();
+        error = ErrorHandler.getReadableErrorMessage(e);
         isLoading = false;
       });
     }

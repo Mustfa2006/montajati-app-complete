@@ -1548,7 +1548,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
       // إرسال طلب الدعم للخادم (سيرسل تلقائياً للتلغرام)
       final response = await http.post(
-        Uri.parse('https://montajati-backend.onrender.com/api/support/send-support-request'),
+        Uri.parse('https://YOUR_DIGITALOCEAN_APP_URL/api/support/send-support-request'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1642,27 +1642,15 @@ class _OrdersPageState extends State<OrdersPage> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error, color: Colors.white),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'خطأ: Exception فشل في إرسال الطلب للدعم',
-                  style: GoogleFonts.cairo(),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFFdc3545),
-          duration: const Duration(seconds: 8),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
+      // استخدام ErrorHandler لمعالجة أفضل للأخطاء
+      ErrorHandler.showErrorSnackBar(
+        context,
+        error,
+        customMessage: ErrorHandler.isNetworkError(error)
+            ? 'لا يوجد اتصال بالإنترنت. يرجى التحقق من الاتصال والمحاولة مرة أخرى.'
+            : 'فشل في إرسال طلب الدعم. يرجى المحاولة مرة أخرى.',
+        onRetry: () => _sendSupportRequest(order, notes),
+        duration: const Duration(seconds: 6),
       );
     }
   }
@@ -1779,7 +1767,7 @@ class _OrdersPageState extends State<OrdersPage> {
       bool success = await _ordersService.deleteOrder(order.id);
 
       if (!success) {
-        throw Exception('فشل في حذف الطلب');
+        throw Exception('فشل في حذف الطلب من الخادم');
       }
 
       // إخفاء مؤشر التحميل
@@ -1798,13 +1786,15 @@ class _OrdersPageState extends State<OrdersPage> {
       // إخفاء مؤشر التحميل
       if (mounted) Navigator.pop(context);
 
-      // إظهار رسالة خطأ
+      // إظهار رسالة خطأ محسنة
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في حذف الطلب: $e', style: GoogleFonts.cairo()),
-            backgroundColor: Colors.red,
-          ),
+        ErrorHandler.showErrorSnackBar(
+          context,
+          e,
+          customMessage: ErrorHandler.isNetworkError(e)
+              ? 'لا يوجد اتصال بالإنترنت. يرجى التحقق من الاتصال والمحاولة مرة أخرى.'
+              : 'فشل في حذف الطلب. يرجى المحاولة مرة أخرى.',
+          duration: const Duration(seconds: 4),
         );
       }
     }
