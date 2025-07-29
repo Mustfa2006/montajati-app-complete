@@ -1,5 +1,6 @@
 const OfficialWaseetAPI = require('./official_waseet_api');
 const { createClient } = require('@supabase/supabase-js');
+const targetedNotificationService = require('./targeted_notification_service');
 
 /**
  * نظام المزامنة المدمج مع الخادم - للإنتاج على Render
@@ -158,10 +159,10 @@ class IntegratedWaseetSync {
         throw new Error(waseetResult.error);
       }
 
-      // جلب الطلبات من قاعدة البيانات
+      // جلب الطلبات من قاعدة البيانات مع بيانات الإشعارات
       const { data: dbOrders, error } = await this.supabase
         .from('orders')
-        .select('id, waseet_order_id, waseet_status_id, waseet_status_text')
+        .select('id, waseet_order_id, waseet_status_id, waseet_status_text, user_phone, primary_phone, customer_name, status')
         .not('waseet_order_id', 'is', null);
 
       if (error) {
@@ -188,10 +189,7 @@ class IntegratedWaseetSync {
         }
 
         // تحويل حالة الوسيط إلى حالة التطبيق
-        let appStatus = waseetStatusText;
-        if (waseetStatusId === 23 || waseetStatusText === 'ارسال الى مخزن الارجاعات') {
-          appStatus = 'الغاء الطلب';
-        }
+        let appStatus = this.mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
 
         // تحديث الطلب
         const { error: updateError } = await this.supabase
@@ -208,6 +206,9 @@ class IntegratedWaseetSync {
         if (!updateError) {
           updatedCount++;
           console.log(`🔄 تحديث الطلب ${waseetOrder.id}: ${waseetStatusText}`);
+
+          // إرسال إشعار للمستخدم عند تغيير الحالة
+          await this.sendStatusChangeNotification(dbOrder, appStatus, waseetStatusText);
         }
       }
 
@@ -280,6 +281,132 @@ class IntegratedWaseetSync {
     this.stop();
     await new Promise(resolve => setTimeout(resolve, 2000));
     return await this.start();
+  }
+
+  /**
+   * تحويل حالة الوسيط إلى حالة التطبيق
+   * @param {number} waseetStatusId - معرف حالة الوسيط
+   * @param {string} waseetStatusText - نص حالة الوسيط
+   * @returns {string} حالة التطبيق
+   */
+  mapWaseetStatusToApp(waseetStatusId, waseetStatusText) {
+    // خريطة تحويل حالات الوسيط إلى حالات التطبيق
+    const statusMap = {
+      // حالات الإلغاء والإرجاع
+      23: 'الغاء الطلب',
+      31: 'الغاء الطلب',
+      32: 'رفض الطلب',
+      33: 'مفصول عن الخدمة',
+      34: 'طلب مكرر',
+      40: 'حظر المندوب',
+
+      // حالات التوصيل
+      1: 'فعال',
+      2: 'قيد التوصيل الى الزبون (في عهدة المندوب)',
+      3: 'تم تغيير محافظة الزبون',
+      4: 'لا يرد',
+      5: 'لا يرد بعد الاتفاق',
+      6: 'مغلق',
+      7: 'مغلق بعد الاتفاق',
+      8: 'مؤجل',
+      9: 'مؤجل لحين اعادة الطلب لاحقا',
+      10: 'مستلم مسبقا',
+      11: 'الرقم غير معرف',
+      12: 'الرقم غير داخل في الخدمة',
+      13: 'العنوان غير دقيق',
+      14: 'لم يطلب',
+      15: 'لا يمكن الاتصال بالرقم',
+      16: 'تغيير المندوب'
+    };
+
+    // التحويل بالمعرف أولاً
+    if (statusMap[waseetStatusId]) {
+      return statusMap[waseetStatusId];
+    }
+
+    // التحويل بالنص إذا لم يوجد معرف
+    const textMap = {
+      'ارسال الى مخزن الارجاعات': 'الغاء الطلب',
+      'الغاء الطلب': 'الغاء الطلب',
+      'رفض الطلب': 'رفض الطلب',
+      'مفصول عن الخدمة': 'مفصول عن الخدمة',
+      'طلب مكرر': 'طلب مكرر',
+      'حظر المندوب': 'حظر المندوب',
+      'فعال': 'فعال',
+      'قيد التوصيل الى الزبون (في عهدة المندوب)': 'قيد التوصيل الى الزبون (في عهدة المندوب)',
+      'تم تغيير محافظة الزبون': 'تم تغيير محافظة الزبون',
+      'لا يرد': 'لا يرد',
+      'لا يرد بعد الاتفاق': 'لا يرد بعد الاتفاق',
+      'مغلق': 'مغلق',
+      'مغلق بعد الاتفاق': 'مغلق بعد الاتفاق',
+      'مؤجل': 'مؤجل',
+      'مؤجل لحين اعادة الطلب لاحقا': 'مؤجل لحين اعادة الطلب لاحقا',
+      'مستلم مسبقا': 'مستلم مسبقا',
+      'الرقم غير معرف': 'الرقم غير معرف',
+      'الرقم غير داخل في الخدمة': 'الرقم غير داخل في الخدمة',
+      'العنوان غير دقيق': 'العنوان غير دقيق',
+      'لم يطلب': 'لم يطلب',
+      'لا يمكن الاتصال بالرقم': 'لا يمكن الاتصال بالرقم',
+      'تغيير المندوب': 'تغيير المندوب'
+    };
+
+    if (textMap[waseetStatusText]) {
+      return textMap[waseetStatusText];
+    }
+
+    // إذا لم يوجد تحويل، استخدم النص كما هو
+    console.log(`⚠️ حالة غير معروفة من الوسيط: ID=${waseetStatusId}, Text=${waseetStatusText}`);
+    return waseetStatusText;
+  }
+
+  /**
+   * إرسال إشعار للمستخدم عند تغيير حالة الطلب
+   * @param {Object} order - بيانات الطلب
+   * @param {string} newStatus - الحالة الجديدة
+   * @param {string} waseetStatusText - نص حالة الوسيط
+   */
+  async sendStatusChangeNotification(order, newStatus, waseetStatusText) {
+    try {
+      // التحقق من وجود رقم هاتف المستخدم
+      const userPhone = order.user_phone || order.primary_phone;
+
+      if (!userPhone) {
+        console.log(`⚠️ لا يوجد رقم هاتف للطلب ${order.id} - تخطي الإشعار`);
+        return;
+      }
+
+      // التحقق من تغيير الحالة (لا نرسل إشعار إذا لم تتغير الحالة)
+      if (order.status === newStatus) {
+        console.log(`📝 لم تتغير حالة الطلب ${order.id} - تخطي الإشعار`);
+        return;
+      }
+
+      console.log(`📱 إرسال إشعار تحديث الطلب ${order.id} للمستخدم ${userPhone}`);
+      console.log(`🔄 الحالة الجديدة: ${newStatus} (${waseetStatusText})`);
+
+      // تهيئة خدمة الإشعارات إذا لم تكن مهيأة
+      if (!targetedNotificationService.initialized) {
+        await targetedNotificationService.initialize();
+      }
+
+      // إرسال الإشعار
+      const result = await targetedNotificationService.sendOrderStatusNotification(
+        userPhone,
+        order.id.toString(),
+        newStatus,
+        order.customer_name || 'عميل',
+        waseetStatusText
+      );
+
+      if (result.success) {
+        console.log(`✅ تم إرسال إشعار الطلب ${order.id} بنجاح`);
+      } else {
+        console.log(`❌ فشل إرسال إشعار الطلب ${order.id}: ${result.error}`);
+      }
+
+    } catch (error) {
+      console.error(`❌ خطأ في إرسال إشعار الطلب ${order.id}:`, error.message);
+    }
   }
 }
 
