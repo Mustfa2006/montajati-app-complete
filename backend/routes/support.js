@@ -78,7 +78,10 @@ ${notes && notes.trim() ? notes.trim() : 'لا توجد ملاحظات إضاف�
       .update({
         support_requested: true,
         support_requested_at: new Date().toISOString(),
-        support_notes: notes || null
+        support_notes: notes || null,
+        support_status: 'pending',
+        support_handled_at: null,
+        support_handled_by: null
       })
       .eq('id', orderId);
 

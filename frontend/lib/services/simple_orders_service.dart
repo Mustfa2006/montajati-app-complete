@@ -83,6 +83,18 @@ class SimpleOrdersService extends ChangeNotifier {
       _orders = [];
       for (final adminOrder in userOrders) {
         try {
+          // جلب حالة الدعم من قاعدة البيانات
+          bool supportRequested = false;
+          try {
+            final supportResponse = await Supabase.instance.client
+                .from('orders')
+                .select('support_requested')
+                .eq('id', adminOrder.id)
+                .single();
+            supportRequested = supportResponse['support_requested'] ?? false;
+          } catch (e) {
+            debugPrint('⚠️ لم يتم العثور على حالة الدعم للطلب ${adminOrder.id}');
+          }
           final order = Order(
             id: adminOrder.id,
             customerName: adminOrder.customerName,
@@ -115,6 +127,7 @@ class SimpleOrdersService extends ChangeNotifier {
             scheduledDate: null,
             scheduleNotes: null,
             waseetOrderId: adminOrder.waseetQrId, // ✅ إضافة رقم الطلب في الوسيط
+            supportRequested: supportRequested, // ✅ إضافة حالة الدعم من قاعدة البيانات
           );
           _orders.add(order);
         } catch (e) {
@@ -140,6 +153,7 @@ class SimpleOrdersService extends ChangeNotifier {
             scheduledDate: null,
             scheduleNotes: null,
             waseetOrderId: adminOrder.waseetQrId, // ✅ إضافة رقم الطلب في الوسيط
+            supportRequested: false, // ✅ قيمة افتراضية في حالة الخطأ
           );
           _orders.add(order);
         }

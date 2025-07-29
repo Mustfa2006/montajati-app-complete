@@ -1143,21 +1143,21 @@ class _OrdersPageState extends State<OrdersPage> {
           Row(
             children: [
               // زر المعالجة (للطلبات التي تحتاج معالجة)
-              if (_needsProcessing(order) || (order.supportRequested ?? false))
+              if (_needsProcessing(order) || _isSupportRequested(order))
                 GestureDetector(
-                  onTap: (order.supportRequested ?? false) ? null : () => _showProcessingDialog(order),
+                  onTap: _isSupportRequested(order) ? null : () => _showProcessingDialog(order),
                   child: Container(
-                    width: (order.supportRequested ?? false) ? 75 : 55,
+                    width: _isSupportRequested(order) ? 75 : 55,
                     height: 24,
                     margin: const EdgeInsets.only(left: 4),
                     decoration: BoxDecoration(
-                      color: (order.supportRequested ?? false)
+                      color: _isSupportRequested(order)
                           ? const Color(0xFF28a745) // أخضر للمعالج
                           : const Color(0xFFff8c00), // برتقالي للمعالجة
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: ((order.supportRequested ?? false)
+                          color: (_isSupportRequested(order)
                               ? const Color(0xFF28a745)
                               : const Color(0xFFff8c00)).withValues(alpha: 0.3),
                           blurRadius: 4,
@@ -1169,7 +1169,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          (order.supportRequested ?? false)
+                          _isSupportRequested(order)
                               ? FontAwesomeIcons.circleCheck
                               : FontAwesomeIcons.headset,
                           color: Colors.white,
@@ -1177,7 +1177,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         ),
                         const SizedBox(width: 2),
                         Text(
-                          (order.supportRequested ?? false) ? 'تم المعالجة' : 'معالجة',
+                          _isSupportRequested(order) ? 'تم المعالجة' : 'معالجة',
                           style: GoogleFonts.cairo(
                             fontSize: 7,
                             fontWeight: FontWeight.w600,
@@ -1333,6 +1333,11 @@ class _OrdersPageState extends State<OrdersPage> {
 
     return statusesNeedProcessing.contains(order.rawStatus) &&
            !(order.supportRequested ?? false);
+  }
+
+  // التحقق من أن الطلب تم إرسال طلب دعم له
+  bool _isSupportRequested(Order order) {
+    return order.supportRequested ?? false;
   }
 
   // عرض نافذة المعالجة
