@@ -621,6 +621,45 @@ router.post('/sync-waseet-statuses', async (req, res) => {
 });
 
 // ===================================
+// POST /api/orders/sync-waseet-status-definitions - مزامنة تعريفات حالات الوسيط
+// ===================================
+router.post('/sync-waseet-status-definitions', async (req, res) => {
+  try {
+    console.log(`🔄 طلب مزامنة تعريفات حالات الوسيط...`);
+
+    const OrderSyncService = require('../services/order_sync_service');
+    const orderSyncService = new OrderSyncService();
+
+    const syncResult = await orderSyncService.syncWaseetStatuses();
+
+    if (syncResult.success) {
+      res.json({
+        success: true,
+        message: 'تم مزامنة تعريفات حالات الوسيط بنجاح',
+        data: {
+          totalStatuses: syncResult.totalStatuses,
+          updated: syncResult.updated,
+          matched: syncResult.matched,
+          ignored: syncResult.ignored
+        }
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: syncResult.error || 'فشل في مزامنة تعريفات الحالات'
+      });
+    }
+
+  } catch (error) {
+    console.error(`❌ خطأ في مزامنة تعريفات حالات الوسيط:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
+// ===================================
 // POST /api/orders/retry-failed-waseet - إعادة محاولة إرسال الطلبات الفاشلة للوسيط
 // ===================================
 router.post('/retry-failed-waseet', async (req, res) => {
@@ -755,6 +794,175 @@ router.post('/create-test-order', async (req, res) => {
   }
 });
 
-// تم حذف الـ endpoint المكرر - نستخدم فقط /:id/status
+// ===================================
+// نظام المزامنة الحقيقي مع الوسيط
+// ===================================
+
+// POST /api/orders/start-waseet-sync - بدء نظام المزامنة الحقيقي مع الوسيط
+router.post('/start-waseet-sync', async (req, res) => {
+  try {
+    console.log('🚀 طلب بدء نظام المزامنة مع الوسيط...');
+
+    const RealWaseetSyncSystem = require('../services/real_waseet_sync_system');
+
+    // إنشاء النظام إذا لم يكن موجود
+    if (!global.waseetSyncSystem) {
+      global.waseetSyncSystem = new RealWaseetSyncSystem();
+    }
+
+    // بدء النظام
+    await global.waseetSyncSystem.startRealTimeSync();
+
+    const stats = global.waseetSyncSystem.getSystemStats();
+
+    res.json({
+      success: true,
+      message: 'تم بدء نظام المزامنة مع الوسيط بنجاح',
+      data: {
+        isRunning: stats.isRunning,
+        syncInterval: stats.syncInterval,
+        syncIntervalMinutes: stats.syncIntervalMinutes,
+        lastSyncTime: stats.lastSyncTime,
+        stats: stats.stats
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في بدء نظام المزامنة:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في بدء النظام'
+    });
+  }
+});
+
+// POST /api/orders/stop-waseet-sync - إيقاف نظام المزامنة
+router.post('/stop-waseet-sync', async (req, res) => {
+  try {
+    console.log('⏹️ طلب إيقاف نظام المزامنة...');
+
+    if (global.waseetSyncSystem) {
+      global.waseetSyncSystem.stopRealTimeSync();
+
+      res.json({
+        success: true,
+        message: 'تم إيقاف نظام المزامنة بنجاح'
+      });
+    } else {
+      res.json({
+        success: true,
+        message: 'النظام غير مفعل'
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ خطأ في إيقاف نظام المزامنة:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في إيقاف النظام'
+    });
+  }
+});
+
+// GET /api/orders/waseet-sync-status - حالة نظام المزامنة مع الوسيط
+router.get('/waseet-sync-status', async (req, res) => {
+  try {
+    if (global.waseetSyncSystem) {
+      const stats = global.waseetSyncSystem.getSystemStats();
+
+      res.json({
+        success: true,
+        data: {
+          isRunning: stats.isRunning,
+          syncInterval: stats.syncInterval,
+          syncIntervalMinutes: stats.syncIntervalMinutes,
+          lastSyncTime: stats.lastSyncTime,
+          nextSyncIn: stats.nextSyncIn,
+          nextSyncInMinutes: stats.nextSyncIn ? Math.round(stats.nextSyncIn / 60000) : null,
+          stats: {
+            totalSyncs: stats.stats.totalSyncs,
+            successfulSyncs: stats.stats.successfulSyncs,
+            failedSyncs: stats.stats.failedSyncs,
+            ordersUpdated: stats.stats.ordersUpdated,
+            lastError: stats.stats.lastError
+          }
+        }
+      });
+    } else {
+      res.json({
+        success: true,
+        data: {
+          isRunning: false,
+          message: 'النظام غير مهيأ'
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب حالة النظام:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في جلب حالة النظام'
+    });
+  }
+});
+
+// POST /api/orders/force-waseet-sync - تنفيذ مزامنة فورية مع الوسيط
+router.post('/force-waseet-sync', async (req, res) => {
+  try {
+    console.log('⚡ طلب مزامنة فورية مع الوسيط...');
+
+    if (!global.waseetSyncSystem) {
+      return res.status(400).json({
+        success: false,
+        error: 'نظام المزامنة غير مفعل'
+      });
+    }
+
+    const result = await global.waseetSyncSystem.performFullSync();
+
+    res.json({
+      success: true,
+      message: 'تم تنفيذ المزامنة الفورية بنجاح',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في المزامنة الفورية:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في تنفيذ المزامنة'
+    });
+  }
+});
+
+// POST /api/orders/force-sync-now - تنفيذ مزامنة فورية
+router.post('/force-sync-now', async (req, res) => {
+  try {
+    console.log('⚡ طلب مزامنة فورية...');
+
+    if (!global.realTimeSyncSystem) {
+      return res.status(400).json({
+        success: false,
+        error: 'نظام المزامنة غير مفعل'
+      });
+    }
+
+    const result = await global.realTimeSyncSystem.performFullSync();
+
+    res.json({
+      success: true,
+      message: 'تم تنفيذ المزامنة الفورية بنجاح',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في المزامنة الفورية:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في تنفيذ المزامنة'
+    });
+  }
+});
 
 module.exports = router;

@@ -5,6 +5,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const WaseetAPIClient = require('./waseet_api_client');
+const OfficialWaseetAPI = require('./official_waseet_api');
 
 class OrderSyncService {
   constructor() {
@@ -451,6 +452,99 @@ class OrderSyncService {
     } catch (error) {
       console.error('❌ خطأ في إعادة محاولة الطلبات الفاشلة:', error);
       return false;
+    }
+  }
+
+  /**
+   * مزامنة حالات الوسيط مع قاعدة البيانات
+   * تحديث الحالات الموجودة فقط
+   */
+  async syncWaseetStatuses() {
+    try {
+      console.log('🔄 === بدء مزامنة حالات الوسيط ===');
+
+      // إنشاء API الرسمي
+      const officialAPI = new OfficialWaseetAPI(
+        process.env.WASEET_USERNAME,
+        process.env.WASEET_PASSWORD
+      );
+
+      // جلب الحالات من الوسيط
+      const statusResult = await officialAPI.getOrderStatuses();
+
+      if (!statusResult.success) {
+        throw new Error(`فشل جلب الحالات: ${statusResult.error}`);
+      }
+
+      const waseetStatuses = statusResult.data.data || statusResult.data;
+      console.log(`✅ تم جلب ${waseetStatuses.length} حالة من الوسيط`);
+
+      // جلب الحالات الموجودة في قاعدة البيانات
+      const { data: existingStatuses } = await this.supabase
+        .from('waseet_statuses')
+        .select('id, waseet_status_id, status_text')
+        .eq('is_active', true);
+
+      console.log(`📋 عدد الحالات في قاعدة البيانات: ${existingStatuses?.length || 0}`);
+
+      let updated = 0;
+      let matched = 0;
+
+      // تحديث الحالات الموجودة فقط
+      for (const waseetStatus of waseetStatuses) {
+        try {
+          const waseetId = waseetStatus.id;
+          const statusText = waseetStatus.status;
+
+          // البحث عن حالة موجودة
+          const existingStatus = existingStatuses?.find(existing =>
+            existing.status_text === statusText ||
+            existing.waseet_status_id === waseetId
+          );
+
+          if (existingStatus) {
+            // تحديث الحالة الموجودة
+            const { error } = await this.supabase
+              .from('waseet_statuses')
+              .update({
+                waseet_status_id: waseetId,
+                status_text: statusText,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingStatus.id);
+
+            if (error) {
+              console.error(`❌ خطأ في تحديث الحالة ${waseetId}:`, error.message);
+            } else {
+              if (existingStatus.waseet_status_id !== waseetId) {
+                updated++;
+                console.log(`🔄 تم تحديث الحالة ${existingStatus.id}: ${statusText} (Waseet ID: ${waseetId})`);
+              } else {
+                matched++;
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`❌ خطأ في معالجة الحالة ${waseetStatus.id}:`, error.message);
+        }
+      }
+
+      console.log(`✅ النتائج: ${updated} محدث، ${matched} مطابق، ${waseetStatuses.length - updated - matched} مُتجاهل`);
+
+      return {
+        success: true,
+        totalStatuses: waseetStatuses.length,
+        updated,
+        matched,
+        ignored: waseetStatuses.length - updated - matched
+      };
+
+    } catch (error) {
+      console.error('❌ فشل مزامنة حالات الوسيط:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 }
