@@ -29,6 +29,9 @@ const AdvancedSyncManager = require('./services/advanced_sync_manager');
 const SystemMonitor = require('./services/system_monitor');
 const FCMCleanupService = require('./services/fcm_cleanup_service');
 
+// نظام المزامنة المدمج مع الوسيط
+const waseetSync = require('./services/integrated_waseet_sync');
+
 class OfficialMontajatiServer {
   constructor() {
     this.app = express();
@@ -462,6 +465,10 @@ class OfficialMontajatiServer {
 
       this.state.isInitialized = true;
       console.log('✅ تم تهيئة جميع الخدمات بنجاح');
+
+      // بدء نظام المزامنة المدمج مع الوسيط
+      console.log('🚀 بدء نظام المزامنة المدمج مع الوسيط...');
+      waseetSync.autoStart();
 
       return true;
 
