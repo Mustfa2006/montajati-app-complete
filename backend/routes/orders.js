@@ -965,4 +965,108 @@ router.post('/force-sync-now', async (req, res) => {
   }
 });
 
+// ===================================
+// نظام المزامنة المدمج مع الوسيط - Production APIs
+// ===================================
+
+// GET /api/orders/waseet-sync-status - حالة نظام المزامنة
+router.get('/waseet-sync-status', async (req, res) => {
+  try {
+    const waseetSync = require('../services/integrated_waseet_sync');
+    const stats = waseetSync.getStats();
+
+    res.json({
+      success: true,
+      data: stats
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب حالة النظام:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في جلب حالة النظام'
+    });
+  }
+});
+
+// POST /api/orders/force-waseet-sync - مزامنة فورية
+router.post('/force-waseet-sync', async (req, res) => {
+  try {
+    const waseetSync = require('../services/integrated_waseet_sync');
+    const result = await waseetSync.forcSync();
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ خطأ في المزامنة الفورية:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في تنفيذ المزامنة'
+    });
+  }
+});
+
+// POST /api/orders/restart-waseet-sync - إعادة تشغيل النظام
+router.post('/restart-waseet-sync', async (req, res) => {
+  try {
+    const waseetSync = require('../services/integrated_waseet_sync');
+    const result = await waseetSync.restart();
+
+    res.json({
+      success: true,
+      message: 'تم إعادة تشغيل النظام بنجاح',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في إعادة تشغيل النظام:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في إعادة تشغيل النظام'
+    });
+  }
+});
+
+// POST /api/orders/stop-waseet-sync - إيقاف النظام
+router.post('/stop-waseet-sync', async (req, res) => {
+  try {
+    const waseetSync = require('../services/integrated_waseet_sync');
+    const result = waseetSync.stop();
+
+    res.json({
+      success: true,
+      message: 'تم إيقاف النظام بنجاح',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في إيقاف النظام:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في إيقاف النظام'
+    });
+  }
+});
+
+// POST /api/orders/start-waseet-sync - بدء النظام
+router.post('/start-waseet-sync', async (req, res) => {
+  try {
+    const waseetSync = require('../services/integrated_waseet_sync');
+    const result = await waseetSync.start();
+
+    res.json({
+      success: true,
+      message: 'تم بدء النظام بنجاح',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في بدء النظام:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في بدء النظام'
+    });
+  }
+});
+
 module.exports = router;

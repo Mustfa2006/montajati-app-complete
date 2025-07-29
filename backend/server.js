@@ -9,6 +9,9 @@ const targetedNotificationService = require('./services/targeted_notification_se
 const tokenManagementService = require('./services/token_management_service');
 const cron = require('node-cron');
 
+// نظام المزامنة المدمج مع الوسيط
+const waseetSync = require('./services/integrated_waseet_sync');
+
 
 
 // تحميل المتغيرات من ملف .env
@@ -413,31 +416,11 @@ function startMaintenanceTasks() {
 
 
 
-  // مزامنة تلقائية لحالات الطلبات كل 5 دقائق باستخدام API الوسيط الرسمي
-  setInterval(async () => {
-    try {
-      console.log('🔍 بدء المزامنة التلقائية مع شركة الوسيط (API الرسمي)...');
-
-      // استيراد خدمة API الوسيط الرسمية
-      const WaseetAPIService = require('./services/waseet_api_service');
-      const apiService = new WaseetAPIService();
-
-      // تشغيل المزامنة
-      const result = await apiService.syncOrderStatuses();
-
-      console.log(`✅ انتهت المزامنة: فحص ${result.checked || 0} طلب، تحديث ${result.updated || 0} طلب`);
-
-      if (result.errors && result.errors.length > 0) {
-        console.log(`⚠️ أخطاء في ${result.errors.length} طلب`);
-      }
-
-    } catch (error) {
-      console.error('❌ خطأ في المزامنة التلقائية:', error.message);
-    }
-  }, 5 * 60 * 1000); // كل 5 دقائق
-
   console.log('✅ تم جدولة مهام الصيانة الدورية بنجاح');
-  console.log('🔍 سيتم فحص حالات الطلبات من الوسيط كل 5 دقائق تلقائياً');
+
+  // بدء نظام المزامنة المدمج مع الوسيط
+  console.log('🚀 بدء نظام المزامنة المدمج مع الوسيط...');
+  waseetSync.autoStart();
 }
 
 module.exports = app;
