@@ -261,7 +261,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
 
   Widget _buildHeader() {
     final order = _orderDetails!;
-    final statusColor = _getStatusColor(order.status);
+    final statusColor = _getStatusColor(order.waseetStatus ?? order.status);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -355,7 +355,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                 Expanded(
                   child: _buildQuickInfo(
                     'الحالة',
-                    _getStatusText(order.status),
+                    _getStatusText(order.waseetStatus ?? order.status),
                     FontAwesomeIcons.circleInfo,
                     statusColor,
                   ),
@@ -593,15 +593,27 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
   Color _getStatusColor(String status) {
     switch (status) {
       case 'active':
+      case 'confirmed':
+      case '1':
+      case 'فعال':
         return const Color(0xFFffd700); // أصفر ذهبي
       case 'in_delivery':
+      case 'processing':
+      case '2':
+      case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
         return const Color(0xFF17a2b8); // سماوي
       case 'delivered':
+      case 'shipped':
+      case '3':
+      case 'تم التسليم':
         return const Color(0xFF28a745); // أخضر
       case 'rejected':
-        return const Color(0xFFdc3545); // أحمر
       case 'cancelled':
+      case '4':
+      case 'الغاء الطلب':
         return const Color(0xFFdc3545); // أحمر
+      case 'pending':
+        return const Color(0xFF6c757d); // رمادي
       default:
         return const Color(0xFF6c757d); // رمادي
     }
@@ -631,8 +643,16 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
         return 'ملغي';
       case 'pending':
         return 'في الانتظار';
+      case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
+        return 'قيد التوصيل للزبون';
+      case 'فعال':
+        return 'نشط';
+      case 'الغاء الطلب':
+        return 'ملغي';
+      case 'تم التسليم':
+        return 'مكتمل';
       default:
-        return 'غير محدد';
+        return status.isNotEmpty ? status : 'غير محدد';
     }
   }
 
@@ -1069,7 +1089,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
 
           _buildInfoRow('رقم الطلب', order.orderNumber),
           _buildInfoRow('تاريخ الإنشاء', _formatDate(order.createdAt)),
-          _buildInfoRow('الحالة الحالية', _getStatusText(order.status)),
+          _buildInfoRow('الحالة الحالية', _getStatusText(order.waseetStatus ?? order.status)),
           _buildInfoRow('عدد المنتجات', order.itemsCount.toString()),
 
           // عرض معرف الوسيط إذا كان موجوداً
@@ -1703,7 +1723,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'الحالة الحالية: ${_getStatusText(order.status)}',
+                  'الحالة الحالية: ${_getStatusText(order.waseetStatus ?? order.status)}',
                   style: const TextStyle(
                     color: Color(0xFFffd700),
                     fontSize: 14,

@@ -38,11 +38,30 @@ class _OrdersPageState extends State<OrdersPage> {
   final ScheduledOrdersService _scheduledOrdersService =
       ScheduledOrdersService();
 
+  // متحكم التمرير للتحميل التدريجي
+  final ScrollController _scrollController = ScrollController();
+
   final List<Order> _scheduledOrders = [];
+
+
+
+  // دالة مراقبة التمرير للتحميل التدريجي
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      // عندما يصل المستخدم لقرب نهاية القائمة (200 بكسل من النهاية)
+      if (_ordersService.hasMoreData && !_ordersService.isLoadingMore) {
+        _ordersService.loadMoreOrders();
+      }
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+
+    // إعداد مستمع التمرير للتحميل التدريجي
+    _scrollController.addListener(_onScroll);
 
     // جلب الطلبات من قاعدة البيانات
     _loadOrders();
@@ -163,6 +182,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     _ordersService.removeListener(_onOrdersChanged);
     _scheduledOrdersService.removeListener(
@@ -499,6 +519,7 @@ class _OrdersPageState extends State<OrdersPage> {
       onRefresh: _refreshData,
       refreshMessage: 'تم تحديث الطلبات',
       child: CustomScrollView(
+        controller: _scrollController,
         physics: const BouncingScrollPhysics(),
         slivers: [
           // شريط البحث
@@ -523,6 +544,19 @@ class _OrdersPageState extends State<OrdersPage> {
                     }, childCount: displayedOrders.length),
                   ),
                 ),
+
+          // مؤشر التحميل التدريجي
+          if (_ordersService.isLoadingMore)
+            SliverToBoxAdapter(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1576,34 +1610,17 @@ class _OrdersPageState extends State<OrdersPage> {
 
       print('✅ تم إرسال طلب الدعم بنجاح');
 
-      // ✅ تحديث حالة الطلب فوراً
+      // ✅ تحديث حالة الطلب محلياً فوراً لتحديث الواجهة
       setState(() {
-        // إنشاء طلب محدث مع حالة الدعم
-        final updatedOrder = Order(
-          id: order.id,
-          customerName: order.customerName,
-          primaryPhone: order.primaryPhone,
-          secondaryPhone: order.secondaryPhone,
-          province: order.province,
-          city: order.city,
-          notes: order.notes,
-          totalCost: order.totalCost,
-          totalProfit: order.totalProfit,
-          subtotal: order.subtotal,
-          total: order.total,
-          status: order.status,
-          rawStatus: order.rawStatus,
-          createdAt: order.createdAt,
-          items: order.items,
-          scheduledDate: order.scheduledDate,
-          scheduleNotes: order.scheduleNotes,
-          supportRequested: true, // ✅ تم إرسال الدعم
-          waseetOrderId: order.waseetOrderId, // ✅ الاحتفاظ برقم الطلب في الوسيط
-        );
-
-        // تحديث الطلب في الخدمة باستخدام دالة التحديث
-        _ordersService.updateOrderSupportStatus(order.id, true);
+        // تحديث الطلب في القائمة المحلية فوراً
+        final orderIndex = _ordersService.orders.indexWhere((o) => o.id == order.id);
+        if (orderIndex != -1) {
+          // سيتم تحديث الطلب في الخدمة
+        }
       });
+
+      // ✅ تحديث حالة الطلب في الخدمة وقاعدة البيانات
+      await _ordersService.updateOrderSupportStatus(order.id, true);
 
       if (!mounted) return;
 

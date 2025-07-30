@@ -23,10 +23,18 @@ class SimpleOrdersService extends ChangeNotifier {
   // ✅ منع التحميل المتكرر - تحميل مرة واحدة كل 30 ثانية
   static const Duration _cacheTimeout = Duration(seconds: 30);
 
+  // متغيرات التحميل التدريجي
+  bool _hasMoreData = true;
+  int _currentPage = 0;
+  static const int _pageSize = 25;
+  bool _isLoadingMore = false;
+
   // Getters
   List<Order> get orders => List.unmodifiable(_orders);
   bool get isLoading => _isLoading;
   DateTime? get lastUpdate => _lastUpdate;
+  bool get hasMoreData => _hasMoreData;
+  bool get isLoadingMore => _isLoadingMore;
 
   /// جلب الطلبات من قاعدة البيانات مباشرة
   Future<void> loadOrders({bool forceRefresh = false}) async {
@@ -40,6 +48,9 @@ class SimpleOrdersService extends ChangeNotifier {
         return;
       }
     }
+
+    // إعادة تعيين التحميل التدريجي للتحديث الكامل
+    resetPagination();
 
     _isLoading = true;
     notifyListeners();
@@ -63,7 +74,7 @@ class SimpleOrdersService extends ChangeNotifier {
       // ✅ جلب الطلبات مباشرة للمستخدم من قاعدة البيانات (أسرع)
       List<AdminOrder> userOrders;
       try {
-        userOrders = await _getUserOrdersDirectly(currentUserPhone);
+        userOrders = await _getUserOrdersDirectly(currentUserPhone, page: _currentPage, pageSize: _pageSize);
         debugPrint(
           '✅ تم جلب ${userOrders.length} طلب للمستخدم من قاعدة البيانات مباشرة',
         );
@@ -84,8 +95,17 @@ class SimpleOrdersService extends ChangeNotifier {
       _orders = [];
       for (final adminOrder in userOrders) {
         try {
-          // ✅ استخدام حالة الدعم من AdminOrder مباشرة (تم جلبها من قاعدة البيانات)
-          final supportRequested = adminOrder.supportRequested ?? false;
+          // ✅ استخدام حالة الدعم من AdminOrder مع التحقق من البيانات المحلية كطبقة حماية
+          bool supportRequested = adminOrder.supportRequested ?? false;
+
+          // ✅ التحقق من البيانات المحلية في حالة عدم وجود بيانات في قاعدة البيانات
+          if (!supportRequested) {
+            final localStatus = await SupportStatusCache.getSupportRequested(adminOrder.id);
+            if (localStatus == true) {
+              supportRequested = true;
+              debugPrint('🔄 استخدام حالة الدعم من التخزين المحلي للطلب: ${adminOrder.id}');
+            }
+          }
           final order = Order(
             id: adminOrder.id,
             customerName: adminOrder.customerName,
@@ -162,6 +182,19 @@ class SimpleOrdersService extends ChangeNotifier {
         }
       }
 
+      // ✅ تحديث حالة التحميل التدريجي
+      if (_currentPage == 0) {
+        // الصفحة الأولى - استبدال القائمة
+        // _orders تم تحديثها بالفعل في convertedOrders
+      } else {
+        // صفحات إضافية - إضافة للقائمة الموجودة
+        // _orders.addAll(convertedOrders); // سيتم تطبيقه في loadMoreOrders
+      }
+
+      // تحديث حالة التحميل التدريجي
+      _hasMoreData = userOrders.length == _pageSize;
+      if (_currentPage == 0) _currentPage++;
+
       _lastUpdate = DateTime.now();
     } catch (e) {
       debugPrint('❌ خطأ في جلب الطلبات: $e');
@@ -169,6 +202,105 @@ class SimpleOrdersService extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  /// تحميل المزيد من الطلبات (للتحميل التدريجي)
+  Future<void> loadMoreOrders() async {
+    if (_isLoadingMore || !_hasMoreData) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        currentUserPhone = '07503597589';
+      }
+
+      debugPrint('🔄 تحميل المزيد من الطلبات - الصفحة: $_currentPage');
+
+      // جلب الطلبات للصفحة التالية
+      final userOrders = await _getUserOrdersDirectly(
+        currentUserPhone,
+        page: _currentPage,
+        pageSize: _pageSize
+      );
+
+      if (userOrders.isNotEmpty) {
+        // تحويل AdminOrder إلى Order
+        final convertedOrders = <Order>[];
+        for (final adminOrder in userOrders) {
+          // ✅ استخدام حالة الدعم من AdminOrder مع التحقق من البيانات المحلية كطبقة حماية
+          bool supportRequested = adminOrder.supportRequested ?? false;
+
+          // ✅ التحقق من البيانات المحلية في حالة عدم وجود بيانات في قاعدة البيانات
+          if (!supportRequested) {
+            final localStatus = await SupportStatusCache.getSupportRequested(adminOrder.id);
+            if (localStatus == true) {
+              supportRequested = true;
+              debugPrint('🔄 استخدام حالة الدعم من التخزين المحلي للطلب: ${adminOrder.id}');
+            }
+          }
+
+          final order = Order(
+            id: adminOrder.id,
+            customerName: adminOrder.customerName,
+            primaryPhone: adminOrder.customerPhone,
+            secondaryPhone: adminOrder.customerAlternatePhone,
+            province: adminOrder.customerProvince ?? '',
+            city: adminOrder.customerCity ?? '',
+            notes: adminOrder.customerNotes,
+            totalCost: adminOrder.totalAmount.toInt(),
+            totalProfit: adminOrder.profitAmount.toInt(),
+            subtotal: (adminOrder.totalAmount - adminOrder.deliveryCost).toInt(),
+            total: adminOrder.totalAmount.toInt(),
+            status: _convertAdminStatusToOrderStatus(adminOrder.status),
+            rawStatus: adminOrder.status,
+            createdAt: adminOrder.createdAt,
+            items: adminOrder.items.map((item) {
+              return order_models.OrderItem(
+                id: item.id,
+                productId: item.productId ?? '',
+                name: item.productName,
+                image: item.productImage ?? '',
+                wholesalePrice: item.wholesalePrice ?? 0.0,
+                customerPrice: item.productPrice,
+                quantity: item.quantity,
+              );
+            }).toList(),
+            waseetOrderId: adminOrder.waseetQrId, // ✅ إضافة رقم الطلب في الوسيط
+            supportRequested: supportRequested, // ✅ استخدام حالة الدعم من AdminOrder
+          );
+          convertedOrders.add(order);
+        }
+
+        // إضافة الطلبات الجديدة للقائمة الموجودة
+        _orders.addAll(convertedOrders);
+
+        // تحديث حالة التحميل التدريجي
+        _hasMoreData = userOrders.length == _pageSize;
+        _currentPage++;
+
+        debugPrint('✅ تم تحميل ${convertedOrders.length} طلب إضافي. المجموع: ${_orders.length}');
+      } else {
+        _hasMoreData = false;
+        debugPrint('✅ لا توجد طلبات إضافية');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تحميل المزيد من الطلبات: $e');
+    } finally {
+      _isLoadingMore = false;
+      notifyListeners();
+    }
+  }
+
+  /// إعادة تعيين التحميل التدريجي (للتحديث الكامل)
+  void resetPagination() {
+    _currentPage = 0;
+    _hasMoreData = true;
+    _orders.clear();
   }
 
   /// دالة تحويل حالة الطلب من AdminOrder إلى OrderStatus
@@ -232,38 +364,57 @@ class SimpleOrdersService extends ChangeNotifier {
     }
   }
 
-  /// تحديث حالة الدعم للطلب مع الحفظ الذكي
-  void updateOrderSupportStatus(String orderId, bool supportRequested) async {
-    final index = _orders.indexWhere((order) => order.id == orderId);
-    if (index != -1) {
-      final order = _orders[index];
-      final updatedOrder = Order(
-        id: order.id,
-        customerName: order.customerName,
-        primaryPhone: order.primaryPhone,
-        secondaryPhone: order.secondaryPhone,
-        province: order.province,
-        city: order.city,
-        notes: order.notes,
-        totalCost: order.totalCost,
-        totalProfit: order.totalProfit,
-        subtotal: order.subtotal,
-        total: order.total,
-        status: order.status,
-        rawStatus: order.rawStatus,
-        createdAt: order.createdAt,
-        items: order.items,
-        scheduledDate: order.scheduledDate,
-        scheduleNotes: order.scheduleNotes,
-        supportRequested: supportRequested, // ✅ تحديث حالة الدعم
-        waseetOrderId: order.waseetOrderId, // ✅ الاحتفاظ برقم الطلب في الوسيط
-      );
-      _orders[index] = updatedOrder;
+  /// تحديث حالة الدعم للطلب مع الحفظ الذكي في قاعدة البيانات والتخزين المحلي
+  Future<void> updateOrderSupportStatus(String orderId, bool supportRequested) async {
+    try {
+      // ✅ حفظ الحالة في قاعدة البيانات أولاً
+      debugPrint('💾 تحديث حالة الدعم في قاعدة البيانات للطلب: $orderId');
+      await Supabase.instance.client
+          .from('orders')
+          .update({
+            'support_requested': supportRequested,
+            'support_requested_at': supportRequested ? DateTime.now().toIso8601String() : null,
+          })
+          .eq('id', orderId);
 
-      // ✅ حفظ الحالة محلياً كطبقة حماية إضافية
+      debugPrint('✅ تم تحديث حالة الدعم في قاعدة البيانات بنجاح');
+
+      // ✅ تحديث الحالة محلياً
+      final index = _orders.indexWhere((order) => order.id == orderId);
+      if (index != -1) {
+        final order = _orders[index];
+        final updatedOrder = Order(
+          id: order.id,
+          customerName: order.customerName,
+          primaryPhone: order.primaryPhone,
+          secondaryPhone: order.secondaryPhone,
+          province: order.province,
+          city: order.city,
+          notes: order.notes,
+          totalCost: order.totalCost,
+          totalProfit: order.totalProfit,
+          subtotal: order.subtotal,
+          total: order.total,
+          status: order.status,
+          rawStatus: order.rawStatus,
+          createdAt: order.createdAt,
+          items: order.items,
+          scheduledDate: order.scheduledDate,
+          scheduleNotes: order.scheduleNotes,
+          supportRequested: supportRequested, // ✅ تحديث حالة الدعم
+          waseetOrderId: order.waseetOrderId, // ✅ الاحتفاظ برقم الطلب في الوسيط
+        );
+        _orders[index] = updatedOrder;
+
+        // ✅ حفظ الحالة محلياً كطبقة حماية إضافية
+        await SupportStatusCache.setSupportRequested(orderId, supportRequested);
+
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تحديث حالة الدعم: $e');
+      // في حالة الخطأ، احفظ محلياً على الأقل
       await SupportStatusCache.setSupportRequested(orderId, supportRequested);
-
-      notifyListeners();
     }
   }
 
@@ -496,8 +647,8 @@ class SimpleOrdersService extends ChangeNotifier {
     }
   }
 
-  /// ✅ جلب الطلبات مباشرة للمستخدم من قاعدة البيانات (محسّن للأداء)
-  Future<List<AdminOrder>> _getUserOrdersDirectly(String userPhone) async {
+  /// ✅ جلب الطلبات مباشرة للمستخدم من قاعدة البيانات (محسّن للأداء مع التحميل التدريجي)
+  Future<List<AdminOrder>> _getUserOrdersDirectly(String userPhone, {int page = 0, int pageSize = 25}) async {
     try {
       debugPrint('📊 جلب الطلبات مباشرة للمستخدم: $userPhone');
 
@@ -525,7 +676,8 @@ class SimpleOrdersService extends ChangeNotifier {
             )
           ''')
           .eq('user_phone', userPhone)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .range(page * pageSize, (page + 1) * pageSize - 1);
 
       debugPrint('📡 استجابة قاعدة البيانات: ${response.length} سجل');
 
