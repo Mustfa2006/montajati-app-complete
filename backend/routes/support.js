@@ -41,7 +41,7 @@ router.post('/send-support-request', async (req, res) => {
       });
     }
 
-    // تحضير الرسالة
+    // تحضير الرسالة بالتنسيق المطلوب بالضبط كما طلب المستخدم
     const currentDate = new Date().toLocaleDateString('ar-EG');
     const message = `👤 معلومات الزبون:
 📝 الاسم: ${customerName}
@@ -63,14 +63,8 @@ ${notes && notes.trim() ? notes.trim() : 'لا توجد ملاحظات إضاف�
 
     console.log('📝 تم تحضير الرسالة - الطول:', message.length);
 
-    // إرسال الرسالة للدعم باستخدام الخدمة الجديدة
-    const telegramResult = await telegramService.sendSupportMessage({
-      orderId,
-      customerName,
-      customerPhone: primaryPhone,
-      totalAmount: null, // يمكن إضافة المبلغ لاحقاً
-      message: notes || 'طلب دعم جديد'
-    });
+    // إرسال الرسالة المنسقة مباشرة للدعم
+    const telegramResult = await telegramService.sendMessage(message, telegramService.supportChatId);
 
     if (!telegramResult.success) {
       console.log('❌ فشل في إرسال الرسالة للتلغرام:', telegramResult.error);

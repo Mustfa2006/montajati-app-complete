@@ -26,8 +26,17 @@ class SimpleOrdersService extends ChangeNotifier {
   // متغيرات التحميل التدريجي
   bool _hasMoreData = true;
   int _currentPage = 0;
-  static const int _pageSize = 25;
+  static const int _pageSize = 25; // تحميل 25 طلب في كل مرة
   bool _isLoadingMore = false;
+
+  // عدادات الطلبات الكاملة (من قاعدة البيانات)
+  Map<String, int> _fullOrderCounts = {
+    'all': 0,
+    'active': 0,
+    'in_delivery': 0,
+    'delivered': 0,
+    'cancelled': 0,
+  };
 
   // Getters
   List<Order> get orders => List.unmodifiable(_orders);
@@ -35,8 +44,9 @@ class SimpleOrdersService extends ChangeNotifier {
   DateTime? get lastUpdate => _lastUpdate;
   bool get hasMoreData => _hasMoreData;
   bool get isLoadingMore => _isLoadingMore;
+  Map<String, int> get fullOrderCounts => Map.unmodifiable(_fullOrderCounts);
 
-  /// جلب الطلبات من قاعدة البيانات مباشرة
+  /// جلب الطلبات من قاعدة البيانات مباشرة (الصفحة الأولى فقط)
   Future<void> loadOrders({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
@@ -54,6 +64,9 @@ class SimpleOrdersService extends ChangeNotifier {
 
     _isLoading = true;
     notifyListeners();
+
+    // ✅ حساب العدادات الكاملة أولاً (بدون تحميل البيانات)
+    await _calculateFullOrderCounts();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -329,23 +342,67 @@ class SimpleOrdersService extends ChangeNotifier {
     }
   }
 
-  /// إحصائيات سريعة
+  /// إحصائيات سريعة (من قاعدة البيانات الكاملة)
   Map<String, int> get orderCounts {
-    return {
-      'all': _orders.length,
-      'active': _orders
-          .where((order) => order.status == OrderStatus.confirmed)
-          .length,
-      'in_delivery': _orders
-          .where((order) => order.status == OrderStatus.inDelivery)
-          .length,
-      'delivered': _orders
-          .where((order) => order.status == OrderStatus.delivered)
-          .length,
-      'cancelled': _orders
-          .where((order) => order.status == OrderStatus.cancelled)
-          .length,
-    };
+    // ✅ استخدام العدادات الكاملة من قاعدة البيانات فقط
+    return Map.unmodifiable(_fullOrderCounts);
+  }
+
+  /// حساب العدادات الكاملة من قاعدة البيانات (جميع الطلبات)
+  Future<void> _calculateFullOrderCounts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone == null) {
+        debugPrint('❌ لا يوجد رقم هاتف للمستخدم الحالي');
+        return;
+      }
+
+      debugPrint('🔢 حساب العدادات الكاملة للمستخدم: $currentUserPhone');
+
+      // جلب عدد الطلبات لكل حالة
+      final allOrdersResponse = await Supabase.instance.client
+          .from('orders')
+          .select('id')
+          .eq('primary_phone', currentUserPhone);
+
+      final activeOrdersResponse = await Supabase.instance.client
+          .from('orders')
+          .select('id')
+          .eq('primary_phone', currentUserPhone)
+          .inFilter('status', ['active', 'confirmed', 'نشط', 'مؤكد']);
+
+      final inDeliveryOrdersResponse = await Supabase.instance.client
+          .from('orders')
+          .select('id')
+          .eq('primary_phone', currentUserPhone)
+          .inFilter('status', ['shipped', 'in_delivery', 'pending', 'قيد التوصيل', 'في الطريق']);
+
+      final deliveredOrdersResponse = await Supabase.instance.client
+          .from('orders')
+          .select('id')
+          .eq('primary_phone', currentUserPhone)
+          .eq('status', 'delivered');
+
+      final cancelledOrdersResponse = await Supabase.instance.client
+          .from('orders')
+          .select('id')
+          .eq('primary_phone', currentUserPhone)
+          .eq('status', 'cancelled');
+
+      _fullOrderCounts = {
+        'all': allOrdersResponse.length,
+        'active': activeOrdersResponse.length,
+        'in_delivery': inDeliveryOrdersResponse.length,
+        'delivered': deliveredOrdersResponse.length,
+        'cancelled': cancelledOrdersResponse.length,
+      };
+
+      debugPrint('✅ تم حساب العدادات الكاملة: $_fullOrderCounts');
+    } catch (e) {
+      debugPrint('❌ خطأ في حساب العدادات الكاملة: $e');
+    }
   }
 
   /// مسح البيانات
@@ -677,6 +734,7 @@ class SimpleOrdersService extends ChangeNotifier {
           ''')
           .eq('user_phone', userPhone)
           .order('created_at', ascending: false)
+          .limit(pageSize)
           .range(page * pageSize, (page + 1) * pageSize - 1);
 
       debugPrint('📡 استجابة قاعدة البيانات: ${response.length} سجل');

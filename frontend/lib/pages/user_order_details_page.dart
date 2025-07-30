@@ -511,9 +511,11 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   }
 
   Widget _buildOrderStatusCard() {
-    Color statusColor = _getStatusColor(_order!.status);
-    String statusText = _getStatusText(_order!.status);
-    IconData statusIcon = _getStatusIcon(_order!.status);
+    // ✅ استخدام rawStatus للحصول على الحالة الصحيحة من قاعدة البيانات
+    String actualStatus = _order!.rawStatus.isNotEmpty ? _order!.rawStatus : 'نشط';
+    Color statusColor = _getStatusColorFromRaw(actualStatus);
+    String statusText = _getStatusTextFromRaw(actualStatus);
+    IconData statusIcon = _getStatusIconFromRaw(actualStatus);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -953,6 +955,97 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         ],
       ),
     );
+  }
+
+  // ✅ دوال جديدة للتعامل مع الحالة الخام من قاعدة البيانات
+  Color _getStatusColorFromRaw(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+      case 'confirmed':
+      case 'نشط':
+      case 'مؤكد':
+      case 'فعال':
+        return const Color(0xFFffd700); // أصفر ذهبي
+      case 'in_delivery':
+      case 'processing':
+      case 'قيد التوصيل':
+      case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
+        return const Color(0xFF17a2b8); // سماوي
+      case 'delivered':
+      case 'shipped':
+      case 'تم التسليم':
+      case 'مكتمل':
+        return const Color(0xFF28a745); // أخضر
+      case 'cancelled':
+      case 'rejected':
+      case 'الغاء الطلب':
+      case 'ملغي':
+        return const Color(0xFFdc3545); // أحمر
+      case 'pending':
+      case 'في الانتظار':
+        return const Color(0xFF6c757d); // رمادي
+      default:
+        return const Color(0xFFffd700); // أصفر ذهبي كافتراضي
+    }
+  }
+
+  String _getStatusTextFromRaw(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+      case 'confirmed':
+      case 'نشط':
+      case 'مؤكد':
+      case 'فعال':
+        return 'نشط';
+      case 'in_delivery':
+      case 'processing':
+      case 'قيد التوصيل':
+        return 'قيد التوصيل';
+      case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
+        return 'قيد التوصيل للزبون';
+      case 'delivered':
+      case 'shipped':
+      case 'تم التسليم':
+        return 'مكتمل';
+      case 'cancelled':
+      case 'rejected':
+      case 'الغاء الطلب':
+        return 'ملغي';
+      case 'pending':
+      case 'في الانتظار':
+        return 'في الانتظار';
+      default:
+        return status.isNotEmpty ? status : 'غير محدد';
+    }
+  }
+
+  IconData _getStatusIconFromRaw(String status) {
+    switch (status.toLowerCase()) {
+      case 'active':
+      case 'confirmed':
+      case 'نشط':
+      case 'مؤكد':
+      case 'فعال':
+        return Icons.check_circle;
+      case 'in_delivery':
+      case 'processing':
+      case 'قيد التوصيل':
+      case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
+        return Icons.local_shipping;
+      case 'delivered':
+      case 'shipped':
+      case 'تم التسليم':
+        return Icons.done_all;
+      case 'cancelled':
+      case 'rejected':
+      case 'الغاء الطلب':
+        return Icons.cancel;
+      case 'pending':
+      case 'في الانتظار':
+        return Icons.hourglass_empty;
+      default:
+        return Icons.info;
+    }
   }
 
   Color _getStatusColor(OrderStatus status) {

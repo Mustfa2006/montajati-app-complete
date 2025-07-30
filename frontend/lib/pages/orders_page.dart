@@ -284,25 +284,19 @@ class _OrdersPageState extends State<OrdersPage> {
 
   // حساب عدد الطلبات لكل حالة باستخدام النص الحقيقي
   Map<String, int> get orderCounts {
-    // ✅ الطلبات العادية فقط (بدون المجدولة)
+    // ✅ استخدام العدادات الكاملة من قاعدة البيانات فقط
+    final fullCounts = _ordersService.fullOrderCounts;
     final regularOrders = _ordersService.orders;
+
     return {
-      'all': regularOrders.length, // الطلبات العادية فقط
+      'all': fullCounts['all'] ?? 0, // العدد الكامل من قاعدة البيانات
       'processing': regularOrders
           .where((order) => _isProcessingStatus(order.rawStatus))
           .length,
-      'active': regularOrders
-          .where((order) => _isActiveStatus(order.rawStatus))
-          .length,
-      'in_delivery': regularOrders
-          .where((order) => _isInDeliveryStatus(order.rawStatus))
-          .length,
-      'delivered': regularOrders
-          .where((order) => _isDeliveredStatus(order.rawStatus))
-          .length,
-      'cancelled': regularOrders
-          .where((order) => _isCancelledStatus(order.rawStatus))
-          .length,
+      'active': fullCounts['active'] ?? 0, // العدد الكامل من قاعدة البيانات
+      'in_delivery': fullCounts['in_delivery'] ?? 0, // العدد الكامل من قاعدة البيانات
+      'delivered': fullCounts['delivered'] ?? 0, // العدد الكامل من قاعدة البيانات
+      'cancelled': fullCounts['cancelled'] ?? 0, // العدد الكامل من قاعدة البيانات
       // ✅ الطلبات المجدولة منفصلة
       'scheduled': _scheduledOrders.length,
     };
@@ -1610,17 +1604,18 @@ class _OrdersPageState extends State<OrdersPage> {
 
       print('✅ تم إرسال طلب الدعم بنجاح');
 
-      // ✅ تحديث حالة الطلب محلياً فوراً لتحديث الواجهة
-      setState(() {
-        // تحديث الطلب في القائمة المحلية فوراً
-        final orderIndex = _ordersService.orders.indexWhere((o) => o.id == order.id);
-        if (orderIndex != -1) {
-          // سيتم تحديث الطلب في الخدمة
-        }
-      });
-
-      // ✅ تحديث حالة الطلب في الخدمة وقاعدة البيانات
+      // ✅ تحديث حالة الطلب في الخدمة وقاعدة البيانات فوراً
       await _ordersService.updateOrderSupportStatus(order.id, true);
+
+      // ✅ إعادة تحميل الطلبات لضمان التحديث الفوري
+      await _ordersService.loadOrders(forceRefresh: true);
+
+      // ✅ تحديث الواجهة فوراً
+      if (mounted) {
+        setState(() {
+          // الواجهة ستتحدث تلقائياً لأن _ordersService.updateOrderSupportStatus يستدعي notifyListeners()
+        });
+      }
 
       if (!mounted) return;
 
