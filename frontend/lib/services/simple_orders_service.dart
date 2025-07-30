@@ -48,7 +48,11 @@ class SimpleOrdersService extends ChangeNotifier {
 
   /// جلب الطلبات من قاعدة البيانات مباشرة (الصفحة الأولى فقط)
   Future<void> loadOrders({bool forceRefresh = false}) async {
-    if (_isLoading) return;
+    debugPrint('🚀 loadOrders استدعي - forceRefresh: $forceRefresh, isLoading: $_isLoading');
+    if (_isLoading) {
+      debugPrint('⚠️ تم تجاهل loadOrders لأن التحميل جاري بالفعل');
+      return;
+    }
 
     // ✅ فحص الـ cache - تجنب التحميل المتكرر
     if (!forceRefresh && _lastUpdate != null) {
@@ -60,9 +64,11 @@ class SimpleOrdersService extends ChangeNotifier {
     }
 
     // إعادة تعيين التحميل التدريجي للتحديث الكامل
+    debugPrint('🔄 إعادة تعيين التحميل التدريجي...');
     resetPagination();
 
     _isLoading = true;
+    debugPrint('🔄 بدء التحميل - currentPage: $_currentPage, hasMoreData: $_hasMoreData');
     notifyListeners();
 
     // ✅ حساب العدادات الكاملة أولاً (بدون تحميل البيانات)
@@ -198,15 +204,13 @@ class SimpleOrdersService extends ChangeNotifier {
       // ✅ تحديث حالة التحميل التدريجي
       if (_currentPage == 0) {
         // الصفحة الأولى - استبدال القائمة
-        // _orders تم تحديثها بالفعل في convertedOrders
-      } else {
-        // صفحات إضافية - إضافة للقائمة الموجودة
-        // _orders.addAll(convertedOrders); // سيتم تطبيقه في loadMoreOrders
+        _currentPage = 1; // ✅ تحديث للصفحة التالية
+        debugPrint('✅ تم تحميل الصفحة الأولى، الصفحة التالية: $_currentPage');
       }
 
       // تحديث حالة التحميل التدريجي
       _hasMoreData = userOrders.length == _pageSize;
-      if (_currentPage == 0) _currentPage++;
+      debugPrint('✅ حالة التحميل التدريجي: hasMoreData=$_hasMoreData, currentPage=$_currentPage, loadedCount=${userOrders.length}');
 
       _lastUpdate = DateTime.now();
     } catch (e) {
@@ -361,35 +365,54 @@ class SimpleOrdersService extends ChangeNotifier {
 
       debugPrint('🔢 حساب العدادات الكاملة للمستخدم: $currentUserPhone');
 
-      // جلب عدد الطلبات لكل حالة
+      // ✅ جلب عدد الطلبات لكل حالة باستخدام العمود الصحيح user_phone
       final allOrdersResponse = await Supabase.instance.client
           .from('orders')
           .select('id')
-          .eq('primary_phone', currentUserPhone);
+          .eq('user_phone', currentUserPhone);
 
       final activeOrdersResponse = await Supabase.instance.client
           .from('orders')
           .select('id')
-          .eq('primary_phone', currentUserPhone)
-          .inFilter('status', ['active', 'confirmed', 'نشط', 'مؤكد']);
+          .eq('user_phone', currentUserPhone)
+          .inFilter('status', ['active', 'confirmed', 'نشط', 'مؤكد', 'فعال']);
 
       final inDeliveryOrdersResponse = await Supabase.instance.client
           .from('orders')
           .select('id')
-          .eq('primary_phone', currentUserPhone)
-          .inFilter('status', ['shipped', 'in_delivery', 'pending', 'قيد التوصيل', 'في الطريق']);
+          .eq('user_phone', currentUserPhone)
+          .inFilter('status', [
+            'shipped',
+            'in_delivery',
+            'pending',
+            'قيد التوصيل',
+            'في الطريق',
+            'قيد التوصيل الى الزبون (في عهدة المندوب)'
+          ]);
 
       final deliveredOrdersResponse = await Supabase.instance.client
           .from('orders')
           .select('id')
-          .eq('primary_phone', currentUserPhone)
-          .eq('status', 'delivered');
+          .eq('user_phone', currentUserPhone)
+          .inFilter('status', [
+            'delivered',
+            'تم التسليم للزبون',
+            'مكتمل'
+          ]);
 
       final cancelledOrdersResponse = await Supabase.instance.client
           .from('orders')
           .select('id')
-          .eq('primary_phone', currentUserPhone)
-          .eq('status', 'cancelled');
+          .eq('user_phone', currentUserPhone)
+          .inFilter('status', [
+            'cancelled',
+            'الغاء الطلب',
+            'ملغي',
+            'رفض الطلب',
+            'الرقم غير معرف',
+            'لا يرد',
+            'مؤجل'
+          ]);
 
       _fullOrderCounts = {
         'all': allOrdersResponse.length,
@@ -708,6 +731,12 @@ class SimpleOrdersService extends ChangeNotifier {
   Future<List<AdminOrder>> _getUserOrdersDirectly(String userPhone, {int page = 0, int pageSize = 25}) async {
     try {
       debugPrint('📊 جلب الطلبات مباشرة للمستخدم: $userPhone');
+      debugPrint('📄 معاملات التحميل: page=$page, pageSize=$pageSize');
+
+      // حساب نطاق التحميل
+      final startRange = page * pageSize;
+      final endRange = (page + 1) * pageSize - 1;
+      debugPrint('📊 نطاق التحميل: من $startRange إلى $endRange');
 
       // ✅ استعلام مباشر من قاعدة البيانات للمستخدم فقط
       final supabase = Supabase.instance.client;
@@ -734,8 +763,7 @@ class SimpleOrdersService extends ChangeNotifier {
           ''')
           .eq('user_phone', userPhone)
           .order('created_at', ascending: false)
-          .limit(pageSize)
-          .range(page * pageSize, (page + 1) * pageSize - 1);
+          .range(startRange, endRange);
 
       debugPrint('📡 استجابة قاعدة البيانات: ${response.length} سجل');
 

@@ -969,10 +969,12 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       case 'in_delivery':
       case 'processing':
       case 'قيد التوصيل':
+      case 'في الطريق':
       case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
         return const Color(0xFF17a2b8); // سماوي
       case 'delivered':
       case 'shipped':
+      case 'تم التسليم للزبون':
       case 'تم التسليم':
       case 'مكتمل':
         return const Color(0xFF28a745); // أخضر
@@ -980,6 +982,10 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       case 'rejected':
       case 'الغاء الطلب':
       case 'ملغي':
+      case 'رفض الطلب':
+      case 'الرقم غير معرف':
+      case 'لا يرد':
+      case 'مؤجل':
         return const Color(0xFFdc3545); // أحمر
       case 'pending':
       case 'في الانتظار':
@@ -1000,16 +1006,24 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       case 'in_delivery':
       case 'processing':
       case 'قيد التوصيل':
+      case 'في الطريق':
         return 'قيد التوصيل';
       case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
         return 'قيد التوصيل للزبون';
       case 'delivered':
       case 'shipped':
+      case 'تم التسليم للزبون':
       case 'تم التسليم':
+      case 'مكتمل':
         return 'مكتمل';
       case 'cancelled':
       case 'rejected':
       case 'الغاء الطلب':
+      case 'ملغي':
+      case 'رفض الطلب':
+      case 'الرقم غير معرف':
+      case 'لا يرد':
+      case 'مؤجل':
         return 'ملغي';
       case 'pending':
       case 'في الانتظار':
@@ -1030,15 +1044,23 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       case 'in_delivery':
       case 'processing':
       case 'قيد التوصيل':
+      case 'في الطريق':
       case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
         return Icons.local_shipping;
       case 'delivered':
       case 'shipped':
+      case 'تم التسليم للزبون':
       case 'تم التسليم':
+      case 'مكتمل':
         return Icons.done_all;
       case 'cancelled':
       case 'rejected':
       case 'الغاء الطلب':
+      case 'ملغي':
+      case 'رفض الطلب':
+      case 'الرقم غير معرف':
+      case 'لا يرد':
+      case 'مؤجل':
         return Icons.cancel;
       case 'pending':
       case 'في الانتظار':
