@@ -1,11 +1,18 @@
 import java.util.Properties
 import java.io.FileInputStream
 
-// إعدادات Kotlin مبسطة
+// إعدادات Kotlin محسنة لتجنب مشاكل daemon
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
         jvmTarget = "1.8"
+        freeCompilerArgs = listOf(
+            "-Xno-call-assertions",
+            "-Xno-param-assertions",
+            "-Xno-receiver-assertions"
+        )
     }
+    // تعطيل incremental compilation
+    incremental = false
 }
 
 plugins {
