@@ -2347,6 +2347,9 @@ class AdminOrder {
   final String? waseetMerchantPrice;
   final Map<String, dynamic>? waseetOrderData;
 
+  // حقل حالة الدعم
+  final bool? supportRequested;
+
   AdminOrder({
     required this.id,
     required this.orderNumber,
@@ -2374,6 +2377,8 @@ class AdminOrder {
     this.waseetDeliveryPrice,
     this.waseetMerchantPrice,
     this.waseetOrderData,
+    // حقل حالة الدعم
+    this.supportRequested,
   });
 
   factory AdminOrder.fromJson(Map<String, dynamic> json) {
@@ -2410,6 +2415,8 @@ class AdminOrder {
       waseetOrderData: json['waseet_order_data'] is String
           ? jsonDecode(json['waseet_order_data'])
           : json['waseet_order_data'],
+      // حقل حالة الدعم
+      supportRequested: json['support_requested'],
     );
   }
 }

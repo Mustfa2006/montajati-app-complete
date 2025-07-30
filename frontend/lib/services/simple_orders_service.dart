@@ -9,6 +9,7 @@ import '../models/order.dart';
 import '../models/order_item.dart' as order_models;
 import 'inventory_service.dart';
 import 'admin_service.dart';
+import 'support_status_cache.dart';
 
 class SimpleOrdersService extends ChangeNotifier {
   static final SimpleOrdersService _instance = SimpleOrdersService._internal();
@@ -83,18 +84,8 @@ class SimpleOrdersService extends ChangeNotifier {
       _orders = [];
       for (final adminOrder in userOrders) {
         try {
-          // جلب حالة الدعم من قاعدة البيانات
-          bool supportRequested = false;
-          try {
-            final supportResponse = await Supabase.instance.client
-                .from('orders')
-                .select('support_requested')
-                .eq('id', adminOrder.id)
-                .single();
-            supportRequested = supportResponse['support_requested'] ?? false;
-          } catch (e) {
-            debugPrint('⚠️ لم يتم العثور على حالة الدعم للطلب ${adminOrder.id}');
-          }
+          // ✅ استخدام حالة الدعم من AdminOrder مباشرة (تم جلبها من قاعدة البيانات)
+          final supportRequested = adminOrder.supportRequested ?? false;
           final order = Order(
             id: adminOrder.id,
             customerName: adminOrder.customerName,
@@ -153,7 +144,7 @@ class SimpleOrdersService extends ChangeNotifier {
             scheduledDate: null,
             scheduleNotes: null,
             waseetOrderId: adminOrder.waseetQrId, // ✅ إضافة رقم الطلب في الوسيط
-            supportRequested: false, // ✅ قيمة افتراضية في حالة الخطأ
+            supportRequested: adminOrder.supportRequested ?? false, // ✅ استخدام حالة الدعم من AdminOrder
           );
           _orders.add(order);
         }
@@ -241,8 +232,8 @@ class SimpleOrdersService extends ChangeNotifier {
     }
   }
 
-  /// تحديث حالة الدعم للطلب
-  void updateOrderSupportStatus(String orderId, bool supportRequested) {
+  /// تحديث حالة الدعم للطلب مع الحفظ الذكي
+  void updateOrderSupportStatus(String orderId, bool supportRequested) async {
     final index = _orders.indexWhere((order) => order.id == orderId);
     if (index != -1) {
       final order = _orders[index];
@@ -268,6 +259,10 @@ class SimpleOrdersService extends ChangeNotifier {
         waseetOrderId: order.waseetOrderId, // ✅ الاحتفاظ برقم الطلب في الوسيط
       );
       _orders[index] = updatedOrder;
+
+      // ✅ حفظ الحالة محلياً كطبقة حماية إضافية
+      await SupportStatusCache.setSupportRequested(orderId, supportRequested);
+
       notifyListeners();
     }
   }
@@ -514,6 +509,9 @@ class SimpleOrdersService extends ChangeNotifier {
           .from('orders')
           .select('''
             *,
+            support_requested,
+            support_requested_at,
+            support_status,
             order_items (
               id,
               product_id,
@@ -601,6 +599,7 @@ class SimpleOrdersService extends ChangeNotifier {
           userPhone: orderData['user_phone'] ?? '',
           items: orderItems,
           waseetQrId: waseetQrId, // ✅ إضافة رقم الطلب في الوسيط
+          supportRequested: orderData['support_requested'], // ✅ إضافة حالة الدعم
         );
       }).toList();
 
@@ -616,6 +615,13 @@ class SimpleOrdersService extends ChangeNotifier {
           );
         }
       }
+
+      // ✅ مزامنة البيانات المحلية مع قاعدة البيانات
+      final supportStatusMap = <String, bool>{};
+      for (final order in adminOrders) {
+        supportStatusMap[order.id] = order.supportRequested ?? false;
+      }
+      await SupportStatusCache.syncWithDatabase(supportStatusMap);
 
       return adminOrders;
     } catch (e) {
