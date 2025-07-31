@@ -36,7 +36,8 @@ class WaseetStatusManager {
       { id: 38, text: "العنوان غير دقيق", category: "address_issue", appStatus: "active" },
       { id: 39, text: "لم يطلب", category: "cancelled", appStatus: "cancelled" },
       { id: 40, text: "حظر المندوب", category: "cancelled", appStatus: "cancelled" },
-      { id: 23, text: "ارسال الى مخزن الارجاعات", category: "cancelled", appStatus: "cancelled" }
+      { id: 23, text: "ارسال الى مخزن الارجاعات", category: "cancelled", appStatus: "cancelled" },
+      { id: 17, text: "تم الارجاع الى التاجر", category: "returned", appStatus: "cancelled" }
     ];
   }
 
@@ -83,7 +84,7 @@ class WaseetStatusManager {
       }
 
       // ✅ فحص إذا كانت الحالة الحالية نهائية
-      const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+      const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'تم الارجاع الى التاجر', 'delivered', 'cancelled'];
       if (finalStatuses.includes(currentOrder.status)) {
         console.log(`⏹️ تم تجاهل تحديث الطلب ${orderId} - الحالة نهائية: ${currentOrder.status}`);
         return {

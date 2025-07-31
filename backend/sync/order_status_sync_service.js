@@ -285,6 +285,7 @@ class OrderStatusSyncService {
         .neq('status', 'تم التسليم للزبون')
         .neq('status', 'الغاء الطلب')
         .neq('status', 'رفض الطلب')
+        .neq('status', 'تم الارجاع الى التاجر')
         .neq('status', 'delivered')
         .neq('status', 'cancelled')
         .not('waseet_order_id', 'is', null)

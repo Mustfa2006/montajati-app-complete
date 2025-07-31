@@ -151,6 +151,7 @@ class SmartSyncService {
         .neq('status', 'تم التسليم للزبون')
         .neq('status', 'الغاء الطلب')
         .neq('status', 'رفض الطلب')
+        .neq('status', 'تم الارجاع الى التاجر')
         .neq('status', 'delivered')
         .neq('status', 'cancelled')
         .or(`last_status_check.is.null,last_status_check.lt.${cutoffTime.toISOString()}`)

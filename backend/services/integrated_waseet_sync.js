@@ -168,6 +168,7 @@ class IntegratedWaseetSync {
         .neq('status', 'تم التسليم للزبون')
         .neq('status', 'الغاء الطلب')
         .neq('status', 'رفض الطلب')
+        .neq('status', 'تم الارجاع الى التاجر')
         .neq('status', 'delivered')
         .neq('status', 'cancelled');
 
@@ -299,6 +300,7 @@ class IntegratedWaseetSync {
     // خريطة تحويل حالات الوسيط إلى حالات التطبيق
     const statusMap = {
       // حالات الإلغاء والإرجاع
+      17: 'تم الارجاع الى التاجر',
       23: 'الغاء الطلب',
       31: 'الغاء الطلب',
       32: 'رفض الطلب',
