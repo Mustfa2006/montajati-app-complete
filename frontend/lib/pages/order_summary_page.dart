@@ -66,16 +66,55 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     // هذا تبسيط - يمكن تحسينه لاحقاً بمعرفات مدن مختلفة
     return _getProvinceId(provinceName);
   }
+
+  /// تحديد سعر التوصيل بناءً على المحافظة
+  int _getDeliveryFeeByProvince(String? provinceName) {
+    if (provinceName == null) return 5000; // السعر الافتراضي
+
+    // محافظة نينوى: سعر التوصيل 3000 د.ع
+    if (provinceName.trim() == 'نينوى') {
+      return 3000;
+    }
+
+    // باقي المحافظات: سعر التوصيل 5000 د.ع
+    return 5000;
+  }
+
+  /// تحديد خيارات السلايدر بناءً على المحافظة
+  List<int> _getDeliveryOptionsByProvince(String? provinceName) {
+    if (provinceName == null) {
+      return [5000, 4000, 3000, 2000, 1000, 0]; // الخيارات الافتراضية
+    }
+
+    // محافظة نينوى: خيارات السلايدر تبدأ من 3000
+    if (provinceName.trim() == 'نينوى') {
+      return [3000, 2000, 1000, 0]; // ✅ خيارات نينوى: 3000, 2000, 1000, مجاني
+    }
+
+    // باقي المحافظات: خيارات السلايدر تبدأ من 5000
+    return [5000, 4000, 3000, 2000, 1000, 0];
+  }
   bool _orderConfirmed = false; // ✅ لإخفاء أيقونة كلفة التوصيل بعد التأكيد
-  int _deliveryFee = 5000; // ✅ البدء من 5000 بدلاً من 0
-  final List<int> _deliveryOptions = [
+  int _deliveryFee = 5000; // ✅ البدء من 5000 بدلاً من 0 (سيتم تحديثه حسب المحافظة)
+  List<int> _deliveryOptions = [
     5000,
     4000,
     3000,
     2000,
     1000,
     0,
-  ]; // ✅ عكس الترتيب: من 5000 إلى مجاني
+  ]; // ✅ عكس الترتيب: من 5000 إلى مجاني (سيتم تحديثه حسب المحافظة)
+
+  @override
+  void initState() {
+    super.initState();
+    // تحديد سعر التوصيل وخيارات السلايدر بناءً على المحافظة المختارة
+    final provinceName = widget.orderData['province'] as String?;
+    _deliveryFee = _getDeliveryFeeByProvince(provinceName);
+    _deliveryOptions = _getDeliveryOptionsByProvince(provinceName);
+    debugPrint('🚚 تم تحديد سعر التوصيل للمحافظة "$provinceName": $_deliveryFee د.ع');
+    debugPrint('🎛️ خيارات السلايدر: $_deliveryOptions');
+  }
 
   /// تحديث البيانات عند السحب للأسفل
   Future<void> _refreshData() async {
@@ -296,8 +335,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                 }
 
                 final profit = totals['profit'] ?? 0;
+                final provinceName = widget.orderData['province'] as String?;
+                final baseDeliveryFee = _getDeliveryFeeByProvince(provinceName);
                 final deliveryPaidByUser =
-                    5000 - newFee; // المبلغ المدفوع من الربح
+                    baseDeliveryFee - newFee; // المبلغ المدفوع من الربح
                 final newProfit = profit - deliveryPaidByUser;
 
                 // ✅ منع التقليل إذا وصل الربح لـ 0 أو أقل
@@ -451,7 +492,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
     // ✅ حساب المبلغ الإجمالي والربح حسب السلايدر
     // كلما قل _deliveryFee، كلما دفع المستخدم أكثر من ربحه
-    final deliveryPaidByUser = 5000 - _deliveryFee; // المبلغ المدفوع من الربح
+    final provinceName = widget.orderData['province'] as String?;
+    final baseDeliveryFee = _getDeliveryFeeByProvince(provinceName); // السعر الأساسي للمحافظة
+    final deliveryPaidByUser = baseDeliveryFee - _deliveryFee; // المبلغ المدفوع من الربح
     final finalTotal = subtotal + _deliveryFee; // العميل يدفع أقل
     final finalProfit = profit - deliveryPaidByUser; // المستخدم يدفع من ربحه
 

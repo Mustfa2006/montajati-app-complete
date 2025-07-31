@@ -746,9 +746,6 @@ class SimpleOrdersService extends ChangeNotifier {
           .from('orders')
           .select('''
             *,
-            support_requested,
-            support_requested_at,
-            support_status,
             order_items (
               id,
               product_id,
