@@ -150,8 +150,8 @@ class RealTimeWaseetSync {
           created_at
         `)
         .not('waseet_order_id', 'is', null)
-        // جلب جميع الطلبات المرسلة للوسيط للمزامنة
-        .not('status', 'eq', 'cancelled')
+        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
+        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'])
         .order('created_at', { ascending: false })
         .limit(50); // حد أقصى 50 طلب في المرة الواحدة
 

@@ -71,6 +71,28 @@ class WaseetStatusManager {
     try {
       console.log(`🔄 تحديث حالة الطلب ${orderId} إلى ${waseetStatusId}`);
 
+      // جلب الطلب الحالي للتحقق من حالته
+      const { data: currentOrder, error: fetchError } = await this.supabase
+        .from('orders')
+        .select('status')
+        .eq('id', orderId)
+        .single();
+
+      if (fetchError) {
+        throw new Error(`خطأ في جلب الطلب: ${fetchError.message}`);
+      }
+
+      // ✅ فحص إذا كانت الحالة الحالية نهائية
+      const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+      if (finalStatuses.includes(currentOrder.status)) {
+        console.log(`⏹️ تم تجاهل تحديث الطلب ${orderId} - الحالة نهائية: ${currentOrder.status}`);
+        return {
+          success: false,
+          message: 'الحالة نهائية ولا يمكن تحديثها',
+          currentStatus: currentOrder.status
+        };
+      }
+
       // التحقق من صحة الحالة
       if (!this.isValidWaseetStatus(waseetStatusId)) {
         throw new Error(`حالة الوسيط ${waseetStatusId} غير معتمدة`);

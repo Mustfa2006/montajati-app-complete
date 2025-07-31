@@ -203,6 +203,8 @@ class ProductionSyncService {
         .from('orders')
         .select('id, order_number, waseet_order_id, status, waseet_status, last_status_check')
         .not('waseet_order_id', 'is', null)
+        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
+        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'])
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -357,6 +359,13 @@ class ProductionSyncService {
    */
   async updateOrderStatus(localOrder, waseetOrder) {
     try {
+      // ✅ فحص إذا كانت الحالة الحالية نهائية
+      const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+      if (finalStatuses.includes(localOrder.status)) {
+        console.log(`⏹️ تم تجاهل تحديث الطلب ${localOrder.order_number} - الحالة نهائية: ${localOrder.status}`);
+        return false;
+      }
+
       const updateData = {
         status: waseetOrder.local_status,
         waseet_status: waseetOrder.status_text,

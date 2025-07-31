@@ -129,6 +129,8 @@ BEGIN
     FROM orders o
     WHERE o.status IN ('active', 'in_delivery')
     AND o.waseet_order_id IS NOT NULL
+    -- ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
+    AND o.status NOT IN ('تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled')
     AND (
         o.last_status_check IS NULL 
         OR o.last_status_check < NOW() - INTERVAL '10 minutes'
