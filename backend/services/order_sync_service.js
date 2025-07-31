@@ -364,8 +364,12 @@ class OrderSyncService {
         .from('orders')
         .select('id, waseet_order_id, status, customer_name')
         .not('waseet_order_id', 'is', null)
-        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
-        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled']);
+        // ✅ استبعاد الحالات النهائية - استخدام فلتر منفصل لتجنب مشكلة النص العربي
+        .neq('status', 'تم التسليم للزبون')
+        .neq('status', 'الغاء الطلب')
+        .neq('status', 'رفض الطلب')
+        .neq('status', 'delivered')
+        .neq('status', 'cancelled');
 
       if (error) {
         console.error(`❌ خطأ في جلب الطلبات المرسلة للوسيط:`, error);

@@ -53,8 +53,12 @@ class OrderSyncService {
           .from('orders')
           .select('id, waseet_qr_id, status')
           .not('waseet_qr_id', 'is', null)
-          // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
-          .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled']);
+          // ✅ استبعاد الحالات النهائية - استخدام فلتر منفصل لتجنب مشكلة النص العربي
+          .neq('status', 'تم التسليم للزبون')
+          .neq('status', 'الغاء الطلب')
+          .neq('status', 'رفض الطلب')
+          .neq('status', 'delivered')
+          .neq('status', 'cancelled');
 
       final localOrders = localOrdersResponse as List<dynamic>;
       debugPrint('💾 تم جلب ${localOrders.length} طلب محلي');

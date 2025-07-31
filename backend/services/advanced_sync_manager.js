@@ -287,8 +287,12 @@ class AdvancedSyncManager extends EventEmitter {
         .select('*')
         .not('waseet_order_id', 'is', null)
         .in('status', ['active', 'processing', 'shipped', 'in_delivery'])
-        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
-        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'])
+        // ✅ استبعاد الحالات النهائية - استخدام فلتر منفصل لتجنب مشكلة النص العربي
+        .neq('status', 'تم التسليم للزبون')
+        .neq('status', 'الغاء الطلب')
+        .neq('status', 'رفض الطلب')
+        .neq('status', 'delivered')
+        .neq('status', 'cancelled')
         .or(`last_status_check.is.null,last_status_check.lt.${cutoffTime.toISOString()}`)
         .order('created_at', { ascending: true })
         .limit(this.config.batchSize * 3); // جلب أكثر للتأكد

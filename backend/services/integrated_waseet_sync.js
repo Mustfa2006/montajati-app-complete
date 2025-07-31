@@ -164,8 +164,12 @@ class IntegratedWaseetSync {
         .from('orders')
         .select('id, waseet_order_id, waseet_status_id, waseet_status_text, user_phone, primary_phone, customer_name, status')
         .not('waseet_order_id', 'is', null)
-        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
-        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled']);
+        // ✅ استبعاد الحالات النهائية - استخدام فلتر منفصل لتجنب مشكلة النص العربي
+        .neq('status', 'تم التسليم للزبون')
+        .neq('status', 'الغاء الطلب')
+        .neq('status', 'رفض الطلب')
+        .neq('status', 'delivered')
+        .neq('status', 'cancelled');
 
       if (error) {
         throw new Error(`خطأ في جلب الطلبات: ${error.message}`);

@@ -150,8 +150,12 @@ class RealTimeWaseetSync {
           created_at
         `)
         .not('waseet_order_id', 'is', null)
-        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
-        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'])
+        // ✅ استبعاد الحالات النهائية - استخدام فلتر منفصل لتجنب مشكلة النص العربي
+        .neq('status', 'تم التسليم للزبون')
+        .neq('status', 'الغاء الطلب')
+        .neq('status', 'رفض الطلب')
+        .neq('status', 'delivered')
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false })
         .limit(50); // حد أقصى 50 طلب في المرة الواحدة
 

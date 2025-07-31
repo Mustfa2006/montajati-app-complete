@@ -281,8 +281,12 @@ class OrderStatusSyncService {
           created_at
         `)
         .in('status', ['active', 'in_delivery'])
-        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
-        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'])
+        // ✅ استبعاد الحالات النهائية - استخدام فلتر منفصل لتجنب مشكلة النص العربي
+        .neq('status', 'تم التسليم للزبون')
+        .neq('status', 'الغاء الطلب')
+        .neq('status', 'رفض الطلب')
+        .neq('status', 'delivered')
+        .neq('status', 'cancelled')
         .not('waseet_order_id', 'is', null)
         // تجنب الطلبات التجريبية في الإنتاج
         .not('order_number', 'like', process.env.NODE_ENV === 'production' ? '%TEST%' : 'NEVER_MATCH')
