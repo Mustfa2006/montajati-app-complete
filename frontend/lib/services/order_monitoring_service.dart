@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 
-import '../utils/order_status_helper.dart';
+
 
 /// خدمة مراقبة الطلبات في الوقت الفعلي
 class OrderMonitoringService {
@@ -15,7 +15,7 @@ class OrderMonitoringService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
   
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
-  Map<String, String> _lastOrderStatuses = {};
+  final Map<String, String> _lastOrderStatuses = {};
   bool _isMonitoring = false;
 
   /// بدء مراقبة الطلبات

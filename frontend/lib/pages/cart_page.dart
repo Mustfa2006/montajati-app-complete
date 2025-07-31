@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../services/cart_service.dart';
 import '../services/scheduled_orders_service.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
-import '../utils/error_handler.dart';
+
 import 'customer_info_page.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/common_header.dart';
@@ -20,7 +20,7 @@ class CartPage extends StatefulWidget {
 class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
   late AnimationController _cartIconController;
   late AnimationController _headerController;
-  final bool _isProcessingOrder = false;
+  // تم إزالة _isProcessingOrder غير المستخدم
 
   // خدمة السلة
   final CartService _cartService = CartService();

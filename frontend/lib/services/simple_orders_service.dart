@@ -112,6 +112,11 @@ class SimpleOrdersService extends ChangeNotifier {
 
       // تحويل AdminOrder إلى Order مع معالجة الأخطاء
       _orders = [];
+
+      // ✅ ضمان الترتيب الصحيح قبل التحويل
+      userOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      debugPrint('🔄 تم ترتيب ${userOrders.length} طلب حسب التاريخ (الأحدث أولاً)');
+
       for (final adminOrder in userOrders) {
         try {
           // ✅ استخدام حالة الدعم من AdminOrder مع التحقق من البيانات المحلية كطبقة حماية
@@ -212,6 +217,10 @@ class SimpleOrdersService extends ChangeNotifier {
       _hasMoreData = userOrders.length == _pageSize;
       debugPrint('✅ حالة التحميل التدريجي: hasMoreData=$_hasMoreData, currentPage=$_currentPage, loadedCount=${userOrders.length}');
 
+      // ✅ ترتيب نهائي للطلبات لضمان أن الأحدث دائماً في المقدمة
+      _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      debugPrint('🔄 تم الترتيب النهائي للطلبات - العدد: ${_orders.length}');
+
       _lastUpdate = DateTime.now();
     } catch (e) {
       debugPrint('❌ خطأ في جلب الطلبات: $e');
@@ -295,6 +304,9 @@ class SimpleOrdersService extends ChangeNotifier {
 
         // إضافة الطلبات الجديدة للقائمة الموجودة
         _orders.addAll(convertedOrders);
+
+        // ✅ ترتيب القائمة بعد إضافة الطلبات الجديدة لضمان الترتيب الصحيح
+        _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
         // تحديث حالة التحميل التدريجي
         _hasMoreData = userOrders.length == _pageSize;
@@ -646,19 +658,22 @@ class SimpleOrdersService extends ChangeNotifier {
     try {
       debugPrint('🗑️ حذف الطلب من قاعدة البيانات: $orderId');
 
-      // ✅ حذف عناصر الطلب أولاً من قاعدة البيانات
-      await Supabase.instance.client
-          .from('order_items')
+      // ✅ الخطوة 1: حذف معاملات الربح أولاً (مهم لتجنب خطأ Foreign Key)
+      final deleteProfitResponse = await Supabase.instance.client
+          .from('profit_transactions')
           .delete()
-          .eq('order_id', orderId);
+          .eq('order_id', orderId)
+          .select();
 
-      // ✅ حذف الطلب من قاعدة البيانات
+      debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
+
+      // ✅ الخطوة 2: حذف الطلب من قاعدة البيانات (ستُحذف order_items تلقائياً بسبب CASCADE)
       await Supabase.instance.client.from('orders').delete().eq('id', orderId);
 
       // ✅ حذف من الذاكرة المحلية أيضاً
       removeOrder(orderId);
 
-      debugPrint('✅ تم حذف الطلب بنجاح من قاعدة البيانات والذاكرة المحلية');
+      debugPrint('✅ تم حذف الطلب وعناصره ومعاملات الربح بنجاح');
       return true;
     } catch (e) {
       debugPrint('❌ خطأ في حذف الطلب: $e');

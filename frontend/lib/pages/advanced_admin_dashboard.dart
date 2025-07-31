@@ -20,7 +20,6 @@ import 'reports_page.dart';
 import 'settings_page.dart';
 import 'admin_settings_page.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 class AdvancedAdminDashboard extends StatefulWidget {
   const AdvancedAdminDashboard({super.key});
@@ -41,6 +40,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   AdminStats? _stats;
   List<AdminOrder> _recentOrders = [];
   List<AdminUser> _topUsers = [];
+  // ignore: unused_field
   List<AdminProduct> _topProducts = [];
 
   // حالة التحميل
@@ -62,6 +62,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   // متغيرات البحث
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  // ignore: unused_field
   final List<Map<String, dynamic>> _filteredRequests = [];
 
   // متغيرات الصور الإعلانية
@@ -228,14 +229,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         // تحديث البيانات
         await _loadDashboardData();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تحويل ${response.length} طلبات من مجدولة إلى نشطة',
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'تم تحويل ${response.length} طلبات من مجدولة إلى نشطة',
+              ),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        }
       } else {
         debugPrint('✅ لا توجد طلبات مجدولة للتحويل');
       }
@@ -560,7 +563,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFffd700).withOpacity(0.3),
+            color: const Color(0xFFffd700).withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -684,12 +687,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               color: const Color(0xFF16213e),
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: (stat['color'] as Color).withOpacity(0.3),
+                color: (stat['color'] as Color).withValues(alpha: 0.3),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (stat['color'] as Color).withOpacity(0.1),
+                  color: (stat['color'] as Color).withValues(alpha: 0.1),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -712,7 +715,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF4CAF50).withOpacity(0.2),
+                        color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -739,7 +742,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 Text(
                   stat['title'] as String,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 14,
                   ),
                 ),
@@ -758,7 +761,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: const Color(0xFFffd700).withOpacity(0.3),
+          color: const Color(0xFFffd700).withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -904,7 +907,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: const Color(0xFFffd700).withOpacity(0.3),
+          color: const Color(0xFFffd700).withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -968,7 +971,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             Text(
                               '${user.totalOrders} طلب',
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 12,
                               ),
                             ),
@@ -1001,7 +1004,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: const Color(0xFFffd700).withOpacity(0.3),
+          color: const Color(0xFFffd700).withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -1096,7 +1099,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         decoration: BoxDecoration(
           color: const Color(0xFF1a1a2e),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           children: [
@@ -1104,7 +1107,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               width: 35,
               height: 35,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
+                color: color.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, color: color, size: 18),
@@ -1141,7 +1144,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: const Color(0xFFffd700).withOpacity(0.3),
+          color: const Color(0xFFffd700).withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -1186,7 +1189,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     dotData: FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: const Color(0xFFffd700).withOpacity(0.1),
+                      color: const Color(0xFFffd700).withValues(alpha: 0.1),
                     ),
                   ),
                 ],
@@ -1206,7 +1209,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(
-          color: const Color(0xFFffd700).withOpacity(0.3),
+          color: const Color(0xFFffd700).withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -1546,12 +1549,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           );
 
           if (response.statusCode == 200) {
-            print('✅ تم إرسال طلب مراقبة المنتج: $productId');
+            debugPrint('✅ تم إرسال طلب مراقبة المنتج: $productId');
           } else {
-            print('⚠️ فشل في إرسال طلب مراقبة المنتج: ${response.statusCode}');
+            debugPrint('⚠️ فشل في إرسال طلب مراقبة المنتج: ${response.statusCode}');
           }
         } catch (e) {
-          print('⚠️ خطأ في إرسال طلب مراقبة المنتج: $e');
+          debugPrint('⚠️ خطأ في إرسال طلب مراقبة المنتج: $e');
         }
       }
 
@@ -1894,6 +1897,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     }
   }
 
+  // ignore: unused_element
   Widget _buildProductCard(Product product) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2442,12 +2446,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         );
 
         if (response.statusCode == 200) {
-          print('✅ تم إرسال طلب مراقبة المنتج: $productId');
+          debugPrint('✅ تم إرسال طلب مراقبة المنتج: $productId');
         } else {
-          print('⚠️ فشل في إرسال طلب مراقبة المنتج: ${response.statusCode}');
+          debugPrint('⚠️ فشل في إرسال طلب مراقبة المنتج: ${response.statusCode}');
         }
       } catch (e) {
-        print('⚠️ خطأ في إرسال طلب مراقبة المنتج: $e');
+        debugPrint('⚠️ خطأ في إرسال طلب مراقبة المنتج: $e');
       }
 
       setState(() {}); // إعادة تحميل القائمة
@@ -4177,6 +4181,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   // الموافقة على طلب السحب مع التحديث المباشر
+  // ignore: unused_element
   void _approveWithdrawal(String requestId) async {
     try {
       final result = await WithdrawalService.updateWithdrawalStatus(
@@ -4226,6 +4231,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   // رفض طلب السحب مع التحديث المباشر
+  // ignore: unused_element
   void _rejectWithdrawal(String requestId) async {
     try {
       final result = await WithdrawalService.updateWithdrawalStatus(
@@ -4547,7 +4553,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     final statusText = _getWithdrawalStatusText(request['status']);
     final formattedDate = _formatWithdrawalDate(request['request_date']);
     final requestNumber = request['request_number']?.toString() ?? 'غير محدد';
-    final requestId = request['id'] ?? 'غير محدد';
+    // تم حذف requestId غير المستخدم
     final userName = request['users']['name'] ?? 'غير محدد';
     final userPhone = request['users']['phone'] ?? 'غير محدد';
     final amount = (request['amount'] as num).toStringAsFixed(0);
@@ -5379,6 +5385,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 fillColor: const Color(0xFF1a1a2e),
               ),
               onChanged: (value) {
+                // ignore: todo
                 // TODO: تطبيق البحث
               },
             ),
@@ -5391,6 +5398,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             ),
             child: IconButton(
               onPressed: () {
+                // ignore: todo
                 // TODO: فتح خيارات الفلترة
               },
               icon: const Icon(Icons.filter_list, color: Color(0xFF1a1a2e)),
@@ -5676,6 +5684,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) {
+                // ignore: todo
                 // TODO: حفظ الكمية الجديدة
               },
             ),
@@ -5688,6 +5697,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ),
           ElevatedButton(
             onPressed: () {
+              // ignore: todo
               // TODO: تطبيق إعادة التخزين
               Navigator.pop(context);
               _showSuccessSnackBar('تم تحديث المخزون بنجاح');
@@ -5950,18 +5960,15 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () => _showEditBannerDialog(banner, index),
-                          child: Text(
-                            'تعديل',
-                            style: GoogleFonts.cairo(fontSize: 9),
-                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF2196F3),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             minimumSize: const Size(0, 20),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+                          ),
+                          child: Text(
+                            'تعديل',
+                            style: GoogleFonts.cairo(fontSize: 9),
                           ),
                         ),
                       ),
@@ -5974,10 +5981,6 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             debugPrint('🔴 تم النقر على زر حذف الصورة الإعلانية: ${banner['id']}');
                             _showDeleteBannerDialog(banner, index);
                           },
-                          child: Text(
-                            'حذف',
-                            style: GoogleFonts.cairo(fontSize: 9),
-                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFf44336),
                             foregroundColor: Colors.white,
@@ -5986,6 +5989,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(4),
                             ),
+                          ),
+                          child: Text(
+                            'حذف',
+                            style: GoogleFonts.cairo(fontSize: 9),
                           ),
                         ),
                       ),
@@ -6156,13 +6163,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             onPressed: () async {
               if (titleController.text.trim().isNotEmpty &&
                   imageUrlController.text.trim().isNotEmpty) {
+                final navigator = Navigator.of(context);
                 await _updateBanner(
                   banner['id'],
                   titleController.text.trim(),
                   subtitleController.text.trim(),
                   imageUrlController.text.trim(),
                 );
-                Navigator.of(context).pop();
+                if (mounted) {
+                  navigator.pop();
+                }
               } else {
                 _showErrorSnackBar('يرجى ملء العنوان ورابط الصورة على الأقل');
               }
@@ -6420,7 +6430,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366f1).withOpacity(0.3),
+            color: const Color(0xFF6366f1).withValues(alpha: 0.3),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -6431,7 +6441,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -6482,7 +6492,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         _buildNotificationActionButton(
           'تحديث الإحصائيات',
           Icons.refresh,
-          Colors.white.withOpacity(0.2),
+          Colors.white.withValues(alpha: 0.2),
           () => _loadNotificationStats(),
         ),
       ],
@@ -6572,12 +6582,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
@@ -6586,7 +6596,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -6627,7 +6637,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -6641,7 +6651,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366f1).withOpacity(0.1),
+                  color: const Color(0xFF6366f1).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -6921,7 +6931,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366f1).withOpacity(0.1),
+              color: const Color(0xFF6366f1).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -7018,7 +7028,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -7032,7 +7042,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10b981).withOpacity(0.1),
+                  color: const Color(0xFF10b981).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -7157,7 +7167,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -7171,7 +7181,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFf59e0b).withOpacity(0.1),
+                  color: const Color(0xFFf59e0b).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -7230,7 +7240,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -7244,7 +7254,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -7258,7 +7268,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6).withOpacity(0.1),
+                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -7352,7 +7362,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -7412,7 +7422,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(notification['status']).withOpacity(0.1),
+                  color: _getStatusColor(notification['status']).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -7549,7 +7559,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       lastDate: DateTime.now().add(const Duration(days: 30)),
     );
 
-    if (date != null) {
+    if (date != null && mounted) {
       final time = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.now(),
@@ -7575,31 +7585,31 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     final diagnosticId = 'notif_${DateTime.now().millisecondsSinceEpoch}';
     final startTime = DateTime.now();
 
-    print('🚀 [DIAGNOSTIC-$diagnosticId] بدء عملية إرسال الإشعار في ${startTime.toIso8601String()}');
-    print('📱 [DIAGNOSTIC-$diagnosticId] الخطوة 1: التحقق من صحة البيانات المدخلة');
+    debugPrint('🚀 [DIAGNOSTIC-$diagnosticId] بدء عملية إرسال الإشعار في ${startTime.toIso8601String()}');
+    debugPrint('📱 [DIAGNOSTIC-$diagnosticId] الخطوة 1: التحقق من صحة البيانات المدخلة');
 
     // التحقق من البيانات
     if (_notificationTitleController.text.trim().isEmpty) {
-      print('❌ [DIAGNOSTIC-$diagnosticId] فشل: عنوان الإشعار فارغ');
+      debugPrint('❌ [DIAGNOSTIC-$diagnosticId] فشل: عنوان الإشعار فارغ');
       _showErrorSnackBar('يرجى إدخال عنوان الإشعار');
       return;
     }
-    print('✅ [DIAGNOSTIC-$diagnosticId] عنوان الإشعار صحيح: "${_notificationTitleController.text.trim()}"');
+    debugPrint('✅ [DIAGNOSTIC-$diagnosticId] عنوان الإشعار صحيح: "${_notificationTitleController.text.trim()}"');
 
     if (_notificationBodyController.text.trim().isEmpty) {
-      print('❌ [DIAGNOSTIC-$diagnosticId] فشل: محتوى الإشعار فارغ');
+      debugPrint('❌ [DIAGNOSTIC-$diagnosticId] فشل: محتوى الإشعار فارغ');
       _showErrorSnackBar('يرجى إدخال محتوى الإشعار');
       return;
     }
-    print('✅ [DIAGNOSTIC-$diagnosticId] محتوى الإشعار صحيح: "${_notificationBodyController.text.trim()}"');
+    debugPrint('✅ [DIAGNOSTIC-$diagnosticId] محتوى الإشعار صحيح: "${_notificationBodyController.text.trim()}"');
 
     if (_isScheduled && _scheduledDateTime == null) {
-      print('❌ [DIAGNOSTIC-$diagnosticId] فشل: موعد الجدولة غير محدد');
+      debugPrint('❌ [DIAGNOSTIC-$diagnosticId] فشل: موعد الجدولة غير محدد');
       _showErrorSnackBar('يرجى تحديد موعد الإرسال');
       return;
     }
 
-    print('📝 [DIAGNOSTIC-$diagnosticId] الخطوة 2: إعداد بيانات الطلب');
+    debugPrint('📝 [DIAGNOSTIC-$diagnosticId] الخطوة 2: إعداد بيانات الطلب');
     final requestData = {
       'title': _notificationTitleController.text.trim(),
       'body': _notificationBodyController.text.trim(),
@@ -7608,16 +7618,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       'scheduledDateTime': _scheduledDateTime?.toIso8601String(),
     };
 
-    print('📦 [DIAGNOSTIC-$diagnosticId] بيانات الطلب: ${json.encode(requestData)}');
-    print('🔗 [DIAGNOSTIC-$diagnosticId] الخطوة 3: تحديث واجهة المستخدم (بدء التحميل)');
+    debugPrint('📦 [DIAGNOSTIC-$diagnosticId] بيانات الطلب: ${json.encode(requestData)}');
+    debugPrint('🔗 [DIAGNOSTIC-$diagnosticId] الخطوة 3: تحديث واجهة المستخدم (بدء التحميل)');
 
     setState(() {
       _isSendingNotification = true;
     });
 
     try {
-      print('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
-      print('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-backend.onrender.com/api/notifications/send-bulk');
+      debugPrint('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
+      debugPrint('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-backend.onrender.com/api/notifications/send-bulk');
 
       final requestStartTime = DateTime.now();
       final response = await http.post(
@@ -7630,28 +7640,28 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       final requestEndTime = DateTime.now();
       final requestDuration = requestEndTime.difference(requestStartTime);
 
-      print('📡 [DIAGNOSTIC-$diagnosticId] الخطوة 5: استلام الاستجابة من الخادم');
-      print('⏱️ [DIAGNOSTIC-$diagnosticId] مدة الطلب: ${requestDuration.inMilliseconds}ms');
-      print('📊 [DIAGNOSTIC-$diagnosticId] رمز الاستجابة: ${response.statusCode}');
-      print('📄 [DIAGNOSTIC-$diagnosticId] محتوى الاستجابة: ${response.body}');
+      debugPrint('📡 [DIAGNOSTIC-$diagnosticId] الخطوة 5: استلام الاستجابة من الخادم');
+      debugPrint('⏱️ [DIAGNOSTIC-$diagnosticId] مدة الطلب: ${requestDuration.inMilliseconds}ms');
+      debugPrint('📊 [DIAGNOSTIC-$diagnosticId] رمز الاستجابة: ${response.statusCode}');
+      debugPrint('📄 [DIAGNOSTIC-$diagnosticId] محتوى الاستجابة: ${response.body}');
 
       if (response.statusCode == 200) {
-        print('✅ [DIAGNOSTIC-$diagnosticId] الخطوة 6: تحليل الاستجابة الناجحة');
+        debugPrint('✅ [DIAGNOSTIC-$diagnosticId] الخطوة 6: تحليل الاستجابة الناجحة');
 
         try {
           final responseData = json.decode(response.body);
-          print('📋 [DIAGNOSTIC-$diagnosticId] بيانات الاستجابة المحللة: ${json.encode(responseData)}');
+          debugPrint('📋 [DIAGNOSTIC-$diagnosticId] بيانات الاستجابة المحللة: ${json.encode(responseData)}');
 
           if (responseData['success'] == true) {
-            print('🎉 [DIAGNOSTIC-$diagnosticId] الخطوة 7: نجح الإرسال');
+            debugPrint('🎉 [DIAGNOSTIC-$diagnosticId] الخطوة 7: نجح الإرسال');
 
             // طباعة تفاصيل التشخيص إذا كانت متوفرة
             if (responseData['diagnostics'] != null) {
-              print('🔍 [DIAGNOSTIC-$diagnosticId] تشخيص الخادم: ${json.encode(responseData['diagnostics'])}');
+              debugPrint('🔍 [DIAGNOSTIC-$diagnosticId] تشخيص الخادم: ${json.encode(responseData['diagnostics'])}');
             }
 
             if (responseData['data'] != null) {
-              print('📊 [DIAGNOSTIC-$diagnosticId] بيانات النتيجة: ${json.encode(responseData['data'])}');
+              debugPrint('📊 [DIAGNOSTIC-$diagnosticId] بيانات النتيجة: ${json.encode(responseData['data'])}');
             }
 
             _showSuccessSnackBar(
@@ -7660,38 +7670,38 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   : 'تم إرسال الإشعار بنجاح لجميع المستخدمين'
             );
 
-            print('🧹 [DIAGNOSTIC-$diagnosticId] الخطوة 8: تنظيف النموذج وتحديث البيانات');
+            debugPrint('🧹 [DIAGNOSTIC-$diagnosticId] الخطوة 8: تنظيف النموذج وتحديث البيانات');
             _clearNotificationForm();
             await _loadSentNotifications();
             await _loadNotificationStats();
           } else {
-            print('❌ [DIAGNOSTIC-$diagnosticId] فشل الإرسال: ${responseData['message']}');
+            debugPrint('❌ [DIAGNOSTIC-$diagnosticId] فشل الإرسال: ${responseData['message']}');
             if (responseData['diagnostics'] != null) {
-              print('🔍 [DIAGNOSTIC-$diagnosticId] تشخيص الفشل: ${json.encode(responseData['diagnostics'])}');
+              debugPrint('🔍 [DIAGNOSTIC-$diagnosticId] تشخيص الفشل: ${json.encode(responseData['diagnostics'])}');
             }
             _showErrorSnackBar(responseData['message'] ?? 'فشل في إرسال الإشعار');
           }
         } catch (parseError) {
-          print('❌ [DIAGNOSTIC-$diagnosticId] خطأ في تحليل JSON: $parseError');
-          print('📄 [DIAGNOSTIC-$diagnosticId] النص الخام: ${response.body}');
+          debugPrint('❌ [DIAGNOSTIC-$diagnosticId] خطأ في تحليل JSON: $parseError');
+          debugPrint('📄 [DIAGNOSTIC-$diagnosticId] النص الخام: ${response.body}');
           _showErrorSnackBar('خطأ في تحليل استجابة الخادم');
         }
       } else {
-        print('❌ [DIAGNOSTIC-$diagnosticId] خطأ HTTP: ${response.statusCode}');
-        print('📄 [DIAGNOSTIC-$diagnosticId] رسالة الخطأ: ${response.body}');
+        debugPrint('❌ [DIAGNOSTIC-$diagnosticId] خطأ HTTP: ${response.statusCode}');
+        debugPrint('📄 [DIAGNOSTIC-$diagnosticId] رسالة الخطأ: ${response.body}');
         _showErrorSnackBar('خطأ في الاتصال بالخادم (${response.statusCode})');
       }
     } catch (e, stackTrace) {
-      print('❌ [DIAGNOSTIC-$diagnosticId] خطأ في الشبكة أو الاتصال: $e');
-      print('📚 [DIAGNOSTIC-$diagnosticId] تتبع المكدس: $stackTrace');
+      debugPrint('❌ [DIAGNOSTIC-$diagnosticId] خطأ في الشبكة أو الاتصال: $e');
+      debugPrint('📚 [DIAGNOSTIC-$diagnosticId] تتبع المكدس: $stackTrace');
       _showErrorSnackBar('خطأ في إرسال الإشعار: $e');
     } finally {
       final endTime = DateTime.now();
       final totalDuration = endTime.difference(startTime);
 
-      print('🏁 [DIAGNOSTIC-$diagnosticId] انتهاء العملية في ${endTime.toIso8601String()}');
-      print('⏱️ [DIAGNOSTIC-$diagnosticId] إجمالي المدة: ${totalDuration.inMilliseconds}ms');
-      print('🔄 [DIAGNOSTIC-$diagnosticId] الخطوة الأخيرة: إيقاف مؤشر التحميل');
+      debugPrint('🏁 [DIAGNOSTIC-$diagnosticId] انتهاء العملية في ${endTime.toIso8601String()}');
+      debugPrint('⏱️ [DIAGNOSTIC-$diagnosticId] إجمالي المدة: ${totalDuration.inMilliseconds}ms');
+      debugPrint('🔄 [DIAGNOSTIC-$diagnosticId] الخطوة الأخيرة: إيقاف مؤشر التحميل');
 
       setState(() {
         _isSendingNotification = false;

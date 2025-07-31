@@ -83,10 +83,19 @@ class _OrdersPageState extends State<OrdersPage> {
   Future<void> _refreshData() async {
     debugPrint('🔄 تحديث بيانات صفحة الطلبات...');
 
-    // إعادة تحميل الطلبات
+    // إعادة تحميل الطلبات مع ضمان الترتيب
     await _loadOrders();
 
-    debugPrint('✅ تم تحديث بيانات صفحة الطلبات');
+    // ✅ ضمان الترتيب الصحيح بعد التحديث
+    if (mounted) {
+      setState(() {
+        // إعادة ترتيب الطلبات للتأكد من أن الأحدث في المقدمة
+        _ordersService.orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _scheduledOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      });
+    }
+
+    debugPrint('✅ تم تحديث بيانات صفحة الطلبات مع ضمان الترتيب الصحيح');
   }
 
   // جلب الطلبات العادية والمجدولة
@@ -355,13 +364,16 @@ class _OrdersPageState extends State<OrdersPage> {
     List<Order> baseOrders;
     if (selectedFilter == 'scheduled') {
       // إذا كان الفلتر "مجدول"، اعرض الطلبات المجدولة فقط
-      baseOrders = _scheduledOrders;
+      baseOrders = List.from(_scheduledOrders);
       debugPrint('📋 عرض الطلبات المجدولة فقط: ${baseOrders.length}');
     } else {
       // لجميع الفلاتر الأخرى، اعرض الطلبات العادية فقط
-      baseOrders = _ordersService.orders;
+      baseOrders = List.from(_ordersService.orders);
       debugPrint('📋 عرض الطلبات العادية فقط: ${baseOrders.length}');
     }
+
+    // ✅ ضمان الترتيب الصحيح: الأحدث أولاً دائماً
+    baseOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     debugPrint(
       '📋 الفلتر الحالي: $selectedFilter, عدد الطلبات: ${baseOrders.length}',
@@ -369,7 +381,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
     // ✅ طباعة تفاصيل أول 3 طلبات للتشخيص
     if (baseOrders.isNotEmpty) {
-      debugPrint('📋 أول 3 طلبات في filteredOrders:');
+      debugPrint('📋 أول 3 طلبات في filteredOrders (بعد الترتيب):');
       for (int i = 0; i < baseOrders.length && i < 3; i++) {
         final order = baseOrders[i];
         debugPrint(
@@ -1567,12 +1579,12 @@ class _OrdersPageState extends State<OrdersPage> {
 
   // إرسال طلب الدعم
   Future<void> _sendSupportRequest(Order order, String notes) async {
-    print('🔥 === تم النقر على زر إرسال للدعم - إرسال تلقائي ===');
-    print('🔥 معلومات الطلب: ${order.toJson()}');
-    print('🔥 الملاحظات: $notes');
+    debugPrint('🔥 === تم النقر على زر إرسال للدعم - إرسال تلقائي ===');
+    debugPrint('🔥 معلومات الطلب: ${order.toJson()}');
+    debugPrint('🔥 الملاحظات: $notes');
 
     try {
-      print('📡 Step 1: إرسال طلب الدعم للخادم...');
+      debugPrint('📡 Step 1: إرسال طلب الدعم للخادم...');
 
       // إرسال طلب الدعم للخادم (سيرسل تلقائياً للتلغرام)
       final response = await http.post(
@@ -1593,8 +1605,8 @@ class _OrdersPageState extends State<OrdersPage> {
         }),
       );
 
-      print('📡 رمز الاستجابة: ${response.statusCode}');
-      print('📡 محتوى الاستجابة: ${response.body}');
+      debugPrint('📡 رمز الاستجابة: ${response.statusCode}');
+      debugPrint('📡 محتوى الاستجابة: ${response.body}');
 
       final responseData = json.decode(response.body);
 
@@ -1602,7 +1614,7 @@ class _OrdersPageState extends State<OrdersPage> {
         throw Exception(responseData['message'] ?? 'فشل في إرسال الطلب للدعم');
       }
 
-      print('✅ تم إرسال طلب الدعم بنجاح');
+      debugPrint('✅ تم إرسال طلب الدعم بنجاح');
 
       // ✅ تحديث حالة الطلب في الخدمة وقاعدة البيانات فوراً
       await _ordersService.updateOrderSupportStatus(order.id, true);
@@ -1647,10 +1659,10 @@ class _OrdersPageState extends State<OrdersPage> {
 
 
     } catch (error, stackTrace) {
-      print('❌ === خطأ في عملية إرسال طلب الدعم ===');
-      print('❌ نوع الخطأ: ${error.runtimeType}');
-      print('❌ رسالة الخطأ: ${error.toString()}');
-      print('❌ Stack Trace: $stackTrace');
+      debugPrint('❌ === خطأ في عملية إرسال طلب الدعم ===');
+      debugPrint('❌ نوع الخطأ: ${error.runtimeType}');
+      debugPrint('❌ رسالة الخطأ: ${error.toString()}');
+      debugPrint('❌ Stack Trace: $stackTrace');
 
       if (!mounted) return;
 

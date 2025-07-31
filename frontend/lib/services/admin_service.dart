@@ -7,8 +7,8 @@ import '../config/supabase_config.dart';
 import '../models/order_summary.dart';
 // import '../../debug_helper.dart'; // سيتم إضافته لاحقاً
 import '../utils/order_status_helper.dart';
-import 'smart_profits_manager.dart';
-import 'order_status_monitor.dart';
+
+
 import 'smart_profit_transfer.dart';
 import 'official_order_service.dart';
 
@@ -561,10 +561,7 @@ class AdminService {
     }
   }
 
-  // إرجاع بيانات تجريبية للاختبار
-  static List<AdminOrder> _getSampleOrders() {
-    return [];
-  }
+  // تم حذف _getSampleOrders غير المستخدم
 
   // الحصول على تفاصيل الطلب الكاملة مع جميع البيانات
   static Future<AdminOrder> getOrderDetails(String orderId) async {
@@ -924,7 +921,7 @@ class AdminService {
       // اختبار الاتصال بقاعدة البيانات أولاً
       debugPrint('🔍 اختبار الاتصال بقاعدة البيانات...');
       try {
-        final testConnection = await _supabase
+        await _supabase
             .from('orders')
             .select('count')
             .limit(1);
@@ -1033,7 +1030,7 @@ class AdminService {
       }
 
       debugPrint('🔥 SUCCESS: تم تحديث حالة الطلب عبر API');
-      debugPrint('🔥 API RESULT: ${apiResult}');
+      debugPrint('🔥 API RESULT: $apiResult');
 
       // 🚀 API endpoint يتولى كل شيء: تحديث الحالة + سجل التاريخ + إرسال للوسيط
       if (statusForDatabase == 'قيد التوصيل الى الزبون (في عهدة المندوب)') {
@@ -1455,39 +1452,7 @@ class AdminService {
     }
   }
 
-  // إضافة تسجيل تغيير الحالة
-  Future<bool> _addStatusHistoryEntry(
-    String orderId,
-    String oldStatus,
-    String newStatus, {
-    String? notes,
-    String? createdBy,
-  }) async {
-    try {
-      debugPrint('📝 إضافة تسجيل تغيير الحالة:');
-      debugPrint('   📋 الطلب: $orderId');
-      debugPrint('   🔄 من: $oldStatus إلى: $newStatus');
-
-      await _supabase.from('order_status_history').insert({
-        'order_id': orderId,
-        'old_status': oldStatus,
-        'new_status': newStatus,
-        'status': newStatus, // الحالة الجديدة
-        'notes':
-            notes ??
-            'تم تحديث الحالة من ${OrderStatusHelper.getArabicStatus(oldStatus)} إلى ${OrderStatusHelper.getArabicStatus(newStatus)}',
-        'created_by': createdBy ?? 'admin',
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      debugPrint('✅ تم إضافة تسجيل تغيير الحالة بنجاح');
-      return true;
-    } catch (e) {
-      debugPrint('❌ خطأ في إضافة تسجيل تغيير الحالة: $e');
-      // لا نرمي خطأ هنا لأن تحديث الحالة الأساسي نجح
-      return false;
-    }
-  }
+  // تم حذف _addStatusHistoryEntry غير المستخدم
 
   // الحصول على قائمة المستخدمين مع الإحصائيات
   Future<List<AdminUser>> getUsers() async {
@@ -2023,17 +1988,23 @@ class AdminService {
     try {
       debugPrint('🗑️ حذف الطلب: $orderId');
 
-      // حذف عناصر الطلب أولاً
-      await _supabase.from('order_items').delete().eq('order_id', orderId);
+      // ✅ الخطوة 1: حذف معاملات الربح أولاً (مهم لتجنب خطأ Foreign Key)
+      final deleteProfitResponse = await _supabase
+          .from('profit_transactions')
+          .delete()
+          .eq('order_id', orderId)
+          .select();
 
-      // حذف الطلب
+      debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
+
+      // ✅ الخطوة 2: حذف الطلب (ستُحذف order_items تلقائياً بسبب CASCADE)
       final response = await _supabase
           .from('orders')
           .delete()
           .eq('id', orderId)
           .select();
 
-      debugPrint('✅ تم حذف الطلب بنجاح');
+      debugPrint('✅ تم حذف الطلب وعناصره ومعاملات الربح بنجاح');
       return response.isNotEmpty;
     } catch (e) {
       debugPrint('❌ خطأ في حذف الطلب: $e');
@@ -2041,120 +2012,9 @@ class AdminService {
     }
   }
 
-  // نقل ربح الطلب من المنتظرة إلى المحققة
-  Future<void> _moveOrderProfitToAchieved(String orderId) async {
-    try {
-      debugPrint('💰 نقل ربح الطلب $orderId إلى الأرباح المحققة...');
+  // تم حذف _moveOrderProfitToAchieved غير المستخدم
 
-      // جلب تفاصيل الطلب
-      final orderResponse = await _supabase
-          .from('orders')
-          .select('profit, primary_phone')
-          .eq('id', orderId)
-          .maybeSingle();
-
-      if (orderResponse == null) {
-        debugPrint('❌ لم يتم العثور على الطلب');
-        return;
-      }
-
-      final orderProfit = orderResponse['profit'] ?? 0;
-      final userPhone = orderResponse['primary_phone'];
-
-      if (orderProfit <= 0) {
-        debugPrint('⚠️ ربح الطلب صفر أو سالب: $orderProfit');
-        return;
-      }
-
-      debugPrint('📊 ربح الطلب: $orderProfit د.ع');
-      debugPrint('📱 هاتف المستخدم: $userPhone');
-
-      // جلب الأرباح الحالية للمستخدم
-      final currentProfitsResponse = await _supabase
-          .from('users')
-          .select('achieved_profits, expected_profits')
-          .eq('phone', userPhone)
-          .maybeSingle();
-
-      if (currentProfitsResponse != null) {
-        final currentAchieved = currentProfitsResponse['achieved_profits'] ?? 0;
-        final currentExpected = currentProfitsResponse['expected_profits'] ?? 0;
-
-        final newAchieved = currentAchieved + orderProfit;
-        final newExpected = (currentExpected - orderProfit).clamp(
-          0,
-          double.infinity,
-        );
-
-        // تحديث الأرباح
-        await _supabase
-            .from('users')
-            .update({
-              'achieved_profits': newAchieved,
-              'expected_profits': newExpected,
-              'updated_at': DateTime.now().toIso8601String(),
-            })
-            .eq('phone', userPhone);
-
-        debugPrint('✅ تم نقل $orderProfit د.ع من المنتظرة إلى المحققة');
-        debugPrint('📊 الأرباح المحققة: $currentAchieved → $newAchieved');
-        debugPrint('📊 الأرباح المنتظرة: $currentExpected → $newExpected');
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في نقل ربح الطلب: $e');
-    }
-  }
-
-  // إرسال إشعار محلي فوري عند تغيير حالة الطلب
-  static Future<void> _sendImmediateLocalNotification({
-    required String customerName,
-    required String orderNumber,
-    required String oldStatus,
-    required String newStatus,
-    required String customerPhone,
-  }) async {
-    try {
-      debugPrint('🔔 إرسال إشعار محلي فوري...');
-
-      // تحديد رسالة الإشعار حسب الحالة
-      String title = '';
-      String message = '';
-
-      switch (newStatus) {
-        case 'pending':
-          title = '⏳ طلب قيد المراجعة';
-          message = 'طلب $customerName ($orderNumber) قيد المراجعة';
-          break;
-        case 'confirmed':
-          title = '✅ تم تأكيد الطلب';
-          message = 'تم تأكيد طلب $customerName ($orderNumber)';
-          break;
-        case 'processing':
-          title = '🔄 جاري تحضير الطلب';
-          message = 'طلب $customerName ($orderNumber) قيد التحضير';
-          break;
-        case 'in_delivery':
-          title = '🚚 الطلب قيد التوصيل';
-          message = 'طلب $customerName ($orderNumber) قيد التوصيل';
-          break;
-        case 'delivered':
-          title = '🎉 تم تسليم الطلب';
-          message = 'تم تسليم طلب $customerName ($orderNumber) بنجاح';
-          break;
-        case 'cancelled':
-          title = '❌ تم إلغاء الطلب';
-          message = 'تم إلغاء طلب $customerName ($orderNumber)';
-          break;
-        default:
-          title = '🔄 تحديث حالة الطلب';
-          message = 'تم تحديث حالة طلب $customerName ($orderNumber)';
-      }
-
-      debugPrint('✅ تم تحديث الطلب بنجاح');
-    } catch (e) {
-      debugPrint('❌ خطأ في إرسال الإشعار المحلي الفوري: $e');
-    }
-  }
+  // تم حذف _sendImmediateLocalNotification غير المستخدم
 
   // ===================================
   // دوال الإشعارات الفورية

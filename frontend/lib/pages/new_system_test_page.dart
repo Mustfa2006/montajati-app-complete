@@ -6,7 +6,7 @@ import '../services/new_flexible_delivery_service.dart';
 
 
 class NewSystemTestPage extends StatefulWidget {
-  const NewSystemTestPage({Key? key}) : super(key: key);
+  const NewSystemTestPage({super.key});
 
   @override
   State<NewSystemTestPage> createState() => _NewSystemTestPageState();
@@ -14,7 +14,7 @@ class NewSystemTestPage extends StatefulWidget {
 
 class _NewSystemTestPageState extends State<NewSystemTestPage> {
   bool _isLoading = false;
-  List<String> _testResults = [];
+  final List<String> _testResults = [];
   Map<String, dynamic> _systemStatus = {};
   List<Map<String, dynamic>> _provinces = [];
   List<Map<String, dynamic>> _cities = [];
@@ -48,7 +48,7 @@ class _NewSystemTestPageState extends State<NewSystemTestPage> {
       _addTestResult('🏥 اختبار صحة النظام...');
       
       final isHealthy = await NewFlexibleDeliveryService.checkSystemHealth();
-      final systemInfo = await NewFlexibleDeliveryService.getSystemInfo();
+      // تم إزالة systemInfo غير المستخدم
       
       setState(() {
         _systemStatus = NewFlexibleDeliveryService.getSystemStatus();
@@ -266,7 +266,7 @@ class _NewSystemTestPageState extends State<NewSystemTestPage> {
             if (_cities.isNotEmpty) ...[
               const SizedBox(height: 8),
               const Text('المدن:'),
-              Container(
+              SizedBox(
                 height: 100,
                 child: ListView.builder(
                   itemCount: _cities.length,

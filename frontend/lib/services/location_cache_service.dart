@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'flexible_delivery_service.dart';
-import '../utils/error_handler.dart';
+
 
 /// 🚀 خدمة التخزين المؤقت الذكي للمحافظات والمدن
 /// 
@@ -20,7 +20,7 @@ class LocationCacheService {
   
   // الكاش في الذاكرة للوصول الفوري
   static List<Map<String, dynamic>>? _memoryProvinces;
-  static Map<String, List<Map<String, dynamic>>> _memoryCities = {};
+  static final Map<String, List<Map<String, dynamic>>> _memoryCities = {};
   static bool _isInitialized = false;
   static bool _isLoading = false;
 

@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import '../services/admin_service.dart';
 import '../services/image_upload_service.dart';
 import '../services/storage_test_service.dart';
-import '../services/simple_product_service.dart';
 import '../services/supabase_test_service.dart';
 import '../services/image_upload_test_service.dart';
 

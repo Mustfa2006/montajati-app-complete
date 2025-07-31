@@ -10,9 +10,9 @@ class WithdrawalService {
   static final _supabase = Supabase.instance.client;
 
   // ثوابت النظام
-  static const double MIN_WITHDRAWAL_AMOUNT = 1000.0; // الحد الأدنى للسحب
-  static const double MAX_WITHDRAWAL_AMOUNT = 10000000.0; // الحد الأقصى للسحب
-  static const double SYSTEM_COMMISSION_RATE =
+  static const double minWithdrawalAmount = 1000.0; // الحد الأدنى للسحب
+  static const double maxWithdrawalAmount = 10000000.0; // الحد الأقصى للسحب
+  static const double systemCommissionRate =
       0.0; // نسبة عمولة النظام (0% حالياً)
 
   /// إنشاء طلب سحب جديد
@@ -129,20 +129,20 @@ class WithdrawalService {
     required String accountDetails,
   }) async {
     // التحقق من المبلغ
-    if (amount < MIN_WITHDRAWAL_AMOUNT) {
+    if (amount < minWithdrawalAmount) {
       return {
         'isValid': false,
         'message':
-            'الحد الأدنى للسحب هو ${MIN_WITHDRAWAL_AMOUNT.toStringAsFixed(0)} د.ع',
+            'الحد الأدنى للسحب هو ${minWithdrawalAmount.toStringAsFixed(0)} د.ع',
         'errorCode': 'AMOUNT_TOO_LOW',
       };
     }
 
-    if (amount > MAX_WITHDRAWAL_AMOUNT) {
+    if (amount > maxWithdrawalAmount) {
       return {
         'isValid': false,
         'message':
-            'الحد الأقصى للسحب هو ${MAX_WITHDRAWAL_AMOUNT.toStringAsFixed(0)} د.ع',
+            'الحد الأقصى للسحب هو ${maxWithdrawalAmount.toStringAsFixed(0)} د.ع',
         'errorCode': 'AMOUNT_TOO_HIGH',
       };
     }
@@ -569,18 +569,7 @@ class WithdrawalService {
     }
   }
 
-  /// تأكيد تجميد الرصيد
-  static Future<void> _confirmBalanceFreeze(
-    String userId,
-    double amount,
-  ) async {
-    try {
-      debugPrint('تأكيد تجميد $amount د.ع للمستخدم $userId');
-      // إضافة منطق تأكيد التجميد
-    } catch (e) {
-      debugPrint('خطأ في تأكيد تجميد الرصيد: $e');
-    }
-  }
+  // تم حذف _confirmBalanceFreeze غير المستخدم
 
   /// خصم المبلغ من رصيد المستخدم
   static Future<void> _deductFromUserBalance(
@@ -599,19 +588,7 @@ class WithdrawalService {
     }
   }
 
-  /// إلغاء تجميد الرصيد
-  static Future<void> _unfreezeUserBalance(String userId, double amount) async {
-    try {
-      debugPrint('إلغاء تجميد $amount د.ع للمستخدم $userId');
-
-      await _supabase.rpc(
-        'unfreeze_user_balance',
-        params: {'user_id': userId, 'unfreeze_amount': amount},
-      );
-    } catch (e) {
-      debugPrint('خطأ في إلغاء تجميد الرصيد: $e');
-    }
-  }
+  // تم حذف _unfreezeUserBalance غير المستخدم
 
   /// إرسال إشعار تغيير حالة السحب عبر خادم الإشعارات الجديد
   static Future<void> _sendWithdrawalStatusNotification({
@@ -729,89 +706,7 @@ class WithdrawalService {
     }
   }
 
-  /// إرسال إشعار للمستخدم عند تغيير حالة الطلب
-  static Future<void> _notifyUserOfStatusChange(
-    String userId,
-    String requestId,
-    String newStatus,
-  ) async {
-    try {
-      debugPrint(
-        '📱 إرسال إشعار للمستخدم $userId عن تغيير حالة الطلب $requestId إلى $newStatus',
-      );
-
-      // الحصول على بيانات الطلب (رقم الطلب والمبلغ)
-      final requestData = await _supabase
-          .from('withdrawal_requests')
-          .select('id, amount')
-          .eq('id', requestId)
-          .single();
-
-      final amount = (requestData['amount'] as num?)?.toDouble() ?? 0.0;
-
-      // تحديد عنوان ونص الإشعار حسب الحالة الجديدة
-      String notificationTitle = '';
-      String notificationBody = '';
-
-      switch (newStatus) {
-        case 'completed':
-          notificationTitle = '🎉 مبروك! تم التحويل';
-          notificationBody = 'تم تحويل مبلغ ${amount.toStringAsFixed(0)} د.ع إلى حسابك بنجاح! 💰✨';
-          break;
-
-        case 'cancelled':
-          notificationTitle = '😔 إلغاء السحب';
-          notificationBody = 'تم إلغاء سحبك بمبلغ ${amount.toStringAsFixed(0)} د.ع. تم إرجاع المبلغ إلى رصيدك 💰';
-          break;
-
-        default:
-          notificationTitle = 'تحديث حالة السحب';
-          notificationBody = 'تم تحديث حالة طلب السحب الخاص بك';
-      }
-
-      // استخدام ID كرقم طلب مؤقت حتى يتم إصلاح قاعدة البيانات
-      final requestNumber = _generateRequestNumber(
-        requestData['id']?.toString() ?? 'غير محدد',
-      );
-
-      // إرسال الإشعار عبر قاعدة البيانات (للتطبيق)
-      await _sendDatabaseNotification(
-        userId: userId,
-        title: notificationTitle,
-        body: notificationBody,
-        type: 'withdrawal_status_change',
-        data: {
-          'request_id': requestId,
-          'request_number': requestNumber,
-          'new_status': newStatus,
-          'amount': amount,
-        },
-      );
-
-      // إرسال Push Notification للهاتف
-      await _sendPushNotification(
-        userId: userId,
-        title: notificationTitle,
-        body: notificationBody,
-        data: {
-          'type': 'withdrawal_status_change',
-          'request_id': requestId,
-          'request_number': requestNumber,
-          'new_status': newStatus,
-        },
-      );
-
-      // طباعة تفاصيل الإشعار
-      debugPrint('📱 === إشعار تم إرساله ===');
-      debugPrint('👤 المستخدم: $userId');
-      debugPrint('📋 العنوان: $notificationTitle');
-      debugPrint('💬 النص: $notificationBody');
-      debugPrint('💰 المبلغ: ${amount.toStringAsFixed(0)} د.ع');
-      debugPrint('✅ تم إرسال الإشعار بنجاح للمستخدم $userId');
-    } catch (e) {
-      debugPrint('❌ خطأ في إرسال الإشعار: $e');
-    }
-  }
+  // تم إزالة دالة _notifyUserOfStatusChange غير المستخدمة
 
   /// حساب إحصائيات السحوبات الحقيقية
   static Future<Map<String, dynamic>> getWithdrawalStatistics({
@@ -948,39 +843,7 @@ class WithdrawalService {
     }
   }
 
-  /// خصم المبلغ من الأرباح المحققة
-  static Future<void> _deductFromAchievedProfits(
-    String userId,
-    double amount,
-  ) async {
-    try {
-      debugPrint('🔄 خصم $amount د.ع من الأرباح المحققة للمستخدم $userId');
-
-      // جلب بيانات المستخدم الحالية
-      final userResponse = await _supabase
-          .from('users')
-          .select('achieved_profits')
-          .eq('id', userId)
-          .single();
-
-      final currentProfits =
-          (userResponse['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-      final newProfits = (currentProfits - amount).clamp(0.0, double.infinity);
-
-      // تحديث الأرباح المحققة
-      await _supabase
-          .from('users')
-          .update({'achieved_profits': newProfits})
-          .eq('id', userId);
-
-      debugPrint(
-        '✅ تم خصم $amount د.ع. الأرباح المحققة الجديدة: $newProfits د.ع',
-      );
-    } catch (e) {
-      debugPrint('❌ خطأ في خصم المبلغ من الأرباح المحققة: $e');
-      rethrow;
-    }
-  }
+  // تم إزالة دالة _deductFromAchievedProfits غير المستخدمة
 
   /// الحصول على الرقم التسلسلي التالي لطلب السحب
   static Future<int> _getNextRequestNumber() async {
@@ -1014,167 +877,17 @@ class WithdrawalService {
     }
   }
 
-  /// إنشاء رسالة إشعار مخصصة حسب حالة الطلب
-  static Map<String, String> _createCustomNotification(
-    String status,
-    String amount,
-    String requestNumber,
-  ) {
-    switch (status) {
-      case 'approved':
-      case 'completed':
-        // رسالة الموافقة/التحويل - ابتسامة وقلب ذهبي
-        return {
-          'title': '😊💛 تم تحويل المبلغ',
-          'body': 'تم تحويل مبلغ $amount د.ع الى محفظتك',
-        };
+  // تم إزالة دالة _createCustomNotification غير المستخدمة
 
-      case 'rejected':
-        // رسالة الرفض - حزن وإيموجي حزين
-        return {
-          'title': '😢💔 تم إلغاء العملية',
-          'body': 'تم الغاء عملية السحب $amount د.ع',
-        };
+  // تم إزالة دالة _generateRequestNumber غير المستخدمة
 
-      case 'cancelled':
-        // رسالة الإلغاء
-        return {
-          'title': '🚫 تم إلغاء الطلب',
-          'body': 'تم إلغاء طلب السحب رقم $requestNumber بمبلغ $amount د.ع',
-        };
+  // تم إزالة دالة _getStatusTextInArabic غير المستخدمة
 
-      case 'pending':
-        // رسالة المراجعة
-        return {
-          'title': '⏳ قيد المراجعة',
-          'body': 'طلب السحب رقم $requestNumber بمبلغ $amount د.ع قيد المراجعة',
-        };
+  // تم إزالة دالة _sendDatabaseNotification غير المستخدمة
 
-      default:
-        // رسالة افتراضية
-        return {
-          'title': '🔔 تحديث طلب السحب',
-          'body': 'تم تحديث حالة طلب السحب رقم $requestNumber',
-        };
-    }
-  }
+  // تم إزالة دالة _sendPushNotification غير المستخدمة
 
-  /// توليد رقم طلب مؤقت من ID
-  static String _generateRequestNumber(String id) {
-    try {
-      // استخراج الأرقام من UUID وتحويلها لرقم قصير
-      final numbers = id.replaceAll(RegExp(r'[^0-9]'), '');
-      if (numbers.length >= 6) {
-        return numbers.substring(0, 6);
-      } else if (numbers.isNotEmpty) {
-        return numbers;
-      } else {
-        return DateTime.now().millisecondsSinceEpoch.toString().substring(7);
-      }
-    } catch (e) {
-      return DateTime.now().millisecondsSinceEpoch.toString().substring(7);
-    }
-  }
+  // تم إزالة دالة _sendFCMNotification غير المستخدمة
 
-  /// تحويل حالة الطلب إلى نص عربي (للاستخدام الداخلي)
-  static String _getStatusTextInArabic(String status) {
-    switch (status) {
-      case 'pending':
-        return 'قيد المراجعة ⏳';
-      case 'approved':
-        return 'تمت الموافقة ✅';
-      case 'completed':
-        return 'مكتمل - تم التحويل 💰';
-      case 'rejected':
-        return 'مرفوض ❌';
-      case 'cancelled':
-        return 'ملغي 🚫';
-      default:
-        return 'غير محدد ❓';
-    }
-  }
-
-  /// إرسال إشعار عبر قاعدة البيانات
-  static Future<void> _sendDatabaseNotification({
-    required String userId,
-    required String title,
-    required String body,
-    required String type,
-    required Map<String, dynamic> data,
-  }) async {
-    try {
-      debugPrint('💾 حفظ الإشعار في قاعدة البيانات...');
-
-      await _supabase.from('notifications').insert({
-        'user_id': userId,
-        'title': title,
-        'body': body,
-        'type': type,
-        'data': data,
-        'is_read': false,
-        'created_at': DateTime.now().toIso8601String(),
-      });
-
-      debugPrint('✅ تم حفظ الإشعار في قاعدة البيانات');
-    } catch (e) {
-      debugPrint('❌ خطأ في حفظ الإشعار في قاعدة البيانات: $e');
-    }
-  }
-
-  /// إرسال Push Notification للهاتف
-  static Future<void> _sendPushNotification({
-    required String userId,
-    required String title,
-    required String body,
-    required Map<String, dynamic> data,
-  }) async {
-    try {
-      debugPrint('📱 إرسال Push Notification للمستخدم $userId...');
-
-      // الحصول على اسم المستخدم
-      String userName = 'المستخدم';
-      try {
-        final userResponse = await _supabase
-            .from('users')
-            .select('name')
-            .eq('id', userId)
-            .single();
-
-        userName = userResponse['name'] as String? ?? 'المستخدم';
-        debugPrint('👤 إرسال إشعار للمستخدم: $userName');
-      } catch (e) {
-        debugPrint('⚠️ لم يتم العثور على المستخدم: $e');
-      }
-
-      // تم إزالة نظام الإشعارات
-      debugPrint('تم تحديث حالة طلب السحب: ${data['new_status']} - ${data['amount']}');
-
-      debugPrint('✅ تم إرسال الإشعار المحلي بنجاح للمستخدم $userName');
-    } catch (e) {
-      debugPrint('❌ خطأ في إرسال Push Notification: $e');
-    }
-  }
-
-  /// تم إزالة نظام الإشعارات
-  static Future<void> _sendFCMNotification({
-    required String token,
-    required String title,
-    required String body,
-    required Map<String, dynamic> data,
-  }) async {
-    debugPrint('تم إزالة نظام الإشعارات - $title: $body');
-  }
-
-  /// محاكاة إشعار محلي للاختبار
-  static void _simulateLocalNotification(String title, String body) {
-    try {
-      debugPrint('🔔 محاكاة إشعار محلي:');
-      debugPrint('   📱 العنوان: $title');
-      debugPrint('   📝 المحتوى: $body');
-      debugPrint('   ⏰ الوقت: ${DateTime.now().toString()}');
-      debugPrint('✅ تم عرض الإشعار المحلي بنجاح');
-    } catch (e) {
-      debugPrint('❌ خطأ في محاكاة الإشعار المحلي: $e');
-    }
-  }
+  // تم إزالة دالة _simulateLocalNotification غير المستخدمة
 }

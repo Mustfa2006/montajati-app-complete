@@ -32,15 +32,14 @@ class _NewAccountPageState extends State<NewAccountPage>
   late Animation<Offset> _slideUpAnimation;
   late Animation<double> _scaleAnimation;
   late Animation<double> _rotationAnimation;
-  late Animation<double> _pulseAnimation;
+  // تم إزالة _pulseAnimation غير المستخدم
 
   // متغيرات الإعدادات
   bool _ordersNotifications = true;
   bool _profitsNotifications = true;
-  bool _offersNotifications = false;
+  // تم إزالة _offersNotifications غير المستخدم
   bool _darkMode = true; // الوضع الليلي دائماً
-  bool _twoFactorAuth = false;
-  bool _hideAccount = false;
+  // تم إزالة _twoFactorAuth و _hideAccount غير المستخدمين
   double _fontSize = 100.0;
   double get _fontScale => _fontSize / 100; // معامل تكبير الخط
 
@@ -60,7 +59,7 @@ class _NewAccountPageState extends State<NewAccountPage>
   // متغيرات التحكم في التحميل
   bool _isLoadingUserData = true;
   String? _currentUserPhone;
-  String? _currentUserId;
+  // تم إزالة _currentUserId غير المستخدم
 
   // متغير لإظهار نافذة التعديل
   bool _showEditModal = false;
@@ -122,12 +121,7 @@ class _NewAccountPageState extends State<NewAccountPage>
       ),
     );
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(
-        parent: _headerAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    // تم إزالة تعيين _pulseAnimation غير المستخدم
 
     // بدء الحركات
     _animationController.forward();
@@ -146,7 +140,7 @@ class _NewAccountPageState extends State<NewAccountPage>
       // الحصول على المستخدم الحالي
       final prefs = await SharedPreferences.getInstance();
       _currentUserPhone = prefs.getString('current_user_phone');
-      _currentUserId = prefs.getString('current_user_id');
+      // تم إزالة تعيين _currentUserId غير المستخدم
 
       if (_currentUserPhone == null || _currentUserPhone!.isEmpty) {
         debugPrint('❌ لا يوجد مستخدم مسجل دخول');
@@ -345,43 +339,7 @@ class _NewAccountPageState extends State<NewAccountPage>
     );
   }
 
-  // بناء زر التنقل
-  Widget _buildNavButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isActive = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isActive
-                  ? const Color(0xFFffd700)
-                  : Colors.white.withValues(alpha: 0.6),
-              size: 22,
-            ),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              style: GoogleFonts.cairo(
-                fontSize: 12 * _fontScale, // تطبيق معامل تكبير الخط
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: isActive
-                    ? const Color(0xFFffd700)
-                    : Colors.white.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // تم حذف _buildNavButton غير المستخدم
 
   // بناء الخلفية المتحركة مع جزيئات
   Widget _buildAnimatedBackground() {
@@ -409,11 +367,11 @@ class _NewAccountPageState extends State<NewAccountPage>
                     width: 4,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFffd700).withOpacity(0.3),
+                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFFffd700).withOpacity(0.2),
+                          color: const Color(0xFFffd700).withValues(alpha: 0.2),
                           blurRadius: 8,
                           spreadRadius: 2,
                         ),
@@ -441,18 +399,18 @@ class _NewAccountPageState extends State<NewAccountPage>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF667eea).withOpacity(0.1),
-            const Color(0xFFf093fb).withOpacity(0.05),
+            const Color(0xFF667eea).withValues(alpha: 0.1),
+            const Color(0xFFf093fb).withValues(alpha: 0.05),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFF667eea).withOpacity(0.3),
+          color: const Color(0xFF667eea).withValues(alpha: 0.3),
           width: 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF667eea).withOpacity(0.2),
+            color: const Color(0xFF667eea).withValues(alpha: 0.2),
             blurRadius: 30,
             offset: const Offset(0, 15),
           ),
@@ -491,7 +449,7 @@ class _NewAccountPageState extends State<NewAccountPage>
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -570,7 +528,7 @@ class _NewAccountPageState extends State<NewAccountPage>
         Row(
           children: [
             const Icon(
-              FontAwesomeIcons.calendarAlt,
+              FontAwesomeIcons.calendarDays,
               color: Color(0xFFffc107),
               size: 14,
             ),
@@ -600,7 +558,7 @@ class _NewAccountPageState extends State<NewAccountPage>
           child: Row(
             children: [
               const Icon(
-                FontAwesomeIcons.slidersH,
+                FontAwesomeIcons.sliders,
                 color: Color(0xFF667eea),
                 size: 20,
               ),
@@ -745,7 +703,7 @@ class _NewAccountPageState extends State<NewAccountPage>
             Row(
               children: [
                 const Icon(
-                  FontAwesomeIcons.shieldAlt,
+                  FontAwesomeIcons.shieldHalved,
                   color: Color(0xFFdc3545),
                   size: 16,
                 ),
@@ -888,7 +846,7 @@ class _NewAccountPageState extends State<NewAccountPage>
             Row(
               children: [
                 const Icon(
-                  FontAwesomeIcons.checkCircle,
+                  FontAwesomeIcons.circleCheck,
                   color: Color(0xFF28a745),
                   size: 14,
                 ),
@@ -926,49 +884,7 @@ class _NewAccountPageState extends State<NewAccountPage>
     );
   }
 
-  // بناء مفتاح التبديل
-  Widget _buildToggleSwitch(String title, bool value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: GoogleFonts.cairo(
-              fontSize: 12.8,
-              color: Colors.white70, // نص أبيض للوضع الليلي
-            ),
-          ),
-        ),
-        Transform.scale(
-          scale: 0.8,
-          child: Switch(
-            value: value,
-            onChanged: (newValue) {
-              setState(() {
-                // تحديث القيم حسب العنوان
-                if (title == 'إشعارات الطلبات') {
-                  _ordersNotifications = newValue;
-                } else if (title == 'إشعارات الأرباح') {
-                  _profitsNotifications = newValue;
-                } else if (title == 'إشعارات العروض') {
-                  _offersNotifications = newValue;
-                } else if (title == 'الوضع الليلي') {
-                  _darkMode = newValue;
-                } else if (title == 'المصادقة الثنائية') {
-                  _twoFactorAuth = newValue;
-                } else if (title == 'إخفاء الحساب') {
-                  _hideAccount = newValue;
-                }
-              });
-            },
-            activeColor: const Color(0xFF28a745),
-            inactiveThumbColor: const Color(0xFF6c757d),
-          ),
-        ),
-      ],
-    );
-  }
+  // تم حذف _buildToggleSwitch غير المستخدم
 
   // بناء مفتاح تبديل مضغوط للبطاقات الصغيرة
   Widget _buildCompactToggleSwitch(String title, bool value) {
@@ -1050,35 +966,7 @@ class _NewAccountPageState extends State<NewAccountPage>
     );
   }
 
-  // بناء شريط تمرير حجم الخط
-  Widget _buildFontSizeSlider() {
-    return Row(
-      children: [
-        Text(
-          'حجم الخط',
-          style: GoogleFonts.cairo(
-            fontSize: 12.8,
-            color: Colors.white70, // نص أبيض للوضع الليلي
-          ),
-        ),
-        Expanded(
-          child: Slider(
-            value: _fontSize,
-            min: 80,
-            max: 120,
-            divisions: 4,
-            onChanged: (value) {
-              setState(() {
-                _fontSize = value;
-              });
-            },
-            activeColor: const Color(0xFF6f42c1),
-            inactiveColor: const Color(0xFF6f42c1).withValues(alpha: 0.3),
-          ),
-        ),
-      ],
-    );
-  }
+  // تم حذف _buildFontSizeSlider غير المستخدم
 
   // بناء شريط تمرير حجم الخط مضغوط
   Widget _buildCompactFontSizeSlider() {
@@ -1192,7 +1080,7 @@ class _NewAccountPageState extends State<NewAccountPage>
           borderRadius: BorderRadius.circular(25),
           boxShadow: [
             BoxShadow(
-              color: gradient.colors.first.withOpacity(0.3),
+              color: gradient.colors.first.withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -1231,7 +1119,7 @@ class _NewAccountPageState extends State<NewAccountPage>
           borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFdc3545).withOpacity(0.3),
+              color: const Color(0xFFdc3545).withValues(alpha: 0.3),
               blurRadius: 20,
               offset: const Offset(0, 8),
             ),
@@ -1241,7 +1129,7 @@ class _NewAccountPageState extends State<NewAccountPage>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(
-              FontAwesomeIcons.signOutAlt,
+              FontAwesomeIcons.rightFromBracket,
               color: Colors.white,
               size: 18,
             ),
@@ -1319,7 +1207,7 @@ class _NewAccountPageState extends State<NewAccountPage>
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
-                          FontAwesomeIcons.userEdit,
+                          FontAwesomeIcons.userPen,
                           color: Colors.white,
                           size: 18,
                         ),
@@ -1918,14 +1806,18 @@ class _NewAccountPageState extends State<NewAccountPage>
             ),
             ElevatedButton(
               onPressed: () async {
-                Navigator.of(context).pop();
+                // حفظ BuildContext قبل العملية غير المتزامنة
+                final navigator = Navigator.of(context);
+                final router = GoRouter.of(context);
+
+                navigator.pop();
 
                 // تسجيل الخروج باستخدام خدمة المصادقة
                 await AuthService.logout();
 
                 // التوجه لصفحة الترحيب
                 if (mounted) {
-                  context.go('/welcome');
+                  router.go('/welcome');
                 }
               },
               style: ElevatedButton.styleFrom(

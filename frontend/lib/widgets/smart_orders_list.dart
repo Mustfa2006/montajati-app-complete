@@ -155,14 +155,14 @@ class _SmartOrdersListState extends State<SmartOrdersList> {
         provider.setStatusFilter(selected ? status : null);
       },
       backgroundColor: const Color(0xFF16213e),
-      selectedColor: color.withOpacity(0.2),
+      selectedColor: color.withValues(alpha: 0.2),
       checkmarkColor: color,
       labelStyle: TextStyle(
         color: isSelected ? color : Colors.white70,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
       side: BorderSide(
-        color: isSelected ? color : color.withOpacity(0.3),
+        color: isSelected ? color : color.withValues(alpha: 0.3),
         width: isSelected ? 2 : 1,
       ),
     );
@@ -278,7 +278,7 @@ class _SmartOrdersListState extends State<SmartOrdersList> {
       color: const Color(0xFF16213e),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: statusColor.withOpacity(0.3), width: 1),
+        side: BorderSide(color: statusColor.withValues(alpha: 0.3), width: 1),
       ),
       child: InkWell(
         onTap: () {
@@ -308,9 +308,9 @@ class _SmartOrdersListState extends State<SmartOrdersList> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.2),
+                      color: statusColor.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: statusColor.withOpacity(0.5)),
+                      border: Border.all(color: statusColor.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,

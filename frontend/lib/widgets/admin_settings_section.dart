@@ -43,7 +43,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const FaIcon(
-                  FontAwesomeIcons.cogs,
+                  FontAwesomeIcons.gears,
                   color: Colors.white,
                   size: 24,
                 ),
@@ -88,7 +88,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -130,7 +130,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
           _buildSettingField(
             label: 'نسبة عمولة النظام (%)',
             controller: _systemCommissionController,
-            icon: FontAwesomeIcons.percentage,
+            icon: FontAwesomeIcons.percent,
             keyboardType: TextInputType.number,
           ),
           const SizedBox(height: 15),
@@ -155,7 +155,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -167,7 +167,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
           Row(
             children: [
               const FaIcon(
-                FontAwesomeIcons.shoppingCart,
+                FontAwesomeIcons.cartShopping,
                 color: Color(0xFF007bff),
                 size: 20,
               ),
@@ -226,7 +226,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -374,7 +374,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
             value: value,
             onChanged: onChanged,
             activeColor: const Color(0xFF28a745),
-            activeTrackColor: const Color(0xFF28a745).withOpacity(0.3),
+            activeTrackColor: const Color(0xFF28a745).withValues(alpha: 0.3),
           ),
         ],
       ),
@@ -407,7 +407,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
             : const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  FaIcon(FontAwesomeIcons.save, size: 18),
+                  FaIcon(FontAwesomeIcons.floppyDisk, size: 18),
                   SizedBox(width: 10),
                   Text(
                     'حفظ الإعدادات',
@@ -431,6 +431,7 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
       // محاكاة حفظ الإعدادات
       await Future.delayed(const Duration(seconds: 2));
 
+      // ignore: todo
       // TODO: حفظ الإعدادات في قاعدة البيانات
       
       if (mounted) {

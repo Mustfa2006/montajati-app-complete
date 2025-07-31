@@ -160,10 +160,10 @@ class _AdminNotificationsSectionState extends State<AdminNotificationsSection> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFffd700) : Colors.white.withOpacity(0.1),
+        color: isSelected ? const Color(0xFFffd700) : Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isSelected ? const Color(0xFFffd700) : Colors.white.withOpacity(0.3),
+          color: isSelected ? const Color(0xFFffd700) : Colors.white.withValues(alpha: 0.3),
         ),
       ),
       child: Text(
@@ -188,17 +188,17 @@ class _AdminNotificationsSectionState extends State<AdminNotificationsSection> {
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: notification.isRead ? Colors.white : Colors.white.withOpacity(0.95),
+        color: notification.isRead ? Colors.white : Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: notification.isRead 
-              ? Colors.grey.withOpacity(0.2) 
-              : _getNotificationColor(notification.type).withOpacity(0.3),
+          color: notification.isRead
+              ? Colors.grey.withValues(alpha: 0.2)
+              : _getNotificationColor(notification.type).withValues(alpha: 0.3),
           width: notification.isRead ? 1 : 2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 5,
             offset: const Offset(0, 2),
           ),
@@ -314,13 +314,13 @@ class _AdminNotificationsSectionState extends State<AdminNotificationsSection> {
   IconData _getNotificationIcon(NotificationType type) {
     switch (type) {
       case NotificationType.newOrder:
-        return FontAwesomeIcons.shoppingBag;
+        return FontAwesomeIcons.bagShopping;
       case NotificationType.withdrawalRequest:
         return FontAwesomeIcons.moneyBillWave;
       case NotificationType.newUser:
         return FontAwesomeIcons.userPlus;
       case NotificationType.orderStatusUpdate:
-        return FontAwesomeIcons.sync;
+        return FontAwesomeIcons.arrowsRotate;
     }
   }
 

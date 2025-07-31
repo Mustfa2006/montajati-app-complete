@@ -258,10 +258,10 @@ class OrderStatusHelper {
 
   /// طباعة معلومات التشخيص (للتطوير فقط)
   static void debugStatus(String? databaseStatus) {
-    print('🔍 تشخيص الحالة:');
-    print('📋 قيمة قاعدة البيانات: "$databaseStatus"');
-    print('📋 النص العربي: "${getArabicStatus(databaseStatus)}"');
-    print('📋 اللون: ${getStatusColor(databaseStatus)}');
-    print('📋 الأيقونة: ${getStatusIcon(databaseStatus)}');
+    debugPrint('🔍 تشخيص الحالة:');
+    debugPrint('📋 قيمة قاعدة البيانات: "$databaseStatus"');
+    debugPrint('📋 النص العربي: "${getArabicStatus(databaseStatus)}"');
+    debugPrint('📋 اللون: ${getStatusColor(databaseStatus)}');
+    debugPrint('📋 الأيقونة: ${getStatusIcon(databaseStatus)}');
   }
 }

@@ -33,10 +33,10 @@ class FavoritesService extends ChangeNotifier {
         _favorites = favoritesList
             .map((item) => Product.fromJson(item))
             .toList();
-        print('✅ تم تحميل ${_favorites.length} منتج من المفضلة');
+        debugPrint('✅ تم تحميل ${_favorites.length} منتج من المفضلة');
       }
     } catch (e) {
-      print('❌ خطأ في تحميل المفضلة: $e');
+      debugPrint('❌ خطأ في تحميل المفضلة: $e');
       _favorites = [];
     }
   }
@@ -49,9 +49,9 @@ class FavoritesService extends ChangeNotifier {
         _favorites.map((product) => product.toJson()).toList(),
       );
       await prefs.setString(_favoritesKey, favoritesJson);
-      print('💾 تم حفظ ${_favorites.length} منتج في المفضلة');
+      debugPrint('💾 تم حفظ ${_favorites.length} منتج في المفضلة');
     } catch (e) {
-      print('❌ خطأ في حفظ المفضلة: $e');
+      debugPrint('❌ خطأ في حفظ المفضلة: $e');
     }
   }
 
@@ -62,12 +62,12 @@ class FavoritesService extends ChangeNotifier {
         _favorites.add(product);
         await _saveFavorites();
         notifyListeners();
-        print('❤️ تم إضافة ${product.name} للمفضلة');
+        debugPrint('❤️ تم إضافة ${product.name} للمفضلة');
         return true;
       }
       return false;
     } catch (e) {
-      print('❌ خطأ في إضافة المنتج للمفضلة: $e');
+      debugPrint('❌ خطأ في إضافة المنتج للمفضلة: $e');
       return false;
     }
   }
@@ -81,12 +81,12 @@ class FavoritesService extends ChangeNotifier {
       if (_favorites.length < initialLength) {
         await _saveFavorites();
         notifyListeners();
-        print('💔 تم إزالة المنتج من المفضلة');
+        debugPrint('💔 تم إزالة المنتج من المفضلة');
         return true;
       }
       return false;
     } catch (e) {
-      print('❌ خطأ في إزالة المنتج من المفضلة: $e');
+      debugPrint('❌ خطأ في إزالة المنتج من المفضلة: $e');
       return false;
     }
   }
@@ -114,9 +114,9 @@ class FavoritesService extends ChangeNotifier {
       _favorites.clear();
       await _saveFavorites();
       notifyListeners();
-      print('🗑️ تم مسح جميع المفضلة');
+      debugPrint('🗑️ تم مسح جميع المفضلة');
     } catch (e) {
-      print('❌ خطأ في مسح المفضلة: $e');
+      debugPrint('❌ خطأ في مسح المفضلة: $e');
     }
   }
 

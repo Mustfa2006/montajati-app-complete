@@ -9,7 +9,7 @@ import 'dart:convert';
 import '../utils/error_handler.dart';
 
 class WaseetStatusesScreen extends StatefulWidget {
-  const WaseetStatusesScreen({Key? key}) : super(key: key);
+  const WaseetStatusesScreen({super.key});
 
   @override
   State<WaseetStatusesScreen> createState() => _WaseetStatusesScreenState();
@@ -130,9 +130,9 @@ class _WaseetStatusesScreenState extends State<WaseetStatusesScreen> {
             const SizedBox(height: 16),
             
             // الحالات مجمعة حسب الفئة
-            ...categorizedStatuses.entries.map((entry) => 
+            ...categorizedStatuses.entries.map((entry) =>
               buildCategorySection(entry.key, entry.value)
-            ).toList(),
+            ),
           ],
         ),
       ),

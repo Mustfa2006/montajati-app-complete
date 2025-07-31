@@ -111,7 +111,10 @@ class ScheduledOrdersService extends ChangeNotifier {
         }
       }
 
-      debugPrint('✅ تم تحميل ${_scheduledOrders.length} طلب مجدول بنجاح');
+      // ✅ ترتيب نهائي للطلبات المجدولة لضمان أن الأحدث دائماً في المقدمة
+      _scheduledOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      debugPrint('✅ تم تحميل ${_scheduledOrders.length} طلب مجدول بنجاح مع الترتيب الصحيح');
     } catch (e) {
       debugPrint('❌ خطأ في تحميل الطلبات المجدولة: $e');
     } finally {

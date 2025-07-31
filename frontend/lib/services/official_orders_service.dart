@@ -316,13 +316,19 @@ class OfficialOrdersService extends ChangeNotifier {
     try {
       debugPrint('🗑️ حذف الطلب: $orderId');
 
-      // حذف عناصر الطلب أولاً
-      await _supabase.from('order_items').delete().eq('order_id', orderId);
+      // ✅ الخطوة 1: حذف معاملات الربح أولاً (مهم لتجنب خطأ Foreign Key)
+      final deleteProfitResponse = await _supabase
+          .from('profit_transactions')
+          .delete()
+          .eq('order_id', orderId)
+          .select();
 
-      // حذف الطلب
+      debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
+
+      // ✅ الخطوة 2: حذف الطلب (ستُحذف order_items تلقائياً بسبب CASCADE)
       await _supabase.from('orders').delete().eq('id', orderId);
 
-      debugPrint('✅ تم حذف الطلب');
+      debugPrint('✅ تم حذف الطلب وعناصره ومعاملات الربح بنجاح');
       return true;
     } catch (e) {
       debugPrint('❌ خطأ في حذف الطلب: $e');

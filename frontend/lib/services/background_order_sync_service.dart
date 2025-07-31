@@ -302,14 +302,9 @@ class BackgroundOrderSyncService {
     Map<String, dynamic> order,
   ) async {
     try {
-      final customerName = order['customer_name'] ?? 'عميل';
       final qrId = order['qr_id'];
       final newStatus = order['new_status'];
-      final waseetStatus = order['waseet_status'];
-
-      String statusText = _getStatusText(newStatus);
-      String title = 'تحديث حالة الطلب';
-      String body = 'طلب $customerName ($qrId)\nالحالة الجديدة: $statusText';
+      // تم إزالة المتغيرات غير المستخدمة
 
       // تم إزالة نظام الإشعارات
       debugPrint('تم تحديث حالة الطلب $qrId إلى $newStatus');
@@ -320,25 +315,7 @@ class BackgroundOrderSyncService {
     }
   }
 
-  /// الحصول على نص الحالة
-  static String _getStatusText(String status) {
-    switch (status) {
-      case 'pending':
-        return 'في الانتظار';
-      case 'confirmed':
-        return 'مؤكد';
-      case 'in_transit':
-        return 'في الطريق';
-      case 'delivered':
-        return 'تم التسليم';
-      case 'cancelled':
-        return 'ملغي';
-      case 'returned':
-        return 'مرتجع';
-      default:
-        return status;
-    }
-  }
+  // تم إزالة دالة _getStatusText غير المستخدمة
 
   /// إيقاف المراقبة
   static Future<void> stop() async {

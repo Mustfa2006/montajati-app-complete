@@ -19,20 +19,19 @@ class _StatisticsPageState extends State<StatisticsPage>
     with TickerProviderStateMixin {
   // متحكمات الحركة
   late AnimationController _pulseAnimationController;
-  late Animation<double> _pulseScale;
+  // تم إزالة _pulseScale غير المستخدم
 
-  // حالة التحميل
-  bool _isLoading = false;
+  // تم إزالة _isLoading غير المستخدم
 
   // البيانات الحقيقية من قاعدة البيانات
   int _totalOrders = 0;
   double _totalProfits = 0.0;
   double _realizedProfits = 0.0;
-  double _expectedProfits = 0.0;
+  // تم إزالة _expectedProfits غير المستخدم
   int _activeOrders = 0;
   int _deliveredOrders = 0;
-  int _inDeliveryOrders = 0;
-  int _cancelledOrders = 0;
+  // تم إزالة _inDeliveryOrders غير المستخدم
+  // تم إزالة _cancelledOrders غير المستخدم
 
   // بيانات أفضل المنتجات
   List<Map<String, dynamic>> _topProducts = [];
@@ -66,12 +65,7 @@ class _StatisticsPageState extends State<StatisticsPage>
       vsync: this,
     );
 
-    _pulseScale = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(
-        parent: _pulseAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    // تم إزالة إعداد _pulseScale غير المستخدم
 
     _pulseAnimationController.repeat(reverse: true);
   }
@@ -80,9 +74,7 @@ class _StatisticsPageState extends State<StatisticsPage>
   Future<void> _loadRealData() async {
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    // تم إزالة تعيين _isLoading غير المستخدم
 
     try {
       // الحصول على معرف المستخدم الحالي من SharedPreferences
@@ -139,11 +131,7 @@ class _StatisticsPageState extends State<StatisticsPage>
       debugPrint('خطأ في جلب الإحصائيات: $e');
       _resetStatistics();
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      // تم إزالة تعيين _isLoading غير المستخدم
     }
   }
 
@@ -152,11 +140,9 @@ class _StatisticsPageState extends State<StatisticsPage>
     _totalOrders = 0;
     _totalProfits = 0.0;
     _realizedProfits = 0.0;
-    _expectedProfits = 0.0;
+    // تم إزالة تعيين المتغيرات غير المستخدمة
     _activeOrders = 0;
     _deliveredOrders = 0;
-    _inDeliveryOrders = 0;
-    _cancelledOrders = 0;
     _topProducts = [];
     _dailyProfits = List.filled(7, 0.0);
     _monthlyProfits = List.filled(12, 0.0); // 12 شهر
@@ -171,11 +157,9 @@ class _StatisticsPageState extends State<StatisticsPage>
     _totalOrders = orders.length;
     _totalProfits = 0.0;
     _realizedProfits = 0.0;
-    _expectedProfits = 0.0;
+    // تم إزالة تعيين المتغيرات غير المستخدمة
     _activeOrders = 0;
     _deliveredOrders = 0;
-    _inDeliveryOrders = 0;
-    _cancelledOrders = 0;
 
     // إعادة تعيين الطلبات الأسبوعية
     _dailyProfits = List.filled(7, 0.0);
@@ -220,16 +204,16 @@ class _StatisticsPageState extends State<StatisticsPage>
         case 'active':
         case 'confirmed':
           _activeOrders++;
-          _expectedProfits += profit;
+          // تم إزالة تعيين _expectedProfits غير المستخدم
           break;
         case 'shipped':
         case 'in_delivery':
         case 'pending':
-          _inDeliveryOrders++;
-          _expectedProfits += profit;
+          // تم إزالة تعيين _inDeliveryOrders غير المستخدم
+          // تم إزالة تعيين _expectedProfits غير المستخدم
           break;
         case 'cancelled':
-          _cancelledOrders++;
+          // تم إزالة تعيين _cancelledOrders غير المستخدم
           break;
       }
     }

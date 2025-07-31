@@ -449,7 +449,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
       ),
       child: InkWell(
         onTap: () {
-          print('🔥 تم الضغط على زر تحديث الحالة الكبير!');
           debugPrint('🔥 تم الضغط على زر تحديث الحالة الكبير!');
           _showUpdateStatusDialog();
         },
@@ -527,7 +526,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
       message: tooltip,
       child: InkWell(
         onTap: () {
-          print('🔘 تم الضغط على زر: $tooltip');
           debugPrint('🔘 تم الضغط على زر: $tooltip');
           onTap();
         },
@@ -657,6 +655,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
   }
 
   void _printOrder() {
+    // ignore: todo
     // TODO: تنفيذ طباعة الطلب
     ScaffoldMessenger.of(
       context,
@@ -664,6 +663,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
   }
 
   void _exportOrder() {
+    // ignore: todo
     // TODO: تنفيذ تصدير الطلب
     ScaffoldMessenger.of(
       context,
@@ -671,11 +671,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
   }
 
   void _showUpdateStatusDialog() {
-    print('🔄 فتح حوار تحديث حالة الطلب');
     debugPrint('🔄 فتح حوار تحديث حالة الطلب');
     final currentStatus = _orderDetails?.status ?? 'pending';
     String selectedStatus = currentStatus;
-    print('📋 الحالة الحالية: $currentStatus');
     debugPrint('📋 الحالة الحالية: $currentStatus');
 
     showDialog(
@@ -712,7 +710,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                   color: const Color(0xFF16213e),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: const Color(0xFFffd700).withOpacity(0.3),
+                    color: const Color(0xFFffd700).withValues(alpha: 0.3),
                   ),
                 ),
                 child: DropdownButton<String>(
@@ -794,9 +792,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
               onPressed: selectedStatus == currentStatus
                   ? null
                   : () {
-                      print(
-                        '🔄 بدء تحديث حالة الطلب من $currentStatus إلى $selectedStatus',
-                      );
                       debugPrint(
                         '🔄 بدء تحديث حالة الطلب من $currentStatus إلى $selectedStatus',
                       );
@@ -819,7 +814,6 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
 
   Future<void> _updateOrderStatus(String newStatus) async {
     try {
-      print('🔄 تحديث حالة الطلب: ${widget.orderId} إلى $newStatus');
       debugPrint('🔄 تحديث حالة الطلب: ${widget.orderId} إلى $newStatus');
 
       // إغلاق الحوار أولاً
@@ -843,14 +837,15 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
       );
 
       // إغلاق مؤشر التحميل
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
 
       if (success) {
         // إعادة جلب تفاصيل الطلب المحدثة
         await _loadOrderDetails();
 
         // عرض رسالة نجاح
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
               children: [
@@ -865,9 +860,11 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
             duration: const Duration(seconds: 3),
           ),
         );
+        }
       } else {
         // عرض رسالة خطأ
-        ScaffoldMessenger.of(context).showSnackBar(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Row(
               children: [
@@ -880,13 +877,15 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
             duration: Duration(seconds: 3),
           ),
         );
+        }
       }
     } catch (e) {
       // إغلاق مؤشر التحميل في حالة الخطأ
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
 
       // عرض رسالة خطأ
-      ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
@@ -899,12 +898,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
           duration: const Duration(seconds: 3),
         ),
       );
+      }
     }
   }
 
   // تبويب نظرة عامة
   Widget _buildOverviewTab() {
-    final order = _orderDetails!;
+    // تم إزالة order غير المستخدم
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -1340,7 +1340,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: const Color(0xFFffd700).withOpacity(0.2),
+          color: const Color(0xFFffd700).withValues(alpha: 0.2),
           width: 1,
         ),
       ),
@@ -1356,7 +1356,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                   color: const Color(0xFF16213e),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: const Color(0xFFffd700).withOpacity(0.3),
+                    color: const Color(0xFFffd700).withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -1383,7 +1383,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                     Text(
                       'الكمية: ${item.quantity}',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 14,
                       ),
                     ),
@@ -1396,10 +1396,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(15),
                   border: Border.all(
-                    color: const Color(0xFF4CAF50).withOpacity(0.5),
+                    color: const Color(0xFF4CAF50).withValues(alpha: 0.5),
                     width: 1,
                   ),
                 ),
@@ -1419,174 +1419,13 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
     );
   }
 
-  Widget _buildProductCard(OrderItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // صورة المنتج
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  item.productImageUrl,
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.grey.withValues(alpha: 0.3),
-                      child: const Icon(
-                        FontAwesomeIcons.image,
-                        color: Colors.white54,
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 15),
+  // تم حذف _buildProductCard غير المستخدم
 
-              // معلومات المنتج
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.productName,
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (item.productDescription.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Text(
-                        item.productDescription,
-                        style: GoogleFonts.cairo(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-
-                    // الكمية والأسعار
-                    Row(
-                      children: [
-                        _buildItemInfo(
-                          'الكمية',
-                          item.quantity.toString(),
-                          FontAwesomeIcons.hashtag,
-                        ),
-                        const SizedBox(width: 15),
-                        _buildItemInfo(
-                          'السعر',
-                          '${item.customerPrice.toStringAsFixed(0)} د.ع',
-                          FontAwesomeIcons.tag,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 15),
-
-          // الإحصائيات المالية للمنتج
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildItemFinancial(
-                    'التكلفة',
-                    '${item.totalCost.toStringAsFixed(0)} د.ع',
-                    const Color(0xFFdc3545),
-                  ),
-                ),
-                Expanded(
-                  child: _buildItemFinancial(
-                    'الإيرادات',
-                    '${item.totalRevenue.toStringAsFixed(0)} د.ع',
-                    const Color(0xFF17a2b8),
-                  ),
-                ),
-                Expanded(
-                  child: _buildItemFinancial(
-                    'الربح',
-                    '${item.profit.toStringAsFixed(0)} د.ع',
-                    const Color(0xFF28a745),
-                  ),
-                ),
-                Expanded(
-                  child: _buildItemFinancial(
-                    'الهامش',
-                    '${item.profitMargin.toStringAsFixed(1)}%',
-                    const Color(0xFFffd700),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItemInfo(String label, String value, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: const Color(0xFFffd700), size: 12),
-        const SizedBox(width: 5),
-        Text(
-          '$label: $value',
-          style: GoogleFonts.cairo(color: Colors.white70, fontSize: 12),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildItemFinancial(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.cairo(color: Colors.white70, fontSize: 10),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: GoogleFonts.cairo(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
-    );
-  }
+  // تم حذف _buildItemInfo و _buildItemFinancial غير المستخدمين
 
   // تبويب العميل
   Widget _buildCustomerTab() {
-    final order = _orderDetails!;
+    // تم إزالة order غير المستخدم
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -1697,7 +1536,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
               color: const Color(0xFF16213e),
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: const Color(0xFFffd700).withOpacity(0.3),
+                color: const Color(0xFFffd700).withValues(alpha: 0.3),
                 width: 1,
               ),
             ),
@@ -1717,7 +1556,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                 Text(
                   'تاريخ الإنشاء: ${_formatDate(order.createdAt)}',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 14,
                   ),
                 ),
@@ -1738,131 +1577,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
     );
   }
 
-  Widget _buildHistoryCard(StatusHistory history, bool isLatest) {
-    final statusColor = _getStatusColor(history.status);
+  // تم حذف _buildHistoryCard غير المستخدم
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: isLatest
-            ? statusColor.withValues(alpha: 0.1)
-            : Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: isLatest
-              ? statusColor.withValues(alpha: 0.3)
-              : Colors.white.withValues(alpha: 0.1),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  _getStatusIcon(history.status),
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 15),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      history.statusText,
-                      style: GoogleFonts.cairo(
-                        color: statusColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      _formatDate(history.createdAt),
-                      style: GoogleFonts.cairo(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              if (isLatest)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'الحالة الحالية',
-                    style: GoogleFonts.cairo(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-
-          if (history.notes != null && history.notes!.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                history.notes!,
-                style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
-              ),
-            ),
-          ],
-
-          if (history.createdBy != null) ...[
-            const SizedBox(height: 5),
-            Text(
-              'بواسطة: ${history.createdBy}',
-              style: GoogleFonts.cairo(color: Colors.white60, fontSize: 11),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'active':
-        return FontAwesomeIcons.clock;
-      case 'in_delivery':
-        return FontAwesomeIcons.truck;
-      case 'delivered':
-        return FontAwesomeIcons.circleCheck;
-      case 'rejected':
-        return FontAwesomeIcons.circleXmark;
-      case 'cancelled':
-        return FontAwesomeIcons.ban;
-      default:
-        return FontAwesomeIcons.circleInfo;
-    }
-  }
+  // تم حذف _getStatusIcon غير المستخدم
 
   // تبويب الملاحظات
   Widget _buildNotesTab() {
@@ -1956,7 +1673,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                 color: const Color(0xFF16213e),
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(
-                  color: const Color(0xFFffd700).withOpacity(0.3),
+                  color: const Color(0xFFffd700).withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -2011,7 +1728,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                     Text(
                       'لا توجد ملاحظات لهذا الطلب',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 14,
                       ),
                     ),
@@ -2024,66 +1741,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
     );
   }
 
-  Widget _buildNoteCard(OrderNote note) {
-    final isInternal = note.isInternal;
-    final color = isInternal
-        ? const Color(0xFF17a2b8)
-        : const Color(0xFFffd700);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                isInternal
-                    ? FontAwesomeIcons.lock
-                    : FontAwesomeIcons.noteSticky,
-                color: color,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                isInternal ? 'ملاحظة داخلية' : 'ملاحظة عامة',
-                style: GoogleFonts.cairo(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                _formatDate(note.createdAt),
-                style: GoogleFonts.cairo(color: Colors.white60, fontSize: 11),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          Text(
-            note.content,
-            style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
-          ),
-
-          if (note.createdBy != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'بواسطة: ${note.createdBy}',
-              style: GoogleFonts.cairo(color: Colors.white60, fontSize: 11),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+  // تم حذف _buildNoteCard غير المستخدم
 
   Future<void> _addNote(bool isInternal) async {
     if (_noteController.text.trim().isEmpty) {

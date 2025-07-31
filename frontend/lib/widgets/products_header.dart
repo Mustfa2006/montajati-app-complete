@@ -163,12 +163,12 @@ class _ProductsHeaderState extends State<ProductsHeader>
                 ),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFe6b31e).withOpacity(0.4),
+                    color: const Color(0xFFe6b31e).withValues(alpha: 0.4),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -203,7 +203,7 @@ class _ProductsHeaderState extends State<ProductsHeader>
           decoration: BoxDecoration(
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFffd700).withOpacity(0.3),
+                color: const Color(0xFFffd700).withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(0, 0),
               ),
@@ -262,22 +262,22 @@ class _ProductsHeaderState extends State<ProductsHeader>
           gradient: RadialGradient(
             center: const Alignment(-0.4, -0.4),
             colors: [
-              const Color(0xFFaf52de).withOpacity(0.15),
-              const Color(0xFF5856d6).withOpacity(0.08),
+              const Color(0xFFaf52de).withValues(alpha: 0.15),
+              const Color(0xFF5856d6).withValues(alpha: 0.08),
             ],
           ),
           shape: BoxShape.circle,
           border: Border.all(
-            color: const Color(0xFF8a2be2).withOpacity(0.4),
+            color: const Color(0xFF8a2be2).withValues(alpha: 0.4),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFaf52de).withOpacity(0.5),
+              color: const Color(0xFFaf52de).withValues(alpha: 0.5),
               blurRadius: 35,
             ),
             BoxShadow(
-              color: const Color(0xFF8a2be2).withOpacity(0.3),
+              color: const Color(0xFF8a2be2).withValues(alpha: 0.3),
               blurRadius: 25,
               offset: const Offset(0, 0),
               spreadRadius: -10,
@@ -312,22 +312,22 @@ class _ProductsHeaderState extends State<ProductsHeader>
                     gradient: RadialGradient(
                       center: const Alignment(-0.4, -0.4),
                       colors: [
-                        const Color(0xFF5ac8fa).withOpacity(0.15),
-                        const Color(0xFF007aff).withOpacity(0.08),
+                        const Color(0xFF5ac8fa).withValues(alpha: 0.15),
+                        const Color(0xFF007aff).withValues(alpha: 0.08),
                       ],
                     ),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: const Color(0xFFc0c0c0).withOpacity(0.4),
+                      color: const Color(0xFFc0c0c0).withValues(alpha: 0.4),
                       width: 1.5,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF5ac8fa).withOpacity(0.5),
+                        color: const Color(0xFF5ac8fa).withValues(alpha: 0.5),
                         blurRadius: 35,
                       ),
                       BoxShadow(
-                        color: const Color(0xFFc0c0c0).withOpacity(0.3),
+                        color: const Color(0xFFc0c0c0).withValues(alpha: 0.3),
                         blurRadius: 25,
                         offset: const Offset(0, 0),
                         spreadRadius: -10,
@@ -336,7 +336,7 @@ class _ProductsHeaderState extends State<ProductsHeader>
                   ),
                   child: const Center(
                     child: FaIcon(
-                      FontAwesomeIcons.shoppingCart,
+                      FontAwesomeIcons.cartShopping,
                       size: 16,
                       color: Color(0xFF5ac8fa),
                     ),
@@ -360,12 +360,12 @@ class _ProductsHeaderState extends State<ProductsHeader>
                         border: Border.all(color: Colors.white, width: 2),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFff4444).withOpacity(0.4),
+                            color: const Color(0xFFff4444).withValues(alpha: 0.4),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                           BoxShadow(
-                            color: const Color(0xFFff4444).withOpacity(0.3),
+                            color: const Color(0xFFff4444).withValues(alpha: 0.3),
                             blurRadius: 15,
                           ),
                         ],
@@ -403,22 +403,22 @@ class _ProductsHeaderState extends State<ProductsHeader>
               gradient: RadialGradient(
                 center: const Alignment(-0.4, -0.4),
                 colors: [
-                  const Color(0xFFff2d55).withOpacity(0.15),
-                  const Color(0xFFff9500).withOpacity(0.08),
+                  const Color(0xFFff2d55).withValues(alpha: 0.15),
+                  const Color(0xFFff9500).withValues(alpha: 0.08),
                 ],
               ),
               shape: BoxShape.circle,
               border: Border.all(
-                color: const Color(0xFFffd700).withOpacity(0.3),
+                color: const Color(0xFFffd700).withValues(alpha: 0.3),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFFff2d55).withOpacity(0.5 * _heartGlowAnimation.value),
+                  color: const Color(0xFFff2d55).withValues(alpha: 0.5 * _heartGlowAnimation.value),
                   blurRadius: 35,
                 ),
                 BoxShadow(
-                  color: const Color(0xFFffd700).withOpacity(0.3 * _heartGlowAnimation.value),
+                  color: const Color(0xFFffd700).withValues(alpha: 0.3 * _heartGlowAnimation.value),
                   blurRadius: 25,
                   offset: const Offset(0, 0),
                   spreadRadius: -10,
@@ -472,8 +472,8 @@ class _ProductsHeaderState extends State<ProductsHeader>
           boxShadow: [
             BoxShadow(
               color: widget.isDayMode
-                  ? const Color(0xFFFFD700).withOpacity(0.6)
-                  : const Color(0xFF9370DB).withOpacity(0.6),
+                  ? const Color(0xFFFFD700).withValues(alpha: 0.6)
+                  : const Color(0xFF9370DB).withValues(alpha: 0.6),
               blurRadius: widget.isDayMode ? 30 : 35,
             ),
           ],

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../services/supabase_service.dart';
+
+
 
 import '../widgets/custom_app_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -92,7 +92,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadUserData() async {
     try {
-      final userId = '07503597589';
+      // تم إزالة userId غير المستخدم
 
       // هنا يجب تحميل بيانات المستخدم من قاعدة البيانات
       setState(() {
@@ -139,20 +139,24 @@ class _SettingsPageState extends State<SettingsPage> {
       await prefs.setBool('auto_order_confirmation', _autoOrderConfirmation);
       await prefs.setInt('order_expiry_days', _orderExpiryDays);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم حفظ الإعدادات بنجاح'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حفظ الإعدادات بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('خطأ في حفظ الإعدادات: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('خطأ في حفظ الإعدادات'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('خطأ في حفظ الإعدادات'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }

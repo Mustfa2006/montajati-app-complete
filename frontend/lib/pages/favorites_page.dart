@@ -4,11 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../models/product.dart';
 import '../services/favorites_service.dart';
-import '../services/cart_service.dart';
+// تم إزالة import cart_service غير المستخدم
 import '../widgets/pull_to_refresh_wrapper.dart';
-import '../utils/error_handler.dart';
+
 import '../widgets/custom_app_bar.dart';
-import 'product_details_page.dart';
+
 import 'package:go_router/go_router.dart';
 
 class FavoritesPage extends StatefulWidget {
@@ -21,7 +21,7 @@ class FavoritesPage extends StatefulWidget {
 class _FavoritesPageState extends State<FavoritesPage>
     with TickerProviderStateMixin {
   final FavoritesService _favoritesService = FavoritesService.instance;
-  final CartService _cartService = CartService();
+  // تم إزالة _cartService غير المستخدم
 
   List<Product> _displayedFavorites = [];
   String _searchQuery = '';
@@ -32,7 +32,7 @@ class _FavoritesPageState extends State<FavoritesPage>
   late AnimationController _statsAnimationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _slideAnimation;
-  late Animation<double> _statsAnimation;
+  // تم إزالة _statsAnimation غير المستخدم
 
   @override
   void initState() {
@@ -70,12 +70,7 @@ class _FavoritesPageState extends State<FavoritesPage>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack),
     );
 
-    _statsAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _statsAnimationController,
-        curve: Curves.elasticOut,
-      ),
-    );
+    // تم إزالة تعيين _statsAnimation غير المستخدم
   }
 
   Future<void> _loadFavorites() async {
@@ -744,11 +739,7 @@ class _FavoritesPageState extends State<FavoritesPage>
     }
   }
 
-  // إضافة منتج للسلة
-  Future<void> _addToCart(Product product) async {
-    // يمكن إضافة منطق إضافة للسلة هنا
-    _showSnackBar('تم إضافة ${product.name} للسلة', isError: false);
-  }
+  // تم حذف _addToCart غير المستخدم
 
   // عرض رسالة
   void _showSnackBar(String message, {bool isError = false}) {

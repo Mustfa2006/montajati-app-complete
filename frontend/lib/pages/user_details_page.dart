@@ -80,7 +80,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       actions: [
         IconButton(
           icon: FaIcon(
-            _isEditing ? FontAwesomeIcons.check : FontAwesomeIcons.edit,
+            _isEditing ? FontAwesomeIcons.check : FontAwesomeIcons.penToSquare,
             color: Colors.white,
             size: 20,
           ),
@@ -159,7 +159,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             text: 'الإحصائيات',
           ),
           Tab(
-            icon: FaIcon(FontAwesomeIcons.shoppingCart, size: 16),
+            icon: FaIcon(FontAwesomeIcons.cartShopping, size: 16),
             text: 'الطلبات',
           ),
           Tab(
@@ -343,9 +343,9 @@ class _UserDetailsPageState extends State<UserDetailsPage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.5), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -370,13 +370,13 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: _currentUser!.isAdmin
-            ? const Color(0xFFFF9800).withOpacity(0.2)
-            : const Color(0xFF2196F3).withOpacity(0.2),
+            ? const Color(0xFFFF9800).withValues(alpha: 0.2)
+            : const Color(0xFF2196F3).withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: _currentUser!.isAdmin
-              ? const Color(0xFFFF9800).withOpacity(0.5)
-              : const Color(0xFF2196F3).withOpacity(0.5),
+              ? const Color(0xFFFF9800).withValues(alpha: 0.5)
+              : const Color(0xFF2196F3).withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -472,7 +472,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
                 _buildInfoRow(
                   'المحافظة',
                   _currentUser!.province!,
-                  FontAwesomeIcons.mapMarkerAlt,
+                  FontAwesomeIcons.locationDot,
                 ),
               if (_currentUser!.city != null)
                 _buildInfoRow(
@@ -484,7 +484,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
                 _buildInfoRow(
                   'العنوان',
                   _currentUser!.address!,
-                  FontAwesomeIcons.home,
+                  FontAwesomeIcons.house,
                 ),
             ]),
 
@@ -513,7 +513,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             _buildInfoRow(
               'عدد مرات الدخول',
               _currentUser!.loginCount.toString(),
-              FontAwesomeIcons.signInAlt,
+              FontAwesomeIcons.rightToBracket,
             ),
           ]),
 
@@ -524,7 +524,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               _buildInfoRow(
                 'ملاحظات',
                 _currentUser!.notes!,
-                FontAwesomeIcons.stickyNote,
+                FontAwesomeIcons.noteSticky,
               ),
             ]),
           ],
@@ -699,7 +699,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               ),
               IconButton(
                 icon: const FaIcon(
-                  FontAwesomeIcons.edit,
+                  FontAwesomeIcons.penToSquare,
                   color: Color(0xFFffc107),
                   size: 16,
                 ),
@@ -714,7 +714,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
                 child: _buildProfitItem(
                   'الأرباح المحققة',
                   '${_currentUser!.achievedProfits.toStringAsFixed(2)} د.ع',
-                  FontAwesomeIcons.checkCircle,
+                  FontAwesomeIcons.circleCheck,
                   const Color(0xFF4CAF50),
                 ),
               ),
@@ -743,9 +743,9 @@ class _UserDetailsPageState extends State<UserDetailsPage>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         children: [
@@ -897,21 +897,25 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         );
       });
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم تحديث الأرباح بنجاح'),
-          backgroundColor: Color(0xFF4CAF50),
-        ),
-      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم تحديث الأرباح بنجاح'),
+            backgroundColor: Color(0xFF4CAF50),
+          ),
+        );
+      }
     } catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطأ في تحديث الأرباح: $e'),
-          backgroundColor: const Color(0xFFF44336),
-        ),
-      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('خطأ في تحديث الأرباح: $e'),
+            backgroundColor: const Color(0xFFF44336),
+          ),
+        );
+      }
     }
   }
 
@@ -1115,22 +1119,26 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           _currentUser = updatedUser;
         });
 
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم تحديث بيانات المستخدم بنجاح'),
+              backgroundColor: Color(0xFF4CAF50),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم تحديث بيانات المستخدم بنجاح'),
-            backgroundColor: Color(0xFF4CAF50),
+          SnackBar(
+            content: Text('خطأ في تحديث البيانات: $e'),
+            backgroundColor: const Color(0xFFF44336),
           ),
         );
       }
-    } catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('خطأ في تحديث البيانات: $e'),
-          backgroundColor: const Color(0xFFF44336),
-        ),
-      );
     }
   }
 
@@ -1149,19 +1157,19 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             _buildStatRow(
               'إجمالي الطلبات',
               _currentUser!.totalOrders.toString(),
-              FontAwesomeIcons.shoppingCart,
+              FontAwesomeIcons.cartShopping,
               const Color(0xFF2196F3),
             ),
             _buildStatRow(
               'الطلبات المكتملة',
               _currentUser!.completedOrders.toString(),
-              FontAwesomeIcons.checkCircle,
+              FontAwesomeIcons.circleCheck,
               const Color(0xFF4CAF50),
             ),
             _buildStatRow(
               'الطلبات الملغية',
               _currentUser!.cancelledOrders.toString(),
-              FontAwesomeIcons.timesCircle,
+              FontAwesomeIcons.circleXmark,
               const Color(0xFFF44336),
             ),
             _buildStatRow(
@@ -1191,7 +1199,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             _buildStatRow(
               'معدل الإكمال',
               '${_currentUser!.completionRate.toStringAsFixed(1)}%',
-              FontAwesomeIcons.percentage,
+              FontAwesomeIcons.percent,
               const Color(0xFFFF9800),
             ),
             _buildStatRow(
@@ -1240,7 +1248,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           FaIcon(
-            FontAwesomeIcons.shoppingCart,
+            FontAwesomeIcons.cartShopping,
             color: Colors.white30,
             size: 64,
           ),
@@ -1302,7 +1310,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       },
       backgroundColor: const Color(0xFFffc107),
       foregroundColor: Colors.black,
-      icon: const FaIcon(FontAwesomeIcons.edit, size: 16),
+      icon: const FaIcon(FontAwesomeIcons.penToSquare, size: 16),
       label: const Text('تعديل'),
     );
   }
@@ -1456,7 +1464,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
         if (success) {
           _showSuccessSnackBar('تم حذف المستخدم بنجاح');
-          Navigator.pop(context, true);
+          if (mounted) Navigator.pop(context, true);
         } else {
           _showErrorSnackBar('فشل في حذف المستخدم');
         }

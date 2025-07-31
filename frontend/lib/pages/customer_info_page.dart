@@ -3,12 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/cart_service.dart';
-import '../services/flexible_delivery_service.dart';
-import '../services/location_cache_service.dart';
+
+
 import '../services/location_validation_service.dart';
 import '../utils/error_handler.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
@@ -45,8 +45,8 @@ class _CustomerInfoPageState extends State<CustomerInfoPage>
   // Animation Controllers
   late AnimationController _glowController;
   late AnimationController _titleController;
-  late Animation<double> _glowAnimation;
-  late Animation<double> _titleAnimation;
+  // تم إزالة _glowAnimation غير المستخدم
+  // تم إزالة _titleAnimation غير المستخدم
 
   // Form Data
   String? _selectedProvince;
@@ -260,13 +260,9 @@ class _CustomerInfoPageState extends State<CustomerInfoPage>
       vsync: this,
     );
 
-    _glowAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
-    );
+    // تم إزالة تعيين _glowAnimation غير المستخدم
 
-    _titleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _titleController, curve: Curves.elasticOut),
-    );
+    // تم إزالة تعيين _titleAnimation غير المستخدم
 
     _titleController.forward();
   }

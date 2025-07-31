@@ -33,7 +33,7 @@ class StarsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFffd700).withOpacity(0.8)
+      ..color = const Color(0xFFffd700).withValues(alpha: 0.8)
       ..style = PaintingStyle.fill;
 
     for (final star in stars) {
@@ -43,7 +43,7 @@ class StarsPainter extends CustomPainter {
       double screenX = x * size.width;
       double screenY = y * size.height;
 
-      paint.color = const Color(0xFFffd700).withOpacity(star.opacity * 0.8);
+      paint.color = const Color(0xFFffd700).withValues(alpha: star.opacity * 0.8);
       canvas.drawCircle(
         Offset(screenX, screenY),
         star.size,

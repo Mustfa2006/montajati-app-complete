@@ -136,7 +136,7 @@ class _AdminReportsSectionState extends State<AdminReportsSection> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -213,8 +213,8 @@ class _AdminReportsSectionState extends State<AdminReportsSection> {
                       show: true,
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFF28a745).withOpacity(0.3),
-                          const Color(0xFF06d6a0).withOpacity(0.1),
+                          const Color(0xFF28a745).withValues(alpha: 0.3),
+                          const Color(0xFF06d6a0).withValues(alpha: 0.1),
                         ],
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -239,7 +239,7 @@ class _AdminReportsSectionState extends State<AdminReportsSection> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -338,7 +338,7 @@ class _AdminReportsSectionState extends State<AdminReportsSection> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),

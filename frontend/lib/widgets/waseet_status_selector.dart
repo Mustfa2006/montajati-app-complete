@@ -12,11 +12,11 @@ class WaseetStatusSelector extends StatefulWidget {
   final bool showAllStatuses;
 
   const WaseetStatusSelector({
-    Key? key,
+    super.key,
     this.currentStatus,
     required this.onStatusSelected,
     this.showAllStatuses = true,
-  }) : super(key: key);
+  });
 
   @override
   State<WaseetStatusSelector> createState() => _WaseetStatusSelectorState();
@@ -107,9 +107,9 @@ class _WaseetStatusSelectorState extends State<WaseetStatusSelector> {
                 ),
               ),
             ),
-            ...categorizedStatuses.entries.map((entry) => 
+            ...categorizedStatuses.entries.map((entry) =>
               buildCategorySection(entry.key, entry.value)
-            ).toList(),
+            ),
           ],
         ),
       ),
@@ -135,7 +135,7 @@ class _WaseetStatusSelectorState extends State<WaseetStatusSelector> {
             ),
           ),
         ),
-        ...basicStatuses.map((status) => buildStatusTile(status)).toList(),
+        ...basicStatuses.map((status) => buildStatusTile(status)),
       ],
     );
   }

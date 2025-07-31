@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/user_management_service.dart';
-import '../models/admin_user.dart';
 
 class AddUserPage extends StatefulWidget {
   const AddUserPage({super.key});
@@ -90,7 +89,7 @@ class _AddUserPageState extends State<AddUserPage> {
             _buildContactInfoSection(),
 
             const SizedBox(height: 24),
-            _buildSectionHeader('العنوان', FontAwesomeIcons.mapMarkerAlt),
+            _buildSectionHeader('العنوان', FontAwesomeIcons.locationDot),
             const SizedBox(height: 16),
             _buildAddressSection(),
 
@@ -100,7 +99,7 @@ class _AddUserPageState extends State<AddUserPage> {
             _buildPermissionsSection(),
 
             const SizedBox(height: 24),
-            _buildSectionHeader('ملاحظات إضافية', FontAwesomeIcons.stickyNote),
+            _buildSectionHeader('ملاحظات إضافية', FontAwesomeIcons.noteSticky),
             const SizedBox(height: 16),
             _buildNotesSection(),
 
@@ -285,7 +284,7 @@ class _AddUserPageState extends State<AddUserPage> {
                 child: _buildTextField(
                   controller: _provinceController,
                   label: 'المحافظة',
-                  icon: FontAwesomeIcons.mapMarkerAlt,
+                  icon: FontAwesomeIcons.locationDot,
                 ),
               ),
               const SizedBox(width: 16),
@@ -302,7 +301,7 @@ class _AddUserPageState extends State<AddUserPage> {
           _buildTextField(
             controller: _addressController,
             label: 'العنوان التفصيلي',
-            icon: FontAwesomeIcons.home,
+            icon: FontAwesomeIcons.house,
             maxLines: 2,
           ),
         ],
@@ -350,7 +349,7 @@ class _AddUserPageState extends State<AddUserPage> {
       child: _buildTextField(
         controller: _notesController,
         label: 'ملاحظات',
-        icon: FontAwesomeIcons.stickyNote,
+        icon: FontAwesomeIcons.noteSticky,
         maxLines: 3,
         hintText: 'أي ملاحظات إضافية حول المستخدم...',
       ),
@@ -479,7 +478,9 @@ class _AddUserPageState extends State<AddUserPage> {
 
       if (user != null) {
         _showSuccessSnackBar('تم إنشاء المستخدم بنجاح');
-        Navigator.pop(context, true);
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
       } else {
         _showErrorSnackBar('فشل في إنشاء المستخدم');
       }

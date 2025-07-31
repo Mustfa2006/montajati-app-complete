@@ -46,8 +46,8 @@ class OrderStatusMonitor {
       
       final oldRecord = payload.oldRecord;
       final newRecord = payload.newRecord;
-      
-      if (oldRecord == null || newRecord == null) return;
+
+      if (oldRecord.isEmpty || newRecord.isEmpty) return;
       
       final orderId = newRecord['id'];
       final orderNumber = newRecord['order_number'] ?? orderId;

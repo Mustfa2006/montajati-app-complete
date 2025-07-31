@@ -20,7 +20,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   // بيانات الطلب
   AdminOrder? _order;
   bool _isLoading = true;
-  bool _isUpdatingStatus = false;
+  // تم إزالة _isUpdatingStatus غير المستخدم
   final List<StatusHistory> _statusHistory = [];
 
   // تحكم في الرسوم المتحركة
@@ -30,10 +30,10 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   late Animation<double> _cardAnimation;
 
   // نظام تحديث الحالات المبسط
-  final bool _showStatusDialog = false;
+  // تم إزالة _showStatusDialog غير المستخدم
 
   // تحكم في التبويبات
-  final int _selectedTabIndex = 0;
+  // تم إزالة _selectedTabIndex غير المستخدم
   late TabController _tabController;
 
   @override
@@ -397,7 +397,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
 
   // تحديث حالة الطلب مباشرة في قاعدة البيانات
   Future<void> _updateOrderStatus(String newStatus) async {
-    setState(() => _isUpdatingStatus = true);
+    // تم إزالة تعيين _isUpdatingStatus غير المستخدم
 
     try {
       debugPrint('🔥 ADVANCED ORDER DETAILS: بدء تحديث حالة الطلب');
@@ -429,7 +429,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       _showErrorSnackBar('خطأ في تحديث حالة الطلب: $e');
     } finally {
       if (mounted) {
-        setState(() => _isUpdatingStatus = false);
+        // تم إزالة تعيين _isUpdatingStatus غير المستخدم
       }
     }
   }
@@ -1630,11 +1630,12 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              final navigator = Navigator.of(context);
+              navigator.pop();
               try {
                 await AdminService.deleteOrder(_order!.id);
                 if (mounted) {
-                  Navigator.pop(context);
+                  navigator.pop();
                   _showSuccessSnackBar('تم حذف الطلب بنجاح');
                 }
               } catch (e) {

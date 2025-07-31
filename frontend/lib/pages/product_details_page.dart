@@ -7,7 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import '../services/cart_service.dart';
-import '../services/favorites_service.dart';
+// تم إزالة استيراد favorites_service غير المستخدم
 import '../utils/number_formatter.dart';
 import '../services/permissions_service.dart';
 import '../widgets/common_header.dart';
@@ -28,12 +28,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   final TextEditingController _priceController = TextEditingController();
   final FocusNode _priceFocusNode = FocusNode();
   final CartService _cartService = CartService();
-  final FavoritesService _favoritesService = FavoritesService.instance;
+  // تم إزالة _favoritesService غير المستخدم
   final PageController _pageController = PageController();
   int _currentImageIndex = 0;
   final List<double> _pinnedPrices = [];
   bool _isPriceValid = false;
-  final bool _isFavorite = false;
+  // تم إزالة _isFavorite غير المستخدم
   bool favoriteState = false;
 
   @override
@@ -400,7 +400,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         final response = await http.get(Uri.parse(imageUrl));
 
         if (response.statusCode == 200) {
-          final bytes = response.bodyBytes;
+          // تم إزالة bytes غير المستخدم
 
           // إشعار بنجاح التحميل (تم إزالة حفظ الصورة لتجنب مشاكل التوافق)
           if (showMessage && mounted) {

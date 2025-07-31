@@ -1398,13 +1398,7 @@ class _SimpleOrderDetailsPageState extends State<SimpleOrderDetailsPage>
     );
   }
 
-  void _showSnackBar(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
+  // تم إزالة دالة _showSnackBar غير المستخدمة
 
   void _sendMessage() {
     showDialog(

@@ -1136,13 +1136,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       bool isSuccess = false;
       String? orderId;
 
-      if (result is Map<String, dynamic>) {
-        isSuccess = result['success'] == true;
-        orderId = result['orderId'] ?? result['data']?['orderId'];
-        debugPrint('🔍 فحص نتيجة العملية: success=$isSuccess, orderId=$orderId');
-      } else {
-        debugPrint('❌ نتيجة غير صحيحة من العملية: $result');
-      }
+      // تم إزالة التحقق غير الضروري - result دائماً Map<String, dynamic>
+      isSuccess = result['success'] == true;
+      orderId = result['orderId'] ?? result['data']?['orderId'];
+      debugPrint('🔍 فحص نتيجة العملية: success=$isSuccess, orderId=$orderId');
 
       if (!isSuccess) {
         throw Exception('فشل في حفظ الطلب في قاعدة البيانات');

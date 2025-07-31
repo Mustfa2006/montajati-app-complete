@@ -26,7 +26,7 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
   List<ScheduledOrder> _scheduledOrders = [];
   List<ScheduledOrder> _filteredOrders = [];
   bool _isLoading = true;
-  bool _isRefreshing = false;
+  // تم إزالة _isRefreshing غير المستخدم
 
   // فلاتر البحث
   String _searchQuery = '';
@@ -44,9 +44,9 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
   @override
   void initState() {
     super.initState();
-    print('🚀 بدء تهيئة صفحة الطلبات المجدولة...');
+    debugPrint('🚀 بدء تهيئة صفحة الطلبات المجدولة...');
     _initializeAnimations();
-    print('🔄 بدء تحميل الطلبات المجدولة من initState...');
+    debugPrint('🔄 بدء تحميل الطلبات المجدولة من initState...');
     _loadScheduledOrders();
 
     // تشغيل التحويل التلقائي عند بدء الصفحة
@@ -93,26 +93,28 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
   Future<void> _loadScheduledOrders() async {
     try {
       setState(() => _isLoading = true);
-      print('🔄 بدء تحميل الطلبات المجدولة من قاعدة البيانات...');
+      debugPrint('🔄 بدء تحميل الطلبات المجدولة من قاعدة البيانات...');
 
       // تحميل الطلبات من الخدمة الحقيقية
       final service = ScheduledOrdersService();
       await service.loadScheduledOrders();
 
       final orders = service.scheduledOrders;
-      print('📋 تم تحميل ${orders.length} طلب مجدول من قاعدة البيانات');
+      debugPrint('📋 تم تحميل ${orders.length} طلب مجدول من قاعدة البيانات');
 
       setState(() {
-        _scheduledOrders = orders;
+        _scheduledOrders = List.from(orders);
+        // ✅ ضمان الترتيب الصحيح: الأحدث أولاً دائماً
+        _scheduledOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         _isLoading = false;
       });
 
       _applyFilters();
-      print(
+      debugPrint(
         '✅ تم تطبيق الفلاتر. عدد الطلبات المفلترة: ${_filteredOrders.length}',
       );
     } catch (e) {
-      print('❌ خطأ في تحميل الطلبات المجدولة: $e');
+      debugPrint('❌ خطأ في تحميل الطلبات المجدولة: $e');
       setState(() => _isLoading = false);
       _showErrorSnackBar('خطأ في تحميل الطلبات المجدولة: $e');
     }
@@ -121,7 +123,7 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
   // تشغيل التحويل التلقائي للطلبات المجدولة
   Future<void> _runAutoConversion() async {
     try {
-      print('🔄 بدء التحويل التلقائي للطلبات المجدولة...');
+      debugPrint('🔄 بدء التحويل التلقائي للطلبات المجدولة...');
 
       final service = ScheduledOrdersService();
       final convertedCount = await service.convertScheduledOrdersToActive();
@@ -133,10 +135,10 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
         // إعادة تحميل الطلبات لتحديث القائمة
         await _loadScheduledOrders();
       } else {
-        print('ℹ️ لا توجد طلبات مجدولة تحتاج للتحويل');
+        debugPrint('ℹ️ لا توجد طلبات مجدولة تحتاج للتحويل');
       }
     } catch (e) {
-      print('❌ خطأ في التحويل التلقائي: $e');
+      debugPrint('❌ خطأ في التحويل التلقائي: $e');
       _showErrorSnackBar('خطأ في التحويل التلقائي: $e');
     }
   }
@@ -155,10 +157,10 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
   }
 
   void _applyFilters() {
-    print('🔍 تطبيق الفلاتر...');
-    print('📊 عدد الطلبات الأصلية: ${_scheduledOrders.length}');
-    print('🔍 استعلام البحث: "$_searchQuery"');
-    print('📅 نطاق التاريخ المحدد: $_selectedDateRange');
+    debugPrint('🔍 تطبيق الفلاتر...');
+    debugPrint('📊 عدد الطلبات الأصلية: ${_scheduledOrders.length}');
+    debugPrint('🔍 استعلام البحث: "$_searchQuery"');
+    debugPrint('📅 نطاق التاريخ المحدد: $_selectedDateRange');
 
     setState(() {
       _filteredOrders = _scheduledOrders.where((order) {
@@ -177,7 +179,7 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
         bool matchesDate =
             _selectedDateRange == 'all' || _isDateInRange(order.scheduledDate);
 
-        print(
+        debugPrint(
           '📋 طلب ${order.orderNumber}: البحث=$matchesSearch, التاريخ=$matchesDate',
         );
         return matchesSearch && matchesDate;
@@ -186,7 +188,7 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
       // ترتيب حسب تاريخ الإنشاء (الطلبات الجديدة أولاً)
       _filteredOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      print('✅ عدد الطلبات بعد الفلترة: ${_filteredOrders.length}');
+      debugPrint('✅ عدد الطلبات بعد الفلترة: ${_filteredOrders.length}');
     });
   }
 
@@ -221,9 +223,9 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
   }
 
   Future<void> _refreshOrders() async {
-    setState(() => _isRefreshing = true);
+    // تم إزالة تعيين _isRefreshing غير المستخدم
     await _loadScheduledOrders();
-    setState(() => _isRefreshing = false);
+    // تم إزالة تعيين _isRefreshing غير المستخدم
   }
 
   void _showErrorSnackBar(String message) {
@@ -704,12 +706,12 @@ class _ScheduledOrdersMainPageState extends State<ScheduledOrdersMainPage>
   }
 
   Widget _buildEmptyState() {
-    print(
+    debugPrint(
       '🚫 عرض حالة فارغة - عدد الطلبات المفلترة: ${_filteredOrders.length}',
     );
-    print('📊 عدد الطلبات الأصلية: ${_scheduledOrders.length}');
-    print('🔍 استعلام البحث الحالي: "$_searchQuery"');
-    print('📅 نطاق التاريخ المحدد: $_selectedDateRange');
+    debugPrint('📊 عدد الطلبات الأصلية: ${_scheduledOrders.length}');
+    debugPrint('🔍 استعلام البحث الحالي: "$_searchQuery"');
+    debugPrint('📅 نطاق التاريخ المحدد: $_selectedDateRange');
 
     return Center(
       child: Column(

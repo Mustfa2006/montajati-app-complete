@@ -8,7 +8,7 @@ import 'dart:async';
 import '../services/cart_service.dart';
 import '../services/real_auth_service.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
-import '../utils/error_handler.dart';
+
 import '../services/favorites_service.dart';
 import '../services/scheduled_orders_service.dart';
 import '../models/product.dart';
@@ -57,7 +57,7 @@ class _NewProductsPageState extends State<NewProductsPage>
 
   // البانرات الإعلانية المتعددة (سيتم تحميلها من قاعدة البيانات)
   List<Map<String, dynamic>> banners = [];
-  bool _isLoadingBanners = false;
+  // تم إزالة _isLoadingBanners غير المستخدم
 
   // بيانات المنتجات من قاعدة البيانات
   List<Product> products = [];
@@ -190,7 +190,7 @@ class _NewProductsPageState extends State<NewProductsPage>
 
   // تحميل الصور الإعلانية من قاعدة البيانات
   Future<void> _loadBanners() async {
-    setState(() => _isLoadingBanners = true);
+    // تم إزالة تعيين _isLoadingBanners غير المستخدم
 
     try {
       final response = await Supabase.instance.client
@@ -201,14 +201,14 @@ class _NewProductsPageState extends State<NewProductsPage>
 
       setState(() {
         banners = List<Map<String, dynamic>>.from(response);
-        _isLoadingBanners = false;
+        // تم إزالة تعيين _isLoadingBanners غير المستخدم
       });
 
       debugPrint('✅ تم جلب ${banners.length} صورة إعلانية من قاعدة البيانات');
     } catch (e) {
       debugPrint('❌ خطأ في جلب الصور الإعلانية: $e');
       setState(() {
-        _isLoadingBanners = false;
+        // تم إزالة تعيين _isLoadingBanners غير المستخدم
         // في حالة الخطأ، استخدم قائمة فارغة
         banners = [];
       });
@@ -236,7 +236,7 @@ class _NewProductsPageState extends State<NewProductsPage>
         final double wholesalePrice = (item['wholesale_price'] ?? 0).toDouble();
         final double minPrice = (item['min_price'] ?? 0).toDouble();
         final double maxPrice = (item['max_price'] ?? 0).toDouble();
-        final double price = (item['price'] ?? wholesalePrice).toDouble();
+        // تم إزالة price غير المستخدم
 
         loadedProducts.add(
           Product(
@@ -274,9 +274,9 @@ class _NewProductsPageState extends State<NewProductsPage>
         _isLoadingProducts = false;
       });
 
-      print('✅ تم جلب ${products.length} منتج من قاعدة البيانات');
+      debugPrint('✅ تم جلب ${products.length} منتج من قاعدة البيانات');
     } catch (e) {
-      print('❌ خطأ في جلب المنتجات: $e');
+      debugPrint('❌ خطأ في جلب المنتجات: $e');
       setState(() {
         _isLoadingProducts = false;
         // في حالة الخطأ، استخدم قائمة فارغة
@@ -456,14 +456,37 @@ class _NewProductsPageState extends State<NewProductsPage>
 
       // زر الرجوع لبداية الصفحة
       floatingActionButton: _showScrollToTopButton
-          ? FloatingActionButton(
-              onPressed: _scrollToTop,
-              backgroundColor: const Color(0xFFffd700),
-              foregroundColor: Colors.black,
-              elevation: 8,
-              child: const Icon(
-                Icons.keyboard_arrow_up,
-                size: 28,
+          ? Container(
+              width: 48, // تصغير الزر قليلاً
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle, // جعل الزر دائري
+                color: Colors.black.withValues(alpha: 0.3), // خلفية شفافة مضببة
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _scrollToTop,
+                  borderRadius: BorderRadius.circular(24),
+                  child: const Center(
+                    child: Icon(
+                      Icons.keyboard_arrow_up, // سهم إلى الأعلى (زاوية السهم فقط)
+                      color: Color(0xFFffd700), // لون ذهبي
+                      size: 24, // حجم مناسب للزر المصغر
+                    ),
+                  ),
+                ),
               ),
             )
           : null,

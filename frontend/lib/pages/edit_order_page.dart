@@ -22,7 +22,7 @@ class EditOrderPage extends StatefulWidget {
 }
 
 class _EditOrderPageState extends State<EditOrderPage> {
-  Order? _order;
+  // تم إزالة _order غير المستخدم
   bool _isLoading = true;
   bool _isSaving = false;
   String? _error;
@@ -235,7 +235,7 @@ class _EditOrderPageState extends State<EditOrderPage> {
       await _findProvinceAndLoadCities();
 
       setState(() {
-        _order = order;
+        // تم إزالة تعيين _order غير المستخدم
         _isLoading = false;
       });
 

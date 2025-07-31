@@ -5,12 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'dart:math' as math;
+// تم إزالة استيراد dart:math غير المستخدم
 import '../services/simple_orders_service.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../widgets/common_header.dart';
-import '../services/smart_profits_manager.dart';
+// تم إزالة استيراد smart_profits_manager غير المستخدم
 import '../services/lazy_loading_service.dart';
 
 class ProfitsPage extends StatefulWidget {
@@ -26,9 +26,9 @@ class _ProfitsPageState extends State<ProfitsPage>
   late AnimationController _crownAnimationController;
   late AnimationController _pulseAnimationController;
   late AnimationController _refreshAnimationController;
-  late Animation<double> _crownRotation;
+  // تم إزالة _crownRotation غير المستخدم
   late Animation<double> _pulseAnimation;
-  late Animation<double> _refreshRotation;
+  // تم إزالة _refreshRotation غير المستخدم
 
   // بيانات الأرباح
   double _realizedProfits = 0.0;
@@ -104,9 +104,7 @@ class _ProfitsPageState extends State<ProfitsPage>
       duration: const Duration(seconds: 8),
       vsync: this,
     );
-    _crownRotation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
-      CurvedAnimation(parent: _crownAnimationController, curve: Curves.linear),
-    );
+    // تم إزالة تعريف _crownRotation غير المستخدم
     _crownAnimationController.repeat();
 
     // حركة النبض
@@ -127,12 +125,7 @@ class _ProfitsPageState extends State<ProfitsPage>
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    _refreshRotation = Tween<double>(begin: 0, end: 2 * math.pi).animate(
-      CurvedAnimation(
-        parent: _refreshAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    // تم إزالة تعريف _refreshRotation غير المستخدم
   }
 
   // تحميل وحساب الأرباح من الطلبات الفعلية
@@ -151,34 +144,7 @@ class _ProfitsPageState extends State<ProfitsPage>
   // 🛡️ جلب الأرباح مباشرة من قاعدة البيانات (مع حماية من التكرار)
   bool _isLoadingProfits = false;
 
-  // 🧠 إعادة حساب الأرباح باستخدام النظام الذكي
-  Future<void> _smartRecalculateProfits() async {
-    try {
-      debugPrint('🧠 === إعادة حساب الأرباح باستخدام النظام الذكي ===');
-
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserPhone = prefs.getString('current_user_phone');
-
-      if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        debugPrint('❌ لا يوجد مستخدم مسجل دخول');
-        return;
-      }
-
-      // إعادة حساب الأرباح باستخدام النظام الذكي
-      final success = await SmartProfitsManager.smartRecalculateAndUpdate(currentUserPhone);
-
-      if (success) {
-        debugPrint('✅ تم إعادة حساب الأرباح بنجاح');
-        // إعادة تحميل البيانات من قاعدة البيانات
-        await _loadProfitsFromDatabase();
-      } else {
-        debugPrint('❌ فشل في إعادة حساب الأرباح');
-      }
-
-    } catch (e) {
-      debugPrint('❌ خطأ في إعادة حساب الأرباح الذكي: $e');
-    }
-  }
+  // تم إزالة دالة _smartRecalculateProfits غير المستخدمة
 
   Future<void> _loadProfitsFromDatabase() async {
     // منع التحميل المتكرر

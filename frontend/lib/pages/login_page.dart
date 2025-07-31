@@ -90,9 +90,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-        ),
         boxShadow: [
           BoxShadow(
             color: Color(0xFFffd700).withValues(alpha: 0.3),
@@ -101,46 +98,63 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           ),
         ],
       ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // أيقونة صغيرة للزخرفة
-            Icon(
-              FontAwesomeIcons.gem,
-              color: Color(0xFF1a1a2e),
-              size: size * 0.15,
+      child: ClipOval(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              colors: [Color(0xFF1a1a2e), Color(0xFF16213e)],
             ),
-            SizedBox(height: size * 0.05),
-            // النص العربي الجميل
-            Text(
-              'منتجاتي',
-              style: GoogleFonts.cairo(
-                fontSize: size * 0.18,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1a1a2e),
-                letterSpacing: 1.2,
-                height: 1.0,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            // خط زخرفي تحت النص
-            Container(
-              margin: EdgeInsets.only(top: size * 0.02),
-              width: size * 0.4,
-              height: 2,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF1a1a2e).withValues(alpha: 0.3),
-                    Color(0xFF1a1a2e),
-                    Color(0xFF1a1a2e).withValues(alpha: 0.3),
+          ),
+          child: Center(
+            child: Image.asset(
+              'assets/images/app_logo.png',
+              width: size * 0.8,
+              height: size * 0.8,
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                // في حالة عدم وجود الصورة، اعرض الشعار القديم
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      FontAwesomeIcons.gem,
+                      color: Color(0xFFffd700),
+                      size: size * 0.15,
+                    ),
+                    SizedBox(height: size * 0.05),
+                    Text(
+                      'منتجاتي',
+                      style: GoogleFonts.cairo(
+                        fontSize: size * 0.18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFffd700),
+                        letterSpacing: 1.2,
+                        height: 1.0,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    Container(
+                      margin: EdgeInsets.only(top: size * 0.02),
+                      width: size * 0.4,
+                      height: 2,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Color(0xFFffd700).withValues(alpha: 0.3),
+                            Color(0xFFffd700),
+                            Color(0xFFffd700).withValues(alpha: 0.3),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    ),
                   ],
-                ),
-                borderRadius: BorderRadius.circular(1),
-              ),
+                );
+              },
             ),
-          ],
+          ),
         ),
       ),
     );

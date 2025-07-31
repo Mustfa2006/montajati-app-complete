@@ -24,8 +24,8 @@ class _AdvancedOrdersManagementPageState
 
   // بيانات الطلبات - النظام الجديد الذكي
   List<OrderSummary> _orderSummaries = []; // للعرض السريع
-  List<AdminOrder> _loadedOrderDetails = []; // للتفاصيل المحملة
-  Map<String, AdminOrder> _orderDetailsCache = {}; // تخزين مؤقت للتفاصيل
+  // تم إزالة _loadedOrderDetails غير المستخدم
+  final Map<String, AdminOrder> _orderDetailsCache = {}; // تخزين مؤقت للتفاصيل
   List<OrderSummary> _filteredSummaries = [];
   List<AdminOrder> _selectedOrders = [];
 
@@ -50,7 +50,7 @@ class _AdvancedOrdersManagementPageState
   String _selectedDateRange = 'all';
   DateTime? _startDate;
   DateTime? _endDate;
-  String _selectedUser = 'all';
+  // تم إزالة _selectedUser غير المستخدم
   double _minAmount = 0;
   double _maxAmount = double.infinity;
 
@@ -1167,11 +1167,13 @@ class _AdvancedOrdersManagementPageState
 
   // دوال الأحداث والإجراءات
   void _createNewOrder() {
+    // ignore: todo
     // TODO: تنفيذ إنشاء طلب جديد
     _showInfoSnackBar('سيتم إضافة ميزة إنشاء طلب جديد قريباً');
   }
 
   void _showExportOptions() {
+    // ignore: todo
     // TODO: تنفيذ خيارات التصدير
     _showInfoSnackBar('سيتم إضافة خيارات التصدير قريباً');
   }
@@ -1382,6 +1384,7 @@ class _AdvancedOrdersManagementPageState
   }
 
   void _handleBulkAction(String action) {
+    // ignore: todo
     // TODO: تنفيذ الإجراءات المجمعة
     _showInfoSnackBar('سيتم إضافة الإجراءات المجمعة قريباً');
   }
@@ -1581,7 +1584,7 @@ class _AdvancedOrdersManagementPageState
       _searchQuery = '';
       _selectedStatus = 'all';
       _selectedDateRange = 'all';
-      _selectedUser = 'all';
+      // تم إزالة تعيين _selectedUser غير المستخدم
       _minAmount = 0;
       _maxAmount = double.infinity;
       _startDate = null;
@@ -1842,6 +1845,7 @@ class _AdvancedOrdersManagementPageState
       }
 
       // إظهار مؤشر التحميل
+      final navigator = Navigator.of(context);
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -1856,7 +1860,9 @@ class _AdvancedOrdersManagementPageState
       final orderDetails = await AdminService.getOrderDetailsFast(summary.id);
 
       // إغلاق مؤشر التحميل
-      Navigator.of(context).pop();
+      if (mounted) {
+        navigator.pop();
+      }
 
       if (orderDetails != null) {
         // حفظ في التخزين المؤقت
@@ -1867,7 +1873,9 @@ class _AdvancedOrdersManagementPageState
       }
     } catch (e) {
       // إغلاق مؤشر التحميل في حالة الخطأ
-      Navigator.of(context).pop();
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
       _showErrorSnackBar('خطأ في تحميل تفاصيل الطلب: $e');
     }
   }
@@ -2010,274 +2018,21 @@ class _AdvancedOrdersManagementPageState
     );
   }
 
-  Widget _buildOrderRow(AdminOrder order, int index) {
-    final isSelected = _selectedOrders.contains(order);
+  // تم حذف _buildOrderRow غير المستخدم
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: isSelected
-            ? const Color(0xFFffd700).withValues(alpha: 0.1)
-            : const Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isSelected
-              ? const Color(0xFFffd700).withValues(alpha: 0.5)
-              : OrderStatusHelper.getStatusColor(
-                  order.status,
-                ).withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => _viewOrderDetails(order),
-          onLongPress: () => _toggleOrderSelection(order),
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                if (_isSelectMode)
-                  Checkbox(
-                    value: isSelected,
-                    onChanged: (_) => _toggleOrderSelection(order),
-                    activeColor: const Color(0xFFffd700),
-                  ),
-                _buildOrderInfo(order),
-                _buildCustomerInfo(order),
-                _buildAmountInfo(order),
-                _buildStatusInfo(order),
-                _buildDateInfo(order),
-                _buildActionsInfo(order),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  // تم حذف _buildOrderInfo غير المستخدم
 
-  Widget _buildOrderInfo(AdminOrder order) {
-    return Expanded(
-      flex: 2,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '#${order.orderNumber}',
-                  style: const TextStyle(
-                    color: Color(0xFFffd700),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2196F3).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '${order.itemsCount} منتج',
-                  style: const TextStyle(
-                    color: Color(0xFF2196F3),
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'ربح: ${order.expectedProfit.toStringAsFixed(0)} د.ع',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // تم حذف _buildCustomerInfo غير المستخدم
 
-  Widget _buildCustomerInfo(AdminOrder order) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            order.customerName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            order.customerPhone,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // تم حذف _buildAmountInfo غير المستخدم
 
-  Widget _buildAmountInfo(AdminOrder order) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${order.totalAmount.toStringAsFixed(0)} د.ع',
-            style: const TextStyle(
-              color: Color(0xFFffd700),
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'المجموع',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // تم حذف _buildStatusInfo غير المستخدم
 
-  Widget _buildStatusInfo(AdminOrder order) {
-    final statusColor = OrderStatusHelper.getStatusColor(order.status);
-    final statusText = OrderStatusHelper.getArabicStatus(order.status);
-    final statusIcon = OrderStatusHelper.getStatusIcon(order.status);
+  // تم حذف _buildDateInfo غير المستخدم
 
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: statusColor.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: statusColor.withValues(alpha: 0.5),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(statusIcon, color: statusColor, size: 14),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                statusText,
-                style: TextStyle(
-                  color: statusColor,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // تم حذف _buildActionsInfo غير المستخدم
 
-  Widget _buildDateInfo(AdminOrder order) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            DateFormat('dd/MM/yyyy').format(order.createdAt),
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            DateFormat('HH:mm').format(order.createdAt),
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 10,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionsInfo(AdminOrder order) {
-    return SizedBox(
-      width: 120,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildActionButton(
-            Icons.visibility,
-            const Color(0xFF2196F3),
-            'عرض',
-            () => _viewOrderDetails(order),
-          ),
-          _buildActionButton(
-            Icons.edit,
-            const Color(0xFFFF9800),
-            'تحديث',
-            () => _updateOrderStatus(order),
-          ),
-          _buildActionButton(
-            Icons.more_vert,
-            const Color(0xFF9E9E9E),
-            'المزيد',
-            () => _showOrderMenu(order),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(
-    IconData icon,
-    Color color,
-    String tooltip,
-    VoidCallback onPressed,
-  ) {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-      ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, color: color, size: 14),
-        tooltip: tooltip,
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
+  // تم حذف _buildActionButton غير المستخدم
 
   Widget _buildTableFooter() {
     return Container(
@@ -2685,125 +2440,15 @@ class _AdvancedOrdersManagementPageState
     });
   }
 
-  void _updateOrderStatus(AdminOrder order) {
-    _viewOrderDetails(order);
-  }
+  // تم حذف _updateOrderStatus غير المستخدم
 
-  void _showOrderMenu(AdminOrder order) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF16213e),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFffd700),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'خيارات الطلب #${order.orderNumber}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildMenuOption(Icons.visibility, 'عرض التفاصيل', () {
-              Navigator.pop(context);
-              _viewOrderDetails(order);
-            }),
-            _buildMenuOption(Icons.edit, 'تحديث الحالة', () {
-              Navigator.pop(context);
-              _updateOrderStatus(order);
-            }),
-            _buildMenuOption(Icons.print, 'طباعة الطلب', () {
-              Navigator.pop(context);
-              _showInfoSnackBar('سيتم طباعة الطلب قريباً');
-            }),
-            _buildMenuOption(Icons.message, 'إرسال رسالة للعميل', () {
-              Navigator.pop(context);
-              _showInfoSnackBar('سيتم إرسال رسالة للعميل قريباً');
-            }),
-            _buildMenuOption(Icons.delete, 'حذف الطلب', () {
-              Navigator.pop(context);
-              _confirmDeleteOrder(order);
-            }, isDestructive: true),
-          ],
-        ),
-      ),
-    );
-  }
+  // تم حذف _showOrderMenu غير المستخدم
 
-  Widget _buildMenuOption(
-    IconData icon,
-    String title,
-    VoidCallback onTap, {
-    bool isDestructive = false,
-  }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isDestructive ? Colors.red : const Color(0xFFffd700),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isDestructive ? Colors.red : Colors.white,
-          fontSize: 16,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
+  // تم حذف _buildMenuOption غير المستخدم
 
-  void _confirmDeleteOrder(AdminOrder order) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF16213e),
-        title: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
-        content: Text(
-          'هل أنت متأكد من حذف الطلب #${order.orderNumber}؟\nلا يمكن التراجع عن هذا الإجراء.',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteOrder(order);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('حذف'),
-          ),
-        ],
-      ),
-    );
-  }
+  // تم حذف _confirmDeleteOrder غير المستخدم
 
-  Future<void> _deleteOrder(AdminOrder order) async {
-    try {
-      await AdminService.deleteOrder(order.id);
-      _showInfoSnackBar('تم حذف الطلب بنجاح');
-      _refreshOrders();
-    } catch (e) {
-      _showErrorSnackBar('خطأ في حذف الطلب: $e');
-    }
-  }
+  // تم حذف _deleteOrder غير المستخدم
 
   Widget _buildScheduledOrdersList() {
     // بيانات تجريبية للطلبات المجدولة

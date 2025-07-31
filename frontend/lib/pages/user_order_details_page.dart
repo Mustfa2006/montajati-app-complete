@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order.dart';
-import '../models/order_item.dart' as OrderItemModel;
+import '../models/order_item.dart' as order_item_model;
 import '../widgets/common_header.dart';
 import '../utils/order_status_helper.dart';
 // تم إزالة جميع imports الإدارة - المستخدم لا يحتاج لها
@@ -77,7 +77,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           (orderResponse[itemsKey] as List?)?.map((item) {
             if (isScheduledOrder) {
               // للطلبات المجدولة - استخدام أسماء الأعمدة الصحيحة
-              return OrderItemModel.OrderItem(
+              return order_item_model.OrderItem(
                 id: item['id']?.toString() ?? '',
                 productId:
                     item['product_id']?.toString() ??
@@ -93,7 +93,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
               );
             } else {
               // للطلبات العادية
-              return OrderItemModel.OrderItem(
+              return order_item_model.OrderItem(
                 id: item['id']?.toString() ?? '',
                 productId: item['product_id'] ?? '',
                 name: item['product_name'] ?? '',
@@ -104,7 +104,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
               );
             }
           }).toList() ??
-          <OrderItemModel.OrderItem>[];
+          <order_item_model.OrderItem>[];
 
       // إنشاء كائن الطلب مع أسماء الأعمدة الصحيحة
       final order = Order(
@@ -313,11 +313,30 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   // 🗑️ تأكيد حذف الطلب
   Future<void> _confirmDeleteOrder() async {
     try {
-      // حذف الطلب من قاعدة البيانات
-      await Supabase.instance.client
+      debugPrint('🗑️ بدء حذف الطلب: ${_order!.id}');
+
+      // ✅ الخطوة 1: حذف معاملات الربح أولاً (مهم لتجنب خطأ Foreign Key)
+      final deleteProfitResponse = await Supabase.instance.client
+          .from('profit_transactions')
+          .delete()
+          .eq('order_id', _order!.id)
+          .select();
+
+      debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
+
+      // ✅ الخطوة 2: حذف الطلب من قاعدة البيانات (ستُحذف order_items تلقائياً بسبب CASCADE)
+      final deleteOrderResponse = await Supabase.instance.client
           .from('orders')
           .delete()
-          .eq('id', _order!.id);
+          .eq('id', _order!.id)
+          .select();
+
+      // ✅ التحقق من نجاح الحذف
+      if (deleteOrderResponse.isEmpty) {
+        throw Exception('لم يتم العثور على الطلب أو فشل في الحذف');
+      }
+
+      debugPrint('✅ تم حذف الطلب وعناصره بنجاح من قاعدة البيانات (CASCADE)');
 
       // إظهار رسالة نجاح
       if (mounted) {
@@ -328,15 +347,16 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           ),
         );
 
-        // العودة لصفحة الطلبات
+        // العودة لصفحة الطلبات (ستتحديث تلقائياً من قاعدة البيانات)
         context.go('/orders');
       }
     } catch (e) {
+      debugPrint('❌ خطأ في حذف الطلب: $e');
       // إظهار رسالة خطأ
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطأ في حذف الطلب: $e', style: GoogleFonts.cairo()),
+            content: Text('فشل في حذف الطلب: $e', style: GoogleFonts.cairo()),
             backgroundColor: Colors.red,
           ),
         );
@@ -739,7 +759,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     );
   }
 
-  Widget _buildOrderItem(OrderItemModel.OrderItem item) {
+  Widget _buildOrderItem(order_item_model.OrderItem item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(15),
@@ -972,7 +992,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   }
 
   // 🧮 دوال مساعدة للحصول على أسعار العناصر
-  double _getItemPrice(OrderItemModel.OrderItem item) {
+  double _getItemPrice(order_item_model.OrderItem item) {
     // إذا كان سعر العميل 0، استخدم سعر الجملة كبديل
     if (item.customerPrice > 0) {
       return item.customerPrice.toDouble();
@@ -983,14 +1003,14 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     }
   }
 
-  double _getItemTotal(OrderItemModel.OrderItem item) {
+  double _getItemTotal(order_item_model.OrderItem item) {
     // إذا كان total_price محفوظ في قاعدة البيانات، استخدمه
     // وإلا احسب من السعر والكمية
     double price = _getItemPrice(item);
     return price * item.quantity;
   }
 
-  bool _hasValidImage(OrderItemModel.OrderItem item) {
+  bool _hasValidImage(order_item_model.OrderItem item) {
     return item.image.isNotEmpty &&
         item.image != 'null' &&
         item.image.startsWith('http');

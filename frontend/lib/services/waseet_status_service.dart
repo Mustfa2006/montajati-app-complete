@@ -13,7 +13,7 @@ class WaseetStatusService {
   
   // الحالات المحلية المخزنة
   static List<WaseetStatus> _cachedStatuses = [];
-  static Map<String, List<WaseetStatus>> _categorizedStatuses = {};
+  static final Map<String, List<WaseetStatus>> _categorizedStatuses = {};
   static DateTime? _lastFetch;
 
   // جلب الحالات بتنسيق مناسب للحوار

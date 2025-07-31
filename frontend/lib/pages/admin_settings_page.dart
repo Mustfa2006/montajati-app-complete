@@ -74,7 +74,6 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
   bool _autoGenerateReports = true;
   int _reportFrequency = 7; // أيام
   bool _emailReports = true;
-  final List<String> _reportRecipients = [];
 
   // إعدادات الصلاحيات
   Map<String, bool> _permissions = <String, bool>{
@@ -246,20 +245,24 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
       // تطبيق الإعدادات على النظام
       await _applySystemSettings();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم حفظ إعدادات الإدارة بنجاح'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حفظ إعدادات الإدارة بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('خطأ في حفظ إعدادات الإدارة: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('خطأ في حفظ إعدادات الإدارة'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('خطأ في حفظ إعدادات الإدارة'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -1143,19 +1146,23 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
       // محاكاة عملية النسخ الاحتياطي
       await Future.delayed(const Duration(seconds: 3));
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('تم إنشاء النسخة الاحتياطية بنجاح'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم إنشاء النسخة الاحتياطية بنجاح'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('خطأ في إنشاء النسخة الاحتياطية'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('خطأ في إنشاء النسخة الاحتياطية'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -1321,7 +1328,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
                 return Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: isLoggedIn ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                    color: isLoggedIn ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isLoggedIn ? Colors.green : Colors.orange,
@@ -1425,7 +1432,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
+                color: Colors.orange.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.orange),
               ),
@@ -1616,7 +1623,7 @@ class _AdminSettingsPageState extends State<AdminSettingsPage> {
             Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.orange),
                 ),

@@ -18,8 +18,7 @@ class FlexibleDeliveryService {
   static final supabase = Supabase.instance.client;
 
   // معلومات النظام
-  static String? _currentProvider;
-  static final bool _isSystemHealthy = false;
+  // تم إزالة المتغيرات غير المستخدمة
 
   // ===================================
   // دوال مساعدة

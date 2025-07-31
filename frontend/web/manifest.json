@@ -1,11 +1,11 @@
 {
-    "name": "montajati_app",
-    "short_name": "montajati_app",
+    "name": "منتجاتي - Montajati",
+    "short_name": "منتجاتي",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1a1a2e",
+    "theme_color": "#ffd700",
+    "description": "تطبيق منتجاتي لإدارة الدروب شيبنغ في العراق",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

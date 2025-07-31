@@ -69,48 +69,7 @@ class UserManagementService {
     }
   }
 
-  // دالة مساعدة لحساب الأرباح للمستخدم
-  static Future<Map<String, dynamic>> _getUserProfitsStats(
-    String userId,
-  ) async {
-    try {
-      debugPrint('🔄 حساب الأرباح للمستخدم: $userId');
-
-      final ordersResponse = await _supabase
-          .from('orders')
-          .select('status, profit, total')
-          .eq('user_id', userId);
-
-      double achievedProfits = 0.0;
-      double expectedProfits = 0.0;
-
-      for (var order in ordersResponse) {
-        final profit = (order['profit'] ?? 0).toDouble();
-        final status = order['status'] ?? '';
-
-        if (status == 'completed' || status == 'delivered') {
-          achievedProfits += profit;
-        } else if (status == 'pending' ||
-            status == 'confirmed' ||
-            status == 'active' ||
-            status == 'in_delivery') {
-          expectedProfits += profit;
-        }
-      }
-
-      debugPrint(
-        '✅ الأرباح المحققة: $achievedProfits، المنتظرة: $expectedProfits',
-      );
-
-      return {
-        'achieved_profits': achievedProfits,
-        'expected_profits': expectedProfits,
-      };
-    } catch (e) {
-      debugPrint('❌ خطأ في حساب الأرباح: $e');
-      return {'achieved_profits': 0.0, 'expected_profits': 0.0};
-    }
-  }
+  // تم حذف _getUserProfitsStats غير المستخدم
 
   // دالة مساعدة لحساب إحصائيات طلبات المستخدم
   static Future<Map<String, dynamic>> _getUserOrdersStats(String userId) async {

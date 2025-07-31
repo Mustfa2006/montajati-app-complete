@@ -1487,47 +1487,5 @@ class _WithdrawPageState extends State<WithdrawPage>
     }
   }
 
-  // عرض نافذة المساعدة
-  void _showHelpDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1a1a2e),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'المساعدة',
-            style: GoogleFonts.cairo(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-          content: Text(
-            'الحد الأدنى للسحب: ${NumberFormatter.formatCurrency(1000)}\n\nطرق السحب المتاحة:\n• ماستر كارد: فوري ومجاني\n• زين كاش: قريباً (يمكن تفعيلها من لوحة التحكم)\n\nجميع عمليات السحب مجانية بدون رسوم',
-            style: GoogleFonts.cairo(
-              fontSize: 14,
-              color: const Color(0xFF6c757d),
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'فهمت',
-                style: GoogleFonts.cairo(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF17a2b8),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // تم إزالة دالة _showHelpDialog غير المستخدمة
 }

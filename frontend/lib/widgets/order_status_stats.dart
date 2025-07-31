@@ -28,7 +28,7 @@ class OrderStatusStats extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -108,9 +108,9 @@ class OrderStatusStats extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFffd700).withOpacity(0.1),
+        color: const Color(0xFFffd700).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFffd700).withOpacity(0.3)),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -149,9 +149,9 @@ class OrderStatusStats extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -178,7 +178,7 @@ class OrderStatusStats extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               '(${percentage.toStringAsFixed(1)}%)',
-              style: TextStyle(color: color.withOpacity(0.7), fontSize: 12),
+              style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 12),
             ),
           ],
         ),

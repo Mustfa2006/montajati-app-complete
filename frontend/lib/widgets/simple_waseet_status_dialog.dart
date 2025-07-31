@@ -11,11 +11,11 @@ class SimpleWaseetStatusDialog extends StatefulWidget {
   final Function(int statusId, String statusText) onStatusSelected;
 
   const SimpleWaseetStatusDialog({
-    Key? key,
+    super.key,
     required this.orderId,
     required this.currentStatus,
     required this.onStatusSelected,
-  }) : super(key: key);
+  });
 
   @override
   State<SimpleWaseetStatusDialog> createState() => _SimpleWaseetStatusDialogState();

@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// خدمة ذكية لحفظ حالة الدعم محلياً كطبقة حماية إضافية
 /// تضمن عدم فقدان حالة الأزرار حتى لو تم حذف التطبيق وإعادة تثبيته
 class SupportStatusCache {
-  static const String _cacheKey = 'support_status_cache';
+
   static const String _userCachePrefix = 'support_status_user_';
   
   /// حفظ حالة الدعم لطلب معين
@@ -33,9 +34,9 @@ class SupportStatusCache {
       // حفظ البيانات المحدثة
       await prefs.setString(userCacheKey, json.encode(userData));
       
-      print('💾 تم حفظ حالة الدعم للطلب $orderId: $requested');
+      debugPrint('💾 تم حفظ حالة الدعم للطلب $orderId: $requested');
     } catch (e) {
-      print('❌ خطأ في حفظ حالة الدعم: $e');
+      debugPrint('❌ خطأ في حفظ حالة الدعم: $e');
     }
   }
   
@@ -63,7 +64,7 @@ class SupportStatusCache {
       
       return null;
     } catch (e) {
-      print('❌ خطأ في جلب حالة الدعم: $e');
+      debugPrint('❌ خطأ في جلب حالة الدعم: $e');
       return null;
     }
   }
@@ -95,7 +96,7 @@ class SupportStatusCache {
       
       return supportedOrders;
     } catch (e) {
-      print('❌ خطأ في جلب الطلبات المدعومة: $e');
+      debugPrint('❌ خطأ في جلب الطلبات المدعومة: $e');
       return {};
     }
   }
@@ -135,10 +136,10 @@ class SupportStatusCache {
       // حفظ التغييرات إذا وجدت
       if (hasChanges) {
         await prefs.setString(userCacheKey, json.encode(localData));
-        print('🔄 تم مزامنة ${databaseData.length} طلب مع البيانات المحلية');
+        debugPrint('🔄 تم مزامنة ${databaseData.length} طلب مع البيانات المحلية');
       }
     } catch (e) {
-      print('❌ خطأ في مزامنة البيانات: $e');
+      debugPrint('❌ خطأ في مزامنة البيانات: $e');
     }
   }
   
@@ -156,9 +157,9 @@ class SupportStatusCache {
       
       // مسح البيانات
       await prefs.remove(userCacheKey);
-      print('🗑️ تم مسح بيانات الدعم المحلية للمستخدم');
+      debugPrint('🗑️ تم مسح بيانات الدعم المحلية للمستخدم');
     } catch (e) {
-      print('❌ خطأ في مسح البيانات المحلية: $e');
+      debugPrint('❌ خطأ في مسح البيانات المحلية: $e');
     }
   }
   
@@ -195,7 +196,7 @@ class SupportStatusCache {
         'cache_key': userCacheKey,
       };
     } catch (e) {
-      print('❌ خطأ في جلب إحصائيات البيانات: $e');
+      debugPrint('❌ خطأ في جلب إحصائيات البيانات: $e');
       return {};
     }
   }

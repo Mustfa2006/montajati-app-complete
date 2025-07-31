@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
@@ -26,7 +26,7 @@ class SupabaseTestService {
       // 1. اختبار الاتصال الأساسي
       debugPrint('📡 اختبار الاتصال الأساسي...');
       try {
-        final response = await _supabase.rest
+        await _supabase.rest
             .from('products')
             .select('count')
             .limit(1);
