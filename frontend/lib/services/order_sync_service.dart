@@ -48,11 +48,13 @@ class OrderSyncService {
       final waseetOrders = <Map<String, dynamic>>[];
       debugPrint('📦 تم جلب ${waseetOrders.length} طلب من شركة الوسيط');
 
-      // جلب الطلبات المحلية من قاعدة البيانات
+      // جلب الطلبات المحلية من قاعدة البيانات (استبعاد الحالات النهائية)
       final localOrdersResponse = await Supabase.instance.client
           .from('orders')
           .select('id, waseet_qr_id, status')
-          .not('waseet_qr_id', 'is', null);
+          .not('waseet_qr_id', 'is', null)
+          // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
+          .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled']);
 
       final localOrders = localOrdersResponse as List<dynamic>;
       debugPrint('💾 تم جلب ${localOrders.length} طلب محلي');
@@ -86,6 +88,13 @@ class OrderSyncService {
 
           // تحديث الحالة إذا كانت مختلفة
           if (localStatus != newLocalStatus) {
+            // ✅ فحص إذا كانت الحالة الحالية نهائية
+            final finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+            if (localStatus != null && finalStatuses.contains(localStatus)) {
+              debugPrint('⏹️ تم تجاهل تحديث الطلب $qrId - الحالة نهائية: $localStatus');
+              continue;
+            }
+
             debugPrint(
               '🔄 تحديث حالة الطلب $qrId من "$localStatus" إلى "$newLocalStatus"',
             );
@@ -469,6 +478,22 @@ class OrderSyncService {
 
         // تحديث الحالة المحلية
         final newLocalStatus = _mapWaseetStatusToLocal(statusId, status ?? '');
+
+        // ✅ فحص الحالة الحالية قبل التحديث
+        final currentOrderResponse = await Supabase.instance.client
+            .from('orders')
+            .select('status')
+            .eq('waseet_qr_id', qrId)
+            .single();
+
+        final currentStatus = currentOrderResponse['status'] as String?;
+
+        // ✅ تجاهل التحديث إذا كانت الحالة الحالية نهائية
+        final finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+        if (currentStatus != null && finalStatuses.contains(currentStatus)) {
+          debugPrint('⏹️ تم تجاهل تحديث الطلب $qrId - الحالة نهائية: $currentStatus');
+          return;
+        }
 
         await Supabase.instance.client
             .from('orders')

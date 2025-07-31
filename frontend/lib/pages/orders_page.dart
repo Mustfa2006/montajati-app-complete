@@ -81,21 +81,19 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// تحديث البيانات عند السحب للأسفل
   Future<void> _refreshData() async {
-    debugPrint('🔄 تحديث بيانات صفحة الطلبات...');
+    try {
+      debugPrint('🔄 تحديث بيانات صفحة الطلبات...');
 
-    // إعادة تحميل الطلبات مع ضمان الترتيب
-    await _loadOrders();
+      // ✅ إيقاف أي تحميل تدريجي جاري قبل التحديث
+      _ordersService.resetPagination();
 
-    // ✅ ضمان الترتيب الصحيح بعد التحديث
-    if (mounted) {
-      setState(() {
-        // إعادة ترتيب الطلبات للتأكد من أن الأحدث في المقدمة
-        _ordersService.orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        _scheduledOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      });
+      // إعادة تحميل الطلبات مع ضمان الترتيب
+      await _loadOrders();
+
+      debugPrint('✅ تم تحديث بيانات صفحة الطلبات بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في التحديث: $e');
     }
-
-    debugPrint('✅ تم تحديث بيانات صفحة الطلبات مع ضمان الترتيب الصحيح');
   }
 
   // جلب الطلبات العادية والمجدولة
@@ -104,7 +102,10 @@ class _OrdersPageState extends State<OrdersPage> {
 
     // ✅ مسح الـ cache وإجبار إعادة التحميل من قاعدة البيانات
     _ordersService.clearCache();
-    await _ordersService.loadOrders(forceRefresh: true);
+    await _ordersService.loadOrders(
+      forceRefresh: true,
+      statusFilter: selectedFilter == 'all' || selectedFilter == 'scheduled' ? null : selectedFilter,
+    );
 
     // جلب الطلبات المجدولة
     await _loadScheduledOrders();
@@ -175,7 +176,10 @@ class _OrdersPageState extends State<OrdersPage> {
     debugPrint('🔄 بدء تحميل خفيف للطلبات...');
 
     // ✅ حتى التحميل الخفيف يجب أن يتحقق من قاعدة البيانات
-    await _ordersService.loadOrders(forceRefresh: true);
+    await _ordersService.loadOrders(
+      forceRefresh: true,
+      statusFilter: selectedFilter == 'all' || selectedFilter == 'scheduled' ? null : selectedFilter,
+    );
 
     // جلب الطلبات المجدولة فقط إذا لم تكن محملة
     if (_scheduledOrders.isEmpty) {
@@ -245,7 +249,8 @@ class _OrdersPageState extends State<OrdersPage> {
   // ✅ تحويل الطلبات المجدولة إلى قائمة Order بدون إعادة تحميل
   void _convertScheduledOrdersToOrderList() {
     try {
-      _scheduledOrders.clear();
+      // ✅ إنشاء قائمة جديدة بدلاً من محاولة تعديل القائمة الموجودة
+      final List<Order> newScheduledOrders = [];
 
       for (final scheduledOrder in _scheduledOrdersService.scheduledOrders) {
         final order = Order(
@@ -282,8 +287,12 @@ class _OrdersPageState extends State<OrdersPage> {
           scheduledDate: scheduledOrder.scheduledDate,
           scheduleNotes: scheduledOrder.notes,
         );
-        _scheduledOrders.add(order);
+        newScheduledOrders.add(order);
       }
+
+      // ✅ استبدال القائمة بالكامل بدلاً من تعديلها
+      _scheduledOrders.clear();
+      _scheduledOrders.addAll(newScheduledOrders);
 
       debugPrint('✅ تم تحويل ${_scheduledOrders.length} طلب مجدول إلى Order');
     } catch (e) {
@@ -364,11 +373,13 @@ class _OrdersPageState extends State<OrdersPage> {
     List<Order> baseOrders;
     if (selectedFilter == 'scheduled') {
       // إذا كان الفلتر "مجدول"، اعرض الطلبات المجدولة فقط
-      baseOrders = List.from(_scheduledOrders);
+      // ✅ إنشاء نسخة قابلة للتعديل من القائمة
+      baseOrders = List<Order>.from(_scheduledOrders);
       debugPrint('📋 عرض الطلبات المجدولة فقط: ${baseOrders.length}');
     } else {
       // لجميع الفلاتر الأخرى، اعرض الطلبات العادية فقط
-      baseOrders = List.from(_ordersService.orders);
+      // ✅ إنشاء نسخة قابلة للتعديل من القائمة
+      baseOrders = List<Order>.from(_ordersService.orders);
       debugPrint('📋 عرض الطلبات العادية فقط: ${baseOrders.length}');
     }
 
@@ -403,43 +414,13 @@ class _OrdersPageState extends State<OrdersPage> {
     // تطبيق فلتر الحالة أولاً
     List<Order> statusFiltered = baseOrders;
 
-    if (selectedFilter != 'all' && selectedFilter != 'scheduled') {
-      // ✅ فلترة الطلبات العادية حسب الحالة (لا تنطبق على المجدولة)
-      switch (selectedFilter) {
-        case 'processing':
-          // إظهار الطلبات التي تحتاج معالجة
-          statusFiltered = baseOrders
-              .where((order) => _isProcessingStatus(order.rawStatus))
-              .toList();
-          debugPrint('🔍 عدد الطلبات التي تحتاج معالجة: ${statusFiltered.length}');
-          break;
-        case 'active':
-          // إظهار الطلبات النشطة باستخدام النص الحقيقي
-          statusFiltered = baseOrders
-              .where((order) => _isActiveStatus(order.rawStatus))
-              .toList();
-          debugPrint('🔍 عدد الطلبات النشطة: ${statusFiltered.length}');
-          break;
-        case 'in_delivery':
-          statusFiltered = baseOrders
-              .where((order) => _isInDeliveryStatus(order.rawStatus))
-              .toList();
-          break;
-        case 'delivered':
-          statusFiltered = baseOrders
-              .where((order) => _isDeliveredStatus(order.rawStatus))
-              .toList();
-          break;
-        case 'cancelled':
-          statusFiltered = baseOrders
-              .where((order) => _isCancelledStatus(order.rawStatus))
-              .toList();
-          break;
-      }
-    } else {
-      // ✅ للفلاتر "all" و "scheduled"، استخدم جميع الطلبات من baseOrders
+    if (selectedFilter == 'scheduled') {
+      // ✅ للطلبات المجدولة، استخدم جميع الطلبات من baseOrders
       statusFiltered = baseOrders;
-
+      debugPrint('🔍 عدد الطلبات المجدولة: ${statusFiltered.length}');
+    } else {
+      // ✅ للطلبات العادية، الفلترة تمت بالفعل على مستوى قاعدة البيانات
+      statusFiltered = baseOrders;
       debugPrint(
         '🔍 عدد الطلبات المفلترة للحالة $selectedFilter: ${statusFiltered.length}',
       );
@@ -692,13 +673,19 @@ class _OrdersPageState extends State<OrdersPage> {
   ) {
     bool isSelected = selectedFilter == status;
     int count = orderCounts[status] ?? 0;
-    double width = status == 'in_delivery' || status == 'delivered' || status == 'processing' ? 130 : 95;
+    double width = _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing' ? 130 : 95;
 
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         setState(() {
           selectedFilter = status;
         });
+
+        // ✅ إعادة تحميل البيانات مع الفلتر الجديد
+        if (status != 'scheduled') {
+          debugPrint('🔄 تغيير الفلتر إلى: $status - إعادة تحميل البيانات');
+          await _ordersService.loadOrders(forceRefresh: true, statusFilter: status == 'all' ? null : status);
+        }
       },
       child: IntrinsicHeight(
         child: AnimatedContainer(
@@ -739,7 +726,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   Text(
                     label,
                     style: GoogleFonts.cairo(
-                      fontSize: status == 'in_delivery' || status == 'delivered' || status == 'processing'
+                      fontSize: _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing'
                           ? 10 // تكبير النص قليلاً
                           : 11, // تكبير النص قليلاً
                       fontWeight: FontWeight.w600,
@@ -1855,7 +1842,7 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     // 🟢 الحالات المكتملة (أخضر)
-    if (statusText == 'تم التسليم للزبون' || statusText == 'delivered') {
+    if (_isDeliveredStatus(statusText)) {
       return {
         'borderColor': const Color(0xFF28a745), // أخضر لتم التسليم
         'shadowColor': const Color(0xFF28a745).withValues(alpha: 0.4),
@@ -1868,8 +1855,7 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     // 🔵 الحالات قيد التوصيل (أزرق)
-    if (statusText == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
-        statusText == 'in_delivery') {
+    if (_isInDeliveryStatus(statusText)) {
       return {
         'borderColor': const Color(0xFF007bff), // أزرق لقيد التوصيل
         'shadowColor': const Color(0xFF007bff).withValues(alpha: 0.4),
@@ -1911,9 +1897,7 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     // 🔴 الحالات الملغية والمرفوضة (أحمر)
-    if (statusText == 'الغاء الطلب' ||
-        statusText == 'رفض الطلب' ||
-        statusText == 'cancelled') {
+    if (_isCancelledStatus(statusText)) {
       return {
         'borderColor': const Color(0xFFdc3545), // أحمر للملغي والمرفوض
         'shadowColor': const Color(0xFFdc3545).withValues(alpha: 0.4),

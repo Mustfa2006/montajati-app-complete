@@ -65,7 +65,18 @@ class InstantStatusUpdater {
       // 2. تحويل الحالة من الوسيط إلى المحلية
       const newLocalStatus = statusMapper.mapWaseetToLocal(newWaseetStatus);
       
-      // 3. التحقق من تغيير الحالة
+      // 3. فحص إذا كانت الحالة الحالية نهائية
+      const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+      if (finalStatuses.includes(currentOrder.status)) {
+        console.log(`⏹️ تم تجاهل تحديث الطلب ${orderId} - الحالة نهائية: ${currentOrder.status}`);
+        return {
+          success: true,
+          changed: false,
+          message: `الحالة نهائية: ${currentOrder.status}`
+        };
+      }
+
+      // 4. التحقق من تغيير الحالة
       const hasStatusChanged = newLocalStatus !== currentOrder.status;
       const hasWaseetStatusChanged = newWaseetStatus !== currentOrder.waseet_status;
 
@@ -78,12 +89,12 @@ class InstantStatusUpdater {
         };
       }
 
-      // 4. التحقق من صحة الحالة الجديدة
+      // 5. التحقق من صحة الحالة الجديدة
       if (this.config.enableValidation && !this.validateStatusTransition(currentOrder.status, newLocalStatus)) {
         throw new Error(`انتقال حالة غير صحيح: ${currentOrder.status} → ${newLocalStatus}`);
       }
 
-      // 5. تحديث الطلب في قاعدة البيانات
+      // 6. تحديث الطلب في قاعدة البيانات
       const updateData = {
         waseet_status: newWaseetStatus,
         last_status_check: new Date().toISOString(),

@@ -147,6 +147,8 @@ class SmartSyncService {
         `)
         .not('waseet_order_id', 'is', null)
         .in('status', ['active', 'in_delivery'])
+        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
+        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'])
         .or(`last_status_check.is.null,last_status_check.lt.${cutoffTime.toISOString()}`)
         .order('last_status_check', { ascending: true, nullsFirst: true })
         .limit(this.syncConfig.batchSize);
@@ -235,6 +237,13 @@ class SmartSyncService {
   // ===================================
   async smartUpdateOrderStatus(order, statusResult) {
     try {
+      // ✅ فحص إذا كانت الحالة الحالية نهائية
+      const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+      if (finalStatuses.includes(order.status)) {
+        console.log(`⏹️ تم تجاهل تحديث الطلب ${order.order_number} - الحالة نهائية: ${order.status}`);
+        return false;
+      }
+
       const now = new Date().toISOString();
 
       // بدء معاملة قاعدة البيانات

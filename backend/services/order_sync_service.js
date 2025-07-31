@@ -359,11 +359,13 @@ class OrderSyncService {
     try {
       console.log(`🔄 بدء مزامنة حالات الطلبات مع شركة الوسيط...`);
 
-      // جلب جميع الطلبات المرسلة للوسيط
+      // جلب جميع الطلبات المرسلة للوسيط (استبعاد الحالات النهائية)
       const { data: orders, error } = await this.supabase
         .from('orders')
         .select('id, waseet_order_id, status, customer_name')
-        .not('waseet_order_id', 'is', null);
+        .not('waseet_order_id', 'is', null)
+        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
+        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled']);
 
       if (error) {
         console.error(`❌ خطأ في جلب الطلبات المرسلة للوسيط:`, error);
@@ -379,6 +381,13 @@ class OrderSyncService {
           const statusResult = await this.checkOrderStatus(order.waseet_order_id);
           
           if (statusResult && statusResult.status !== order.status) {
+            // ✅ فحص إذا كانت الحالة الحالية نهائية
+            const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+            if (finalStatuses.includes(order.status)) {
+              console.log(`⏹️ تم تجاهل تحديث الطلب ${order.id} - الحالة نهائية: ${order.status}`);
+              continue;
+            }
+
             // تحديث حالة الطلب
             await this.supabase
               .from('orders')

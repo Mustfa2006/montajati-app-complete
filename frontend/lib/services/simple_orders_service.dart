@@ -29,6 +29,9 @@ class SimpleOrdersService extends ChangeNotifier {
   static const int _pageSize = 25; // تحميل 25 طلب في كل مرة
   bool _isLoadingMore = false;
 
+  // ✅ متغير الفلتر الحالي
+  String? _currentFilter;
+
   // عدادات الطلبات الكاملة (من قاعدة البيانات)
   Map<String, int> _fullOrderCounts = {
     'all': 0,
@@ -44,18 +47,27 @@ class SimpleOrdersService extends ChangeNotifier {
   DateTime? get lastUpdate => _lastUpdate;
   bool get hasMoreData => _hasMoreData;
   bool get isLoadingMore => _isLoadingMore;
+  String? get currentFilter => _currentFilter;
   Map<String, int> get fullOrderCounts => Map.unmodifiable(_fullOrderCounts);
 
   /// جلب الطلبات من قاعدة البيانات مباشرة (الصفحة الأولى فقط)
-  Future<void> loadOrders({bool forceRefresh = false}) async {
-    debugPrint('🚀 loadOrders استدعي - forceRefresh: $forceRefresh, isLoading: $_isLoading');
+  Future<void> loadOrders({bool forceRefresh = false, String? statusFilter}) async {
+    debugPrint('🚀 loadOrders استدعي - forceRefresh: $forceRefresh, statusFilter: $statusFilter, isLoading: $_isLoading');
     if (_isLoading) {
       debugPrint('⚠️ تم تجاهل loadOrders لأن التحميل جاري بالفعل');
       return;
     }
 
+    // ✅ إذا تغير الفلتر، أجبر إعادة التحميل
+    bool filterChanged = _currentFilter != statusFilter;
+    if (filterChanged) {
+      debugPrint('🔄 تغير الفلتر من "$_currentFilter" إلى "$statusFilter" - إجبار إعادة التحميل');
+      _currentFilter = statusFilter;
+      forceRefresh = true;
+    }
+
     // ✅ فحص الـ cache - تجنب التحميل المتكرر
-    if (!forceRefresh && _lastUpdate != null) {
+    if (!forceRefresh && _lastUpdate != null && !filterChanged) {
       final timeSinceLastUpdate = DateTime.now().difference(_lastUpdate!);
       if (timeSinceLastUpdate < _cacheTimeout) {
         debugPrint('📋 استخدام البيانات المحفوظة (${_orders.length} طلب)');
@@ -93,9 +105,14 @@ class SimpleOrdersService extends ChangeNotifier {
       // ✅ جلب الطلبات مباشرة للمستخدم من قاعدة البيانات (أسرع)
       List<AdminOrder> userOrders;
       try {
-        userOrders = await _getUserOrdersDirectly(currentUserPhone, page: _currentPage, pageSize: _pageSize);
+        userOrders = await _getUserOrdersDirectly(
+          currentUserPhone,
+          page: _currentPage,
+          pageSize: _pageSize,
+          statusFilter: _currentFilter,
+        );
         debugPrint(
-          '✅ تم جلب ${userOrders.length} طلب للمستخدم من قاعدة البيانات مباشرة',
+          '✅ تم جلب ${userOrders.length} طلب للمستخدم من قاعدة البيانات مباشرة مع فلتر: $_currentFilter',
         );
       } catch (e) {
         debugPrint('❌ فشل الجلب المباشر، استخدام الطريقة الاحتياطية: $e');
@@ -232,7 +249,10 @@ class SimpleOrdersService extends ChangeNotifier {
 
   /// تحميل المزيد من الطلبات (للتحميل التدريجي)
   Future<void> loadMoreOrders() async {
-    if (_isLoadingMore || !_hasMoreData) return;
+    if (_isLoadingMore || !_hasMoreData || _isLoading) {
+      debugPrint('⚠️ تم تجاهل loadMoreOrders - isLoadingMore: $_isLoadingMore, hasMoreData: $_hasMoreData, isLoading: $_isLoading');
+      return;
+    }
 
     _isLoadingMore = true;
     notifyListeners();
@@ -247,11 +267,12 @@ class SimpleOrdersService extends ChangeNotifier {
 
       debugPrint('🔄 تحميل المزيد من الطلبات - الصفحة: $_currentPage');
 
-      // جلب الطلبات للصفحة التالية
+      // جلب الطلبات للصفحة التالية مع نفس الفلتر
       final userOrders = await _getUserOrdersDirectly(
         currentUserPhone,
         page: _currentPage,
-        pageSize: _pageSize
+        pageSize: _pageSize,
+        statusFilter: _currentFilter,
       );
 
       if (userOrders.isNotEmpty) {
@@ -302,8 +323,14 @@ class SimpleOrdersService extends ChangeNotifier {
           convertedOrders.add(order);
         }
 
-        // إضافة الطلبات الجديدة للقائمة الموجودة
-        _orders.addAll(convertedOrders);
+        // ✅ فلترة الطلبات المكررة قبل الإضافة
+        final existingOrderIds = _orders.map((order) => order.id).toSet();
+        final newOrders = convertedOrders.where((order) => !existingOrderIds.contains(order.id)).toList();
+
+        debugPrint('🔍 فلترة الطلبات المكررة: ${convertedOrders.length} طلب جديد، ${newOrders.length} طلب فريد');
+
+        // إضافة الطلبات الجديدة غير المكررة فقط
+        _orders.addAll(newOrders);
 
         // ✅ ترتيب القائمة بعد إضافة الطلبات الجديدة لضمان الترتيب الصحيح
         _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -312,7 +339,7 @@ class SimpleOrdersService extends ChangeNotifier {
         _hasMoreData = userOrders.length == _pageSize;
         _currentPage++;
 
-        debugPrint('✅ تم تحميل ${convertedOrders.length} طلب إضافي. المجموع: ${_orders.length}');
+        debugPrint('✅ تم تحميل ${newOrders.length} طلب إضافي جديد من أصل ${convertedOrders.length}. المجموع: ${_orders.length}');
       } else {
         _hasMoreData = false;
         debugPrint('✅ لا توجد طلبات إضافية');
@@ -329,7 +356,9 @@ class SimpleOrdersService extends ChangeNotifier {
   void resetPagination() {
     _currentPage = 0;
     _hasMoreData = true;
+    _isLoadingMore = false; // ✅ إيقاف أي تحميل تدريجي جاري
     _orders.clear();
+    debugPrint('🔄 تم إعادة تعيين التحميل التدريجي');
   }
 
   /// دالة تحويل حالة الطلب من AdminOrder إلى OrderStatus
@@ -743,7 +772,7 @@ class SimpleOrdersService extends ChangeNotifier {
   }
 
   /// ✅ جلب الطلبات مباشرة للمستخدم من قاعدة البيانات (محسّن للأداء مع التحميل التدريجي)
-  Future<List<AdminOrder>> _getUserOrdersDirectly(String userPhone, {int page = 0, int pageSize = 25}) async {
+  Future<List<AdminOrder>> _getUserOrdersDirectly(String userPhone, {int page = 0, int pageSize = 25, String? statusFilter}) async {
     try {
       debugPrint('📊 جلب الطلبات مباشرة للمستخدم: $userPhone');
       debugPrint('📄 معاملات التحميل: page=$page, pageSize=$pageSize');
@@ -755,9 +784,10 @@ class SimpleOrdersService extends ChangeNotifier {
 
       // ✅ استعلام مباشر من قاعدة البيانات للمستخدم فقط
       final supabase = Supabase.instance.client;
-      debugPrint('📡 تنفيذ استعلام قاعدة البيانات للمستخدم: $userPhone');
+      debugPrint('📡 تنفيذ استعلام قاعدة البيانات للمستخدم: $userPhone مع فلتر: $statusFilter');
 
-      final response = await supabase
+      // بناء الاستعلام الأساسي
+      var query = supabase
           .from('orders')
           .select('''
             *,
@@ -773,7 +803,18 @@ class SimpleOrdersService extends ChangeNotifier {
               profit_per_item
             )
           ''')
-          .eq('user_phone', userPhone)
+          .eq('user_phone', userPhone);
+
+      // ✅ تطبيق فلتر الحالة إذا كان محدد
+      if (statusFilter != null && statusFilter != 'all' && statusFilter != 'scheduled') {
+        List<String> statusValues = _getStatusValuesForFilter(statusFilter);
+        if (statusValues.isNotEmpty) {
+          debugPrint('🔍 تطبيق فلتر الحالة: $statusFilter -> $statusValues');
+          query = query.inFilter('status', statusValues);
+        }
+      }
+
+      final response = await query
           .order('created_at', ascending: false)
           .range(startRange, endRange);
 
@@ -879,6 +920,42 @@ class SimpleOrdersService extends ChangeNotifier {
 
       // إعادة رمي الخطأ ليتم التعامل معه في loadOrders
       rethrow;
+    }
+  }
+
+  /// ✅ تحويل فلتر الواجهة إلى قيم حالات قاعدة البيانات
+  List<String> _getStatusValuesForFilter(String filter) {
+    switch (filter) {
+      case 'active':
+        return ['نشط', 'active'];
+      case 'in_delivery':
+        return ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'];
+      case 'delivered':
+        return ['تم التسليم للزبون', 'delivered'];
+      case 'cancelled':
+        return ['الغاء الطلب', 'رفض الطلب', 'cancelled'];
+      case 'processing':
+        return [
+          'تم تغيير محافظة الزبون',
+          'تغيير المندوب',
+          'لا يرد',
+          'لا يرد بعد الاتفاق',
+          'مغلق',
+          'مغلق بعد الاتفاق',
+          'الرقم غير معرف',
+          'الرقم غير داخل في الخدمة',
+          'لا يمكن الاتصال بالرقم',
+          'مؤجل',
+          'مؤجل لحين اعادة الطلب لاحقا',
+          'مفصول عن الخدمة',
+          'طلب مكرر',
+          'مستلم مسبقا',
+          'العنوان غير دقيق',
+          'لم يطلب',
+          'حظر المندوب'
+        ];
+      default:
+        return [];
     }
   }
 }

@@ -267,7 +267,7 @@ class OrderStatusSyncService {
       // إخفاء رسالة جلب الطلبات
       // console.log('📋 جلب الطلبات المؤهلة للمزامنة...');
 
-      // جلب الطلبات التي تحتاج مزامنة
+      // جلب الطلبات التي تحتاج مزامنة (استبعاد الحالات النهائية)
       const { data: orders, error } = await this.supabase
         .from('orders')
         .select(`
@@ -281,6 +281,8 @@ class OrderStatusSyncService {
           created_at
         `)
         .in('status', ['active', 'in_delivery'])
+        // ✅ استبعاد الحالات النهائية التي لا تحتاج مراقبة
+        .not('status', 'in', ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'])
         .not('waseet_order_id', 'is', null)
         // تجنب الطلبات التجريبية في الإنتاج
         .not('order_number', 'like', process.env.NODE_ENV === 'production' ? '%TEST%' : 'NEVER_MATCH')
@@ -387,8 +389,15 @@ class OrderStatusSyncService {
   // ===================================
   async updateOrderStatus(order, statusResult) {
     try {
+      // ✅ فحص إذا كانت الحالة الحالية نهائية
+      const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+      if (finalStatuses.includes(order.status)) {
+        console.log(`⏹️ تم تجاهل تحديث الطلب ${order.order_number} - الحالة نهائية: ${order.status}`);
+        return false;
+      }
+
       const now = new Date().toISOString();
-      
+
       console.log(`🔄 تحديث حالة الطلب ${order.order_number} من ${order.status} إلى ${statusResult.localStatus}`);
 
       // بدء معاملة قاعدة البيانات
