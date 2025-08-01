@@ -10,6 +10,7 @@ import 'dart:convert';
 
 import '../services/simple_orders_service.dart';
 import '../services/scheduled_orders_service.dart';
+import '../services/global_orders_cache.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
 import '../utils/error_handler.dart';
 import '../services/order_sync_service.dart';
@@ -38,6 +39,9 @@ class _OrdersPageState extends State<OrdersPage> {
   final ScheduledOrdersService _scheduledOrdersService =
       ScheduledOrdersService();
 
+  // ⚡ Global Cache للعرض الفوري
+  final GlobalOrdersCache _globalCache = GlobalOrdersCache();
+
   // متحكم التمرير للتحميل التدريجي
   final ScrollController _scrollController = ScrollController();
 
@@ -63,8 +67,8 @@ class _OrdersPageState extends State<OrdersPage> {
     // إعداد مستمع التمرير للتحميل التدريجي
     _scrollController.addListener(_onScroll);
 
-    // جلب الطلبات من قاعدة البيانات
-    _loadOrders();
+    // ⚡ عرض فوري للبيانات المخزنة - بدون انتظار!
+    _displayCachedDataInstantly();
 
     // إضافة مستمع لإعادة تحميل الطلبات عند العودة للصفحة
     _ordersService.addListener(_onOrdersChanged);
@@ -72,11 +76,52 @@ class _OrdersPageState extends State<OrdersPage> {
     // ✅ إضافة مستمع للطلبات المجدولة
     _scheduledOrdersService.addListener(_onScheduledOrdersChanged);
 
+    // ⚡ إضافة مستمع للكاش العالمي
+    _globalCache.addListener(_onGlobalCacheChanged);
+
     // إعادة تعيين الفلتر إلى "الكل" لضمان رؤية الطلبات الجديدة
     selectedFilter = 'all';
 
     // بدء مراقبة تحديثات الطلبات من شركة الوسيط
     OrderSyncService.startOrderSync();
+
+    // 🔄 تحديث في الخلفية (بدون توقف الواجهة)
+    _updateInBackground();
+  }
+
+  /// ⚡ عرض فوري للبيانات المخزنة
+  void _displayCachedDataInstantly() {
+    debugPrint('⚡ عرض فوري للبيانات المخزنة...');
+
+    if (_globalCache.isInitialized) {
+      debugPrint('⚡ الكاش مهيأ - عرض ${_globalCache.orders.length} طلب فوراً');
+      if (mounted) {
+        setState(() {});
+      }
+    } else {
+      debugPrint('⚠️ الكاش غير مهيأ - سيتم التهيئة');
+    }
+  }
+
+  /// 🔄 تحديث في الخلفية
+  Future<void> _updateInBackground() async {
+    debugPrint('🔄 بدء التحديث في الخلفية...');
+
+    // تهيئة الكاش إذا لم يكن مهيأ
+    if (!_globalCache.isInitialized) {
+      await _globalCache.initialize();
+    }
+
+    // تحديث في الخلفية
+    _globalCache.updateInBackground();
+  }
+
+  /// ⚡ مستمع تغييرات الكاش العالمي
+  void _onGlobalCacheChanged() {
+    debugPrint('⚡ تم تحديث الكاش العالمي - إعادة بناء الواجهة');
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   /// تحديث البيانات عند السحب للأسفل
@@ -84,11 +129,8 @@ class _OrdersPageState extends State<OrdersPage> {
     try {
       debugPrint('🔄 تحديث بيانات صفحة الطلبات...');
 
-      // ✅ إيقاف أي تحميل تدريجي جاري قبل التحديث
-      _ordersService.resetPagination();
-
-      // إعادة تحميل الطلبات مع ضمان الترتيب
-      await _loadOrders();
+      // ✅ فرض تحديث الكاش العالمي
+      await _globalCache.forceRefresh();
 
       debugPrint('✅ تم تحديث بيانات صفحة الطلبات بنجاح');
     } catch (e) {
@@ -212,9 +254,8 @@ class _OrdersPageState extends State<OrdersPage> {
     _scrollController.dispose();
     _searchController.dispose();
     _ordersService.removeListener(_onOrdersChanged);
-    _scheduledOrdersService.removeListener(
-      _onScheduledOrdersChanged,
-    ); // ✅ إزالة مستمع الطلبات المجدولة
+    _scheduledOrdersService.removeListener(_onScheduledOrdersChanged);
+    _globalCache.removeListener(_onGlobalCacheChanged); // ⚡ إزالة مستمع الكاش العالمي
     super.dispose();
   }
 
@@ -383,17 +424,17 @@ class _OrdersPageState extends State<OrdersPage> {
 
   // فلترة الطلبات حسب الحالة والبحث
   List<Order> get filteredOrders {
-    // ✅ اختيار الطلبات حسب الفلتر المحدد
+    // ⚡ استخدام الكاش العالمي للعرض الفوري
     List<Order> baseOrders;
     if (selectedFilter == 'scheduled') {
       // إذا كان الفلتر "مجدول"، اعرض الطلبات المجدولة فقط
-      // ✅ إنشاء نسخة قابلة للتعديل من القائمة
-      baseOrders = List<Order>.from(_scheduledOrders);
+      baseOrders = _globalCache.getScheduledOrdersAsOrders();
       debugPrint('📋 عرض الطلبات المجدولة فقط: ${baseOrders.length}');
     } else {
-      // لجميع الفلاتر الأخرى، اعرض الطلبات العادية فقط
-      // ✅ إنشاء نسخة قابلة للتعديل من القائمة
-      baseOrders = List<Order>.from(_ordersService.orders);
+      // لجميع الفلاتر الأخرى، اعرض الطلبات العادية فقط من الكاش
+      baseOrders = _globalCache.getFilteredOrders(
+        selectedFilter == 'all' ? null : selectedFilter
+      );
       debugPrint('📋 عرض الطلبات العادية فقط: ${baseOrders.length}');
     }
 
@@ -691,20 +732,21 @@ class _OrdersPageState extends State<OrdersPage> {
 
     return GestureDetector(
       onTap: () async {
-        // ⚡ تحديث فوري للواجهة
+        // ⚡ تحديث فوري للواجهة - عرض فوري من الكاش
         setState(() {
           selectedFilter = status;
         });
 
-        // ⚡ عرض النتائج فوراً بدون انتظار
+        debugPrint('⚡ تغيير الفلتر إلى: $status - عرض فوري من الكاش');
+
+        // ⚡ عرض النتائج فوراً من الكاش العالمي
         if (mounted) {
           setState(() {});
         }
 
-        // 🔄 تحديث البيانات في الخلفية
+        // 🔄 تحديث في الخلفية (اختياري)
         if (status != 'scheduled') {
-          debugPrint('🔄 تغيير الفلتر إلى: $status - تحديث البيانات في الخلفية');
-          await _ordersService.loadOrders(forceRefresh: true, statusFilter: status == 'all' ? null : status);
+          _globalCache.updateInBackground();
         }
       },
       child: IntrinsicHeight(

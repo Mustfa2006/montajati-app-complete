@@ -19,6 +19,7 @@ import 'services/fcm_service.dart';
 import 'services/order_status_monitor.dart';
 import 'services/smart_profit_transfer.dart';
 import 'services/lazy_loading_service.dart';
+import 'services/global_orders_cache.dart';
 
 
 
@@ -144,6 +145,15 @@ void main() async {
 Future<void> _initializeEssentialServices() async {
   try {
     debugPrint('⚡ بدء تهيئة الخدمات الأساسية...');
+
+    // ⚡ تهيئة الكاش العالمي للطلبات (أولوية قصوى)
+    try {
+      debugPrint('⚡ تهيئة الكاش العالمي للطلبات...');
+      await GlobalOrdersCache().initialize();
+      debugPrint('✅ تم تهيئة الكاش العالمي بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في تهيئة الكاش العالمي: $e');
+    }
 
     // إعدادات API (سريع جداً)
     try {
