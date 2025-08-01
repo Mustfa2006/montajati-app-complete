@@ -95,18 +95,25 @@ class GlobalOrdersCache extends ChangeNotifier {
 
   /// 📊 تحميل جميع البيانات
   Future<void> _loadAllData() async {
-    // تحميل الطلبات العادية
-    final ordersService = SimpleOrdersService();
-    await ordersService.loadOrders(forceRefresh: true);
-    _orders = List.from(ordersService.orders);
-    
-    // تحميل الطلبات المجدولة
-    final scheduledService = ScheduledOrdersService();
-    final prefs = await SharedPreferences.getInstance();
-    final currentUserPhone = prefs.getString('current_user_phone');
-    
-    await scheduledService.loadScheduledOrders(userPhone: currentUserPhone);
-    _scheduledOrders = List.from(scheduledService.scheduledOrders);
+    try {
+      // تحميل الطلبات العادية
+      final ordersService = SimpleOrdersService();
+      await ordersService.loadOrders(forceRefresh: true);
+      _orders = List.from(ordersService.orders);
+
+      // تحميل الطلبات المجدولة
+      final scheduledService = ScheduledOrdersService();
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserPhone = prefs.getString('current_user_phone');
+
+      await scheduledService.loadScheduledOrders(userPhone: currentUserPhone);
+      _scheduledOrders = List.from(scheduledService.scheduledOrders);
+    } catch (e) {
+      debugPrint('❌ خطأ في تحميل البيانات: $e');
+      // في حالة الخطأ، نحتفظ بالبيانات الحالية
+      _orders = _orders.isEmpty ? [] : _orders;
+      _scheduledOrders = _scheduledOrders.isEmpty ? [] : _scheduledOrders;
+    }
   }
 
   /// ⚡ الحصول على الطلبات المفلترة فوراً

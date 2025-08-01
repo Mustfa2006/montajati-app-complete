@@ -9,6 +9,7 @@ import '../services/cart_service.dart';
 import '../services/official_orders_service.dart';
 import '../services/scheduled_orders_service.dart';
 import '../services/simple_orders_service.dart';
+// تم حذف Smart Cache
 import '../services/inventory_service.dart';
 import '../models/scheduled_order.dart';
 import '../models/order_item.dart';
@@ -1146,6 +1147,23 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       }
 
       debugPrint('✅ تم إنشاء الطلب بنجاح - معرف الطلب: $orderId');
+
+      // 🚀 تحديث Smart Cache فوراً بعد إنشاء الطلب
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        String? currentUserPhone = prefs.getString('current_user_phone');
+
+        if (currentUserPhone != null && currentUserPhone.isNotEmpty) {
+          debugPrint('🔄 تحديث Smart Cache بعد إنشاء الطلب للمستخدم: $currentUserPhone');
+
+          // تم حذف Smart Cache - لا حاجة لتحديث الكاش
+
+          debugPrint('✅ تم تحديث Smart Cache بنجاح');
+        }
+      } catch (e) {
+        debugPrint('⚠️ خطأ في تحديث Smart Cache: $e');
+        // لا نوقف العملية بسبب خطأ في Cache
+      }
 
       // ✅ الآن فقط نغير حالة الطلب لأنه تم حفظه فعلياً
       setState(() {

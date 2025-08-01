@@ -168,17 +168,26 @@ class FCMService {
       // الحصول على معلومات الجهاز
       final deviceInfo = await _getDeviceInfo();
       
-      // ✅ حفظ Token في قاعدة البيانات مع معالجة الاستجابة
-      final response = await _supabase.rpc('upsert_fcm_token', params: {
-        'p_user_phone': userPhone,
-        'p_fcm_token': token,
-        'p_device_info': deviceInfo,
-      });
-
-      if (response != null) {
+      // ✅ حفظ Token في قاعدة البيانات مع معالجة التكرار
+      try {
+        await _supabase.rpc('upsert_fcm_token', params: {
+          'p_user_phone': userPhone,
+          'p_fcm_token': token,
+          'p_device_info': deviceInfo,
+        });
         debugPrint('✅ تم حفظ FCM Token للمستخدم: $userPhone');
-      } else {
-        debugPrint('⚠️ تم حفظ FCM Token ولكن بدون استجابة من الخادم');
+      } catch (e) {
+        if (e.toString().contains('duplicate key value violates unique constraint')) {
+          debugPrint('⚠️ FCM Token موجود بالفعل - تحديث آخر استخدام');
+          // تحديث آخر استخدام للـ Token الموجود
+          await _supabase
+              .from('fcm_tokens')
+              .update({'last_used_at': DateTime.now().toIso8601String()})
+              .eq('user_phone', userPhone)
+              .eq('fcm_token', token);
+          return;
+        }
+        rethrow;
       }
       
     } catch (e) {

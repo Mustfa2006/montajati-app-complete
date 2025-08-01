@@ -29,7 +29,11 @@ class DatabaseMigrationService {
         await _supabase.rpc('execute_sql', params: {'sql': basicFieldsQuery});
         debugPrint('✅ تم إضافة الحقول الأساسية بنجاح');
       } catch (e) {
-        debugPrint('⚠️ خطأ في إضافة الحقول الأساسية: $e');
+        if (e.toString().contains('Could not find the function public.execute_sql')) {
+          debugPrint('⚠️ دالة execute_sql غير متوفرة - تخطي تحديث قاعدة البيانات');
+          return;
+        }
+        debugPrint('! خطأ في إضافة الحقول الأساسية: $e');
       }
 
       // تحديث البيانات الموجودة
@@ -54,6 +58,10 @@ class DatabaseMigrationService {
         await _supabase.rpc('execute_sql', params: {'sql': updateDataQuery});
         debugPrint('✅ تم تحديث البيانات الموجودة بنجاح');
       } catch (e) {
+        if (e.toString().contains('Could not find the function public.execute_sql')) {
+          debugPrint('⚠️ دالة execute_sql غير متوفرة - تخطي تحديث البيانات');
+          return;
+        }
         debugPrint('⚠️ خطأ في تحديث البيانات: $e');
       }
 

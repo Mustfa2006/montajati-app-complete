@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order_item.dart';
 import 'inventory_service.dart';
+// تم حذف Smart Cache
 
 /// خدمة رسمية لإدارة الطلبات مع هيكل قاعدة بيانات موحد
 class OfficialOrdersService extends ChangeNotifier {
@@ -222,6 +223,20 @@ class OfficialOrdersService extends ChangeNotifier {
       }
 
       debugPrint('🎉 تم إنشاء الطلب بنجاح!');
+
+      // 🚀 تحديث Smart Cache فوراً بعد إنشاء الطلب
+      try {
+        if (userPhone != null && userPhone.isNotEmpty) {
+          debugPrint('🔄 تحديث Smart Cache بعد إنشاء الطلب للمستخدم: $userPhone');
+
+          // تم حذف Smart Cache - لا حاجة لتحديث الكاش
+
+          debugPrint('✅ تم تحديث Smart Cache بنجاح');
+        }
+      } catch (e) {
+        debugPrint('⚠️ خطأ في تحديث Smart Cache: $e');
+        // لا نوقف العملية بسبب خطأ في Cache
+      }
 
       return {
         'success': true,

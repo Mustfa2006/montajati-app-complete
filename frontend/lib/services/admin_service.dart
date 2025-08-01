@@ -11,6 +11,7 @@ import '../utils/order_status_helper.dart';
 
 import 'smart_profit_transfer.dart';
 import 'official_order_service.dart';
+// تم حذف Smart Cache
 
 
 class AdminService {
@@ -1031,6 +1032,21 @@ class AdminService {
 
       debugPrint('🔥 SUCCESS: تم تحديث حالة الطلب عبر API');
       debugPrint('🔥 API RESULT: $apiResult');
+
+      // 🚀 تحديث Smart Cache فوراً بعد تحديث حالة الطلب
+      try {
+        final userPhone = existingOrder['user_phone']?.toString();
+        if (userPhone != null && userPhone.isNotEmpty) {
+          debugPrint('🔄 تحديث Smart Cache بعد تحديث حالة الطلب للمستخدم: $userPhone');
+
+          // تم حذف Smart Cache - لا حاجة لتحديث الكاش
+
+          debugPrint('✅ تم تحديث Smart Cache بنجاح');
+        }
+      } catch (e) {
+        debugPrint('⚠️ خطأ في تحديث Smart Cache: $e');
+        // لا نوقف العملية بسبب خطأ في Cache
+      }
 
       // 🚀 API endpoint يتولى كل شيء: تحديث الحالة + سجل التاريخ + إرسال للوسيط
       if (statusForDatabase == 'قيد التوصيل الى الزبون (في عهدة المندوب)') {

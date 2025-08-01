@@ -102,24 +102,54 @@ class Order {
   }
 
   static OrderStatus _parseOrderStatus(String? status) {
-    switch (status) {
-      case 'pending':
-      case 'active': // إضافة دعم للحالة active من قاعدة البيانات
-        return OrderStatus.pending;
-      case 'confirmed':
-        return OrderStatus.confirmed;
-      case 'قيد التوصيل الى الزبون (في عهدة المندوب)':
-      case 'قيد التوصيل':
-      case 'shipping':
-      case 'shipped':
-        return OrderStatus.inDelivery;
-      case 'delivered':
-        return OrderStatus.delivered;
-      case 'cancelled':
-        return OrderStatus.cancelled;
-      default:
-        return OrderStatus.pending;
+    if (status == null) return OrderStatus.pending;
+
+    final statusLower = status.toLowerCase();
+
+    // حالات نشطة/معالجة
+    if (statusLower.contains('نشط') ||
+        statusLower.contains('active') ||
+        statusLower.contains('pending') ||
+        statusLower.contains('معالجة') ||
+        statusLower.contains('processing')) {
+      return OrderStatus.pending;
     }
+
+    // حالات مؤكدة
+    if (statusLower.contains('confirmed') ||
+        statusLower.contains('مؤكد')) {
+      return OrderStatus.confirmed;
+    }
+
+    // حالات قيد التوصيل
+    if (statusLower.contains('قيد التوصيل') ||
+        statusLower.contains('في عهدة المندوب') ||
+        statusLower.contains('shipping') ||
+        statusLower.contains('shipped') ||
+        statusLower.contains('in_delivery')) {
+      return OrderStatus.inDelivery;
+    }
+
+    // حالات تم التسليم
+    if (statusLower.contains('تم التسليم') ||
+        statusLower.contains('delivered') ||
+        statusLower.contains('مكتمل') ||
+        statusLower.contains('completed')) {
+      return OrderStatus.delivered;
+    }
+
+    // حالات ملغية
+    if (statusLower.contains('الغاء') ||
+        statusLower.contains('رفض') ||
+        statusLower.contains('ارجاع') ||
+        statusLower.contains('cancelled') ||
+        statusLower.contains('canceled') ||
+        statusLower.contains('ملغي')) {
+      return OrderStatus.cancelled;
+    }
+
+    // الافتراضي
+    return OrderStatus.pending;
   }
 
   static String _orderStatusToString(OrderStatus status) {

@@ -78,11 +78,7 @@ class _ProfitsPageState extends State<ProfitsPage>
       debugPrint('🔄 بدء تحميل بيانات الأرباح...');
       await _loadAndCalculateProfits();
 
-      // إذا كانت الأرباح لا تزال صفر، حاول إعادة حساب الأرباح
-      if (_realizedProfits == 0.0 && _pendingProfits == 0.0) {
-        debugPrint('⚠️ الأرباح لا تزال صفر - محاولة إعادة الحساب الشامل...');
-        await _forceRecalculateAllProfits();
-      }
+
 
       debugPrint('✅ تم الانتهاء من تهيئة صفحة الأرباح');
 
@@ -148,20 +144,7 @@ class _ProfitsPageState extends State<ProfitsPage>
     }
   }
 
-  // إعادة حساب شاملة للأرباح
-  Future<void> _forceRecalculateAllProfits() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserPhone = prefs.getString('current_user_phone');
 
-      if (currentUserPhone != null && currentUserPhone.isNotEmpty) {
-        debugPrint('🔄 إعادة حساب شاملة للأرباح للمستخدم: $currentUserPhone');
-        await _recalculateProfitsFromOrders(currentUserPhone);
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في إعادة الحساب الشاملة: $e');
-    }
-  }
 
   // 🛡️ جلب الأرباح مباشرة من قاعدة البيانات (مع حماية من التكرار)
   bool _isLoadingProfits = false;
@@ -197,26 +180,12 @@ class _ProfitsPageState extends State<ProfitsPage>
 
       debugPrint('📱 رقم هاتف المستخدم: $currentUserPhone');
 
-      // 🔍 أولاً: فحص جميع المستخدمين في قاعدة البيانات للتشخيص
-      final allUsersResponse = await Supabase.instance.client
-          .from('users')
-          .select('phone, name, achieved_profits, expected_profits')
-          .limit(5);
-
-      debugPrint('📋 عينة من المستخدمين في قاعدة البيانات:');
-      for (var user in allUsersResponse) {
-        debugPrint('   ${user['phone']} - ${user['name']} - أرباح: ${user['achieved_profits']}');
-      }
-
       // جلب الأرباح من قاعدة البيانات
       final response = await Supabase.instance.client
           .from('users')
           .select('achieved_profits, expected_profits, name')
           .eq('phone', currentUserPhone)
           .maybeSingle();
-
-      debugPrint('🔍 استعلام البحث: phone = $currentUserPhone');
-      debugPrint('📊 نتيجة الاستعلام: $response');
 
       if (response != null) {
         final dbAchievedProfits =
@@ -252,10 +221,12 @@ class _ProfitsPageState extends State<ProfitsPage>
         }
       } else {
         debugPrint('❌ لم يتم العثور على المستخدم في قاعدة البيانات');
-        debugPrint('🔄 محاولة البحث بطرق مختلفة...');
-
-        // محاولة البحث بطرق مختلفة
-        await _tryAlternativeUserSearch(currentUserPhone);
+        if (mounted) {
+          setState(() {
+            _realizedProfits = 0.0;
+            _pendingProfits = 0.0;
+          });
+        }
       }
     } catch (e) {
       debugPrint('❌ خطأ في جلب الأرباح: $e');
@@ -270,142 +241,9 @@ class _ProfitsPageState extends State<ProfitsPage>
     }
   }
 
-  // محاولة البحث بطرق مختلفة
-  Future<void> _tryAlternativeUserSearch(String userPhone) async {
-    try {
-      debugPrint('🔍 === البحث البديل عن المستخدم ===');
 
-      // 1. البحث بدون مسافات
-      final trimmedPhone = userPhone.trim();
-      debugPrint('🔍 البحث برقم منظف: $trimmedPhone');
 
-      var response = await Supabase.instance.client
-          .from('users')
-          .select('achieved_profits, expected_profits, name, phone')
-          .eq('phone', trimmedPhone)
-          .maybeSingle();
 
-      if (response != null) {
-        debugPrint('✅ تم العثور على المستخدم بالرقم المنظف');
-        await _updateProfitsFromResponse(response);
-        return;
-      }
-
-      // 2. البحث بـ LIKE للأرقام المشابهة
-      debugPrint('🔍 البحث بـ LIKE للأرقام المشابهة...');
-      final likeResponse = await Supabase.instance.client
-          .from('users')
-          .select('achieved_profits, expected_profits, name, phone')
-          .like('phone', '%$trimmedPhone%')
-          .limit(1);
-
-      if (likeResponse.isNotEmpty) {
-        debugPrint('✅ تم العثور على مستخدم مشابه: ${likeResponse.first['phone']}');
-        await _updateProfitsFromResponse(likeResponse.first);
-        return;
-      }
-
-      // 3. إذا لم نجد شيء، نضع قيم افتراضية
-      debugPrint('❌ لم يتم العثور على المستخدم بأي طريقة');
-      if (mounted) {
-        setState(() {
-          _realizedProfits = 0.0;
-          _pendingProfits = 0.0;
-        });
-      }
-
-    } catch (e) {
-      debugPrint('❌ خطأ في البحث البديل: $e');
-      if (mounted) {
-        setState(() {
-          _realizedProfits = 0.0;
-          _pendingProfits = 0.0;
-        });
-      }
-    }
-  }
-
-  // تحديث الأرباح من الاستجابة
-  Future<void> _updateProfitsFromResponse(Map<String, dynamic> response) async {
-    final dbAchievedProfits = (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-    final dbExpectedProfits = (response['expected_profits'] as num?)?.toDouble() ?? 0.0;
-    final userName = response['name'] ?? 'مستخدم';
-    final userPhone = response['phone'] ?? '';
-
-    debugPrint('💰 الأرباح المحققة: $dbAchievedProfits د.ع');
-    debugPrint('📊 الأرباح المنتظرة: $dbExpectedProfits د.ع');
-    debugPrint('👤 المستخدم: $userName ($userPhone)');
-
-    // حساب عدادات الطلبات
-    await _calculateOrderCounts(userPhone);
-
-    if (mounted) {
-      setState(() {
-        _realizedProfits = dbAchievedProfits;
-        _pendingProfits = dbExpectedProfits;
-      });
-
-      debugPrint('✅ تم تحديث الأرباح بنجاح');
-      debugPrint('   _realizedProfits = $_realizedProfits');
-      debugPrint('   _pendingProfits = $_pendingProfits');
-
-      // إذا كانت الأرباح صفر، حاول إعادة حسابها
-      if (_realizedProfits == 0.0 && _pendingProfits == 0.0) {
-        debugPrint('⚠️ الأرباح صفر - محاولة إعادة الحساب...');
-        _recalculateProfitsFromOrders(userPhone);
-      }
-    }
-  }
-
-  // إعادة حساب الأرباح من الطلبات مباشرة
-  Future<void> _recalculateProfitsFromOrders(String userPhone) async {
-    try {
-      debugPrint('🔄 === إعادة حساب الأرباح من الطلبات ===');
-
-      // جلب جميع الطلبات للمستخدم
-      final ordersResponse = await Supabase.instance.client
-          .from('orders')
-          .select('status, profit')
-          .eq('primary_phone', userPhone);
-
-      debugPrint('📊 تم جلب ${ordersResponse.length} طلب لإعادة الحساب');
-
-      double realizedProfits = 0.0;
-      double expectedProfits = 0.0;
-
-      for (var order in ordersResponse) {
-        final status = order['status'] ?? '';
-        final profit = (order['profit'] as num?)?.toDouble() ?? 0.0;
-
-        switch (status.toLowerCase()) {
-          case 'delivered':
-          case 'تم التسليم للزبون':
-            realizedProfits += profit;
-            break;
-          case 'active':
-          case 'in_delivery':
-          case 'نشط':
-          case 'في التوصيل':
-            expectedProfits += profit;
-            break;
-        }
-      }
-
-      debugPrint('💰 الأرباح المحسوبة - محققة: $realizedProfits، منتظرة: $expectedProfits');
-
-      if (mounted && (realizedProfits > 0 || expectedProfits > 0)) {
-        setState(() {
-          _realizedProfits = realizedProfits;
-          _pendingProfits = expectedProfits;
-        });
-
-        debugPrint('✅ تم تحديث الأرباح من إعادة الحساب');
-      }
-
-    } catch (e) {
-      debugPrint('❌ خطأ في إعادة حساب الأرباح: $e');
-    }
-  }
 
   // حساب عدادات الطلبات
   Future<void> _calculateOrderCounts(String userPhone) async {

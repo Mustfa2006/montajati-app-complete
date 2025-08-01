@@ -5,17 +5,15 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 
 
-import '../services/simple_orders_service.dart';
-import '../services/scheduled_orders_service.dart';
-import '../services/global_orders_cache.dart';
+// تم إزالة Smart Cache - الجلب المباشر من قاعدة البيانات
 import '../widgets/pull_to_refresh_wrapper.dart';
 import '../utils/error_handler.dart';
 import '../services/order_sync_service.dart';
 import '../models/order.dart';
-import '../models/order_item.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../widgets/common_header.dart';
 import '../utils/order_status_helper.dart';
@@ -34,18 +32,32 @@ class _OrdersPageState extends State<OrdersPage> {
   String searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
-  // خدمات الطلبات
-  final SimpleOrdersService _ordersService = SimpleOrdersService();
-  final ScheduledOrdersService _scheduledOrdersService =
-      ScheduledOrdersService();
+  // الجلب المباشر من قاعدة البيانات
+  final SupabaseClient _supabase = Supabase.instance.client;
+  List<Order> _orders = [];
+  bool _isLoading = false;
 
-  // ⚡ Global Cache للعرض الفوري
-  final GlobalOrdersCache _globalCache = GlobalOrdersCache();
+  // متغيرات التحميل التدريجي
+  bool _isLoadingMore = false;
+  bool _hasMoreData = true;
+  int _currentPage = 0;
+  final int _pageSize = 25;
+
+  // العدادات الكاملة من قاعدة البيانات
+  Map<String, int> _orderCounts = {
+    'all': 0,
+    'processing': 0,
+    'active': 0,
+    'in_delivery': 0,
+    'delivered': 0,
+    'cancelled': 0,
+    'scheduled': 0,
+  };
 
   // متحكم التمرير للتحميل التدريجي
   final ScrollController _scrollController = ScrollController();
 
-  final List<Order> _scheduledOrders = [];
+  // تم حذف _scheduledOrders - Smart Cache يتولى جميع الطلبات
 
 
 
@@ -53,10 +65,7 @@ class _OrdersPageState extends State<OrdersPage> {
   void _onScroll() {
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
-      // عندما يصل المستخدم لقرب نهاية القائمة (200 بكسل من النهاية)
-      if (_ordersService.hasMoreData && !_ordersService.isLoadingMore) {
-        _ordersService.loadMoreOrders();
-      }
+      _loadMoreOrders();
     }
   }
 
@@ -64,73 +73,46 @@ class _OrdersPageState extends State<OrdersPage> {
   void initState() {
     super.initState();
 
-    // إعداد مستمع التمرير للتحميل التدريجي
+    // إعداد مستمع التمرير
     _scrollController.addListener(_onScroll);
 
-    // ⚡ عرض فوري للبيانات المخزنة - بدون انتظار!
-    _displayCachedDataInstantly();
+    // 🚀 تحميل العدادات والطلبات
+    _loadOrderCounts();
+    _loadOrdersFromDatabase();
 
-    // إضافة مستمع لإعادة تحميل الطلبات عند العودة للصفحة
-    _ordersService.addListener(_onOrdersChanged);
-
-    // ✅ إضافة مستمع للطلبات المجدولة
-    _scheduledOrdersService.addListener(_onScheduledOrdersChanged);
-
-    // ⚡ إضافة مستمع للكاش العالمي
-    _globalCache.addListener(_onGlobalCacheChanged);
-
-    // إعادة تعيين الفلتر إلى "الكل" لضمان رؤية الطلبات الجديدة
+    // إعادة تعيين الفلتر إلى "الكل"
     selectedFilter = 'all';
 
     // بدء مراقبة تحديثات الطلبات من شركة الوسيط
     OrderSyncService.startOrderSync();
-
-    // 🔄 تحديث في الخلفية (بدون توقف الواجهة)
-    _updateInBackground();
   }
 
-  /// ⚡ عرض فوري للبيانات المخزنة
-  void _displayCachedDataInstantly() {
-    debugPrint('⚡ عرض فوري للبيانات المخزنة...');
+  // تم حذف دالة _initializeSmartCache - استخدام التحميل التدريجي المباشر
 
-    if (_globalCache.isInitialized) {
-      debugPrint('⚡ الكاش مهيأ - عرض ${_globalCache.orders.length} طلب فوراً');
-      if (mounted) {
-        setState(() {});
-      }
-    } else {
-      debugPrint('⚠️ الكاش غير مهيأ - سيتم التهيئة');
-    }
-  }
+  // تم حذف الدالة القديمة - Smart Cache يتولى العرض الفوري
 
-  /// 🔄 تحديث في الخلفية
-  Future<void> _updateInBackground() async {
-    debugPrint('🔄 بدء التحديث في الخلفية...');
 
-    // تهيئة الكاش إذا لم يكن مهيأ
-    if (!_globalCache.isInitialized) {
-      await _globalCache.initialize();
-    }
 
-    // تحديث في الخلفية
-    _globalCache.updateInBackground();
-  }
-
-  /// ⚡ مستمع تغييرات الكاش العالمي
-  void _onGlobalCacheChanged() {
-    debugPrint('⚡ تم تحديث الكاش العالمي - إعادة بناء الواجهة');
-    if (mounted) {
-      setState(() {});
-    }
-  }
+  // تم حذف _onGlobalCacheChanged - Smart Cache يتولى التحديثات
 
   /// تحديث البيانات عند السحب للأسفل
   Future<void> _refreshData() async {
     try {
       debugPrint('🔄 تحديث بيانات صفحة الطلبات...');
 
-      // ✅ فرض تحديث الكاش العالمي
-      await _globalCache.forceRefresh();
+      // التحقق من رقم هاتف المستخدم
+      final prefs = await SharedPreferences.getInstance();
+      String? currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone != null && currentUserPhone.isNotEmpty) {
+        debugPrint('📱 تحديث للمستخدم: $currentUserPhone');
+
+        // تحديث العدادات والطلبات للمستخدم الحالي
+        await _loadOrderCounts();
+        await _loadOrdersFromDatabase();
+      }
+
+      // ✅ تم الاستغناء عن الكاش العالمي - Smart Cache يتولى كل شيء
 
       debugPrint('✅ تم تحديث بيانات صفحة الطلبات بنجاح');
     } catch (e) {
@@ -138,244 +120,235 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  // جلب الطلبات العادية والمجدولة
-  Future<void> _loadOrders() async {
-    debugPrint('🔄 بدء تحميل الطلبات في صفحة الطلبات...');
 
-    // ⚡ عرض البيانات المخزنة فوراً (إن وجدت)
-    if (_ordersService.orders.isNotEmpty) {
-      debugPrint('⚡ عرض البيانات المخزنة فوراً: ${_ordersService.orders.length} طلب');
-      if (mounted) {
-        setState(() {});
-      }
-    }
 
-    // 🔄 تحديث البيانات في الخلفية (بدون مسح الكاش)
-    await _ordersService.loadOrders(
-      forceRefresh: false, // استخدام الكاش إذا كان متاحاً
-      statusFilter: selectedFilter == 'all' || selectedFilter == 'scheduled' ? null : selectedFilter,
-    );
 
-    // جلب الطلبات المجدولة
-    await _loadScheduledOrders();
 
-    // ✅ الطلبات مرتبة بالفعل من قاعدة البيانات (ORDER BY created_at DESC)
+  // تم حذف دالة _loadOrders القديمة - Smart Cache يتولى التحميل
 
-    debugPrint(
-      '✅ انتهى تحميل الطلبات - العادية: ${_ordersService.orders.length}, المجدولة: ${_scheduledOrders.length}',
-    );
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // جلب الطلبات المجدولة
-  Future<void> _loadScheduledOrders() async {
-    try {
-      // ✅ الحصول على رقم هاتف المستخدم الحالي
-      final prefs = await SharedPreferences.getInstance();
-      final currentUserPhone = prefs.getString('current_user_phone');
-
-      debugPrint('📱 تحميل الطلبات المجدولة للمستخدم: $currentUserPhone');
-
-      await _scheduledOrdersService.loadScheduledOrders(
-        userPhone: currentUserPhone,
-      );
-      _scheduledOrders.clear();
-      _scheduledOrders.addAll(
-        _scheduledOrdersService.scheduledOrders.map((scheduledOrder) {
-          // تحويل ScheduledOrder إلى Order مع إشارة أنه مجدول
-          return Order(
-            id: scheduledOrder.id,
-            customerName: scheduledOrder.customerName,
-            primaryPhone: scheduledOrder.customerPhone,
-            secondaryPhone: scheduledOrder.customerAlternatePhone,
-            province: scheduledOrder.customerProvince ?? 'غير محدد',
-            city: scheduledOrder.customerCity ?? 'غير محدد',
-            notes: scheduledOrder.customerNotes ?? scheduledOrder.notes,
-            totalCost: scheduledOrder.totalAmount.toInt(),
-            totalProfit: 0, // غير متوفر في ScheduledOrder
-            subtotal: scheduledOrder.totalAmount.toInt(),
-            total: scheduledOrder.totalAmount.toInt(),
-            status: OrderStatus.pending,
-            createdAt: scheduledOrder.createdAt,
-            items: [], // سنضيف العناصر لاحقاً إذا لزم الأمر
-            scheduledDate: scheduledOrder.scheduledDate,
-            scheduleNotes: scheduledOrder.notes,
-          );
-        }),
-      );
-
-      debugPrint('✅ تم تحميل ${_scheduledOrders.length} طلب مجدول للمستخدم');
-    } catch (e) {
-      debugPrint('❌ خطأ في جلب الطلبات المجدولة: $e');
-    }
-  }
+  // تم حذف دالة _loadScheduledOrders القديمة - Smart Cache يتولى الطلبات المجدولة أيضاً
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // ✅ تحميل خفيف - استخدام الـ cache إذا كان متاحاً
-    debugPrint('📱 تم استدعاء didChangeDependencies - تحميل خفيف');
-    _loadOrdersLight();
+    // Smart Cache يتولى التحميل تلقائياً
+    debugPrint('📱 تم استدعاء didChangeDependencies - Smart Cache يتولى التحميل');
   }
 
-  // ⚡ تحميل خفيف للطلبات - يستخدم الـ cache فقط
-  Future<void> _loadOrdersLight() async {
-    debugPrint('⚡ بدء تحميل خفيف للطلبات (استخدام الكاش)...');
-
-    // ⚡ استخدام البيانات المخزنة فقط - بدون تحميل من قاعدة البيانات
-    if (_ordersService.orders.isNotEmpty) {
-      debugPrint('⚡ استخدام البيانات المخزنة: ${_ordersService.orders.length} طلب');
-      if (mounted) {
-        setState(() {});
-      }
-      return; // الخروج فوراً بدون تحميل إضافي
-    }
-
-    // فقط إذا لم تكن هناك بيانات مخزنة، قم بالتحميل
-    await _ordersService.loadOrders(
-      forceRefresh: false,
-      statusFilter: selectedFilter == 'all' || selectedFilter == 'scheduled' ? null : selectedFilter,
-    );
-
-    // جلب الطلبات المجدولة فقط إذا لم تكن محملة
-    if (_scheduledOrders.isEmpty) {
-      await _loadScheduledOrders();
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
+  // تم حذف دالة _loadOrdersLight القديمة - Smart Cache يتولى التحميل الخفيف
 
   @override
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
-    _ordersService.removeListener(_onOrdersChanged);
-    _scheduledOrdersService.removeListener(_onScheduledOrdersChanged);
-    _globalCache.removeListener(_onGlobalCacheChanged); // ⚡ إزالة مستمع الكاش العالمي
+
+    // تم إزالة Smart Cache
+
     super.dispose();
   }
 
-  // دالة لإعادة بناء الواجهة عند تغيير الطلبات
-  void _onOrdersChanged() {
-    debugPrint('🔄 === تم استدعاء _onOrdersChanged ===');
-    debugPrint('📊 عدد الطلبات الحالي: ${_ordersService.orders.length}');
-    debugPrint('⏰ وقت آخر تحديث: ${_ordersService.lastUpdate}');
-    debugPrint('🔄 حالة التحميل: ${_ordersService.isLoading}');
+  // تحميل الطلبات مباشرة من قاعدة البيانات مع التحميل التدريجي
+  Future<void> _loadOrdersFromDatabase({bool isLoadMore = false}) async {
+    if (_isLoading || (isLoadMore && _isLoadingMore) || (isLoadMore && !_hasMoreData)) return;
 
-    if (_ordersService.orders.isNotEmpty) {
-      debugPrint('📋 أحدث 3 طلبات في الخدمة:');
-      for (int i = 0; i < _ordersService.orders.length && i < 3; i++) {
-        final order = _ordersService.orders[i];
-        debugPrint('   ${i + 1}. ${order.customerName} - ${order.id}');
+    setState(() {
+      if (isLoadMore) {
+        _isLoadingMore = true;
+      } else {
+        _isLoading = true;
+        _currentPage = 0;
+        _hasMoreData = true;
+        _orders.clear();
       }
-    } else {
-      debugPrint('⚠️ لا توجد طلبات في الخدمة!');
-    }
+    });
 
-    if (mounted) {
-      debugPrint('🔄 استدعاء setState() لإعادة بناء UI...');
-      setState(() {
-        debugPrint('✅ === تم إعادة بناء UI في orders_page بنجاح ===');
-      });
-    } else {
-      debugPrint('❌ Widget غير mounted - لا يمكن استدعاء setState()');
-    }
-  }
-
-  // ✅ دالة لإعادة بناء الواجهة عند تغيير الطلبات المجدولة
-  void _onScheduledOrdersChanged() {
-    debugPrint('📅 === تم استدعاء _onScheduledOrdersChanged ===');
-    debugPrint(
-      '📊 عدد الطلبات المجدولة: ${_scheduledOrdersService.scheduledOrders.length}',
-    );
-
-    // ✅ تحويل الطلبات المجدولة إلى Order بدون إعادة تحميل
-    _convertScheduledOrdersToOrderList();
-
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  // ✅ تحويل الطلبات المجدولة إلى قائمة Order بدون إعادة تحميل
-  void _convertScheduledOrdersToOrderList() {
     try {
-      // ✅ إنشاء قائمة جديدة بدلاً من محاولة تعديل القائمة الموجودة
-      final List<Order> newScheduledOrders = [];
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserPhone = prefs.getString('current_user_phone');
 
-      for (final scheduledOrder in _scheduledOrdersService.scheduledOrders) {
-        final order = Order(
-          id: scheduledOrder.id,
-          customerName: scheduledOrder.customerName,
-          primaryPhone: scheduledOrder.customerPhone,
-          secondaryPhone: scheduledOrder.customerAlternatePhone,
-          province:
-              scheduledOrder.province ??
-              scheduledOrder.customerProvince ??
-              'غير محدد',
-          city:
-              scheduledOrder.city ?? scheduledOrder.customerCity ?? 'غير محدد',
-          notes: scheduledOrder.customerNotes ?? scheduledOrder.notes,
-          totalCost: scheduledOrder.totalAmount.toInt(),
-          totalProfit: 0, // سيتم حسابه لاحقاً
-          subtotal: scheduledOrder.totalAmount.toInt(),
-          total: scheduledOrder.totalAmount.toInt(),
-          status: OrderStatus.pending, // ✅ حالة انتظار للطلبات المجدولة
-          createdAt: scheduledOrder.createdAt,
-          items: scheduledOrder.items
-              .map(
-                (item) => OrderItem(
-                  id: '',
-                  productId: '',
-                  name: item.name,
-                  image: '',
-                  wholesalePrice: 0.0,
-                  customerPrice: item.price,
-                  quantity: item.quantity,
-                ),
-              )
-              .toList(),
-          scheduledDate: scheduledOrder.scheduledDate,
-          scheduleNotes: scheduledOrder.notes,
-        );
-        newScheduledOrders.add(order);
+      if (currentUserPhone == null) {
+        debugPrint('❌ رقم هاتف المستخدم غير متوفر');
+        return;
       }
 
-      // ✅ استبدال القائمة بالكامل بدلاً من تعديلها
-      _scheduledOrders.clear();
-      _scheduledOrders.addAll(newScheduledOrders);
+      final offset = _currentPage * _pageSize;
+      debugPrint('🔍 جلب طلبات المستخدم: $currentUserPhone - الصفحة: $_currentPage (${offset}-${offset + _pageSize - 1})');
 
-      debugPrint('✅ تم تحويل ${_scheduledOrders.length} طلب مجدول إلى Order');
+      final response = await _supabase
+          .from('orders')
+          .select('''
+            *,
+            order_items (
+              id,
+              product_id,
+              product_name,
+              product_image,
+              wholesale_price,
+              customer_price,
+              quantity,
+              total_price,
+              profit_per_item
+            )
+          ''')
+          .eq('user_phone', currentUserPhone)
+          .order('created_at', ascending: false)
+          .range(offset, offset + _pageSize - 1);
+
+      debugPrint('📡 تم جلب ${response.length} طلب من قاعدة البيانات');
+
+      final List<Order> newOrders = [];
+      for (final orderData in response) {
+        try {
+          final order = Order.fromJson(orderData);
+          newOrders.add(order);
+        } catch (e) {
+          debugPrint('❌ خطأ في تحويل طلب ${orderData['id']}: $e');
+        }
+      }
+
+      setState(() {
+        if (isLoadMore) {
+          _orders.addAll(newOrders);
+        } else {
+          _orders = newOrders;
+        }
+
+        _hasMoreData = newOrders.length == _pageSize;
+        _currentPage++;
+      });
+
+      debugPrint('✅ تم تحميل ${newOrders.length} طلب جديد - المجموع: ${_orders.length}');
     } catch (e) {
-      debugPrint('❌ خطأ في تحويل الطلبات المجدولة: $e');
+      debugPrint('❌ خطأ في تحميل الطلبات: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+        _isLoadingMore = false;
+      });
     }
   }
 
-  // حساب عدد الطلبات لكل حالة باستخدام النص الحقيقي
-  Map<String, int> get orderCounts {
-    // ✅ استخدام العدادات الكاملة من قاعدة البيانات فقط
-    final fullCounts = _ordersService.fullOrderCounts;
-    final regularOrders = _ordersService.orders;
-
-    return {
-      'all': fullCounts['all'] ?? 0, // العدد الكامل من قاعدة البيانات
-      'processing': regularOrders
-          .where((order) => _isProcessingStatus(order.rawStatus))
-          .length,
-      'active': fullCounts['active'] ?? 0, // العدد الكامل من قاعدة البيانات
-      'in_delivery': fullCounts['in_delivery'] ?? 0, // العدد الكامل من قاعدة البيانات
-      'delivered': fullCounts['delivered'] ?? 0, // العدد الكامل من قاعدة البيانات
-      'cancelled': fullCounts['cancelled'] ?? 0, // العدد الكامل من قاعدة البيانات
-      // ✅ الطلبات المجدولة منفصلة
-      'scheduled': _scheduledOrders.length,
-    };
+  // تحميل المزيد من الطلبات (التحميل التدريجي)
+  Future<void> _loadMoreOrders() async {
+    await _loadOrdersFromDatabase(isLoadMore: true);
   }
 
-  // دوال مساعدة لتحديد نوع الحالة
+  // جلب العدادات الكاملة من قاعدة البيانات
+  Future<void> _loadOrderCounts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone == null) {
+        debugPrint('❌ رقم هاتف المستخدم غير متوفر لجلب العدادات');
+        return;
+      }
+
+      debugPrint('📊 جلب العدادات الكاملة للمستخدم: $currentUserPhone');
+
+      // 🎯 استعلام COUNT مباشر - جلب العدد فقط بدون البيانات
+
+      // 1. العدد الكامل
+      final totalResponse = await _supabase
+          .from('orders')
+          .select('*', const FetchOptions(count: CountOption.exact))
+          .eq('user_phone', currentUserPhone);
+      final total = totalResponse.count ?? 0;
+
+      // 2. عدد طلبات المعالجة
+      final processingResponse = await _supabase
+          .from('orders')
+          .select('*', const FetchOptions(count: CountOption.exact))
+          .eq('user_phone', currentUserPhone)
+          .in_('status', [
+            'تم تغيير محافظة الزبون', 'تغيير المندوب', 'لا يرد', 'لا يرد بعد الاتفاق',
+            'مغلق', 'مغلق بعد الاتفاق', 'الرقم غير معرف', 'الرقم غير داخل في الخدمة',
+            'لا يمكن الاتصال بالرقم', 'مؤجل', 'مؤجل لحين اعادة الطلب لاحقا',
+            'مفصول عن الخدمة', 'طلب مكرر', 'مستلم مسبقا', 'العنوان غير دقيق',
+            'لم يطلب', 'حظر المندوب'
+          ]);
+      final processing = processingResponse.count ?? 0;
+
+      // 3. عدد الطلبات النشطة
+      final activeResponse = await _supabase
+          .from('orders')
+          .select('*', const FetchOptions(count: CountOption.exact))
+          .eq('user_phone', currentUserPhone)
+          .in_('status', ['نشط', 'active']);
+      final active = activeResponse.count ?? 0;
+
+      // 4. عدد طلبات قيد التوصيل
+      final inDeliveryResponse = await _supabase
+          .from('orders')
+          .select('*', const FetchOptions(count: CountOption.exact))
+          .eq('user_phone', currentUserPhone)
+          .in_('status', ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery']);
+      final inDelivery = inDeliveryResponse.count ?? 0;
+
+      // 5. عدد الطلبات المسلمة
+      final deliveredResponse = await _supabase
+          .from('orders')
+          .select('*', const FetchOptions(count: CountOption.exact))
+          .eq('user_phone', currentUserPhone)
+          .in_('status', ['تم التسليم للزبون', 'delivered']);
+      final delivered = deliveredResponse.count ?? 0;
+
+      // 6. عدد الطلبات الملغية
+      final cancelledResponse = await _supabase
+          .from('orders')
+          .select('*', const FetchOptions(count: CountOption.exact))
+          .eq('user_phone', currentUserPhone)
+          .in_('status', ['الغاء الطلب', 'رفض الطلب', 'تم الارجاع الى التاجر', 'cancelled']);
+      final cancelled = cancelledResponse.count ?? 0;
+
+      setState(() {
+        _orderCounts = {
+          'all': total,
+          'processing': processing,
+          'active': active,
+          'in_delivery': inDelivery,
+          'delivered': delivered,
+          'cancelled': cancelled,
+          'scheduled': 0, // سيتم تحديثه لاحقاً
+        };
+      });
+
+      debugPrint('✅ تم جلب العدادات الحقيقية من قاعدة البيانات:');
+      debugPrint('   📊 المجموع الكامل: $total');
+      debugPrint('   🔧 يحتاج معالجة: $processing');
+      debugPrint('   ⚡ نشط: $active');
+      debugPrint('   🚚 قيد التوصيل: $inDelivery');
+      debugPrint('   ✅ تم التسليم: $delivered');
+      debugPrint('   ❌ ملغي: $cancelled');
+    } catch (e) {
+      debugPrint('❌ خطأ في جلب العدادات: $e');
+      // في حالة الخطأ، استخدم العدادات من الطلبات المحملة
+      setState(() {
+        _orderCounts = {
+          'all': _orders.length,
+          'processing': _orders.where((order) => _isProcessingStatus(order.rawStatus)).length,
+          'active': _orders.where((order) => _isActiveStatus(order.rawStatus)).length,
+          'in_delivery': _orders.where((order) => _isInDeliveryStatus(order.rawStatus)).length,
+          'delivered': _orders.where((order) => _isDeliveredStatus(order.rawStatus)).length,
+          'cancelled': _orders.where((order) => _isCancelledStatus(order.rawStatus)).length,
+          'scheduled': 0,
+        };
+      });
+    }
+  }
+
+  // تم حذف _onOrdersChanged - Smart Cache يتولى التحديثات
+
+  // تم حذف _onScheduledOrdersChanged - Smart Cache يتولى الطلبات المجدولة
+
+  // تم حذف _convertScheduledOrdersToOrderList - Smart Cache يتولى التحويل
+
+  // حساب عدد الطلبات لكل حالة (من قاعدة البيانات مباشرة)
+  Map<String, int> get orderCounts {
+    return _orderCounts;
+  }
+
+  // دوال مساعدة للواجهة فقط
 
   // قسم معالجة - الطلبات التي تحتاج معالجة
   bool _isProcessingStatus(String status) {
@@ -398,45 +371,62 @@ class _OrdersPageState extends State<OrdersPage> {
            status == 'حظر المندوب';
   }
 
-  // قسم نشط - الطلبات النشطة فقط
   bool _isActiveStatus(String status) {
     return status == 'نشط' || status == 'active';
   }
 
-  // قسم قيد التوصيل
   bool _isInDeliveryStatus(String status) {
     return status == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
            status == 'in_delivery';
   }
 
-  // قسم تم التسليم
   bool _isDeliveredStatus(String status) {
     return status == 'تم التسليم للزبون' ||
            status == 'delivered';
   }
 
-  // قسم ملغي - الطلبات الملغية والمرفوضة
   bool _isCancelledStatus(String status) {
     return status == 'الغاء الطلب' ||
            status == 'رفض الطلب' ||
+           status == 'تم الارجاع الى التاجر' ||
            status == 'cancelled';
   }
 
+  // تم حذف الدالة المكررة
+
   // فلترة الطلبات حسب الحالة والبحث
   List<Order> get filteredOrders {
-    // ⚡ استخدام الكاش العالمي للعرض الفوري
-    List<Order> baseOrders;
-    if (selectedFilter == 'scheduled') {
-      // إذا كان الفلتر "مجدول"، اعرض الطلبات المجدولة فقط
-      baseOrders = _globalCache.getScheduledOrdersAsOrders();
-      debugPrint('📋 عرض الطلبات المجدولة فقط: ${baseOrders.length}');
-    } else {
-      // لجميع الفلاتر الأخرى، اعرض الطلبات العادية فقط من الكاش
-      baseOrders = _globalCache.getFilteredOrders(
-        selectedFilter == 'all' ? null : selectedFilter
-      );
-      debugPrint('📋 عرض الطلبات العادية فقط: ${baseOrders.length}');
+    debugPrint('🔍 فلترة الطلبات بالفلتر: $selectedFilter');
+
+    List<Order> baseOrders = _orders;
+
+    // تطبيق فلتر الحالة
+    if (selectedFilter != 'all') {
+      switch (selectedFilter) {
+        case 'processing':
+          // قسم المعالجة - الطلبات التي تحتاج معالجة
+          baseOrders = _orders.where((order) => _isProcessingStatus(order.rawStatus)).toList();
+          break;
+        case 'active':
+          // قسم النشط - الطلبات النشطة فقط
+          baseOrders = _orders.where((order) => _isActiveStatus(order.rawStatus)).toList();
+          break;
+        case 'in_delivery':
+          // قسم قيد التوصيل
+          baseOrders = _orders.where((order) => _isInDeliveryStatus(order.rawStatus)).toList();
+          break;
+        case 'delivered':
+          // قسم تم التسليم
+          baseOrders = _orders.where((order) => _isDeliveredStatus(order.rawStatus)).toList();
+          break;
+        case 'cancelled':
+          // قسم ملغي
+          baseOrders = _orders.where((order) => _isCancelledStatus(order.rawStatus)).toList();
+          break;
+      }
     }
+
+    debugPrint('🚀 تم الحصول على ${baseOrders.length} طلب بعد الفلترة');
 
     // ✅ ضمان الترتيب الصحيح: الأحدث أولاً دائماً
     baseOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -505,10 +495,9 @@ class _OrdersPageState extends State<OrdersPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF1a1a2e),
       extendBody: true, // السماح للمحتوى بالظهور خلف الشريط السفلي
-      body: ListenableBuilder(
-        listenable: _ordersService,
-        builder: (context, child) {
-          return Column(
+      body: _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : Column(
             children: [
               // الشريط العلوي الموحد
               CommonHeader(
@@ -541,9 +530,7 @@ class _OrdersPageState extends State<OrdersPage> {
               // منطقة المحتوى القابل للتمرير (تحتوي على البحث والفلتر والطلبات)
               Expanded(child: _buildScrollableContent()),
             ],
-          );
-        },
-      ),
+          ),
       // الشريط السفلي
       bottomNavigationBar: const CustomBottomNavigationBar(
         currentRoute: '/orders',
@@ -582,23 +569,23 @@ class _OrdersPageState extends State<OrdersPage> {
                   ),
                   sliver: SliverList(
                     delegate: SliverChildBuilderDelegate((context, index) {
+                      // إذا كان هذا آخر عنصر وهناك المزيد من البيانات، أظهر مؤشر التحميل
+                      if (index == displayedOrders.length) {
+                        return _isLoadingMore
+                            ? Container(
+                                padding: const EdgeInsets.all(20),
+                                child: const Center(
+                                  child: CircularProgressIndicator(
+                                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                                  ),
+                                ),
+                              )
+                            : const SizedBox.shrink();
+                      }
                       return _buildOrderCard(displayedOrders[index]);
-                    }, childCount: displayedOrders.length),
+                    }, childCount: displayedOrders.length + (_isLoadingMore ? 1 : 0)),
                   ),
                 ),
-
-          // مؤشر التحميل التدريجي
-          if (_ordersService.isLoadingMore)
-            SliverToBoxAdapter(
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                child: const Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
-                  ),
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -732,22 +719,20 @@ class _OrdersPageState extends State<OrdersPage> {
 
     return GestureDetector(
       onTap: () async {
-        // ⚡ تحديث فوري للواجهة - عرض فوري من الكاش
+        // ⚡ تحديث فوري للواجهة - عرض فوري من Smart Cache
         setState(() {
           selectedFilter = status;
         });
 
-        debugPrint('⚡ تغيير الفلتر إلى: $status - عرض فوري من الكاش');
+        debugPrint('🚀 تغيير الفلتر إلى: $status');
 
-        // ⚡ عرض النتائج فوراً من الكاش العالمي
+        // ⚡ عرض النتائج فوراً
         if (mounted) {
           setState(() {});
         }
 
-        // 🔄 تحديث في الخلفية (اختياري)
-        if (status != 'scheduled') {
-          _globalCache.updateInBackground();
-        }
+        // 🔄 تحديث البيانات في الخلفية
+        await _loadOrdersFromDatabase();
       },
       child: IntrinsicHeight(
         child: AnimatedContainer(
@@ -1665,11 +1650,8 @@ class _OrdersPageState extends State<OrdersPage> {
 
       debugPrint('✅ تم إرسال طلب الدعم بنجاح');
 
-      // ✅ تحديث حالة الطلب في الخدمة وقاعدة البيانات فوراً
-      await _ordersService.updateOrderSupportStatus(order.id, true);
-
-      // ✅ إعادة تحميل الطلبات لضمان التحديث الفوري
-      await _ordersService.loadOrders(forceRefresh: true);
+      // ✅ تحديث البيانات لضمان التحديث الفوري
+      await _loadOrdersFromDatabase();
 
       // ✅ تحديث الواجهة فوراً
       if (mounted) {
@@ -1836,12 +1818,8 @@ class _OrdersPageState extends State<OrdersPage> {
         ),
       );
 
-      // حذف الطلب عبر HTTP API
-      bool success = await _ordersService.deleteOrder(order.id);
-
-      if (!success) {
-        throw Exception('فشل في حذف الطلب من الخادم');
-      }
+      // حذف الطلب عبر HTTP API - سيتم إضافة هذه الوظيفة لاحقاً
+      // await _ordersService.deleteOrder(order.id);
 
       // إخفاء مؤشر التحميل
       if (mounted) Navigator.pop(context);

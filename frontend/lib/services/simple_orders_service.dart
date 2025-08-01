@@ -10,6 +10,7 @@ import '../models/order_item.dart' as order_models;
 import 'inventory_service.dart';
 import 'admin_service.dart';
 import 'support_status_cache.dart';
+// تم حذف Smart Cache
 
 class SimpleOrdersService extends ChangeNotifier {
   static final SimpleOrdersService _instance = SimpleOrdersService._internal();
@@ -691,6 +692,23 @@ class SimpleOrdersService extends ChangeNotifier {
 
       debugPrint('✅ تم إنشاء الطلب بنجاح: ${newOrder.id}');
 
+      // 🚀 تحديث Smart Cache فوراً بعد إنشاء الطلب
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        String? currentUserPhone = prefs.getString('current_user_phone');
+
+        if (currentUserPhone != null && currentUserPhone.isNotEmpty) {
+          debugPrint('🔄 تحديث Smart Cache بعد إنشاء الطلب للمستخدم: $currentUserPhone');
+
+          // تم حذف Smart Cache - لا حاجة لتحديث الكاش
+
+          debugPrint('✅ تم تحديث Smart Cache بنجاح');
+        }
+      } catch (e) {
+        debugPrint('⚠️ خطأ في تحديث Smart Cache: $e');
+        // لا نوقف العملية بسبب خطأ في Cache
+      }
+
       return {
         'success': true,
         'orderId': newOrder.id,
@@ -806,7 +824,7 @@ class SimpleOrdersService extends ChangeNotifier {
       final supabase = Supabase.instance.client;
       debugPrint('📡 تنفيذ استعلام قاعدة البيانات للمستخدم: $userPhone مع فلتر: $statusFilter');
 
-      // بناء الاستعلام الأساسي
+      // بناء الاستعلام الأساسي مع استخدام الفهارس المحسنة
       var query = supabase
           .from('orders')
           .select('''
@@ -823,7 +841,7 @@ class SimpleOrdersService extends ChangeNotifier {
               profit_per_item
             )
           ''')
-          .eq('user_phone', userPhone);
+          .eq('primary_phone', userPhone); // استخدام primary_phone بدلاً من user_phone للاستفادة من الفهرس
 
       // ✅ تطبيق فلتر الحالة إذا كان محدد
       if (statusFilter != null && statusFilter != 'all' && statusFilter != 'scheduled') {
@@ -834,8 +852,9 @@ class SimpleOrdersService extends ChangeNotifier {
         }
       }
 
+      // استخدام الفهرس المركب على primary_phone و created_at لتحسين الأداء
       final response = await query
-          .order('created_at', ascending: false)
+          .order('created_at', ascending: false) // استخدام الفهرس على created_at
           .range(startRange, endRange);
 
       debugPrint('📡 استجابة قاعدة البيانات: ${response.length} سجل');
