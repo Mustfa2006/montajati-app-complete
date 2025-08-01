@@ -4,10 +4,13 @@
     <!-- خلفية بيضاء -->
     <item android:drawable="@android:color/white" />
 
-    <!-- شعار منتجاتي في الوسط -->
-    <item>
+    <!-- شعار منتجاتي في الوسط - حجم كبير -->
+    <item android:gravity="center">
         <bitmap
             android:gravity="center"
-            android:src="@mipmap/launcher_icon" />
+            android:src="@mipmap/launcher_icon"
+            android:scaleType="centerInside"
+            android:width="200dp"
+            android:height="200dp" />
     </item>
 </layer-list>
