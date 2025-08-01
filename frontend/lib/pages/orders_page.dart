@@ -100,10 +100,17 @@ class _OrdersPageState extends State<OrdersPage> {
   Future<void> _loadOrders() async {
     debugPrint('🔄 بدء تحميل الطلبات في صفحة الطلبات...');
 
-    // ✅ مسح الـ cache وإجبار إعادة التحميل من قاعدة البيانات
-    _ordersService.clearCache();
+    // ⚡ عرض البيانات المخزنة فوراً (إن وجدت)
+    if (_ordersService.orders.isNotEmpty) {
+      debugPrint('⚡ عرض البيانات المخزنة فوراً: ${_ordersService.orders.length} طلب');
+      if (mounted) {
+        setState(() {});
+      }
+    }
+
+    // 🔄 تحديث البيانات في الخلفية (بدون مسح الكاش)
     await _ordersService.loadOrders(
-      forceRefresh: true,
+      forceRefresh: false, // استخدام الكاش إذا كان متاحاً
       statusFilter: selectedFilter == 'all' || selectedFilter == 'scheduled' ? null : selectedFilter,
     );
 
@@ -171,13 +178,22 @@ class _OrdersPageState extends State<OrdersPage> {
     _loadOrdersLight();
   }
 
-  // ✅ تحميل خفيف للطلبات - يستخدم الـ cache
+  // ⚡ تحميل خفيف للطلبات - يستخدم الـ cache فقط
   Future<void> _loadOrdersLight() async {
-    debugPrint('🔄 بدء تحميل خفيف للطلبات...');
+    debugPrint('⚡ بدء تحميل خفيف للطلبات (استخدام الكاش)...');
 
-    // ✅ حتى التحميل الخفيف يجب أن يتحقق من قاعدة البيانات
+    // ⚡ استخدام البيانات المخزنة فقط - بدون تحميل من قاعدة البيانات
+    if (_ordersService.orders.isNotEmpty) {
+      debugPrint('⚡ استخدام البيانات المخزنة: ${_ordersService.orders.length} طلب');
+      if (mounted) {
+        setState(() {});
+      }
+      return; // الخروج فوراً بدون تحميل إضافي
+    }
+
+    // فقط إذا لم تكن هناك بيانات مخزنة، قم بالتحميل
     await _ordersService.loadOrders(
-      forceRefresh: true,
+      forceRefresh: false,
       statusFilter: selectedFilter == 'all' || selectedFilter == 'scheduled' ? null : selectedFilter,
     );
 
@@ -185,8 +201,6 @@ class _OrdersPageState extends State<OrdersPage> {
     if (_scheduledOrders.isEmpty) {
       await _loadScheduledOrders();
     }
-
-    // ✅ الطلبات مرتبة بالفعل من قاعدة البيانات (ORDER BY created_at DESC)
 
     if (mounted) {
       setState(() {});
@@ -677,13 +691,19 @@ class _OrdersPageState extends State<OrdersPage> {
 
     return GestureDetector(
       onTap: () async {
+        // ⚡ تحديث فوري للواجهة
         setState(() {
           selectedFilter = status;
         });
 
-        // ✅ إعادة تحميل البيانات مع الفلتر الجديد
+        // ⚡ عرض النتائج فوراً بدون انتظار
+        if (mounted) {
+          setState(() {});
+        }
+
+        // 🔄 تحديث البيانات في الخلفية
         if (status != 'scheduled') {
-          debugPrint('🔄 تغيير الفلتر إلى: $status - إعادة تحميل البيانات');
+          debugPrint('🔄 تغيير الفلتر إلى: $status - تحديث البيانات في الخلفية');
           await _ordersService.loadOrders(forceRefresh: true, statusFilter: status == 'all' ? null : status);
         }
       },

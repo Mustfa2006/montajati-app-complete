@@ -20,8 +20,8 @@ class SimpleOrdersService extends ChangeNotifier {
   bool _isLoading = false;
   DateTime? _lastUpdate;
 
-  // ✅ منع التحميل المتكرر - تحميل مرة واحدة كل 30 ثانية
-  static const Duration _cacheTimeout = Duration(seconds: 30);
+  // ⚡ تحسين الكاش - تحميل مرة واحدة كل 5 دقائق
+  static const Duration _cacheTimeout = Duration(minutes: 5);
 
   // متغيرات التحميل التدريجي
   bool _hasMoreData = true;
@@ -66,18 +66,26 @@ class SimpleOrdersService extends ChangeNotifier {
       forceRefresh = true;
     }
 
-    // ✅ فحص الـ cache - تجنب التحميل المتكرر
+    // ⚡ فحص الـ cache - عرض البيانات المخزنة فوراً
     if (!forceRefresh && _lastUpdate != null && !filterChanged) {
       final timeSinceLastUpdate = DateTime.now().difference(_lastUpdate!);
       if (timeSinceLastUpdate < _cacheTimeout) {
-        debugPrint('📋 استخدام البيانات المحفوظة (${_orders.length} طلب)');
+        debugPrint('⚡ استخدام البيانات المحفوظة (${_orders.length} طلب) - عرض فوري');
+        // عرض البيانات المخزنة فوراً
+        notifyListeners();
         return;
       }
     }
 
-    // إعادة تعيين التحميل التدريجي للتحديث الكامل
+    // ⚡ عرض البيانات المخزنة فوراً (إن وجدت) قبل التحديث
+    if (_orders.isNotEmpty && !filterChanged) {
+      debugPrint('⚡ عرض البيانات المخزنة فوراً: ${_orders.length} طلب');
+      notifyListeners();
+    }
+
+    // إعادة تعيين التحميل التدريجي للتحديث الكامل (بدون مسح البيانات إذا كان الكاش صالح)
     debugPrint('🔄 إعادة تعيين التحميل التدريجي...');
-    resetPagination();
+    resetPagination(clearData: forceRefresh || filterChanged);
 
     _isLoading = true;
     debugPrint('🔄 بدء التحميل - currentPage: $_currentPage, hasMoreData: $_hasMoreData');
@@ -128,7 +136,13 @@ class SimpleOrdersService extends ChangeNotifier {
       }
 
       // تحويل AdminOrder إلى Order مع معالجة الأخطاء
-      _orders = [];
+      // ⚡ مسح البيانات فقط إذا كان التحديث مطلوباً
+      if (forceRefresh || filterChanged) {
+        _orders = [];
+        debugPrint('🔄 مسح البيانات القديمة للتحديث الكامل');
+      } else {
+        debugPrint('⚡ الاحتفاظ بالبيانات المخزنة أثناء التحديث');
+      }
 
       // ✅ ضمان الترتيب الصحيح قبل التحويل
       userOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -353,12 +367,18 @@ class SimpleOrdersService extends ChangeNotifier {
   }
 
   /// إعادة تعيين التحميل التدريجي (للتحديث الكامل)
-  void resetPagination() {
+  void resetPagination({bool clearData = true}) {
     _currentPage = 0;
     _hasMoreData = true;
     _isLoadingMore = false; // ✅ إيقاف أي تحميل تدريجي جاري
-    _orders.clear();
-    debugPrint('🔄 تم إعادة تعيين التحميل التدريجي');
+
+    // ⚡ مسح البيانات فقط إذا كان مطلوباً
+    if (clearData) {
+      _orders.clear();
+      debugPrint('🔄 تم إعادة تعيين التحميل التدريجي مع مسح البيانات');
+    } else {
+      debugPrint('⚡ تم إعادة تعيين التحميل التدريجي مع الاحتفاظ بالبيانات');
+    }
   }
 
   /// دالة تحويل حالة الطلب من AdminOrder إلى OrderStatus

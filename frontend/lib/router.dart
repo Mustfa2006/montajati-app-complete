@@ -31,20 +31,13 @@ import 'pages/scheduled_orders_main_page.dart';
 // import 'pages/protected_system_test_page.dart'; // تم حذف الصفحة
 import 'pages/new_system_test_page.dart';
 
-import 'pages/smart_splash_page.dart';
-
 
 class AppRouter {
   static final GoRouter router = GoRouter(
-    initialLocation: '/splash',
+    initialLocation: '/',
     redirect: (context, state) async {
       try {
         final currentPath = state.uri.toString();
-
-        // السماح بالوصول لشاشة التحميل دائماً
-        if (currentPath == '/splash') {
-          return null;
-        }
 
         // التحقق من حالة تسجيل الدخول
         final token = await AuthService.getToken();
@@ -68,13 +61,6 @@ class AppRouter {
       }
     },
     routes: [
-      // شاشة التحميل الذكية
-      GoRoute(
-        path: '/splash',
-        name: 'splash',
-        builder: (context, state) => const SmartSplashPage(),
-      ),
-
       // المسار الجذر - يوجه إلى صفحة المنتجات
       GoRoute(
         path: '/',

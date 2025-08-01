@@ -110,8 +110,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           child: Center(
             child: Image.asset(
               'assets/images/app_logo.png',
-              width: size * 0.8,
-              height: size * 0.8,
+              width: size * 1.2, // تكبير الصورة
+              height: size * 1.2, // تكبير الصورة
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) {
                 // في حالة عدم وجود الصورة، اعرض الشعار القديم
