@@ -20,7 +20,7 @@ class IntegratedWaseetSync {
     
     // إعدادات المزامنة
     this.isRunning = false;
-    this.syncInterval = 60 * 1000; // كل دقيقة
+    this.syncInterval = 5 * 60 * 1000; // كل 5 دقائق
     this.syncIntervalId = null;
     this.lastSyncTime = null;
     this.isCurrentlySyncing = false;
@@ -84,7 +84,8 @@ class IntegratedWaseetSync {
         }
       }, this.syncInterval);
       
-      console.log(`✅ نظام المزامنة يعمل - كل ${this.syncInterval / 1000} ثانية`);
+      const intervalMinutes = this.syncInterval / (60 * 1000);
+      console.log(`✅ نظام المزامنة يعمل - كل ${intervalMinutes} دقيقة`);
       
       return { success: true, message: 'تم بدء النظام بنجاح' };
       
@@ -267,7 +268,7 @@ class IntegratedWaseetSync {
     return {
       isRunning: this.isRunning,
       isCurrentlySyncing: this.isCurrentlySyncing,
-      syncIntervalSeconds: this.syncInterval / 1000,
+      syncIntervalMinutes: this.syncInterval / (60 * 1000),
       lastSyncTime: this.lastSyncTime,
       nextSyncIn: this.isRunning && this.lastSyncTime ? 
         Math.max(0, this.syncInterval - (Date.now() - this.lastSyncTime.getTime())) : null,

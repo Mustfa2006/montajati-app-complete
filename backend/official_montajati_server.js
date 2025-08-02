@@ -404,9 +404,20 @@ class OfficialMontajatiServer {
     this.app.post('/api/inventory/monitor/:productId', async (req, res) => {
       try {
         const { productId } = req.params;
-        console.log(`📦 طلب مراقبة المنتج: ${productId}`);
+        console.log(`📦 طلب مراقبة المنتج من التطبيق: ${productId}`);
 
         const result = await this.inventoryMonitor.monitorProduct(productId);
+
+        // سجل مفصل للنتائج
+        if (result.success && result.alerts && result.alerts.length > 0) {
+          result.alerts.forEach(alert => {
+            if (alert.sent) {
+              console.log(`📨 تم إرسال إشعار ${alert.type} للمنتج: ${alert.product_name}`);
+            } else {
+              console.log(`📭 تم تخطي إشعار ${alert.type} للمنتج: ${alert.product_name} (مرسل مؤخراً)`);
+            }
+          });
+        }
 
         res.json({
           success: true,
@@ -456,7 +467,7 @@ class OfficialMontajatiServer {
   startInventoryMonitoring() {
     console.log('📦 بدء المراقبة الدورية للمخزون...');
 
-    // مراقبة فورية كل دقيقة
+    // مراقبة دورية كل 5 دقائق (لتقليل التكرار)
     setInterval(async () => {
       try {
         const result = await this.inventoryMonitor.monitorAllProducts();
@@ -477,9 +488,21 @@ class OfficialMontajatiServer {
       } catch (error) {
         console.error('❌ خطأ في المراقبة الدورية للمخزون:', error.message);
       }
-    }, 60 * 1000); // كل دقيقة
+    }, 5 * 60 * 1000); // كل 5 دقائق
 
-    console.log('✅ تم بدء المراقبة الدورية للمخزون (كل دقيقة)');
+    console.log('✅ تم بدء المراقبة الدورية للمخزون (كل 5 دقائق)');
+
+    // تنظيف الإشعارات القديمة كل ساعة
+    setInterval(() => {
+      try {
+        this.inventoryMonitor.cleanupOldAlerts();
+        console.log('🧹 تم تنظيف الإشعارات القديمة');
+      } catch (error) {
+        console.error('❌ خطأ في تنظيف الإشعارات القديمة:', error.message);
+      }
+    }, 60 * 60 * 1000); // كل ساعة
+
+    console.log('✅ تم بدء تنظيف الإشعارات القديمة (كل ساعة)');
   }
 
   // ===================================
@@ -528,9 +551,15 @@ class OfficialMontajatiServer {
       await this.notificationManager.initialize();
       this.state.services.notifications = this.notificationManager;
 
-      // تهيئة خدمة مراقبة المخزون
+      // تهيئة خدمة مراقبة المخزون (مثيل واحد فقط)
       console.log('📦 تهيئة خدمة مراقبة المخزون...');
-      this.inventoryMonitor = new InventoryMonitorService();
+      if (!global.inventoryMonitorInstance) {
+        global.inventoryMonitorInstance = new InventoryMonitorService();
+        console.log('✅ تم إنشاء مثيل جديد لخدمة مراقبة المخزون');
+      } else {
+        console.log('✅ استخدام المثيل الموجود لخدمة مراقبة المخزون');
+      }
+      this.inventoryMonitor = global.inventoryMonitorInstance;
       this.state.services.inventoryMonitor = this.inventoryMonitor;
 
       // تهيئة خدمة المزامنة المتقدمة
