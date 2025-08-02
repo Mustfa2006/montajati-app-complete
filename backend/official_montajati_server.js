@@ -3,10 +3,13 @@
 // Official Integrated Montajati Server
 // ===================================
 
-// تحميل متغيرات البيئة (يعمل مع Render تلقائياً)
+// تحميل متغيرات البيئة (يعمل مع DigitalOcean تلقائياً)
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+
+// إضافة خدمة مراقبة المخزون
+const InventoryMonitorService = require('./inventory_monitor_service');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
@@ -45,6 +48,7 @@ class OfficialMontajatiServer {
       startedAt: null,
       services: {
         notifications: null,
+        inventoryMonitor: null,
         sync: null,
         monitor: null,
         fcmCleanup: null,
@@ -375,6 +379,9 @@ class OfficialMontajatiServer {
       console.warn('⚠️ تحذير في تحميل مسارات الدعم:', error.message);
     }
 
+    // مسارات مراقبة المخزون
+    this.setupInventoryRoutes();
+
     console.log('✅ انتهى تحميل جميع المسارات');
 
     // معالج 404 للمسارات غير الموجودة
@@ -387,6 +394,92 @@ class OfficialMontajatiServer {
         timestamp: new Date().toISOString()
       });
     });
+  }
+
+  // ===================================
+  // إعداد مسارات مراقبة المخزون
+  // ===================================
+  setupInventoryRoutes() {
+    // مراقبة منتج محدد
+    this.app.post('/api/inventory/monitor/:productId', async (req, res) => {
+      try {
+        const { productId } = req.params;
+        console.log(`📦 طلب مراقبة المنتج: ${productId}`);
+
+        const result = await this.inventoryMonitor.monitorProduct(productId);
+
+        res.json({
+          success: true,
+          message: 'تم فحص المنتج بنجاح',
+          data: result,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('❌ خطأ في مراقبة المنتج:', error);
+        res.status(500).json({
+          success: false,
+          message: 'خطأ في مراقبة المنتج',
+          error: error.message
+        });
+      }
+    });
+
+    // مراقبة جميع المنتجات
+    this.app.post('/api/inventory/monitor-all', async (req, res) => {
+      try {
+        console.log('📦 طلب مراقبة جميع المنتجات');
+
+        const result = await this.inventoryMonitor.monitorAllProducts();
+
+        res.json({
+          success: true,
+          message: 'تم فحص جميع المنتجات بنجاح',
+          data: result,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('❌ خطأ في مراقبة جميع المنتجات:', error);
+        res.status(500).json({
+          success: false,
+          message: 'خطأ في مراقبة جميع المنتجات',
+          error: error.message
+        });
+      }
+    });
+
+    console.log('✅ تم تحميل مسارات مراقبة المخزون');
+  }
+
+  // ===================================
+  // بدء المراقبة الدورية للمخزون
+  // ===================================
+  startInventoryMonitoring() {
+    console.log('📦 بدء المراقبة الدورية للمخزون...');
+
+    // مراقبة فورية كل دقيقة
+    setInterval(async () => {
+      try {
+        const result = await this.inventoryMonitor.monitorAllProducts();
+
+        if (result.success && result.results) {
+          const { outOfStock, lowStock, total, sentNotifications } = result.results;
+
+          // عرض النتائج فقط عند وجود تنبيهات
+          if (outOfStock > 0 || lowStock > 0) {
+            console.log(`📦 فحص دوري للمخزون - ${total} منتج`);
+            console.log(`📊 نفد: ${outOfStock}, منخفض: ${lowStock}, طبيعي: ${total - outOfStock - lowStock}`);
+
+            if (sentNotifications > 0) {
+              console.log(`📨 تم إرسال ${sentNotifications} إشعار تلغرام جديد`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ خطأ في المراقبة الدورية للمخزون:', error.message);
+      }
+    }, 60 * 1000); // كل دقيقة
+
+    console.log('✅ تم بدء المراقبة الدورية للمخزون (كل دقيقة)');
   }
 
   // ===================================
@@ -434,6 +527,11 @@ class OfficialMontajatiServer {
       // تهيئة الخدمات الأساسية
       await this.notificationManager.initialize();
       this.state.services.notifications = this.notificationManager;
+
+      // تهيئة خدمة مراقبة المخزون
+      console.log('📦 تهيئة خدمة مراقبة المخزون...');
+      this.inventoryMonitor = new InventoryMonitorService();
+      this.state.services.inventoryMonitor = this.inventoryMonitor;
 
       // تهيئة خدمة المزامنة المتقدمة
       try {
@@ -492,7 +590,10 @@ class OfficialMontajatiServer {
         this.state.startedAt = new Date();
 
         console.log('🎉 الخادم الرسمي لنظام منتجاتي يعمل بنجاح!');
-        console.log(`🌐 الرابط: https://montajati-backend.onrender.com`);
+        console.log(`🌐 الرابط: https://clownfish-app-krnk9.ondigitalocean.app`);
+
+        // بدء المراقبة الدورية للمخزون
+        this.startInventoryMonitoring();
       });
 
       // إعداد timeout للخادم
