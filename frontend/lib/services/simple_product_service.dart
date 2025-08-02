@@ -1,11 +1,24 @@
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'smart_inventory_manager.dart';
 
 /// خدمة بسيطة لإضافة المنتجات بدون تعقيدات
 class SimpleProductService {
   static final _supabase = Supabase.instance.client;
   static const String _bucketName = 'product-images';
+
+  /// الحصول على رقم هاتف المستخدم الحالي
+  static Future<String?> _getCurrentUserPhone() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('current_user_phone');
+    } catch (e) {
+      debugPrint('❌ خطأ في الحصول على رقم هاتف المستخدم: $e');
+      return null;
+    }
+  }
 
   /// إضافة منتج جديد بطريقة مبسطة
   static Future<Map<String, dynamic>> addProduct({
@@ -51,41 +64,35 @@ class SimpleProductService {
         debugPrint('⚠️ لم يتم رفع أي صورة، استخدام صورة افتراضية');
       }
 
-      // 2. إضافة المنتج إلى قاعدة البيانات
-      debugPrint('💾 إضافة المنتج إلى قاعدة البيانات...');
+      // 2. إضافة المنتج باستخدام النظام الذكي للمخزون
+      debugPrint('🧠 إضافة المنتج باستخدام النظام الذكي...');
 
-      // إنشاء بيانات المنتج مع التعامل مع الحقول الاختيارية
-      final productData = <String, dynamic>{
-        'name': name,
-        'description': description,
-        'wholesale_price': wholesalePrice,
-        'min_price': minPrice,
-        'max_price': maxPrice,
-        'image_url': imageUrls.first, // الصورة الرئيسية
-        'category': category,
-        'available_quantity': stockQuantity, // الكمية المخزونة (مخفية)
-        'is_active': true,
-        'created_at': DateTime.now().toIso8601String(),
-      };
-
-      // إضافة الحقول الجديدة فقط إذا كانت قاعدة البيانات تدعمها
-      try {
-        productData['available_from'] = availableFrom;
-        productData['available_to'] = availableTo;
-        productData['images'] = imageUrls;
-      } catch (e) {
-        debugPrint('⚠️ تحذير: بعض الحقول الجديدة غير مدعومة في قاعدة البيانات');
+      // الحصول على رقم هاتف المستخدم
+      final userPhone = await _getCurrentUserPhone();
+      if (userPhone == null) {
+        throw Exception('لم يتم العثور على رقم هاتف المستخدم');
       }
 
-      debugPrint('📝 بيانات المنتج المرسلة: $productData');
+      // استخدام النظام الذكي لإضافة المنتج
+      final result = await SmartInventoryManager.addProductWithSmartInventory(
+        name: name,
+        description: description,
+        wholesalePrice: wholesalePrice,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+        totalQuantity: stockQuantity,
+        category: category,
+        userPhone: userPhone,
+        images: imageUrls,
+      );
 
-      final response = await _supabase
-          .from('products')
-          .insert(productData)
-          .select()
-          .single();
+      if (!result['success']) {
+        throw Exception(result['message']);
+      }
 
-      debugPrint('✅ تم إضافة المنتج بنجاح: ${response['id']}');
+      final response = result['product'];
+      debugPrint('✅ تم إضافة المنتج بالنظام الذكي: ${response['id']}');
+      debugPrint('🎯 النطاق الذكي: ${result['smart_range']}');
 
       return {
         'success': true,

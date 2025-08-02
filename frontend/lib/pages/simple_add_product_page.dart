@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/simple_product_service.dart';
 import '../services/basic_product_service.dart';
+import '../services/smart_inventory_manager.dart';
 
 class SimpleAddProductPage extends StatefulWidget {
   const SimpleAddProductPage({super.key});
@@ -40,6 +41,40 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
     'ألعاب',
     'أخرى',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    // إضافة مستمع لحقل الكمية الإجمالية لحساب النطاق الذكي
+    _stockQuantityController.addListener(_calculateSmartRange);
+  }
+
+  @override
+  void dispose() {
+    _stockQuantityController.removeListener(_calculateSmartRange);
+    super.dispose();
+  }
+
+  /// حساب النطاق الذكي تلقائياً عند تغيير الكمية الإجمالية
+  void _calculateSmartRange() {
+    final totalQuantityText = _stockQuantityController.text;
+    if (totalQuantityText.isNotEmpty) {
+      final totalQuantity = int.tryParse(totalQuantityText);
+      if (totalQuantity != null && totalQuantity > 0) {
+        // استخدام النظام الذكي لحساب النطاق
+        final smartRange = SmartInventoryManager.calculateSmartRange(totalQuantity);
+
+        // تحديث الحقول تلقائياً
+        setState(() {
+          _availableFromController.text = smartRange['min'].toString();
+          _availableToController.text = smartRange['max'].toString();
+        });
+
+        debugPrint('🧠 تم حساب النطاق الذكي: من ${smartRange['min']} إلى ${smartRange['max']}');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -134,17 +169,59 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
               _buildDropdown(),
               const SizedBox(height: 20),
 
-              // الكمية المخزونة (مخفية عن المستخدم)
-              _buildTextField(
-                controller: _stockQuantityController,
-                label: 'الكمية المخزونة (إجمالي)',
-                icon: FontAwesomeIcons.boxesStacked,
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value?.isEmpty ?? true) return 'مطلوب';
-                  if (int.tryParse(value!) == null) return 'رقم غير صحيح';
-                  return null;
-                },
+              // الكمية المخزونة مع النظام الذكي
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF16213e),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF4CAF50), width: 2),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.boxesStacked,
+                          color: const Color(0xFF4CAF50),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'الكمية الإجمالية في المخزون',
+                          style: GoogleFonts.cairo(
+                            color: const Color(0xFF4CAF50),
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'سيتم حساب النطاق الذكي تلقائياً عند تغيير هذا الرقم',
+                      style: GoogleFonts.cairo(
+                        color: Colors.grey[400],
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      controller: _stockQuantityController,
+                      label: 'أدخل العدد الكامل (مثال: 100)',
+                      icon: FontAwesomeIcons.hashtag,
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) return 'مطلوب';
+                        if (int.tryParse(value!) == null) return 'رقم غير صحيح';
+                        final quantity = int.parse(value);
+                        if (quantity <= 0) return 'يجب أن يكون أكبر من صفر';
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
 
@@ -264,15 +341,67 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Icon(
+                FontAwesomeIcons.brain,
+                color: const Color(0xFFffd700),
+                size: 20,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'النطاق الذكي للمخزون',
+                style: GoogleFonts.cairo(
+                  color: const Color(0xFFffd700),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Text(
-            'الكمية المتاحة للعرض',
+            'يتم حساب النطاق تلقائياً بناءً على الكمية الإجمالية',
             style: GoogleFonts.cairo(
-              color: const Color(0xFFffd700),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+              color: Colors.grey[400],
+              fontSize: 12,
             ),
           ),
           const SizedBox(height: 15),
+
+          // مؤشر النطاق الذكي
+          if (_stockQuantityController.text.isNotEmpty &&
+              int.tryParse(_stockQuantityController.text) != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 15),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.lightbulb,
+                    color: const Color(0xFF4CAF50),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'تم حساب النطاق تلقائياً بناءً على ${_stockQuantityController.text} قطعة',
+                      style: GoogleFonts.cairo(
+                        color: const Color(0xFF4CAF50),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           Row(
             children: [
               Expanded(

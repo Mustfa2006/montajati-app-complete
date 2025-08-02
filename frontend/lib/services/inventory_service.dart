@@ -1,6 +1,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'smart_inventory_manager.dart';
 import 'package:http/http.dart' as http;
 
 
@@ -8,118 +9,113 @@ import 'package:http/http.dart' as http;
 class InventoryService {
   static final _supabase = Supabase.instance.client;
 
-  /// تقليل الكمية المتاحة عند إجراء حجز
+  /// تقليل الكمية المتاحة عند إجراء حجز باستخدام النظام الذكي
   static Future<Map<String, dynamic>> reserveProduct({
     required String productId,
     required int reservedQuantity,
   }) async {
     try {
-      debugPrint('🔄 بدء حجز $reservedQuantity قطعة من المنتج: $productId');
+      debugPrint('🧠 بدء الحجز الذكي: $reservedQuantity قطعة من المنتج: $productId');
 
-      // 1. جلب بيانات المنتج الحالية (العدد الإجمالي فقط)
-      final productResponse = await _supabase
-          .from('products')
-          .select('available_quantity')
-          .eq('id', productId)
-          .single();
+      // استخدام النظام الذكي للحجز
+      final result = await SmartInventoryManager.smartReserveProduct(
+        productId: productId,
+        requestedQuantity: reservedQuantity,
+      );
 
-      final int currentStock = productResponse['available_quantity'] ?? 0;
+      if (result['success']) {
+        debugPrint('✅ تم الحجز الذكي بنجاح');
+        debugPrint('📊 حالة المخزون: ${result['stock_status']}');
 
-      debugPrint('📊 الكمية الحالية: $currentStock قطعة');
+        // إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
+        _monitorProductStock(productId);
 
-      // 2. التحقق من توفر الكمية
-      if (currentStock < reservedQuantity) {
+        // إرسال تنبيه إذا كان المخزون منخفض
+        if (result['is_low_stock'] == true) {
+          debugPrint('⚠️ تحذير: المخزون منخفض للمنتج ${result['product_name']}');
+          _sendLowStockAlert(productId, result['product_name'], result['new_stock']);
+        }
+
         return {
-          'success': false,
-          'message': 'الكمية المطلوبة غير متوفرة في المخزون',
-          'available_stock': currentStock,
+          'success': true,
+          'message': result['message'],
+          'reserved_quantity': result['reserved_quantity'],
+          'new_stock': result['new_stock'],
+          'stock_status': result['stock_status'],
+          'is_low_stock': result['is_low_stock'],
+          'is_out_of_stock': result['is_out_of_stock'],
         };
+      } else {
+        debugPrint('❌ فشل الحجز الذكي: ${result['message']}');
+        return result;
       }
-
-      // 3. حساب الكمية الجديدة
-      final int newStock = currentStock - reservedQuantity;
-
-      debugPrint('🔢 الكمية الجديدة: $newStock قطعة');
-
-      // 4. تحديث قاعدة البيانات (العدد الإجمالي فقط)
-      await _supabase
-          .from('products')
-          .update({
-            'available_quantity': newStock,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', productId);
-
-      debugPrint('✅ تم تحديث الكمية بنجاح');
-
-      // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
-      _monitorProductStock(productId);
-
-      return {
-        'success': true,
-        'message': 'تم حجز الكمية بنجاح',
-        'reserved_quantity': reservedQuantity,
-        'new_stock': newStock,
-      };
     } catch (e) {
-      debugPrint('❌ خطأ في حجز المنتج: $e');
+      debugPrint('❌ خطأ في الحجز الذكي: $e');
       return {
         'success': false,
-        'message': 'خطأ في النظام',
+        'message': 'خطأ في النظام: $e',
         'error': e.toString(),
       };
     }
   }
 
-  /// إلغاء حجز وإرجاع الكمية (يعتمد على العدد الإجمالي فقط)
+  /// إرسال تنبيه المخزون المنخفض
+  static void _sendLowStockAlert(String productId, String productName, int currentStock) {
+    try {
+      debugPrint('🚨 إرسال تنبيه مخزون منخفض: $productName (المتبقي: $currentStock)');
+
+      // يمكن إضافة إرسال إشعار للمستخدم هنا
+      // مثل Firebase Notification أو Telegram Bot
+
+      // إرسال طلب للخادم لمعالجة التنبيه
+      _monitorProductStock(productId);
+
+    } catch (e) {
+      debugPrint('❌ خطأ في إرسال تنبيه المخزون المنخفض: $e');
+    }
+  }
+
+  /// إلغاء حجز وإرجاع الكمية باستخدام النظام الذكي
   static Future<Map<String, dynamic>> cancelReservation({
     required String productId,
     required int returnedQuantity,
   }) async {
     try {
       debugPrint(
-        '🔄 بدء إلغاء حجز $returnedQuantity قطعة من المنتج: $productId',
+        '🧠 بدء إلغاء الحجز الذكي: $returnedQuantity قطعة من المنتج: $productId',
       );
 
-      // 1. جلب بيانات المنتج الحالية
-      final productResponse = await _supabase
-          .from('products')
-          .select('available_quantity')
-          .eq('id', productId)
-          .single();
+      // استخدام النظام الذكي لإضافة المخزون
+      final result = await SmartInventoryManager.addStock(
+        productId: productId,
+        addedQuantity: returnedQuantity,
+      );
 
-      final int currentStock = productResponse['available_quantity'] ?? 0;
+      if (result['success']) {
+        debugPrint('✅ تم إلغاء الحجز بالنظام الذكي بنجاح');
+        debugPrint('🎯 النطاق الجديد: ${result['new_range']}');
 
-      // 2. حساب الكمية الجديدة (إضافة الكمية المُلغاة)
-      final int newStock = currentStock + returnedQuantity;
+        // إرسال طلب مراقبة المنتج للتحقق من تحسن المخزون
+        _monitorProductStock(productId);
 
-      debugPrint('🔢 الكمية بعد الإلغاء: $newStock قطعة');
-
-      // 3. تحديث قاعدة البيانات
-      await _supabase
-          .from('products')
-          .update({
-            'available_quantity': newStock,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', productId);
-
-      debugPrint('✅ تم إلغاء الحجز وإرجاع الكمية بنجاح');
-
-      // 🔔 إرسال طلب مراقبة المنتج للتحقق من تحسن المخزون
-      _monitorProductStock(productId);
-
-      return {
-        'success': true,
-        'message': 'تم إلغاء الحجز بنجاح',
-        'returned_quantity': returnedQuantity,
-        'new_stock': newStock,
-      };
+        return {
+          'success': true,
+          'message': 'تم إلغاء الحجز بنجاح\n${result['message']}',
+          'returned_quantity': result['added_quantity'],
+          'previous_stock': result['previous_stock'],
+          'new_stock': result['new_stock'],
+          'new_range': result['new_range'],
+          'product_name': result['product_name'],
+        };
+      } else {
+        debugPrint('❌ فشل إلغاء الحجز الذكي: ${result['message']}');
+        return result;
+      }
     } catch (e) {
-      debugPrint('❌ خطأ في إلغاء الحجز: $e');
+      debugPrint('❌ خطأ في إلغاء الحجز الذكي: $e');
       return {
         'success': false,
-        'message': 'خطأ في النظام',
+        'message': 'خطأ في النظام: $e',
         'error': e.toString(),
       };
     }
@@ -204,9 +200,14 @@ class InventoryService {
   /// إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
   static void _monitorProductStock(String productId) {
     // إرسال طلب غير متزامن لمراقبة المنتج
+    // استخدام الخادم الصحيح حسب البيئة
+    const String baseUrl = kDebugMode
+        ? 'http://localhost:3003'
+        : 'https://montajati-backend.onrender.com';
+
     http
         .post(
-          Uri.parse('http://localhost:3003/api/inventory/monitor/$productId'),
+          Uri.parse('$baseUrl/api/inventory/monitor/$productId'),
           headers: {'Content-Type': 'application/json'},
         )
         .then((response) {
@@ -246,67 +247,52 @@ class InventoryService {
     }
   }
 
-  /// تقليل المخزون مباشرة (للطلبات المثبتة)
+  /// تقليل المخزون مباشرة (للطلبات المثبتة) باستخدام النظام الذكي
   static Future<Map<String, dynamic>> reduceStock({
     required String productId,
     required int quantity,
   }) async {
     try {
-      debugPrint('📉 بدء تقليل المخزون: $quantity قطعة من المنتج $productId');
+      debugPrint('🧠 بدء تقليل المخزون الذكي: $quantity قطعة من المنتج $productId');
 
-      // 1. جلب بيانات المنتج الحالية
-      final productResponse = await _supabase
-          .from('products')
-          .select('available_quantity, name')
-          .eq('id', productId)
-          .single();
+      // استخدام النظام الذكي لتقليل المخزون (نفس منطق الحجز)
+      final result = await SmartInventoryManager.smartReserveProduct(
+        productId: productId,
+        requestedQuantity: quantity,
+      );
 
-      final int currentStock = productResponse['available_quantity'] ?? 0;
-      final String productName = productResponse['name'] ?? 'منتج غير محدد';
+      if (result['success']) {
+        debugPrint('✅ تم تقليل المخزون بالنظام الذكي بنجاح');
+        debugPrint('📊 حالة المخزون: ${result['stock_status']}');
+        debugPrint('🎯 النطاق الجديد: ${result['new_range']}');
 
-      debugPrint('📊 الكمية الحالية: $currentStock قطعة');
+        // إرسال طلب مراقبة المخزون للخادم الخلفي
+        _monitorProductStock(productId);
 
-      // 2. التحقق من توفر الكمية
-      if (currentStock < quantity) {
-        debugPrint(
-          '⚠️ الكمية المطلوبة ($quantity) أكبر من المتوفر ($currentStock)',
-        );
+        // إرسال تنبيه إذا كان المخزون منخفض
+        if (result['is_low_stock'] == true) {
+          debugPrint('⚠️ تحذير: المخزون منخفض للمنتج ${result['product_name']}');
+          _sendLowStockAlert(productId, result['product_name'], result['new_stock']);
+        }
+
         return {
-          'success': false,
-          'message': 'الكمية المطلوبة غير متوفرة في المخزون',
-          'available_stock': currentStock,
-          'requested_quantity': quantity,
+          'success': true,
+          'message': 'تم تقليل المخزون بنجاح\n${result['message']}',
+          'previous_stock': result['previous_stock'],
+          'new_stock': result['new_stock'],
+          'reduced_quantity': result['reserved_quantity'],
+          'product_name': result['product_name'],
+          'stock_status': result['stock_status'],
+          'new_range': result['new_range'],
+          'is_low_stock': result['is_low_stock'],
+          'is_out_of_stock': result['is_out_of_stock'],
         };
+      } else {
+        debugPrint('❌ فشل تقليل المخزون الذكي: ${result['message']}');
+        return result;
       }
-
-      // 3. حساب الكمية الجديدة
-      final int newStock = currentStock - quantity;
-      debugPrint('🔢 الكمية الجديدة: $newStock قطعة');
-
-      // 4. تحديث قاعدة البيانات
-      await _supabase
-          .from('products')
-          .update({
-            'available_quantity': newStock,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', productId);
-
-      debugPrint('✅ تم تقليل مخزون المنتج $productName بمقدار $quantity قطعة');
-
-      // 5. إرسال طلب مراقبة المخزون للخادم الخلفي
-      _monitorProductStock(productId);
-
-      return {
-        'success': true,
-        'message': 'تم تقليل المخزون بنجاح',
-        'previous_stock': currentStock,
-        'new_stock': newStock,
-        'reduced_quantity': quantity,
-        'product_name': productName,
-      };
     } catch (e) {
-      debugPrint('❌ خطأ في تقليل المخزون: $e');
+      debugPrint('❌ خطأ في تقليل المخزون الذكي: $e');
       return {'success': false, 'message': 'حدث خطأ في تقليل المخزون: $e'};
     }
   }

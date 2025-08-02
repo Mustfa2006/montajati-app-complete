@@ -10,6 +10,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../services/admin_service.dart';
 import '../services/withdrawal_service.dart';
+import '../services/smart_inventory_manager.dart';
 
 import '../models/product.dart';
 import 'advanced_orders_management_page.dart';
@@ -1543,8 +1544,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
         // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
         try {
+          final String baseUrl = kDebugMode
+              ? 'http://localhost:3003'
+              : 'https://montajati-backend.onrender.com';
+
           final response = await http.post(
-            Uri.parse('http://localhost:3003/api/inventory/monitor/$productId'),
+            Uri.parse('$baseUrl/api/inventory/monitor/$productId'),
             headers: {'Content-Type': 'application/json'},
           );
 
@@ -2419,29 +2424,34 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     List<String> images,
   ) async {
     try {
-      // إصلاح: استخدام الأسماء الصحيحة للأعمدة حسب قاعدة البيانات
-      await Supabase.instance.client
-          .from('products')
-          .update({
-            'name': name.trim(),
-            'description': description.trim(),
-            'wholesale_price': wholesalePrice,
-            'min_price': minPrice,
-            'max_price': maxPrice,
-            'available_from': availableFrom,
-            'available_to': availableTo,
-            'available_quantity':
-                availableQuantity, // الكمية المخزونة الإجمالية
-            'category': category.trim(),
-            'images': images,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', productId);
+      // استخدام النظام الذكي لتحديث المنتج
+      final result = await SmartInventoryManager.updateProductWithSmartInventory(
+        productId: productId,
+        name: name,
+        description: description,
+        wholesalePrice: wholesalePrice,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+        totalQuantity: availableQuantity,
+        category: category,
+        images: images,
+      );
+
+      if (!result['success']) {
+        throw Exception(result['message']);
+      }
+
+      debugPrint('✅ تم تحديث المنتج بالنظام الذكي: ${result['message']}');
+      debugPrint('🎯 النطاق الذكي: ${result['smart_range']}');
 
       // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
       try {
+        final String baseUrl = kDebugMode
+            ? 'http://localhost:3003'
+            : 'https://montajati-backend.onrender.com';
+
         final response = await http.post(
-          Uri.parse('http://localhost:3003/api/inventory/monitor/$productId'),
+          Uri.parse('$baseUrl/api/inventory/monitor/$productId'),
           headers: {'Content-Type': 'application/json'},
         );
 
