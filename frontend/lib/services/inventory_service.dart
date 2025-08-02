@@ -27,8 +27,7 @@ class InventoryService {
         debugPrint('✅ تم الحجز الذكي بنجاح');
         debugPrint('📊 حالة المخزون: ${result['stock_status']}');
 
-        // إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
-        _monitorProductStock(productId);
+        // ملاحظة: مراقبة المخزون تتم تلقائياً في SmartInventoryManager
 
         // إرسال تنبيه إذا كان المخزون منخفض
         if (result['is_low_stock'] == true) {
@@ -266,8 +265,7 @@ class InventoryService {
         debugPrint('📊 حالة المخزون: ${result['stock_status']}');
         debugPrint('🎯 النطاق الجديد: ${result['new_range']}');
 
-        // إرسال طلب مراقبة المخزون للخادم الخلفي
-        _monitorProductStock(productId);
+        // ملاحظة: مراقبة المخزون تتم تلقائياً في SmartInventoryManager
 
         // إرسال تنبيه إذا كان المخزون منخفض
         if (result['is_low_stock'] == true) {

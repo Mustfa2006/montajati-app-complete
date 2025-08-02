@@ -5,6 +5,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'dart:math';
 
 class SmartInventoryManager {
@@ -90,6 +91,9 @@ class SmartInventoryManager {
 
       debugPrint('✅ تم تحديث المنتج بالنظام الذكي بنجاح');
 
+      // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
+      _monitorProductStock(productId);
+
       return {
         'success': true,
         'message': 'تم تحديث المنتج بالنظام الذكي بنجاح',
@@ -151,6 +155,10 @@ class SmartInventoryManager {
       }).select().single();
 
       debugPrint('✅ تم إضافة المنتج بالنظام الذكي بنجاح');
+
+      // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
+      final String productId = response['id'];
+      _monitorProductStock(productId);
 
       return {
         'success': true,
@@ -236,6 +244,9 @@ class SmartInventoryManager {
 
       debugPrint('✅ تم الحجز الذكي بنجاح');
       debugPrint('📊 حالة المخزون: $stockStatus');
+
+      // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
+      _monitorProductStock(productId);
 
       return {
         'success': true,
@@ -366,6 +377,9 @@ class SmartInventoryManager {
       debugPrint('📊 الكمية الجديدة: $newAvailable');
       debugPrint('🎯 النطاق الجديد: من ${newRange['min']} إلى ${newRange['max']}');
 
+      // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
+      _monitorProductStock(productId);
+
       return {
         'success': true,
         'message': 'تم إضافة $addedQuantity قطعة لـ $productName بنجاح',
@@ -382,5 +396,32 @@ class SmartInventoryManager {
         'message': 'خطأ في إضافة المخزون: $e',
       };
     }
+  }
+
+  /// إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
+  static void _monitorProductStock(String productId) {
+    // إرسال طلب غير متزامن لمراقبة المنتج
+    // استخدام الخادم الصحيح حسب البيئة
+    final String baseUrl = kDebugMode
+        ? 'http://localhost:3003'
+        : 'https://montajati-backend.onrender.com';
+
+    http
+        .post(
+          Uri.parse('$baseUrl/api/inventory/monitor/$productId'),
+          headers: {'Content-Type': 'application/json'},
+        )
+        .then((response) {
+          if (response.statusCode == 200) {
+            debugPrint('✅ تم إرسال طلب مراقبة المنتج: $productId');
+          } else {
+            debugPrint(
+              '⚠️ فشل في إرسال طلب مراقبة المنتج: ${response.statusCode}',
+            );
+          }
+        })
+        .catchError((error) {
+          debugPrint('⚠️ خطأ في إرسال طلب مراقبة المنتج: $error');
+        });
   }
 }
