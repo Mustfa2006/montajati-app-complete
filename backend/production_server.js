@@ -459,14 +459,19 @@ async function startServer() {
     console.log('⚡ تشغيل المراقبة الفورية للمخزون كل دقيقة...');
     setInterval(async () => {
       try {
-        console.log('🔄 فحص فوري للمخزون...');
         const result = await inventoryMonitor.monitorAllProducts();
 
-        // عرض نتائج مختصرة فقط عند وجود تنبيهات
+        // عرض نتائج مفصلة عند وجود تنبيهات
         if (result.success && result.results) {
-          const { outOfStock, lowStock, total } = result.results;
+          const { outOfStock, lowStock, total, sentNotifications } = result.results;
+
           if (outOfStock > 0 || lowStock > 0) {
-            console.log(`📊 فحص ${total} منتج - نفد: ${outOfStock}, منخفض: ${lowStock}`);
+            console.log(`🔄 فحص فوري للمخزون - ${total} منتج`);
+            console.log(`📊 نفد: ${outOfStock}, منخفض: ${lowStock}, طبيعي: ${total - outOfStock - lowStock}`);
+
+            if (sentNotifications > 0) {
+              console.log(`📨 تم إرسال ${sentNotifications} إشعار تلغرام جديد`);
+            }
           }
         }
       } catch (error) {
