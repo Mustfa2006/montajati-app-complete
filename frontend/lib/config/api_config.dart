@@ -5,7 +5,7 @@ class ApiConfig {
   // ✅ إعداد الإنتاج النهائي
   static const bool isProduction = true;
 
-  // ✅ رابط الإنتاج الرسمي
+  // ✅ رابط الإنتاج الرسمي - Render (مؤقت حتى إصلاح DigitalOcean)
   static const String _productionBaseUrl = 'https://montajati-backend.onrender.com';
 
   // ✅ الرابط الأساسي للـ API - إنتاج نهائي

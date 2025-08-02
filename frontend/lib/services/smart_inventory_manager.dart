@@ -404,7 +404,7 @@ class SmartInventoryManager {
     // استخدام الخادم الصحيح حسب البيئة
     final String baseUrl = kDebugMode
         ? 'http://localhost:3003'
-        : 'https://montajati-backend.onrender.com';
+        : 'https://clownfish-app-krnk9.ondigitalocean.app';
 
     http
         .post(

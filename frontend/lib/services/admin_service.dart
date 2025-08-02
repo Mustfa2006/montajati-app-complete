@@ -17,8 +17,8 @@ import 'official_order_service.dart';
 class AdminService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
 
-  // رابط الخادم الخلفي - تم تحديثه للخادم المُنشر
-  static const String baseUrl = 'https://montajati-backend.onrender.com';
+  // رابط الخادم الخلفي - DigitalOcean
+  static const String baseUrl = 'https://clownfish-app-krnk9.ondigitalocean.app';
 
   /// توليد رقم طلب فريد
   static String generateOrderNumber() {
