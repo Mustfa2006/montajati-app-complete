@@ -426,61 +426,90 @@ class _FavoritesPageState extends State<FavoritesPage>
   }
 
   Widget _buildFavoriteCard(Product product, int index) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final cardWidth = (screenWidth - 48) / 2; // عرض البطاقة
-    final imageHeight = cardWidth * 0.75; // ارتفاع الصورة
-    final padding = cardWidth * 0.04; // الحشو النسبي
-    final titleFontSize = cardWidth * 0.08; // حجم خط العنوان
-    final priceFontSize = cardWidth * 0.06; // حجم خط السعر
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // حساب الأحجام بناءً على عرض البطاقة (نفس نظام صفحة المنتجات)
+        double cardWidth = constraints.maxWidth;
+        double cardHeight = constraints.maxHeight;
 
-    return GestureDetector(
-      onTap: () => context.go('/products/details/${product.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF16213e),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFFffd700).withValues(alpha: 0.4),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
+        // نسبة الصورة تتكيف مع حجم البطاقة
+        double imageHeight = cardHeight * 0.58; // 58% من ارتفاع البطاقة للصورة
+
+        // أحجام النصوص والعناصر بناءً على عرض البطاقة
+        double titleFontSize;
+        double priceFontSize;
+        double padding;
+
+        if (cardWidth > 200) {
+          titleFontSize = 15;
+          priceFontSize = 14;
+          padding = 14;
+        } else if (cardWidth > 160) {
+          titleFontSize = 14;
+          priceFontSize = 13;
+          padding = 12;
+        } else if (cardWidth > 140) {
+          titleFontSize = 13;
+          priceFontSize = 12;
+          padding = 10;
+        } else {
+          titleFontSize = 12;
+          priceFontSize = 11;
+          padding = 8;
+        }
+
+        return GestureDetector(
+          onTap: () => context.go('/products/details/${product.id}'),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF16213e),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: const Color(0xFFffd700).withValues(alpha: 0.4),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // صورة المنتج الكبيرة - تملأ معظم البطاقة
-            _buildLargeProductImage(product, imageHeight),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // صورة المنتج الكبيرة - تملأ معظم البطاقة
+                _buildLargeProductImage(product, imageHeight),
 
-            // معلومات المنتج المضغوطة
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                padding,
-                padding,
-                padding,
-                padding * 0.3,
-              ), // تقليل الحشو السفلي أكثر
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // اسم المنتج - متعدد الأسطر ومتجاوب
-                  Text(
-                    product.name,
-                    style: GoogleFonts.cairo(
-                      color: Colors.white,
-                      fontSize: titleFontSize,
-                      fontWeight: FontWeight.bold,
-                      height: 1.2,
-                    ),
-                    maxLines: 2, // السماح بسطرين
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.start,
-                  ),
+                // معلومات المنتج المضغوطة
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      padding,
+                      padding * 0.6,
+                      padding,
+                      padding * 0.3,
+                    ), // تقليل الحشو أكثر
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // اسم المنتج - متعدد الأسطر ومتجاوب
+                        Flexible(
+                          child: Text(
+                            product.name,
+                            style: GoogleFonts.cairo(
+                              color: Colors.white,
+                              fontSize: titleFontSize,
+                              fontWeight: FontWeight.bold,
+                              height: 1.2, // زيادة المسافة بين الأسطر
+                            ),
+                            maxLines: 2, // السماح بسطرين
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.start,
+                          ),
+                        ),
 
                   SizedBox(
                     height: padding * 1.2,
@@ -594,9 +623,11 @@ class _FavoritesPageState extends State<FavoritesPage>
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -679,12 +710,12 @@ class _FavoritesPageState extends State<FavoritesPage>
               },
             ),
 
-            // الكمية المتاحة في الزاوية العلوية اليسرى - مصغرة
+            // الكمية المتاحة في الزاوية العلوية اليسرى - مكبرة
             Positioned(
               top: 8,
               left: 8,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: const Color(0xFF28a745),
                   borderRadius: BorderRadius.circular(8),
@@ -706,14 +737,14 @@ class _FavoritesPageState extends State<FavoritesPage>
                     const Icon(
                       FontAwesomeIcons.boxesStacked,
                       color: Colors.white,
-                      size: 8,
+                      size: 9,
                     ),
                     const SizedBox(width: 3),
                     Text(
-                      '${product.minQuantity} - ${product.maxQuantity}',
+                      '${product.availableFrom} - ${product.availableTo}',
                       style: GoogleFonts.cairo(
                         color: Colors.white,
-                        fontSize: 9,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
