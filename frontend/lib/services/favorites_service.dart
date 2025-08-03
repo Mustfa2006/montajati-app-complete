@@ -34,10 +34,35 @@ class FavoritesService extends ChangeNotifier {
             .map((item) => Product.fromJson(item))
             .toList();
         debugPrint('✅ تم تحميل ${_favorites.length} منتج من المفضلة');
+
+        // إزالة المنتجات التي نفدت من المخزون تلقائياً
+        await _removeOutOfStockProducts();
       }
     } catch (e) {
       debugPrint('❌ خطأ في تحميل المفضلة: $e');
       _favorites = [];
+    }
+  }
+
+  // إزالة المنتجات التي نفدت من المخزون
+  Future<void> _removeOutOfStockProducts() async {
+    try {
+      final initialCount = _favorites.length;
+
+      // فلترة المنتجات المتاحة فقط
+      _favorites = _favorites.where((product) {
+        return product.availableQuantity > 0;
+      }).toList();
+
+      final removedCount = initialCount - _favorites.length;
+
+      if (removedCount > 0) {
+        await _saveFavorites();
+        debugPrint('🗑️ تم إزالة $removedCount منتج نفد مخزونه من المفضلة');
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في إزالة المنتجات التي نفدت: $e');
     }
   }
 

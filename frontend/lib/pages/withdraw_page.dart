@@ -1455,8 +1455,7 @@ class _WithdrawPageState extends State<WithdrawPage>
             content: Text(
               '✅ تم سحب الأرباح بنجاح!\n'
               '💰 المبلغ المسحوب: ${NumberFormatter.formatCurrency(amount)}\n'
-              '📊 الرصيد الجديد: ${NumberFormatter.formatCurrency(newBalance)}\n'
-              '🔐 تم التحقق من قاعدة البيانات بنجاح',
+              '📊 الرصيد الجديد: ${NumberFormatter.formatCurrency(newBalance)}',
               style: GoogleFonts.cairo(),
             ),
             backgroundColor: const Color(0xFF28a745),

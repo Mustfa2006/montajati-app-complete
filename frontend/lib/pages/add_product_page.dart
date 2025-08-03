@@ -1424,6 +1424,14 @@ class _AddProductPageState extends State<AddProductPage>
         errorMessage = 'هيكل قاعدة البيانات غير صحيح';
       } else if (e.toString().contains('images')) {
         errorMessage = 'خطأ في رفع الصور';
+      } else if (e.toString().contains('permission')) {
+        errorMessage = 'ليس لديك صلاحية لإضافة المنتجات';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'مشكلة في الاتصال بالإنترنت';
+      } else if (e.toString().contains('storage')) {
+        errorMessage = 'فشل في رفع الصور إلى التخزين السحابي';
+      } else if (e.toString().contains('timeout')) {
+        errorMessage = 'انتهت مهلة الاتصال - يرجى المحاولة مرة أخرى';
       }
 
       _showErrorSnackBar('$errorMessage\n\nتفاصيل الخطأ: ${e.toString()}');

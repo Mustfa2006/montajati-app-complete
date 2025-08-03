@@ -2439,7 +2439,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       );
 
       if (!result['success']) {
-        throw Exception(result['message']);
+        throw Exception(result['message'] ?? 'فشل في تحديث المنتج');
       }
 
       debugPrint('✅ تم تحديث المنتج بالنظام الذكي: ${result['message']}');
@@ -2476,11 +2476,28 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         );
       }
     } catch (e) {
+      debugPrint('❌ خطأ في تحديث المنتج: $e');
+
+      String errorMessage = 'خطأ في تحديث المنتج';
+
+      if (e.toString().contains('permission')) {
+        errorMessage = 'ليس لديك صلاحية لتحديث المنتجات';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'مشكلة في الاتصال بالإنترنت';
+      } else if (e.toString().contains('duplicate')) {
+        errorMessage = 'اسم المنتج موجود مسبقاً';
+      } else if (e.toString().contains('validation')) {
+        errorMessage = 'بيانات المنتج غير صحيحة';
+      } else if (e.toString().contains('timeout')) {
+        errorMessage = 'انتهت مهلة الاتصال - يرجى المحاولة مرة أخرى';
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('خطأ في تحديث المنتج: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -5731,6 +5748,17 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     );
   }
 
+  // دالة عرض رسالة معلومات
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF2196F3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   // ===== إدارة الصور الإعلانية =====
 
   // تحميل الصور الإعلانية من قاعدة البيانات
@@ -6505,6 +6533,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Icons.refresh,
           Colors.white.withValues(alpha: 0.2),
           () => _loadNotificationStats(),
+        ),
+        const SizedBox(width: 10),
+        _buildNotificationActionButton(
+          'تشغيل الخادم',
+          Icons.power_settings_new,
+          Colors.green.withValues(alpha: 0.8),
+          () => _wakeUpServer(),
         ),
       ],
     );
@@ -7638,21 +7673,71 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
     try {
       debugPrint('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
-      debugPrint('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-backend.onrender.com/api/notifications/send-bulk');
+      debugPrint('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/send-bulk');
 
       final requestStartTime = DateTime.now();
-      final response = await http.post(
-        Uri.parse('https://montajati-backend.onrender.com/api/notifications/send-bulk'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode(requestData),
-      );
+
+      // محاولة إرسال الطلب مع إعادة المحاولة في حالة 503
+      http.Response? response;
+      int retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount <= maxRetries) {
+        try {
+          response = await http.post(
+            Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/send-bulk'),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: json.encode(requestData),
+          ).timeout(const Duration(seconds: 30));
+
+          // إذا كان الرد 503 (خادم غير متاح) وما زال لدينا محاولات
+          if (response.statusCode == 503 && retryCount < maxRetries) {
+            debugPrint('⚠️ [DIAGNOSTIC-$diagnosticId] خادم غير متاح (503) - محاولة ${retryCount + 1}/${maxRetries + 1}');
+            debugPrint('⏳ [DIAGNOSTIC-$diagnosticId] انتظار 10 ثوانٍ قبل إعادة المحاولة...');
+
+            // إظهار رسالة للمستخدم
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('الخادم يستيقظ... محاولة ${retryCount + 1}/${maxRetries + 1}'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+
+            await Future.delayed(const Duration(seconds: 10));
+            retryCount++;
+            continue;
+          }
+
+          // إذا نجح الطلب أو فشل بخطأ غير 503، اخرج من الحلقة
+          break;
+
+        } catch (e) {
+          if (retryCount < maxRetries) {
+            debugPrint('❌ [DIAGNOSTIC-$diagnosticId] خطأ في المحاولة ${retryCount + 1}: $e');
+            debugPrint('🔄 [DIAGNOSTIC-$diagnosticId] إعادة المحاولة بعد 5 ثوانٍ...');
+            await Future.delayed(const Duration(seconds: 5));
+            retryCount++;
+            continue;
+          } else {
+            rethrow;
+          }
+        }
+      }
       final requestEndTime = DateTime.now();
       final requestDuration = requestEndTime.difference(requestStartTime);
 
       debugPrint('📡 [DIAGNOSTIC-$diagnosticId] الخطوة 5: استلام الاستجابة من الخادم');
       debugPrint('⏱️ [DIAGNOSTIC-$diagnosticId] مدة الطلب: ${requestDuration.inMilliseconds}ms');
+
+      if (response == null) {
+        throw Exception('لم يتم الحصول على استجابة من الخادم بعد جميع المحاولات');
+      }
+
       debugPrint('📊 [DIAGNOSTIC-$diagnosticId] رمز الاستجابة: ${response.statusCode}');
       debugPrint('📄 [DIAGNOSTIC-$diagnosticId] محتوى الاستجابة: ${response.body}');
 
@@ -7700,12 +7785,40 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       } else {
         debugPrint('❌ [DIAGNOSTIC-$diagnosticId] خطأ HTTP: ${response.statusCode}');
         debugPrint('📄 [DIAGNOSTIC-$diagnosticId] رسالة الخطأ: ${response.body}');
-        _showErrorSnackBar('خطأ في الاتصال بالخادم (${response.statusCode})');
+
+        String errorMessage;
+        if (response.statusCode == 503) {
+          errorMessage = 'الخادم غير متاح حالياً. يرجى المحاولة مرة أخرى بعد دقيقة.';
+        } else if (response.statusCode == 500) {
+          errorMessage = 'خطأ في الخادم. يرجى المحاولة مرة أخرى لاحقاً.';
+        } else if (response.statusCode == 404) {
+          errorMessage = 'خدمة الإشعارات غير متاحة.';
+        } else if (response.statusCode == 429) {
+          errorMessage = 'تم إرسال إشعارات كثيرة. يرجى الانتظار قليلاً.';
+        } else {
+          errorMessage = 'خطأ في الاتصال بالخادم (${response.statusCode})';
+        }
+
+        _showErrorSnackBar(errorMessage);
       }
     } catch (e, stackTrace) {
       debugPrint('❌ [DIAGNOSTIC-$diagnosticId] خطأ في الشبكة أو الاتصال: $e');
       debugPrint('📚 [DIAGNOSTIC-$diagnosticId] تتبع المكدس: $stackTrace');
-      _showErrorSnackBar('خطأ في إرسال الإشعار: $e');
+
+      String errorMessage;
+      if (e.toString().contains('TimeoutException') || e.toString().contains('timeout')) {
+        errorMessage = 'انتهت مهلة الاتصال. يرجى التحقق من الإنترنت والمحاولة مرة أخرى.';
+      } else if (e.toString().contains('SocketException') || e.toString().contains('network')) {
+        errorMessage = 'مشكلة في الاتصال بالإنترنت. يرجى التحقق من الاتصال.';
+      } else if (e.toString().contains('HandshakeException')) {
+        errorMessage = 'مشكلة في الأمان. يرجى المحاولة مرة أخرى.';
+      } else if (e.toString().contains('لم يتم الحصول على استجابة')) {
+        errorMessage = 'الخادم غير متاح حالياً. يرجى المحاولة مرة أخرى بعد دقيقة.';
+      } else {
+        errorMessage = 'خطأ في إرسال الإشعار. يرجى المحاولة مرة أخرى.';
+      }
+
+      _showErrorSnackBar(errorMessage);
     } finally {
       final endTime = DateTime.now();
       final totalDuration = endTime.difference(startTime);
@@ -7824,7 +7937,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Future<void> _loadNotificationStats() async {
     try {
       final response = await http.get(
-        Uri.parse('https://montajati-backend.onrender.com/api/notifications/stats'),
+        Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/stats'),
       );
 
       if (response.statusCode == 200) {
@@ -7841,7 +7954,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Future<void> _loadSentNotifications() async {
     try {
       final response = await http.get(
-        Uri.parse('https://montajati-backend.onrender.com/api/notifications/history'),
+        Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/history'),
       );
 
       if (response.statusCode == 200) {
@@ -7852,6 +7965,27 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       }
     } catch (e) {
       debugPrint('خطأ في تحميل تاريخ الإشعارات: $e');
+    }
+  }
+
+  // تشغيل الخادم (إيقاظه من حالة النوم)
+  Future<void> _wakeUpServer() async {
+    try {
+      _showInfoSnackBar('جاري تشغيل الخادم...');
+
+      final response = await http.get(
+        Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/health'),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        _showSuccessSnackBar('تم تشغيل الخادم بنجاح!');
+        // تحديث الإحصائيات بعد تشغيل الخادم
+        await _loadNotificationStats();
+      } else {
+        _showErrorSnackBar('فشل في تشغيل الخادم');
+      }
+    } catch (e) {
+      _showErrorSnackBar('خطأ في الاتصال بالخادم: $e');
     }
   }
 }

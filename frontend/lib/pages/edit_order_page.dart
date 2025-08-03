@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
 import '../widgets/common_header.dart';
+import '../services/real_auth_service.dart';
 
 class EditOrderPage extends StatefulWidget {
   final String orderId;
@@ -279,7 +280,24 @@ class _EditOrderPageState extends State<EditOrderPage> {
             rightActions: [
               // زر الرجوع على اليمين
               GestureDetector(
-                onTap: () => context.pop(),
+                onTap: () async {
+                  // التحقق من نوع المستخدم لتحديد الصفحة الصحيحة للعودة
+                  final isAdmin = await AuthService.isCurrentUserAdmin();
+
+                  if (widget.isScheduled) {
+                    // للطلبات المجدولة
+                    if (isAdmin) {
+                      // للأدمن - العودة لصفحة إدارة الطلبات المجدولة
+                      context.go('/scheduled-orders');
+                    } else {
+                      // للمستخدم العادي - العودة لصفحة طلبات المستخدم
+                      context.go('/orders');
+                    }
+                  } else {
+                    // للطلبات العادية - العودة لصفحة الطلبات العادية
+                    context.go('/orders');
+                  }
+                },
                 child: Container(
                   width: 32,
                   height: 32,

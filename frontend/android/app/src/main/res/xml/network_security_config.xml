@@ -9,7 +9,7 @@
 
     <!-- المواقع الموثوقة للإنتاج -->
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">montajati-backend.onrender.com</domain>
+        <domain includeSubdomains="true">clownfish-app-krnk9.ondigitalocean.app</domain>
         <domain includeSubdomains="true">fqdhskaolzfavapmqodl.supabase.co</domain>
         <domain includeSubdomains="true">firebase.googleapis.com</domain>
         <domain includeSubdomains="true">fcm.googleapis.com</domain>

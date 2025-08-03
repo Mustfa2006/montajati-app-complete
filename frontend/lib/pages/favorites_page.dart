@@ -84,9 +84,17 @@ class _FavoritesPageState extends State<FavoritesPage>
     setState(() {
       List<Product> favorites = _favoritesService.favorites;
 
+      // فلترة المنتجات المتاحة فقط (الكمية > 0)
+      favorites = favorites.where((product) {
+        return product.availableQuantity > 0;
+      }).toList();
+
       // تطبيق البحث
       if (_searchQuery.isNotEmpty) {
-        favorites = _favoritesService.searchFavorites(_searchQuery);
+        favorites = favorites.where((product) {
+          return product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              product.description.toLowerCase().contains(_searchQuery.toLowerCase());
+        }).toList();
       }
 
       // تطبيق الترتيب

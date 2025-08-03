@@ -61,8 +61,7 @@ class _NewAccountPageState extends State<NewAccountPage>
   String? _currentUserPhone;
   // تم إزالة _currentUserId غير المستخدم
 
-  // متغير لإظهار نافذة التعديل
-  bool _showEditModal = false;
+
 
   @override
   void initState() {
@@ -327,8 +326,7 @@ class _NewAccountPageState extends State<NewAccountPage>
             ],
           ),
 
-          // نافذة تعديل المعلومات
-          if (_showEditModal) _buildEditModal(),
+
         ],
       ),
 
@@ -1022,31 +1020,6 @@ class _NewAccountPageState extends State<NewAccountPage>
         const SizedBox(height: 15),
 
         // الأزرار
-        _buildActionButton(
-          title: 'تعديل المعلومات الشخصية',
-          icon: FontAwesomeIcons.penToSquare,
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFF667eea),
-              Color(0xFF764ba2),
-            ], // ألوان متناسقة مع الشريط العلوي
-          ),
-          onTap: _editPersonalInfo,
-        ),
-
-        const SizedBox(height: 15),
-
-        _buildActionButton(
-          title: 'عرض الأرباح التفصيلية',
-          icon: FontAwesomeIcons.chartLine,
-          gradient: const LinearGradient(
-            colors: [Color(0xFFffd700), Color(0xFFe6b31e)], // ألوان ذهبية
-          ),
-          textColor: const Color(0xFF1a1a2e), // نص داكن على خلفية ذهبية
-          onTap: _viewDetailedProfits,
-        ),
-
-        const SizedBox(height: 15),
 
         _buildActionButton(
           title: 'الدعم والمساعدة',
@@ -1148,327 +1121,9 @@ class _NewAccountPageState extends State<NewAccountPage>
     );
   }
 
-  // بناء نافذة تعديل المعلومات - محسنة ومنظمة
-  Widget _buildEditModal() {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      color: Colors.black.withValues(alpha: 0.8), // خلفية أغمق
-      child: Center(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.92,
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1a1a2e),
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(
-              color: const Color(0xFFffd700).withValues(alpha: 0.4),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.6),
-                blurRadius: 50,
-                offset: const Offset(0, 25),
-              ),
-              BoxShadow(
-                color: const Color(0xFFffd700).withValues(alpha: 0.1),
-                blurRadius: 30,
-                offset: const Offset(0, 0),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // شريط العنوان المحسن
-              Container(
-                height: 65,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF007bff), Color(0xFF0056b3)],
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(25),
-                    topRight: Radius.circular(25),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      // أيقونة التعديل
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          FontAwesomeIcons.userPen,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 15),
-                      // العنوان
-                      Expanded(
-                        child: Text(
-                          'تعديل المعلومات الشخصية',
-                          style: GoogleFonts.cairo(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      // زر الإغلاق
-                      GestureDetector(
-                        onTap: _closeEditModal,
-                        child: Container(
-                          width: 35,
-                          height: 35,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            FontAwesomeIcons.xmark,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
 
-              // محتوى النافذة المحسن
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(25),
-                  child: Column(
-                    children: [
-                      // حقول التعديل مع تباعد أفضل
-                      _buildEditField(
-                        'الاسم الكامل',
-                        _userData['name'],
-                        FontAwesomeIcons.user,
-                      ),
-                      const SizedBox(height: 20),
-                      // ✅ تم إخفاء حقل البريد الإلكتروني حسب الطلب
-                      _buildEditField(
-                        'رقم الهاتف',
-                        _userData['phone'],
-                        FontAwesomeIcons.phone,
-                      ),
-                      const SizedBox(height: 40),
 
-                      // أزرار الإجراء المحسنة
-                      Row(
-                        children: [
-                          // زر الإلغاء
-                          Expanded(
-                            child: Container(
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF6c757d),
-                                borderRadius: BorderRadius.circular(25),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF6c757d,
-                                    ).withValues(alpha: 0.3),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: _closeEditModal,
-                                  borderRadius: BorderRadius.circular(25),
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          FontAwesomeIcons.xmark,
-                                          color: Colors.white,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'إلغاء',
-                                          style: GoogleFonts.cairo(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          // زر الحفظ
-                          Expanded(
-                            child: Container(
-                              height: 50,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF28a745),
-                                    Color(0xFF20c997),
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(25),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFF28a745,
-                                    ).withValues(alpha: 0.4),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 5),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: _saveChanges,
-                                  borderRadius: BorderRadius.circular(25),
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        const Icon(
-                                          FontAwesomeIcons.floppyDisk,
-                                          color: Colors.white,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'حفظ التغييرات',
-                                          style: GoogleFonts.cairo(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // بناء حقل تعديل محسن
-  Widget _buildEditField(
-    String label,
-    String value,
-    IconData icon, {
-    bool isPassword = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // تسمية الحقل
-        Padding(
-          padding: const EdgeInsets.only(right: 5),
-          child: Text(
-            label,
-            style: GoogleFonts.cairo(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFFffd700),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        // حقل الإدخال
-        Container(
-          height: 55,
-          decoration: BoxDecoration(
-            color: const Color(0xFF16213e),
-            border: Border.all(
-              color: const Color(0xFFffd700).withValues(alpha: 0.4),
-              width: 1.5,
-            ),
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFffd700).withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 18),
-              // أيقونة الحقل
-              Container(
-                width: 35,
-                height: 35,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: const Color(0xFFffd700), size: 18),
-              ),
-              const SizedBox(width: 15),
-              // حقل النص
-              Expanded(
-                child: TextFormField(
-                  initialValue: value,
-                  obscureText: isPassword,
-                  style: GoogleFonts.cairo(
-                    fontSize: 16,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: InputDecoration(
-                    border: InputBorder.none,
-                    hintText: isPassword
-                        ? 'أدخل كلمة المرور الجديدة'
-                        : 'أدخل القيمة الجديدة',
-                    hintStyle: GoogleFonts.cairo(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 15),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  // الدوال المطلوبة للوظائف
 
   // الدوال المطلوبة للوظائف
 
@@ -1613,17 +1268,7 @@ class _NewAccountPageState extends State<NewAccountPage>
 
   // ✅ تم حذف الدوال غير المستخدمة
 
-  // تعديل المعلومات الشخصية
-  void _editPersonalInfo() {
-    setState(() {
-      _showEditModal = true;
-    });
-  }
 
-  // عرض الأرباح التفصيلية
-  void _viewDetailedProfits() {
-    context.push('/profits');
-  }
 
   // فتح الدعم والمساعدة - التلغرام
   void _openSupport() async {
@@ -1835,24 +1480,7 @@ class _NewAccountPageState extends State<NewAccountPage>
     );
   }
 
-  // إغلاق نافذة التعديل
-  void _closeEditModal() {
-    setState(() {
-      _showEditModal = false;
-    });
-  }
 
-  // حفظ التغييرات
-  void _saveChanges() {
-    // منطق حفظ التغييرات
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم حفظ التغييرات بنجاح', style: GoogleFonts.cairo()),
-        backgroundColor: const Color(0xFF28a745),
-      ),
-    );
-    _closeEditModal();
-  }
 
   // فتح دعم التلغرام مع رسالة تغيير كلمة المرور
   Future<void> _openTelegramSupport() async {

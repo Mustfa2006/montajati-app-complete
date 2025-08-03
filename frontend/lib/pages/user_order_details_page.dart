@@ -271,8 +271,16 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       return;
     }
 
-    // الانتقال لصفحة التعديل
-    context.go('/orders/edit/${_order!.id}');
+    // الانتقال لصفحة التعديل الصحيحة حسب نوع الطلب
+    bool isScheduledOrder = _order!.scheduledDate != null;
+
+    if (isScheduledOrder) {
+      // للطلبات المجدولة
+      context.go('/scheduled-orders/edit/${_order!.id}');
+    } else {
+      // للطلبات العادية
+      context.go('/orders/edit/${_order!.id}');
+    }
   }
 
   // 🗑️ حذف الطلب
@@ -324,19 +332,36 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
 
       debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
 
-      // ✅ الخطوة 2: حذف الطلب من قاعدة البيانات (ستُحذف order_items تلقائياً بسبب CASCADE)
-      final deleteOrderResponse = await Supabase.instance.client
-          .from('orders')
-          .delete()
-          .eq('id', _order!.id)
-          .select();
+      // ✅ الخطوة 2: تحديد نوع الطلب وحذفه من الجدول الصحيح
+      bool isScheduledOrder = _order!.scheduledDate != null;
 
-      // ✅ التحقق من نجاح الحذف
-      if (deleteOrderResponse.isEmpty) {
-        throw Exception('لم يتم العثور على الطلب أو فشل في الحذف');
+      if (isScheduledOrder) {
+        // حذف الطلب المجدول
+        final deleteOrderResponse = await Supabase.instance.client
+            .from('scheduled_orders')
+            .delete()
+            .eq('id', _order!.id)
+            .select();
+
+        if (deleteOrderResponse.isEmpty) {
+          throw Exception('لم يتم العثور على الطلب المجدول أو فشل في الحذف');
+        }
+
+        debugPrint('✅ تم حذف الطلب المجدول وعناصره بنجاح من قاعدة البيانات');
+      } else {
+        // حذف الطلب العادي
+        final deleteOrderResponse = await Supabase.instance.client
+            .from('orders')
+            .delete()
+            .eq('id', _order!.id)
+            .select();
+
+        if (deleteOrderResponse.isEmpty) {
+          throw Exception('لم يتم العثور على الطلب أو فشل في الحذف');
+        }
+
+        debugPrint('✅ تم حذف الطلب العادي وعناصره بنجاح من قاعدة البيانات');
       }
-
-      debugPrint('✅ تم حذف الطلب وعناصره بنجاح من قاعدة البيانات (CASCADE)');
 
       // إظهار رسالة نجاح
       if (mounted) {
@@ -347,8 +372,12 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           ),
         );
 
-        // العودة لصفحة الطلبات (ستتحديث تلقائياً من قاعدة البيانات)
-        context.go('/orders');
+        // العودة للصفحة الصحيحة حسب نوع الطلب
+        if (isScheduledOrder) {
+          context.go('/scheduled-orders');
+        } else {
+          context.go('/orders');
+        }
       }
     } catch (e) {
       debugPrint('❌ خطأ في حذف الطلب: $e');
