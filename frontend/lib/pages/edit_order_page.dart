@@ -733,10 +733,16 @@ class _EditOrderPageState extends State<EditOrderPage> {
           ),
         );
 
-        // العودة لصفحة الطلبات - المستخدمون العاديون يذهبون دائماً لصفحة الطلبات العادية
+        // العودة للصفحة الصحيحة حسب نوع الطلب
         Future.delayed(const Duration(seconds: 1), () {
           if (mounted) {
-            context.go('/orders');
+            if (widget.isScheduled) {
+              // للطلبات المجدولة - العودة لصفحة الطلبات المجدولة
+              context.go('/scheduled-orders');
+            } else {
+              // للطلبات العادية - العودة لصفحة الطلبات العادية
+              context.go('/orders');
+            }
           }
         });
       }

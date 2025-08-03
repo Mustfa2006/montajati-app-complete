@@ -110,8 +110,8 @@ class FirebaseAdminService {
         token: fcmToken,
         notification: {
           title: notification.title || 'إشعار جديد',
-          body: notification.body || 'لديك تحديث جديد',
-          image: 'https://clownfish-app-krnk9.ondigitalocean.app/assets/montajati-logo.png'
+          body: notification.body || 'لديك تحديث جديد'
+          // ✅ إزالة الصورة الثابتة - ستُضاف حسب نوع الإشعار
         },
         data: {
           ...data,
@@ -124,8 +124,9 @@ class FirebaseAdminService {
             priority: 'high',
             defaultSound: true,
             defaultVibrateTimings: true,
-            color: '#FFD700',
-            imageUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/assets/montajati-logo.png'
+            icon: '@mipmap/ic_launcher',
+            color: '#FFD700'
+            // ✅ إزالة imageUrl الثابت - سيُضاف حسب نوع الإشعار
           },
           priority: 'high'
         },
@@ -142,6 +143,12 @@ class FirebaseAdminService {
           }
         }
       };
+
+      // ✅ إضافة الصورة فقط إذا تم تمريرها
+      if (notification.image) {
+        message.notification.image = notification.image;
+        message.android.notification.imageUrl = notification.image;
+      }
 
       // إرسال الإشعار
       const response = await this.messaging.send(message);

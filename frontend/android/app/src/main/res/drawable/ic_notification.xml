@@ -6,14 +6,8 @@
     android:viewportHeight="24"
     android:tint="#ffd700">
     <!-- أيقونة منتجاتي للإشعارات -->
-    <!-- حقيبة تسوق -->
+    <!-- حقيبة تسوق بسيطة -->
     <path
         android:fillColor="#ffd700"
         android:pathData="M7,4V2C7,1.45 7.45,1 8,1h8c0.55,0 1,0.45 1,1v2h4c0.55,0 1,0.45 1,1v1c0,0.55 -0.45,1 -1,1h-1v11c0,1.1 -0.9,2 -2,2H6c-1.1,0 -2,-0.9 -2,-2V7H3C2.45,7 2,6.55 2,6V5c0,-0.55 0.45,-1 1,-1H7zM9,3v1h6V3H9zM6,7v11h12V7H6z"/>
-    <!-- نقطة تزيينية -->
-    <circle
-        android:fillColor="#ffd700"
-        android:cx="12"
-        android:cy="12"
-        android:r="1"/>
 </vector>

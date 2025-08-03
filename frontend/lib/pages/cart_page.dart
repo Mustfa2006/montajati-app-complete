@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../services/cart_service.dart';
 import '../services/scheduled_orders_service.dart';
+import '../services/inventory_service.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
 
 import 'customer_info_page.dart';
@@ -630,12 +631,44 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
                                 // زر زيادة
                                 GestureDetector(
-                                  onTap: () {
-                                    if (item.quantity < 10) {
+                                  onTap: () async {
+                                    // ✅ التحقق من المخزون المتاح قبل الزيادة
+                                    final availabilityCheck = await InventoryService.checkAvailability(
+                                      productId: item.productId,
+                                      requestedQuantity: item.quantity + 1,
+                                    );
+
+                                    if (availabilityCheck['success'] && availabilityCheck['is_available']) {
                                       _cartService.updateQuantity(
                                         item.productId,
                                         item.quantity + 1,
                                       );
+                                    } else {
+                                      // عرض رسالة نفاد المخزون
+                                      final maxAvailable = availabilityCheck['max_available'] ?? 0;
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            maxAvailable <= 0
+                                              ? '❌ نفذ المخزون - لا يمكنك إضافة المزيد'
+                                              : '⚠️ متوفر حتى $maxAvailable قطعة فقط',
+                                            style: GoogleFonts.cairo(
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                          backgroundColor: maxAvailable <= 0
+                                            ? const Color(0xFFdc3545)
+                                            : const Color(0xFFff8c00),
+                                          duration: const Duration(seconds: 3),
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                        ),
+                                      );
+                                      }
                                     }
                                   },
                                   child: Container(
