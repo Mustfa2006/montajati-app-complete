@@ -111,6 +111,7 @@ class FirebaseAdminService {
         notification: {
           title: notification.title || 'إشعار جديد',
           body: notification.body || 'لديك تحديث جديد',
+          image: 'https://clownfish-app-krnk9.ondigitalocean.app/assets/montajati-logo.png'
         },
         data: {
           ...data,
@@ -124,7 +125,8 @@ class FirebaseAdminService {
             defaultSound: true,
             defaultVibrateTimings: true,
             icon: 'ic_notification',
-            color: '#FFD700'
+            color: '#FFD700',
+            imageUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/assets/montajati-logo.png'
           },
           priority: 'high'
         },
