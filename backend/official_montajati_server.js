@@ -97,6 +97,9 @@ class OfficialMontajatiServer {
     this.app.use('/api/orders/', apiRateLimit);
     this.app.use('/api/notifications/', apiRateLimit);
 
+    // خدمة الملفات الثابتة (للشعارات والصور)
+    this.app.use('/assets', express.static('public/assets'));
+
     // معالجة البيانات
     this.app.use(express.json({
       limit: '10mb',

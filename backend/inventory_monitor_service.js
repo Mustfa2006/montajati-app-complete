@@ -283,7 +283,7 @@ class InventoryMonitorService {
       const result = await this.telegramService.sendOutOfStockAlert({
         productId: product.id,
         productName: product.name,
-        productImage: product.image_url
+        productImage: 'https://clownfish-app-krnk9.ondigitalocean.app/assets/app-logo.svg' // شعار التطبيق
       });
 
       if (result.success) {
@@ -321,7 +321,7 @@ class InventoryMonitorService {
         productId: product.id,
         productName: product.name,
         currentStock: product.available_quantity,
-        productImage: product.image_url
+        productImage: 'https://clownfish-app-krnk9.ondigitalocean.app/assets/app-logo.svg' // شعار التطبيق
       });
 
       if (result.success) {
