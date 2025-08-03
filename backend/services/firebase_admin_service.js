@@ -124,7 +124,6 @@ class FirebaseAdminService {
             priority: 'high',
             defaultSound: true,
             defaultVibrateTimings: true,
-            icon: 'ic_notification',
             color: '#FFD700',
             imageUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/assets/montajati-logo.png'
           },
