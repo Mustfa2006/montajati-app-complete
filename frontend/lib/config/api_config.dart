@@ -5,8 +5,8 @@ class ApiConfig {
   // ✅ إعداد الإنتاج النهائي
   static const bool isProduction = true;
 
-  // ✅ رابط الإنتاج الرسمي - Render (مؤقت حتى إصلاح DigitalOcean)
-  static const String _productionBaseUrl = 'https://montajati-backend.onrender.com';
+  // ✅ رابط الإنتاج الرسمي - DigitalOcean
+  static const String _productionBaseUrl = 'https://clownfish-app-krnk9.ondigitalocean.app';
 
   // ✅ الرابط الأساسي للـ API - إنتاج نهائي
   static String get baseUrl => _productionBaseUrl;

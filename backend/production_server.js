@@ -455,29 +455,8 @@ async function startServer() {
       console.log('⚠️ تحذير: مشكلة في نظام مراقبة المخزون');
     }
 
-    // تشغيل مراقبة فورية للمخزون (كل دقيقة واحدة)
-    console.log('⚡ تشغيل المراقبة الفورية للمخزون كل دقيقة...');
-    setInterval(async () => {
-      try {
-        const result = await inventoryMonitor.monitorAllProducts();
-
-        // عرض نتائج مفصلة عند وجود تنبيهات
-        if (result.success && result.results) {
-          const { outOfStock, lowStock, total, sentNotifications } = result.results;
-
-          if (outOfStock > 0 || lowStock > 0) {
-            console.log(`🔄 فحص فوري للمخزون - ${total} منتج`);
-            console.log(`📊 نفد: ${outOfStock}, منخفض: ${lowStock}, طبيعي: ${total - outOfStock - lowStock}`);
-
-            if (sentNotifications > 0) {
-              console.log(`📨 تم إرسال ${sentNotifications} إشعار تلغرام جديد`);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('❌ خطأ في المراقبة الفورية:', error.message);
-      }
-    }, 60 * 1000); // كل دقيقة واحدة
+    // تم إيقاف المراقبة المكررة - يتم التحكم من official_montajati_server.js فقط
+    console.log('⚠️ تم إيقاف المراقبة المكررة - يتم التحكم من الخادم الرئيسي فقط');
 
     // بدء الخادم
     const server = app.listen(PORT, '0.0.0.0', () => {

@@ -511,37 +511,37 @@ class _FavoritesPageState extends State<FavoritesPage>
                           ),
                         ),
 
-                  SizedBox(
-                    height: padding * 1.2,
-                  ), // مسافة أكبر بين الاسم والسعر
-                  // سعر الجملة
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Text(
-                      'جملة: ${product.wholesalePrice.toStringAsFixed(0)} د.ع',
-                      style: GoogleFonts.cairo(
-                        color: const Color(0xFFffd700),
-                        fontSize: priceFontSize,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                        SizedBox(
+                          height: padding * 1.2,
+                        ), // مسافة أكبر بين الاسم والسعر
+                        // سعر الجملة
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFffd700).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: Text(
+                            'جملة: ${product.wholesalePrice.toStringAsFixed(0)} د.ع',
+                            style: GoogleFonts.cairo(
+                              color: const Color(0xFFffd700),
+                              fontSize: priceFontSize,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
 
-                  SizedBox(height: padding * 0.5),
+                        SizedBox(height: padding * 0.5),
 
-                  // الأزرار السفلية - حذف من المفضلة وإضافة للسلة
-                  Row(
+                        // الأزرار السفلية - حذف من المفضلة وإضافة للسلة
+                        Row(
                     children: [
                       // زر حذف من المفضلة على اليمين
                       GestureDetector(
@@ -618,11 +618,12 @@ class _FavoritesPageState extends State<FavoritesPage>
                           ),
                         ),
                       ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
+                ),
               ],
             ),
           ),

@@ -26,9 +26,17 @@ class InventoryMonitorService {
     // تتبع الإشعارات المرسلة لتجنب التكرار
     this.sentAlerts = new Map();
 
+    // تتبع آخر كمية معروفة لكل منتج لاكتشاف التغييرات
+    this.lastKnownQuantities = new Map();
+
     console.log('📦 تم تهيئة خدمة مراقبة المخزون');
     console.log(`🚨 حد نفاد المخزون: ${this.thresholds.outOfStock}`);
     console.log(`⚠️ حد المخزون المنخفض: ${this.thresholds.lowStock}`);
+
+    // تنظيف دوري للإشعارات القديمة كل 6 ساعات
+    setInterval(() => {
+      this.cleanupOldAlerts();
+    }, 6 * 60 * 60 * 1000);
   }
 
   /**
@@ -78,47 +86,68 @@ class InventoryMonitorService {
         const quantity = product.available_quantity || 0;
         const productId = product.id;
         const productName = product.name;
+        const lastQuantity = this.lastKnownQuantities.get(productId);
+
+        // تحديث آخر كمية معروفة
+        this.lastKnownQuantities.set(productId, quantity);
 
         // تحديد حالة المخزون
         if (quantity <= this.thresholds.outOfStock) {
           stats.outOfStock++;
 
-          // إرسال إشعار نفاد المخزون
-          const alertSent = await this.sendOutOfStockAlert(product);
-          if (alertSent.success) {
-            stats.sentNotifications++;
-          }
+          // إرسال إشعار نفاد المخزون فقط إذا:
+          // 1. لم يتم إرسال إشعار مؤخراً، أو
+          // 2. الكمية تغيرت من رقم أكبر إلى 0 (نفاد جديد)
+          const isNewOutOfStock = lastQuantity !== undefined && lastQuantity > this.thresholds.outOfStock && quantity <= this.thresholds.outOfStock;
 
-          alerts.push({
-            productId,
-            product_name: productName,
-            type: 'نفد المخزون',
-            quantity,
-            sent: alertSent.success
-          });
+          if (isNewOutOfStock || !this.isAlertRecentlySent(`out_of_stock_${productId}`, 4 * 60 * 60 * 1000)) {
+            const alertSent = await this.sendOutOfStockAlert(product);
+            if (alertSent.success) {
+              stats.sentNotifications++;
+            }
+
+            alerts.push({
+              productId,
+              product_name: productName,
+              type: 'نفد المخزون',
+              quantity,
+              sent: alertSent.success,
+              reason: isNewOutOfStock ? 'نفاد جديد' : 'إعادة إرسال'
+            });
+          }
 
         } else if (quantity === this.thresholds.lowStock) {
-          // إرسال إشعار مخزون منخفض فقط عند الكمية 5 بالضبط
           stats.lowStock++;
 
-          const alertSent = await this.sendLowStockAlert(product);
-          if (alertSent.success) {
-            stats.sentNotifications++;
-          }
+          // إرسال إشعار مخزون منخفض فقط إذا:
+          // 1. الكمية تغيرت من رقم أكبر إلى 5 (انخفاض جديد)، أو
+          // 2. لم يتم إرسال إشعار مؤخراً
+          const isNewLowStock = lastQuantity !== undefined && lastQuantity > this.thresholds.lowStock && quantity === this.thresholds.lowStock;
 
-          alerts.push({
-            productId,
-            product_name: productName,
-            type: 'مخزون منخفض',
-            quantity,
-            sent: alertSent.success
-          });
+          if (isNewLowStock || !this.isAlertRecentlySent(`low_stock_${productId}`, 8 * 60 * 60 * 1000)) {
+            const alertSent = await this.sendLowStockAlert(product);
+            if (alertSent.success) {
+              stats.sentNotifications++;
+            }
+
+            alerts.push({
+              productId,
+              product_name: productName,
+              type: 'مخزون منخفض',
+              quantity,
+              sent: alertSent.success,
+              reason: isNewLowStock ? 'انخفاض جديد' : 'إعادة إرسال'
+            });
+          }
 
         } else {
           stats.normal++;
 
           // إزالة المنتج من قائمة الإشعارات المرسلة إذا كان المخزون طبيعي الآن
-          this.clearAlertHistory(productId);
+          // ولكن فقط إذا كان منخفضاً من قبل (للسماح بإشعارات جديدة عند الانخفاض مرة أخرى)
+          if (lastQuantity !== undefined && lastQuantity <= this.thresholds.lowStock) {
+            this.clearAlertHistory(productId);
+          }
         }
       }
 
@@ -168,33 +197,51 @@ class InventoryMonitorService {
       }
 
       const quantity = product.available_quantity || 0;
+      const productId = product.id;
+      const lastQuantity = this.lastKnownQuantities.get(productId);
       const alerts = [];
+
+      // تحديث آخر كمية معروفة
+      this.lastKnownQuantities.set(productId, quantity);
 
       // فحص حالة المخزون
       if (quantity <= this.thresholds.outOfStock) {
-        const alertSent = await this.sendOutOfStockAlert(product);
-        alerts.push({
-          productId: product.id,
-          product_name: product.name,
-          type: 'نفد المخزون',
-          quantity,
-          sent: alertSent.success
-        });
+        // إرسال إشعار فقط إذا كان نفاد جديد أو لم يتم إرسال إشعار مؤخراً
+        const isNewOutOfStock = lastQuantity !== undefined && lastQuantity > this.thresholds.outOfStock;
+
+        if (isNewOutOfStock || !this.isAlertRecentlySent(`out_of_stock_${productId}`, 4 * 60 * 60 * 1000)) {
+          const alertSent = await this.sendOutOfStockAlert(product);
+          alerts.push({
+            productId: product.id,
+            product_name: product.name,
+            type: 'نفد المخزون',
+            quantity,
+            sent: alertSent.success,
+            reason: isNewOutOfStock ? 'نفاد جديد' : 'إعادة إرسال'
+          });
+        }
 
       } else if (quantity === this.thresholds.lowStock) {
-        // إرسال إشعار مخزون منخفض فقط عند الكمية 5 بالضبط
-        const alertSent = await this.sendLowStockAlert(product);
-        alerts.push({
-          productId: product.id,
-          product_name: product.name,
-          type: 'مخزون منخفض',
-          quantity,
-          sent: alertSent.success
-        });
+        // إرسال إشعار فقط إذا كان انخفاض جديد أو لم يتم إرسال إشعار مؤخراً
+        const isNewLowStock = lastQuantity !== undefined && lastQuantity > this.thresholds.lowStock;
+
+        if (isNewLowStock || !this.isAlertRecentlySent(`low_stock_${productId}`, 8 * 60 * 60 * 1000)) {
+          const alertSent = await this.sendLowStockAlert(product);
+          alerts.push({
+            productId: product.id,
+            product_name: product.name,
+            type: 'مخزون منخفض',
+            quantity,
+            sent: alertSent.success,
+            reason: isNewLowStock ? 'انخفاض جديد' : 'إعادة إرسال'
+          });
+        }
 
       } else {
-        // إزالة المنتج من قائمة الإشعارات المرسلة
-        this.clearAlertHistory(productId);
+        // إزالة المنتج من قائمة الإشعارات المرسلة فقط إذا كان منخفضاً من قبل
+        if (lastQuantity !== undefined && lastQuantity <= this.thresholds.lowStock) {
+          this.clearAlertHistory(productId);
+        }
       }
 
       return {
@@ -225,8 +272,8 @@ class InventoryMonitorService {
     try {
       const alertKey = `out_of_stock_${product.id}`;
       
-      // تحقق من عدم إرسال نفس الإشعار مؤخراً (خلال ساعة واحدة)
-      if (this.isAlertRecentlySent(alertKey, 60 * 60 * 1000)) {
+      // تحقق من عدم إرسال نفس الإشعار مؤخراً (خلال 4 ساعات)
+      if (this.isAlertRecentlySent(alertKey, 4 * 60 * 60 * 1000)) {
         return {
           success: false,
           reason: 'تم إرسال الإشعار مؤخراً'
@@ -241,7 +288,7 @@ class InventoryMonitorService {
 
       if (result.success) {
         this.markAlertSent(alertKey);
-        console.log(`🚨 تم إرسال إشعار نفاد المخزون: ${product.name}`);
+        console.log(`🚨 تم إرسال إشعار نفاد المخزون: ${product.name} (الكمية: ${product.available_quantity})`);
       }
 
       return result;
@@ -262,8 +309,8 @@ class InventoryMonitorService {
     try {
       const alertKey = `low_stock_${product.id}`;
       
-      // تحقق من عدم إرسال نفس الإشعار مؤخراً (خلال 4 ساعات)
-      if (this.isAlertRecentlySent(alertKey, 4 * 60 * 60 * 1000)) {
+      // تحقق من عدم إرسال نفس الإشعار مؤخراً (خلال 8 ساعات)
+      if (this.isAlertRecentlySent(alertKey, 8 * 60 * 60 * 1000)) {
         return {
           success: false,
           reason: 'تم إرسال الإشعار مؤخراً'
@@ -279,7 +326,7 @@ class InventoryMonitorService {
 
       if (result.success) {
         this.markAlertSent(alertKey);
-        console.log(`⚠️ تم إرسال إشعار مخزون منخفض: ${product.name}`);
+        console.log(`⚠️ تم إرسال إشعار مخزون منخفض: ${product.name} (الكمية: ${product.available_quantity})`);
       }
 
       return result;
@@ -323,11 +370,17 @@ class InventoryMonitorService {
    */
   cleanupOldAlerts() {
     const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    
+    let cleanedCount = 0;
+
     for (const [key, timestamp] of this.sentAlerts.entries()) {
       if (timestamp < oneDayAgo) {
         this.sentAlerts.delete(key);
+        cleanedCount++;
       }
+    }
+
+    if (cleanedCount > 0) {
+      console.log(`🧹 تم تنظيف ${cleanedCount} إشعار قديم من الذاكرة`);
     }
   }
 }

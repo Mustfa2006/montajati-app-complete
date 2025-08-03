@@ -1,108 +1,0 @@
-# ===================================
-# Render.com Deployment Configuration Template
-# ===================================
-# انسخ هذا الملف إلى render.yaml وأعد تسميته
-# واملأ القيم الصحيحة في Render Dashboard
-
-services:
-  - type: web
-    name: montajati-backend
-    env: node
-    plan: free  # يمكن ترقيته لـ starter أو professional
-    region: oregon  # أو singapore للشرق الأوسط
-    
-    # أوامر البناء والتشغيل
-    buildCommand: |
-      echo "🔧 تثبيت التبعيات..."
-      npm ci --only=production
-      echo "✅ تم تثبيت التبعيات بنجاح"
-    startCommand: npm run production
-    
-    # فحص الصحة
-    healthCheckPath: /health
-    
-    # متغيرات البيئة
-    # ⚠️ يجب إعداد القيم الحقيقية في Render Dashboard
-    envVars:
-      # ===================================
-      # إعدادات الخادم الأساسية
-      # ===================================
-      - key: NODE_ENV
-        value: production
-      - key: PORT
-        value: 3003
-      
-      # ===================================
-      # قاعدة البيانات - Supabase
-      # ===================================
-      - key: SUPABASE_URL
-        value: "https://your-project.supabase.co"
-      - key: SUPABASE_ANON_KEY
-        value: "your-anon-key-here"
-      - key: SUPABASE_SERVICE_ROLE_KEY
-        value: "your-service-role-key-here"
-      
-      # ===================================
-      # Firebase للإشعارات
-      # ===================================
-      - key: FIREBASE_PROJECT_ID
-        value: "your-firebase-project-id"
-      - key: FIREBASE_PRIVATE_KEY
-        value: "-----BEGIN PRIVATE KEY-----\nyour-private-key-here\n-----END PRIVATE KEY-----\n"
-      - key: FIREBASE_CLIENT_EMAIL
-        value: "firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com"
-      - key: NOTIFICATIONS_ENABLED
-        value: true
-      
-      # ===================================
-      # إعدادات الأمان
-      # ===================================
-      - key: RATE_LIMIT_WINDOW_MS
-        value: 900000  # 15 دقيقة
-      - key: RATE_LIMIT_MAX_REQUESTS
-        value: 100
-      - key: CORS_ORIGINS
-        value: "https://your-frontend-domain.com,https://your-app-domain.com"
-      
-      # ===================================
-      # إعدادات التطبيق
-      # ===================================
-      - key: DEFAULT_DELIVERY_FEE
-        value: 5000
-      - key: ORDER_PREFIX
-        value: ORD
-      - key: AUTO_SEND_TO_DELIVERY
-        value: false
-      
-      # ===================================
-      # شركة التوصيل - الوسيط
-      # ===================================
-      - key: WASEET_USERNAME
-        value: "your-waseet-username"
-      - key: WASEET_PASSWORD
-        value: "your-waseet-password"
-      - key: ALWASEET_BASE_URL
-        value: "https://api.alwaseet.com"
-      
-      # ===================================
-      # إعدادات إضافية
-      # ===================================
-      - key: JWT_SECRET
-        value: "your-jwt-secret-key"
-      - key: JWT_EXPIRES_IN
-        value: "7d"
-      - key: LOW_STOCK_THRESHOLD
-        value: 5
-      - key: LOG_LEVEL
-        value: info
-      - key: PERFORMANCE_MONITORING
-        value: true
-
-# ===================================
-# ملاحظات مهمة
-# ===================================
-# 1. لا تضع مفاتيح حقيقية في هذا الملف
-# 2. استخدم Render Dashboard لإعداد Environment Variables
-# 3. تأكد من تفعيل Auto-Deploy من GitHub
-# 4. راقب السجلات بعد النشر
-# 5. اختبر نقطة فحص الصحة: /health

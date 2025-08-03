@@ -467,7 +467,7 @@ class OfficialMontajatiServer {
   startInventoryMonitoring() {
     console.log('📦 بدء المراقبة الدورية للمخزون...');
 
-    // مراقبة دورية كل 5 دقائق (لتقليل التكرار)
+    // مراقبة دورية كل 5 دقائق (مع نظام ذكي لمنع التكرار)
     setInterval(async () => {
       try {
         const result = await this.inventoryMonitor.monitorAllProducts();
