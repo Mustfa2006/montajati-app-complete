@@ -6,6 +6,10 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+
+import 'dart:io';
+
 import '../services/cart_service.dart';
 // تم إزالة استيراد favorites_service غير المستخدم
 import '../utils/number_formatter.dart';
@@ -381,37 +385,75 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         final hasPermission = await PermissionsService.hasStoragePermission();
 
         if (!hasPermission) {
-          if (showMessage && mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  '❌ يرجى السماح بالوصول للتخزين لتحميل الصور',
-                  style: GoogleFonts.cairo(color: Colors.white),
+          // محاولة طلب الصلاحيات مرة أخرى
+          await PermissionsService.requestAllPermissions();
+
+          // التحقق مرة أخرى
+          final hasPermissionAfterRequest = await PermissionsService.hasStoragePermission();
+
+          if (!hasPermissionAfterRequest) {
+            if (showMessage && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '❌ يرجى السماح بالوصول للتخزين لتحميل الصور',
+                    style: GoogleFonts.cairo(color: Colors.white),
+                  ),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 3),
                 ),
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 3),
-              ),
-            );
+              );
+            }
+            return false;
           }
-          return false;
         }
 
-        // تحميل مباشر إلى معرض الصور
-        final response = await http.get(Uri.parse(imageUrl));
+        // تحميل الصورة وحفظها في معرض الصور
+        debugPrint('🔄 بدء تحميل الصورة: $imageUrl');
+        final response = await http.get(
+          Uri.parse(imageUrl),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        ).timeout(Duration(seconds: 30));
 
         if (response.statusCode == 200) {
-          // تم إزالة bytes غير المستخدم
+          final Uint8List bytes = response.bodyBytes;
 
-          // إشعار بنجاح التحميل (تم إزالة حفظ الصورة لتجنب مشاكل التوافق)
+          // الحصول على مجلد التحميلات
+          Directory? downloadsDir;
+          if (Platform.isAndroid) {
+            downloadsDir = Directory('/storage/emulated/0/Download/منتجاتي');
+          } else {
+            downloadsDir = await getApplicationDocumentsDirectory();
+          }
+
+          // إنشاء المجلد إذا لم يكن موجوداً
+          if (!await downloadsDir.exists()) {
+            await downloadsDir.create(recursive: true);
+          }
+
+          // إنشاء اسم الملف مع التاريخ
+          final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+          final String fileExtension = imageUrl.split('.').last.split('?').first;
+          final String fullFileName = '${fileName}_$timestamp.$fileExtension';
+
+          // حفظ الصورة
+          final File file = File('${downloadsDir.path}/$fullFileName');
+          await file.writeAsBytes(bytes);
+
+          debugPrint('✅ تم حفظ الصورة في: ${file.path}');
+
+          // إشعار بنجاح التحميل والحفظ
           if (showMessage && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  '✅ تم تحميل الصورة',
+                  '✅ تم تحميل وحفظ الصورة في مجلد التحميلات',
                   style: GoogleFonts.cairo(color: Colors.white),
                 ),
                 backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
+                duration: Duration(seconds: 3),
               ),
             );
           }

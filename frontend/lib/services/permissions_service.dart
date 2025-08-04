@@ -15,7 +15,7 @@ class PermissionsService {
     
     if (!hasRequestedPermissions) {
       // طلب الصلاحيات للمرة الأولى فقط
-      await _requestAllPermissions();
+      await requestAllPermissions();
       
       // حفظ أن الصلاحيات تم طلبها
       await prefs.setBool(_permissionsKey, true);
@@ -27,7 +27,7 @@ class PermissionsService {
   }
   
   // طلب جميع الصلاحيات المطلوبة
-  static Future<void> _requestAllPermissions() async {
+  static Future<void> requestAllPermissions() async {
     // صلاحيات أساسية
     await Permission.storage.request();
     await Permission.photos.request();
@@ -53,20 +53,21 @@ class PermissionsService {
   // التحقق من حالة الصلاحيات
   static Future<bool> hasStoragePermission() async {
     if (kIsWeb) return true;
-    
+
     if (Platform.isAndroid) {
-      final androidInfo = await _getAndroidVersion();
-      if (androidInfo >= 33) {
-        return await Permission.photos.isGranted;
-      } else {
-        return await Permission.storage.isGranted;
-      }
+      // للأندرويد، نتحقق من جميع الصلاحيات المطلوبة
+      final storageGranted = await Permission.storage.isGranted;
+      final photosGranted = await Permission.photos.isGranted;
+      final manageExternalStorageGranted = await Permission.manageExternalStorage.isGranted;
+
+      // إذا كان أي من الصلاحيات مُمنوح، نعتبر أن لدينا صلاحية
+      return storageGranted || photosGranted || manageExternalStorageGranted;
     }
-    
+
     if (Platform.isIOS) {
       return await Permission.photosAddOnly.isGranted;
     }
-    
+
     return false;
   }
   

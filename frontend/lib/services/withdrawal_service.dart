@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:http/http.dart' as http;
 import 'notification_service.dart';
 
 
@@ -406,11 +404,11 @@ class WithdrawalService {
       debugPrint('🔄 تحديث حالة طلب السحب: $requestId إلى $newStatus');
 
       // التحقق من صحة الحالة الجديدة - فقط الحالات المسموحة
-      final validStatuses = ['completed', 'cancelled'];
+      final validStatuses = ['completed', 'cancelled', 'rejected'];
       if (!validStatuses.contains(newStatus)) {
         return {
           'success': false,
-          'message': 'حالة غير صحيحة. الحالات المسموحة: تم التحويل، ملغي',
+          'message': 'حالة غير صحيحة. الحالات المسموحة: تم التحويل، ملغي، مرفوض',
           'errorCode': 'INVALID_STATUS',
         };
       }
@@ -421,6 +419,19 @@ class WithdrawalService {
           .select('*')
           .eq('id', requestId)
           .single();
+
+      final currentStatus = currentRequest['status'];
+
+      // فحص منطقي للحالات المسموحة
+      // تم السماح بالتحويل من completed إلى cancelled مع إرجاع المبلغ
+
+      if (currentStatus == 'cancelled' && newStatus == 'completed') {
+        return {
+          'success': false,
+          'message': 'لا يمكن إكمال طلب سحب ملغي.',
+          'errorCode': 'INVALID_STATUS_TRANSITION',
+        };
+      }
 
       final updateData = {
         'status': newStatus,
@@ -451,14 +462,9 @@ class WithdrawalService {
         amount: (currentRequest['amount'] as num).toDouble(),
       );
 
-      // إرسال إشعار تغيير حالة السحب
-      await _sendWithdrawalStatusNotification(
-        userId: currentRequest['user_id'],
-        requestId: requestId,
-        newStatus: newStatus,
-        amount: (currentRequest['amount'] as num).toDouble(),
-        reason: adminNotes ?? '',
-      );
+      // إرسال إشعار تغيير حالة السحب عبر NotificationService
+      // تم تعطيل _sendWithdrawalStatusNotification لأن NotificationService يتولى الأمر
+      debugPrint('📤 إرسال الإشعار عبر NotificationService بدلاً من الخادم المحلي');
 
       debugPrint('✅ تم تحديث حالة طلب السحب بنجاح');
 
@@ -491,32 +497,19 @@ class WithdrawalService {
 
       switch (newStatus) {
         case 'completed':
-          // عند الإكمال: استخدام الدالة الآمنة لسحب الأرباح
-          debugPrint('💰 تأكيد سحب $amount د.ع للمستخدم $userId');
-
-          // استخدام الدالة الآمنة لسحب الأرباح
-          try {
-            final withdrawResult = await _supabase.rpc('safe_withdraw_profits', params: {
-              'p_user_phone': await _getUserPhone(userId),
-              'p_amount': amount,
-              'p_authorized_by': 'WITHDRAWAL_SYSTEM'
-            });
-
-            if (withdrawResult['success'] == true) {
-              debugPrint('✅ تم سحب الأرباح بنجاح باستخدام الدالة الآمنة');
-            } else {
-              debugPrint('❌ فشل في سحب الأرباح: ${withdrawResult['error']}');
-            }
-          } catch (e) {
-            debugPrint('❌ خطأ في استخدام الدالة الآمنة: $e');
-            // fallback إلى الطريقة القديمة
-            await _deductFromUserBalance(userId, amount);
-          }
+          // عند الإكمال: المبلغ مستقطع مسبقاً عند إنشاء الطلب
+          // لا نحتاج لاستقطاع مرة أخرى، فقط تأكيد العملية
+          debugPrint('✅ تأكيد إكمال سحب $amount د.ع للمستخدم $userId');
+          debugPrint('💡 المبلغ تم استقطاعه مسبقاً عند إنشاء طلب السحب');
           break;
 
         case 'cancelled':
           // عند الإلغاء: استخدام الدالة الآمنة لإرجاع الأرباح
+          final reasonText = oldStatus == 'completed'
+              ? 'إرجاع مبلغ سحب مكتمل تم إلغاؤه'
+              : 'إرجاع مبلغ سحب ملغي';
           debugPrint('💰 إرجاع $amount د.ع إلى الأرباح المحققة للمستخدم $userId');
+          debugPrint('📋 السبب: $reasonText (من $oldStatus إلى cancelled)');
 
           try {
             // الحصول على رقم الهاتف أولاً
@@ -531,7 +524,7 @@ class WithdrawalService {
               'p_user_phone': userPhone,
               'p_achieved_amount': amount,
               'p_expected_amount': 0,
-              'p_reason': 'إرجاع مبلغ سحب ملغي',
+              'p_reason': reasonText,
               'p_authorized_by': 'WITHDRAWAL_CANCELLATION_SYSTEM'
             });
 
@@ -546,6 +539,48 @@ class WithdrawalService {
           } catch (e) {
             debugPrint('❌ خطأ في استخدام الدالة الآمنة: $e');
             // fallback إلى الطريقة القديمة
+            try {
+              await _returnToAchievedProfits(userId, amount);
+              debugPrint('✅ تم إرجاع الأرباح باستخدام الطريقة البديلة');
+            } catch (e2) {
+              debugPrint('❌ فشل في الطريقة البديلة أيضاً: $e2');
+              throw Exception('فشل في إرجاع الأرباح نهائياً');
+            }
+          }
+          break;
+
+        case 'rejected':
+          // عند الرفض: إرجاع المبلغ إلى الأرباح المحققة
+          debugPrint('💰 إرجاع $amount د.ع إلى الأرباح المحققة للمستخدم $userId (طلب مرفوض)');
+
+          try {
+            // الحصول على رقم الهاتف أولاً
+            final userPhone = await _getUserPhone(userId);
+            if (userPhone.isEmpty) {
+              throw Exception('لم يتم العثور على رقم هاتف المستخدم');
+            }
+
+            debugPrint('📱 رقم هاتف المستخدم: $userPhone');
+
+            final addResult = await _supabase.rpc('safe_add_profits', params: {
+              'p_user_phone': userPhone,
+              'p_achieved_amount': amount,
+              'p_expected_amount': 0,
+              'p_reason': 'إرجاع مبلغ سحب مرفوض',
+              'p_authorized_by': 'WITHDRAWAL_REJECTION_SYSTEM'
+            });
+
+            debugPrint('📊 نتيجة إرجاع الأرباح: $addResult');
+
+            if (addResult != null && addResult['success'] == true) {
+              debugPrint('✅ تم إرجاع الأرباح بنجاح باستخدام الدالة الآمنة');
+            } else {
+              debugPrint('❌ فشل في إرجاع الأرباح: ${addResult?['error'] ?? 'خطأ غير معروف'}');
+              throw Exception('فشل في إرجاع الأرباح');
+            }
+          } catch (e) {
+            debugPrint('❌ خطأ في استخدام الدالة الآمنة: $e');
+            // fallback إلى الطريقة البديلة
             try {
               await _returnToAchievedProfits(userId, amount);
               debugPrint('✅ تم إرجاع الأرباح باستخدام الطريقة البديلة');
@@ -571,124 +606,11 @@ class WithdrawalService {
 
   // تم حذف _confirmBalanceFreeze غير المستخدم
 
-  /// خصم المبلغ من رصيد المستخدم
-  static Future<void> _deductFromUserBalance(
-    String userId,
-    double amount,
-  ) async {
-    try {
-      debugPrint('خصم $amount د.ع من رصيد المستخدم $userId');
-
-      await _supabase.rpc(
-        'deduct_from_user_balance',
-        params: {'user_id': userId, 'deduct_amount': amount},
-      );
-    } catch (e) {
-      debugPrint('خطأ في خصم المبلغ: $e');
-    }
-  }
+  // تم حذف _deductFromUserBalance - غير مستخدمة
 
   // تم حذف _unfreezeUserBalance غير المستخدم
 
-  /// إرسال إشعار تغيير حالة السحب عبر خادم الإشعارات الجديد
-  static Future<void> _sendWithdrawalStatusNotification({
-    required String userId,
-    required String requestId,
-    required String newStatus,
-    required double amount,
-    String reason = '',
-  }) async {
-    try {
-      debugPrint('📤 إرسال إشعار تغيير حالة السحب عبر خادم الإشعارات');
-
-      // جلب رقم هاتف المستخدم
-      final userResponse = await _supabase
-          .from('users')
-          .select('phone')
-          .eq('id', userId)
-          .single();
-
-      final userPhone = userResponse['phone'] ?? '';
-
-      if (userPhone.isEmpty) {
-        debugPrint('⚠️ لا يوجد رقم هاتف للمستخدم');
-        return;
-      }
-
-      // تحديد رسالة الإشعار حسب الحالة
-      String title = '';
-      String message = '';
-
-      switch (newStatus) {
-        case 'pending':
-          title = '⏳ تم استلام طلب السحب';
-          message =
-              'تم استلام طلب سحب بمبلغ ${amount.toStringAsFixed(0)} د.ع وسيتم مراجعته خلال 24 ساعة';
-          break;
-        case 'approved':
-          title = '✅ تم الموافقة على طلب السحب';
-          message =
-              'تم الموافقة على طلب سحب بمبلغ ${amount.toStringAsFixed(0)} د.ع وسيتم التحويل خلال ساعات';
-          break;
-        case 'rejected':
-          title = '❌ تم رفض طلب السحب';
-          message =
-              'تم رفض طلب سحب بمبلغ ${amount.toStringAsFixed(0)} د.ع. ${reason.isNotEmpty ? reason : "يرجى مراجعة الإدارة للمزيد من التفاصيل"}';
-          break;
-        case 'completed':
-          title = '🎉 تم تحويل المبلغ';
-          message =
-              'تم تحويل مبلغ ${amount.toStringAsFixed(0)} د.ع إلى محفظتك بنجاح';
-          break;
-        case 'processing':
-          title = '🔄 جاري معالجة طلب السحب';
-          message =
-              'طلب سحب بمبلغ ${amount.toStringAsFixed(0)} د.ع قيد المعالجة الآن';
-          break;
-        case 'cancelled':
-          title = '🚫 تم إلغاء طلب السحب';
-          message =
-              'تم إلغاء طلب سحب بمبلغ ${amount.toStringAsFixed(0)} د.ع بناءً على طلبك';
-          break;
-        default:
-          title = '🔄 تحديث حالة طلب السحب';
-          message = 'تم تحديث حالة طلب السحب الخاص بك';
-      }
-
-      // إرسال الإشعار عبر خادم الإشعارات الجديد
-      final response = await http.post(
-        Uri.parse('http://localhost:3003/api/notifications/send'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'userPhone': userPhone,
-          'title': title,
-          'message': message,
-          'data': {
-            'type': 'withdrawal_status_update',
-            'requestId': requestId,
-            'newStatus': newStatus,
-            'amount': amount,
-            'timestamp': DateTime.now().toIso8601String(),
-            if (reason.isNotEmpty) 'reason': reason,
-          },
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        if (responseData['success'] == true) {
-          debugPrint('✅ تم إرسال إشعار تغيير حالة السحب بنجاح');
-          debugPrint('📋 معرف الرسالة: ${responseData['data']['messageId']}');
-        } else {
-          debugPrint('❌ فشل إرسال الإشعار: ${responseData['message']}');
-        }
-      } else {
-        debugPrint('❌ خطأ في الاتصال بخادم الإشعارات: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في إرسال إشعار تغيير حالة السحب: $e');
-    }
-  }
+  // تم حذف _sendWithdrawalStatusNotification - يتم استخدام NotificationService بدلاً منها
 
   /// الحصول على رقم هاتف المستخدم
   static Future<String> _getUserPhone(String userId) async {

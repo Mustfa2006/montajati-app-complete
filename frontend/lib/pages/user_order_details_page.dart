@@ -231,10 +231,61 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     return totalProfit;
   }
 
-  // 🔍 التحقق من كون الطلب نشط
+  // 🔍 التحقق من كون الطلب نشط (يمكن تعديله أو حذفه)
   bool _isOrderActive() {
-    return _order?.status == OrderStatus.pending ||
-        _order?.status == OrderStatus.confirmed;
+    if (_order == null) return false;
+
+    // فحص مزدوج للحماية الكاملة:
+
+    // 1. فحص حالة OrderStatus
+    final isStatusActive = _order!.status == OrderStatus.pending ||
+                          _order!.status == OrderStatus.confirmed;
+
+    // 2. فحص النص الأصلي للحالة من قاعدة البيانات
+    final rawStatus = _order!.rawStatus.toLowerCase();
+    final isRawStatusActive = rawStatus == 'نشط' ||
+                             rawStatus == 'active' ||
+                             rawStatus == 'pending' ||
+                             rawStatus == 'confirmed' ||
+                             rawStatus == 'مؤكد';
+
+    // 3. التأكد من أن الطلب ليس في حالة نهائية
+    final isFinalStatus = rawStatus.contains('تم التوصيل') ||
+                         rawStatus.contains('delivered') ||
+                         rawStatus.contains('ملغي') ||
+                         rawStatus.contains('cancelled') ||
+                         rawStatus.contains('قيد التوصيل') ||
+                         rawStatus.contains('in_delivery') ||
+                         rawStatus.contains('مرفوض') ||
+                         rawStatus.contains('rejected') ||
+                         rawStatus.contains('لا يرد بعد الاتفاق') ||
+                         rawStatus.contains('لا يرد') ||
+                         rawStatus.contains('مغلق') ||
+                         rawStatus.contains('مؤجل') ||
+                         rawStatus.contains('طلب مكرر') ||
+                         rawStatus.contains('مستلم مسبقا') ||
+                         rawStatus.contains('لم يطلب') ||
+                         rawStatus.contains('الرقم غير معرف') ||
+                         rawStatus.contains('الرقم غير داخل في الخدمة') ||
+                         rawStatus.contains('لا يمكن الاتصال بالرقم') ||
+                         rawStatus.contains('مفصول عن الخدمة') ||
+                         rawStatus.contains('العنوان غير دقيق') ||
+                         rawStatus.contains('حظر المندوب') ||
+                         rawStatus.contains('تم تغيير محافظة الزبون') ||
+                         rawStatus.contains('تغيير المندوب');
+
+    // الطلب نشط فقط إذا كان في حالة نشطة وليس في حالة نهائية
+    final isActive = (isStatusActive || isRawStatusActive) && !isFinalStatus;
+
+    debugPrint('🔍 فحص نشاط الطلب:');
+    debugPrint('   📋 OrderStatus: ${_order!.status}');
+    debugPrint('   📋 Raw Status: "${_order!.rawStatus}"');
+    debugPrint('   📋 Is Status Active: $isStatusActive');
+    debugPrint('   📋 Is Raw Status Active: $isRawStatusActive');
+    debugPrint('   📋 Is Final Status: $isFinalStatus');
+    debugPrint('   📋 Final Result: $isActive');
+
+    return isActive;
   }
 
   // ✏️ تعديل الطلب
@@ -242,38 +293,25 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     if (_order == null) return;
 
     // التحقق من إمكانية التعديل
-    if (!_isOrderActive()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'لا يمكن تعديل الطلبات غير النشطة',
-            style: GoogleFonts.cairo(),
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    bool isScheduledOrder = _order!.scheduledDate != null;
 
-    // التحقق من الوقت المتبقي (24 ساعة)
-    final now = DateTime.now();
-    final deadline = _order!.createdAt.add(const Duration(hours: 24));
-    if (now.isAfter(deadline)) {
+    // الطلبات المجدولة يمكن تعديلها دائماً
+    // الطلبات العادية يجب أن تكون نشطة للتعديل
+    if (!isScheduledOrder && !_isOrderActive()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'انتهت فترة التعديل المسموحة (24 ساعة)',
+            'لا يمكن تعديل هذا الطلب. الحالة الحالية: ${_order!.rawStatus}',
             style: GoogleFonts.cairo(),
           ),
           backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
         ),
       );
       return;
     }
 
     // الانتقال لصفحة التعديل الصحيحة حسب نوع الطلب
-    bool isScheduledOrder = _order!.scheduledDate != null;
-
     if (isScheduledOrder) {
       // للطلبات المجدولة
       context.go('/scheduled-orders/edit/${_order!.id}');
@@ -286,6 +324,25 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   // 🗑️ حذف الطلب
   void _deleteOrder() {
     if (_order == null) return;
+
+    // التحقق من إمكانية الحذف
+    bool isScheduledOrder = _order!.scheduledDate != null;
+
+    // الطلبات المجدولة يمكن حذفها دائماً
+    // الطلبات العادية يجب أن تكون نشطة للحذف
+    if (!isScheduledOrder && !_isOrderActive()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'لا يمكن حذف هذا الطلب. الحالة الحالية: ${_order!.rawStatus}',
+            style: GoogleFonts.cairo(),
+          ),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
 
     // إظهار رسالة تأكيد
     showDialog(
@@ -372,12 +429,9 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           ),
         );
 
-        // العودة للصفحة الصحيحة حسب نوع الطلب
-        if (isScheduledOrder) {
-          context.go('/scheduled-orders');
-        } else {
-          context.go('/orders');
-        }
+        // العودة دائماً لصفحة طلبات المستخدم
+        // بغض النظر عن نوع الطلب
+        context.go('/orders');
       }
     } catch (e) {
       debugPrint('❌ خطأ في حذف الطلب: $e');
@@ -426,8 +480,8 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
               ),
             ],
             leftActions: [
-              // أزرار التعديل والحذف (فقط للطلبات النشطة)
-              if (_order != null && _isOrderActive()) ...[
+              // أزرار التعديل والحذف (للطلبات النشطة أو المجدولة)
+              if (_order != null && (_isOrderActive() || _order!.scheduledDate != null)) ...[
                 // زر التعديل
                 GestureDetector(
                   onTap: _editOrder,

@@ -63,33 +63,48 @@ class SmartInventoryManager {
     List<String>? images,
   }) async {
     try {
-      debugPrint('🧠 بدء تحديث المنتج بالنظام الذكي للمخزون...');
-      debugPrint('📊 الكمية الإجمالية: $totalQuantity');
+      if (kDebugMode) {
+        debugPrint('🧠 بدء تحديث المنتج بالنظام الذكي للمخزون...');
+        debugPrint('📊 الكمية الإجمالية: $totalQuantity');
+      }
 
       // 1. حساب النطاق الذكي
       final smartRange = calculateSmartRange(totalQuantity);
       final minQuantity = smartRange['min']!;
       final maxQuantity = smartRange['max']!;
-      
-      debugPrint('🎯 النطاق الذكي: من $minQuantity إلى $maxQuantity');
+
+      if (kDebugMode) {
+        debugPrint('🎯 النطاق الذكي: من $minQuantity إلى $maxQuantity');
+      }
 
       // 2. تحديث قاعدة البيانات مع النطاق الذكي
-      await _supabase.from('products').update({
+      final updateData = <String, dynamic>{
         'name': name.trim(),
         'description': description.trim(),
         'wholesale_price': wholesalePrice,
         'min_price': minPrice,
         'max_price': maxPrice,
-        'stock_quantity': totalQuantity, // الكمية الإجمالية
-        'available_quantity': totalQuantity, // الكمية المتاحة (تبدأ بنفس الإجمالية)
-        'minimum_stock': minQuantity, // الحد الأدنى الذكي
-        'maximum_stock': maxQuantity, // الحد الأقصى الذكي (عمود جديد)
+        'stock_quantity': totalQuantity,
+        'available_quantity': totalQuantity,
+        'minimum_stock': minQuantity,
+        'maximum_stock': maxQuantity,
+        'available_from': minQuantity,
+        'available_to': maxQuantity,
         'category': category,
-        'image_url': images?.isNotEmpty == true ? images!.first : null,
+        'smart_range_enabled': true,
         'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', productId);
+      };
 
-      debugPrint('✅ تم تحديث المنتج بالنظام الذكي بنجاح');
+      // إضافة الصور إذا كانت متوفرة
+      if (images != null && images.isNotEmpty) {
+        updateData['image_url'] = images.first;
+      }
+
+      await _supabase.from('products').update(updateData).eq('id', productId);
+
+      if (kDebugMode) {
+        debugPrint('✅ تم تحديث المنتج بالنظام الذكي بنجاح');
+      }
 
       // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
       _monitorProductStock(productId);
@@ -103,7 +118,9 @@ class SmartInventoryManager {
         'max_quantity': maxQuantity,
       };
     } catch (e) {
-      debugPrint('❌ خطأ في تحديث المنتج بالنظام الذكي: $e');
+      if (kDebugMode) {
+        debugPrint('❌ خطأ في تحديث المنتج بالنظام الذكي: $e');
+      }
       return {
         'success': false,
         'message': 'خطأ في تحديث المنتج: $e',
@@ -121,40 +138,81 @@ class SmartInventoryManager {
     required double maxPrice,
     required int totalQuantity,
     required String category,
-    required String userPhone,
+    required String userPhone, // مطلوب لربط المنتج بالمستخدم
     List<String>? images,
   }) async {
     try {
-      debugPrint('🧠 بدء إضافة منتج جديد بالنظام الذكي...');
-      debugPrint('📊 الكمية الإجمالية: $totalQuantity');
+      if (kDebugMode) {
+        debugPrint('🧠 بدء إضافة منتج جديد بالنظام الذكي...');
+        debugPrint('📊 الكمية الإجمالية: $totalQuantity');
+      }
 
-      // 1. حساب النطاق الذكي
+      // 1. العثور على المستخدم بناءً على رقم الهاتف
+      String? ownerId;
+      try {
+        final userResponse = await _supabase
+            .from('users')
+            .select('id')
+            .eq('phone', userPhone)
+            .maybeSingle();
+
+        if (userResponse != null) {
+          ownerId = userResponse['id'];
+          if (kDebugMode) {
+            debugPrint('👤 تم العثور على المستخدم: $ownerId');
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('⚠️ لم يتم العثور على المستخدم برقم الهاتف: $userPhone');
+        }
+      }
+
+      // 2. حساب النطاق الذكي
       final smartRange = calculateSmartRange(totalQuantity);
       final minQuantity = smartRange['min']!;
       final maxQuantity = smartRange['max']!;
-      
-      debugPrint('🎯 النطاق الذكي: من $minQuantity إلى $maxQuantity');
 
-      // 2. إضافة المنتج مع النطاق الذكي
-      final response = await _supabase.from('products').insert({
+      if (kDebugMode) {
+        debugPrint('🎯 النطاق الذكي: من $minQuantity إلى $maxQuantity');
+      }
+
+      // 3. إضافة المنتج مع النطاق الذكي
+      final productData = <String, dynamic>{
         'name': name.trim(),
         'description': description.trim(),
         'wholesale_price': wholesalePrice,
         'min_price': minPrice,
         'max_price': maxPrice,
-        'stock_quantity': totalQuantity,
         'available_quantity': totalQuantity,
-        'minimum_stock': minQuantity,
-        'maximum_stock': maxQuantity,
         'category': category,
-        'image_url': images?.isNotEmpty == true ? images!.first : null,
-        'user_phone': userPhone,
         'is_active': true,
         'created_at': DateTime.now().toIso8601String(),
+        'stock_quantity': totalQuantity,
+        'minimum_stock': minQuantity,
+        'maximum_stock': maxQuantity,
+        'available_from': minQuantity,
+        'available_to': maxQuantity,
+        'smart_range_enabled': true,
         'updated_at': DateTime.now().toIso8601String(),
-      }).select().single();
+      };
 
-      debugPrint('✅ تم إضافة المنتج بالنظام الذكي بنجاح');
+      // إضافة owner_id إذا تم العثور على المستخدم
+      if (ownerId != null) {
+        productData['owner_id'] = ownerId;
+      }
+
+      // إضافة الصور إذا كانت متوفرة
+      if (images != null && images.isNotEmpty) {
+        productData['image_url'] = images.first;
+        productData['images'] = images;
+      }
+
+      final response = await _supabase.from('products').insert(productData).select().single();
+
+      if (kDebugMode) {
+        debugPrint('✅ تم إضافة المنتج بالنظام الذكي بنجاح');
+      }
 
       // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
       final String productId = response['id'];
@@ -167,10 +225,25 @@ class SmartInventoryManager {
         'smart_range': smartRange,
       };
     } catch (e) {
-      debugPrint('❌ خطأ في إضافة المنتج بالنظام الذكي: $e');
+      if (kDebugMode) {
+        debugPrint('❌ خطأ في إضافة المنتج بالنظام الذكي: $e');
+      }
+
+      // معالجة أخطاء مختلفة
+      String errorMessage = 'فشل في إضافة المنتج';
+
+      if (e.toString().contains('column') && e.toString().contains('does not exist')) {
+        errorMessage = 'خطأ في هيكل قاعدة البيانات';
+      } else if (e.toString().contains('permission')) {
+        errorMessage = 'ليس لديك صلاحية لإضافة المنتجات';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'مشكلة في الاتصال بالإنترنت';
+      }
+
       return {
         'success': false,
-        'message': 'خطأ في إضافة المنتج: $e',
+        'message': errorMessage,
+        'error': e.toString(),
       };
     }
   }

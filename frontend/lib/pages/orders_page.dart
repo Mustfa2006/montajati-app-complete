@@ -116,7 +116,7 @@ class _OrdersPageState extends State<OrdersPage> {
           .eq('is_converted', false) // فقط الطلبات غير المحولة
           .count(CountOption.exact);
 
-      return response.count ?? 0;
+      return response.count;
     } catch (e) {
       debugPrint('❌ خطأ في جلب عدد الطلبات المجدولة: $e');
       return 0;
@@ -319,7 +319,7 @@ class _OrdersPageState extends State<OrdersPage> {
       }
 
       final offset = _currentPage * _pageSize;
-      debugPrint('🔍 جلب طلبات المستخدم: $currentUserPhone - الصفحة: $_currentPage (${offset}-${offset + _pageSize - 1})');
+      debugPrint('🔍 جلب طلبات المستخدم: $currentUserPhone - الصفحة: $_currentPage ($offset-${offset + _pageSize - 1})');
 
       final response = await _supabase
           .from('orders')
@@ -401,7 +401,7 @@ class _OrdersPageState extends State<OrdersPage> {
           .select('id')
           .eq('user_phone', currentUserPhone)
           .count(CountOption.exact);
-      final total = totalResponse.count ?? 0;
+      final total = totalResponse.count;
 
       // 2. عدد طلبات المعالجة
       final processingResponse = await _supabase
@@ -416,7 +416,7 @@ class _OrdersPageState extends State<OrdersPage> {
             'لم يطلب', 'حظر المندوب'
           ])
           .count(CountOption.exact);
-      final processing = processingResponse.count ?? 0;
+      final processing = processingResponse.count;
 
       // 3. عدد الطلبات النشطة
       final activeResponse = await _supabase
@@ -425,7 +425,7 @@ class _OrdersPageState extends State<OrdersPage> {
           .eq('user_phone', currentUserPhone)
           .inFilter('status', ['نشط', 'active'])
           .count(CountOption.exact);
-      final active = activeResponse.count ?? 0;
+      final active = activeResponse.count;
 
       // 4. عدد طلبات قيد التوصيل
       final inDeliveryResponse = await _supabase
@@ -434,7 +434,7 @@ class _OrdersPageState extends State<OrdersPage> {
           .eq('user_phone', currentUserPhone)
           .inFilter('status', ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'])
           .count(CountOption.exact);
-      final inDelivery = inDeliveryResponse.count ?? 0;
+      final inDelivery = inDeliveryResponse.count;
 
       // 5. عدد الطلبات المسلمة
       final deliveredResponse = await _supabase
@@ -443,7 +443,7 @@ class _OrdersPageState extends State<OrdersPage> {
           .eq('user_phone', currentUserPhone)
           .inFilter('status', ['تم التسليم للزبون', 'delivered'])
           .count(CountOption.exact);
-      final delivered = deliveredResponse.count ?? 0;
+      final delivered = deliveredResponse.count;
 
       // 6. عدد الطلبات الملغية
       final cancelledResponse = await _supabase
@@ -452,7 +452,7 @@ class _OrdersPageState extends State<OrdersPage> {
           .eq('user_phone', currentUserPhone)
           .inFilter('status', ['الغاء الطلب', 'رفض الطلب', 'تم الارجاع الى التاجر', 'cancelled'])
           .count(CountOption.exact);
-      final cancelled = cancelledResponse.count ?? 0;
+      final cancelled = cancelledResponse.count;
 
       // جلب عدد الطلبات المجدولة
       final scheduledCount = await _getScheduledOrdersCount(currentUserPhone);
@@ -1895,30 +1895,18 @@ class _OrdersPageState extends State<OrdersPage> {
       return;
     }
 
-    // التحقق من الوقت المتبقي (24 ساعة)
-    final now = DateTime.now();
-    final deadline = order.createdAt.add(const Duration(hours: 24));
-    if (now.isAfter(deadline)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'انتهت فترة التعديل المسموحة (24 ساعة)',
-            style: GoogleFonts.cairo(),
-          ),
-          backgroundColor: const Color(0xFFdc3545),
-        ),
-      );
-      return;
-    }
-
     // الانتقال لصفحة تعديل الطلب
     context.go('/orders/edit/${order.id}');
   }
 
-  // حذف الطلب (للطلبات النشطة فقط)
+  // حذف الطلب (للطلبات النشطة والمجدولة)
   void _deleteOrder(Order order) {
     // التحقق من إمكانية الحذف
-    if (!_isActiveStatus(order.rawStatus)) {
+    bool isScheduledOrder = order.scheduledDate != null;
+
+    // الطلبات المجدولة يمكن حذفها دائماً
+    // الطلبات العادية يجب أن تكون نشطة للحذف
+    if (!isScheduledOrder && !_isActiveStatus(order.rawStatus)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1974,17 +1962,78 @@ class _OrdersPageState extends State<OrdersPage> {
         ),
       );
 
-      // حذف الطلب عبر HTTP API - سيتم إضافة هذه الوظيفة لاحقاً
-      // await _ordersService.deleteOrder(order.id);
+      // حذف الطلب من قاعدة البيانات
+      debugPrint('🗑️ بدء حذف الطلب: ${order.id}');
+
+      // تحديد نوع الطلب (عادي أم مجدول)
+      final isScheduledOrder = _scheduledOrders.any((o) => o.id == order.id);
+
+      if (isScheduledOrder) {
+        debugPrint('🗓️ حذف طلب مجدول من جدول scheduled_orders');
+
+        // ✅ الخطوة 1: حذف عناصر الطلب المجدول أولاً
+        final deleteItemsResponse = await Supabase.instance.client
+            .from('scheduled_order_items')
+            .delete()
+            .eq('scheduled_order_id', order.id)
+            .select();
+
+        debugPrint('✅ تم حذف ${deleteItemsResponse.length} عنصر من الطلب المجدول');
+
+        // ✅ الخطوة 2: حذف الطلب المجدول
+        final deleteScheduledResponse = await Supabase.instance.client
+            .from('scheduled_orders')
+            .delete()
+            .eq('id', order.id)
+            .select();
+
+        if (deleteScheduledResponse.isEmpty) {
+          throw Exception('لم يتم العثور على الطلب المجدول أو فشل في الحذف');
+        }
+
+        debugPrint('✅ تم حذف الطلب المجدول بنجاح من قاعدة البيانات');
+
+      } else {
+        debugPrint('📦 حذف طلب عادي من جدول orders');
+
+        // ✅ الخطوة 1: حذف معاملات الربح أولاً (مهم لتجنب خطأ Foreign Key)
+        final deleteProfitResponse = await Supabase.instance.client
+            .from('profit_transactions')
+            .delete()
+            .eq('order_id', order.id)
+            .select();
+
+        debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
+
+        // ✅ الخطوة 2: حذف الطلب العادي
+        final deleteOrderResponse = await Supabase.instance.client
+            .from('orders')
+            .delete()
+            .eq('id', order.id)
+            .select();
+
+        if (deleteOrderResponse.isEmpty) {
+          throw Exception('لم يتم العثور على الطلب أو فشل في الحذف');
+        }
+
+        debugPrint('✅ تم حذف الطلب العادي بنجاح من قاعدة البيانات');
+      }
+
+      // تحديث القائمة المحلية
+      setState(() {
+        _orders.removeWhere((o) => o.id == order.id);
+        _scheduledOrders.removeWhere((o) => o.id == order.id);
+      });
 
       // إخفاء مؤشر التحميل
       if (mounted) Navigator.pop(context);
 
-      // إظهار رسالة نجاح
+      // إظهار رسالة نجاح مع تحديد نوع الطلب
       if (mounted) {
+        final orderType = isScheduledOrder ? 'المجدول' : 'العادي';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تم حذف الطلب بنجاح', style: GoogleFonts.cairo()),
+            content: Text('تم حذف الطلب $orderType بنجاح', style: GoogleFonts.cairo()),
             backgroundColor: Colors.green,
           ),
         );

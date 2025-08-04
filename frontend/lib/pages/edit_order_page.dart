@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
 import '../widgets/common_header.dart';
-import '../services/real_auth_service.dart';
+
 
 class EditOrderPage extends StatefulWidget {
   final String orderId;
@@ -281,22 +281,12 @@ class _EditOrderPageState extends State<EditOrderPage> {
               // زر الرجوع على اليمين
               GestureDetector(
                 onTap: () async {
-                  // التحقق من نوع المستخدم لتحديد الصفحة الصحيحة للعودة
-                  final isAdmin = await AuthService.isCurrentUserAdmin();
+                  // حفظ BuildContext قبل العملية غير المتزامنة
+                  final navigator = GoRouter.of(context);
 
-                  if (widget.isScheduled) {
-                    // للطلبات المجدولة
-                    if (isAdmin) {
-                      // للأدمن - العودة لصفحة إدارة الطلبات المجدولة
-                      context.go('/scheduled-orders');
-                    } else {
-                      // للمستخدم العادي - العودة لصفحة طلبات المستخدم
-                      context.go('/orders');
-                    }
-                  } else {
-                    // للطلبات العادية - العودة لصفحة الطلبات العادية
-                    context.go('/orders');
-                  }
+                  // العودة دائماً لصفحة طلبات المستخدم
+                  // بغض النظر عن نوع الطلب أو نوع المستخدم
+                  navigator.go('/orders');
                 },
                 child: Container(
                   width: 32,
@@ -751,16 +741,15 @@ class _EditOrderPageState extends State<EditOrderPage> {
           ),
         );
 
-        // العودة للصفحة الصحيحة حسب نوع الطلب
-        Future.delayed(const Duration(seconds: 1), () {
+        // العودة للصفحة الصحيحة حسب نوع الطلب والمستخدم
+        Future.delayed(const Duration(seconds: 1), () async {
           if (mounted) {
-            if (widget.isScheduled) {
-              // للطلبات المجدولة - العودة لصفحة الطلبات المجدولة
-              context.go('/scheduled-orders');
-            } else {
-              // للطلبات العادية - العودة لصفحة الطلبات العادية
-              context.go('/orders');
-            }
+            // حفظ BuildContext قبل العملية غير المتزامنة
+            final navigator = GoRouter.of(context);
+
+            // العودة دائماً لصفحة طلبات المستخدم
+            // بغض النظر عن نوع الطلب أو نوع المستخدم
+            navigator.go('/orders');
           }
         });
       }

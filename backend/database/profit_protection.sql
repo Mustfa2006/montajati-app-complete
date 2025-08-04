@@ -42,7 +42,7 @@ BEGIN
     
     -- 🛡️ RULE 1: منع التصفير المباشر
     IF (new_achieved = 0 AND old_achieved > 0) OR (new_expected = 0 AND old_expected > 0) THEN
-        IF operation_context != 'AUTHORIZED_RESET' THEN
+        IF operation_context NOT IN ('AUTHORIZED_RESET', 'AUTHORIZED_WITHDRAWAL') THEN
             RAISE EXCEPTION 'PROFIT_PROTECTION: تصفير الأرباح غير مسموح بدون تصريح خاص';
         END IF;
     END IF;

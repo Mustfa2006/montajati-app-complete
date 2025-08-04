@@ -42,31 +42,42 @@ class FCMService {
   /// تهيئة خدمة FCM
   Future<bool> initialize() async {
     try {
+      debugPrint('🚀 بدء تهيئة خدمة FCM...');
+
       // تهيئة Firebase
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      debugPrint('✅ تم تهيئة Firebase');
 
       _messaging = FirebaseMessaging.instance;
+      debugPrint('✅ تم إنشاء مثيل FirebaseMessaging');
 
       // طلب الأذونات
       await _requestPermissions();
+      debugPrint('✅ تم طلب الأذونات');
 
       // تهيئة Local Notifications
       await _initializeLocalNotifications();
+      debugPrint('✅ تم تهيئة Local Notifications');
 
       // الحصول على FCM Token
       await _getFCMToken();
+      debugPrint('✅ تم الحصول على FCM Token');
 
       // إعداد تحديث Token التلقائي
       await _setupTokenRefresh();
+      debugPrint('✅ تم إعداد تحديث Token التلقائي');
 
       // إعداد معالجات الإشعارات
       _setupMessageHandlers();
+      debugPrint('✅ تم إعداد معالجات الإشعارات');
 
       _isInitialized = true;
+      debugPrint('🎉 تم تهيئة خدمة FCM بنجاح');
       return true;
     } catch (e) {
+      debugPrint('❌ خطأ في تهيئة خدمة FCM: $e');
       return false;
     }
   }
@@ -245,9 +256,13 @@ class FCMService {
   /// معالجة الإشعارات في المقدمة
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
     debugPrint('📱 تم استلام إشعار في المقدمة: ${message.messageId}');
-    
+    debugPrint('📱 عنوان الإشعار: ${message.notification?.title}');
+    debugPrint('📱 نص الإشعار: ${message.notification?.body}');
+    debugPrint('📱 بيانات الإشعار: ${message.data}');
+
     // عرض الإشعار محلياً
     await _showLocalNotification(message);
+    debugPrint('✅ تم عرض الإشعار المحلي بنجاح');
   }
 
   /// معالجة النقر على الإشعار
@@ -267,35 +282,48 @@ class FCMService {
 
   /// عرض إشعار محلي
   Future<void> _showLocalNotification(RemoteMessage message) async {
-    const androidDetails = AndroidNotificationDetails(
-      'montajati_notifications',
-      'إشعارات منتجاتي',
-      channelDescription: 'إشعارات تحديث حالة الطلبات',
-      importance: Importance.high,
-      priority: Priority.high,
-      showWhen: true,
-      enableVibration: true,
-      playSound: true,
-    );
-    
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-    
-    const details = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-    
-    await _localNotifications.show(
-      message.hashCode,
-      message.notification?.title ?? 'إشعار جديد',
-      message.notification?.body ?? 'لديك تحديث جديد',
-      details,
-      payload: jsonEncode(message.data),
-    );
+    try {
+      debugPrint('🔔 بدء عرض الإشعار المحلي...');
+
+      const androidDetails = AndroidNotificationDetails(
+        'montajati_notifications',
+        'إشعارات منتجاتي',
+        channelDescription: 'إشعارات تحديث حالة الطلبات',
+        importance: Importance.high,
+        priority: Priority.high,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      final title = message.notification?.title ?? 'إشعار جديد';
+      final body = message.notification?.body ?? 'لديك تحديث جديد';
+
+      debugPrint('🔔 عرض إشعار: $title - $body');
+
+      await _localNotifications.show(
+        message.hashCode,
+        title,
+        body,
+        details,
+        payload: jsonEncode(message.data),
+      );
+
+      debugPrint('✅ تم عرض الإشعار المحلي بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في عرض الإشعار المحلي: $e');
+    }
   }
 
   /// معالجة النقر على الإشعار المحلي

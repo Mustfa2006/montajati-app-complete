@@ -311,13 +311,33 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
-        child: Row(
-          children: [
-            // الشريط الجانبي
-            _buildAdvancedSidebar(),
-            // المحتوى الرئيسي
-            Expanded(child: _buildMainContent()),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // تحديد ما إذا كانت الشاشة صغيرة (هاتف) أم كبيرة (تابلت/ديسكتوب)
+            final isSmallScreen = constraints.maxWidth < 768;
+
+            if (isSmallScreen) {
+              // تخطيط للهواتف - شريط سفلي بدلاً من جانبي
+              return Column(
+                children: [
+                  // المحتوى الرئيسي
+                  Expanded(child: _buildMainContent()),
+                  // شريط التنقل السفلي للهواتف
+                  _buildBottomNavigationBar(),
+                ],
+              );
+            } else {
+              // تخطيط للشاشات الكبيرة - شريط جانبي
+              return Row(
+                children: [
+                  // الشريط الجانبي
+                  _buildAdvancedSidebar(),
+                  // المحتوى الرئيسي
+                  Expanded(child: _buildMainContent()),
+                ],
+              );
+            }
+          },
         ),
       ),
     );
@@ -1301,73 +1321,155 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   Widget _buildProductsManagement() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isSmallScreen = constraints.maxWidth < 768;
+
+        return Column(
+          children: [
+            // الشريط العلوي الثابت
+            _buildProductsFixedHeader(isSmallScreen),
+
+            // المحتوى القابل للتمرير
+            Expanded(
+              child: _buildProductsScrollableContent(isSmallScreen),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // الشريط العلوي الثابت لصفحة المنتجات
+  Widget _buildProductsFixedHeader(bool isSmallScreen) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 20),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1a1a2e),
+        border: Border(
+          bottom: BorderSide(
+            color: Color(0xFFffc107),
+            width: 1,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // عنوان القسم
           Row(
             children: [
-              const Icon(Icons.inventory, color: Color(0xFFffc107), size: 28),
+              Icon(
+                Icons.inventory,
+                color: const Color(0xFFffc107),
+                size: isSmallScreen ? 24 : 28,
+              ),
               const SizedBox(width: 12),
-              const Text(
-                'إدارة المنتجات',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'إدارة المنتجات',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isSmallScreen ? 20 : 24,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const Spacer(),
               // مؤشر إحصائيات سريعة
-              _buildQuickStatsIndicator(),
+              if (!isSmallScreen) _buildQuickStatsIndicator(),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: isSmallScreen ? 12 : 20),
 
           // أزرار الإجراءات السريعة
-          Wrap(
-            spacing: 15,
-            runSpacing: 10,
-            children: [
-              _buildProductActionButton(
-                'إضافة منتج جديد',
-                Icons.add_circle,
-                const Color(0xFF4CAF50),
-                () => _addNewProduct(),
-              ),
-              _buildProductActionButton(
-                'تحديث المخزون',
-                Icons.update,
-                const Color(0xFF2196F3),
-                () => _updateInventory(),
-              ),
-              _buildProductActionButton(
-                'إدارة الفئات',
-                Icons.category,
-                const Color(0xFFFF9800),
-                () => _manageCategories(),
-              ),
-              _buildProductActionButton(
-                'تحديث الصفحة',
-                Icons.refresh,
-                const Color(0xFF9C27B0),
-                () => _refreshProductsData(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+          _buildResponsiveActionButtons(isSmallScreen),
+
+          SizedBox(height: isSmallScreen ? 12 : 20),
 
           // تبويبات المنتجات
-          _buildProductsTabs(),
-          const SizedBox(height: 20),
-
-          // محتوى التبويبات
-          Expanded(child: _buildProductsTabContent()),
+          _buildProductsTabs(isSmallScreen),
         ],
       ),
     );
+  }
+
+  // المحتوى القابل للتمرير
+  Widget _buildProductsScrollableContent(bool isSmallScreen) {
+    return Container(
+      padding: EdgeInsets.all(isSmallScreen ? 8 : 20),
+      child: _buildProductsTabContent(),
+    );
+  }
+
+  // أزرار الإجراءات المتجاوبة
+  Widget _buildResponsiveActionButtons(bool isSmallScreen) {
+    final buttons = [
+      _buildProductActionButton(
+        'إضافة منتج جديد',
+        Icons.add_circle,
+        const Color(0xFF4CAF50),
+        () => _addNewProduct(),
+        isSmallScreen,
+      ),
+      _buildProductActionButton(
+        'تحديث المخزون',
+        Icons.update,
+        const Color(0xFF2196F3),
+        () => _updateInventory(),
+        isSmallScreen,
+      ),
+      _buildProductActionButton(
+        'إدارة الفئات',
+        Icons.category,
+        const Color(0xFFFF9800),
+        () => _manageCategories(),
+        isSmallScreen,
+      ),
+      _buildProductActionButton(
+        'تحديث الصفحة',
+        Icons.refresh,
+        const Color(0xFF9C27B0),
+        () => _refreshProductsData(),
+        isSmallScreen,
+      ),
+    ];
+
+    if (isSmallScreen) {
+      // للشاشات الصغيرة: عرض الأزرار في صفين
+      return Column(
+        children: [
+          Row(
+            children: [
+              Expanded(child: buttons[0]),
+              const SizedBox(width: 8),
+              Expanded(child: buttons[1]),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: buttons[2]),
+              const SizedBox(width: 8),
+              Expanded(child: buttons[3]),
+            ],
+          ),
+        ],
+      );
+    } else {
+      // للشاشات الكبيرة: عرض الأزرار في صف واحد
+      return Wrap(
+        spacing: 15,
+        runSpacing: 10,
+        children: buttons,
+      );
+    }
   }
 
   // دوال إدارة المنتجات
@@ -1376,16 +1478,27 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     IconData icon,
     Color color,
     VoidCallback onPressed,
+    [bool isSmallScreen = false]
   ) {
     return ElevatedButton.icon(
       onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(title),
+      icon: Icon(icon, size: isSmallScreen ? 16 : 18),
+      label: Text(
+        title,
+        style: TextStyle(
+          fontSize: isSmallScreen ? 12 : 14,
+        ),
+      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmallScreen ? 8 : 16,
+          vertical: isSmallScreen ? 8 : 12,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
     );
   }
@@ -5199,7 +5312,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   // بناء تبويبات المنتجات
-  Widget _buildProductsTabs() {
+  Widget _buildProductsTabs([bool isSmallScreen = false]) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF2A2A2A),
@@ -5213,6 +5326,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Icons.inventory_2,
               0,
               _allProducts.length,
+              isSmallScreen,
             ),
           ),
           Expanded(
@@ -5221,6 +5335,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Icons.warning_amber,
               1,
               _outOfStockProducts.length,
+              isSmallScreen,
             ),
           ),
         ],
@@ -5228,7 +5343,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     );
   }
 
-  Widget _buildTabButton(String title, IconData icon, int index, int count) {
+  Widget _buildTabButton(String title, IconData icon, int index, int count, [bool isSmallScreen = false]) {
     final isSelected = _selectedProductsTab == index;
     return GestureDetector(
       onTap: () {
@@ -5237,52 +5352,98 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+        padding: EdgeInsets.symmetric(
+          vertical: isSmallScreen ? 12 : 15,
+          horizontal: isSmallScreen ? 12 : 20,
+        ),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFffc107) : Colors.transparent,
           borderRadius: BorderRadius.circular(15),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
-            if (count > 0) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF1a1a2e)
-                      : const Color(0xFFffc107),
-                  borderRadius: BorderRadius.circular(10),
+        child: isSmallScreen
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
+                  size: 18,
                 ),
-                child: Text(
-                  count.toString(),
+                const SizedBox(height: 4),
+                Text(
+                  title,
                   style: TextStyle(
-                    color: isSelected
-                        ? const Color(0xFFffc107)
-                        : const Color(0xFF1a1a2e),
-                    fontSize: 12,
+                    color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
                     fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                if (count > 0) ...[
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF1a1a2e)
+                          : const Color(0xFFffc107),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      count.toString(),
+                      style: TextStyle(
+                        color: isSelected
+                            ? const Color(0xFFffc107)
+                            : const Color(0xFF1a1a2e),
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                 ),
-              ),
-            ],
-          ],
-        ),
+                if (count > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? const Color(0xFF1a1a2e)
+                          : const Color(0xFFffc107),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      count.toString(),
+                      style: TextStyle(
+                        color: isSelected
+                            ? const Color(0xFFffc107)
+                            : const Color(0xFF1a1a2e),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
       ),
     );
   }
@@ -5371,7 +5532,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     return Column(
       children: [
         // شريط البحث والفلترة
-        _buildProductsSearchBar(),
+        _buildProductsSearchBar(MediaQuery.of(context).size.width < 768),
         const SizedBox(height: 20),
 
         // قائمة المنتجات
@@ -5380,7 +5541,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             itemCount: productsToShow.length,
             itemBuilder: (context, index) {
               final product = productsToShow[index];
-              return _buildEnhancedProductCard(product);
+              return _buildEnhancedProductCard(
+                product,
+                MediaQuery.of(context).size.width < 768,
+              );
             },
           ),
         ),
@@ -5389,9 +5553,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   // شريط البحث والفلترة
-  Widget _buildProductsSearchBar() {
+  Widget _buildProductsSearchBar([bool isSmallScreen = false]) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
       decoration: BoxDecoration(
         color: const Color(0xFF2A2A2A),
         borderRadius: BorderRadius.circular(15),
@@ -5400,17 +5564,31 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         children: [
           Expanded(
             child: TextField(
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isSmallScreen ? 14 : 16,
+              ),
               decoration: InputDecoration(
                 hintText: 'البحث في المنتجات...',
-                hintStyle: TextStyle(color: Colors.grey[400]),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFFffc107)),
+                hintStyle: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: isSmallScreen ? 14 : 16,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: const Color(0xFFffc107),
+                  size: isSmallScreen ? 20 : 24,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
                 fillColor: const Color(0xFF1a1a2e),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: isSmallScreen ? 12 : 16,
+                  vertical: isSmallScreen ? 8 : 12,
+                ),
               ),
               onChanged: (value) {
                 // ignore: todo
@@ -5418,7 +5596,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               },
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: isSmallScreen ? 8 : 12),
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFFffc107),
@@ -5429,7 +5607,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 // ignore: todo
                 // TODO: فتح خيارات الفلترة
               },
-              icon: const Icon(Icons.filter_list, color: Color(0xFF1a1a2e)),
+              icon: Icon(
+                Icons.filter_list,
+                color: const Color(0xFF1a1a2e),
+                size: isSmallScreen ? 18 : 20,
+              ),
+              padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
             ),
           ),
         ],
@@ -5438,11 +5621,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   // بناء كارت المنتج المحسن
-  Widget _buildEnhancedProductCard(Product product) {
+  Widget _buildEnhancedProductCard(Product product, [bool isSmallScreen = false]) {
     final isOutOfStock = product.availableQuantity <= 0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
       decoration: BoxDecoration(
         color: const Color(0xFF2A2A2A),
         borderRadius: BorderRadius.circular(15),
@@ -5463,7 +5646,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         children: [
           // رأس الكارت مع حالة المخزون
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
             decoration: BoxDecoration(
               color: isOutOfStock
                   ? const Color(0xFFF44336).withValues(alpha: 0.1)
@@ -5473,36 +5656,71 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 topRight: Radius.circular(15),
               ),
             ),
-            child: Row(
-              children: [
-                // صورة المنتج
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    product.images.isNotEmpty
-                        ? product.images.first
-                        : 'https://via.placeholder.com/80x80/1a1a2e/ffd700?text=منتج',
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
+            child: isSmallScreen
+              ? Column(
+                  children: [
+                    // صورة المنتج للشاشات الصغيرة
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        product.images.isNotEmpty
+                            ? product.images.first
+                            : 'https://via.placeholder.com/60x60/1a1a2e/ffd700?text=منتج',
+                        width: 60,
+                        height: 60,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 60,
+                            height: 60,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1a1a2e),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.image_not_supported,
+                              color: Color(0xFFffc107),
+                              size: 30,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // معلومات المنتج للشاشات الصغيرة
+                    _buildProductInfoSmall(product, isOutOfStock),
+                  ],
+                )
+              : Row(
+                  children: [
+                    // صورة المنتج للشاشات الكبيرة
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        product.images.isNotEmpty
+                            ? product.images.first
+                            : 'https://via.placeholder.com/80x80/1a1a2e/ffd700?text=منتج',
                         width: 80,
                         height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1a1a2e),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.image_not_supported,
-                          color: Color(0xFFffc107),
-                          size: 40,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1a1a2e),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.image_not_supported,
+                              color: Color(0xFFffc107),
+                              size: 40,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
 
                 // معلومات المنتج
                 Expanded(
@@ -5572,24 +5790,93 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   ),
                 ),
 
-                // حالة المخزون البصرية
-                Container(
-                  width: 12,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: isOutOfStock
-                        ? const Color(0xFFF44336)
-                        : const Color(0xFF4CAF50),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
+                    // معلومات المنتج للشاشات الكبيرة
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // اسم المنتج
+                          Text(
+                            product.name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 8),
+
+                          // الفئة
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFffc107).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              product.category.isEmpty ? 'عام' : product.category,
+                              style: const TextStyle(
+                                color: Color(0xFFffc107),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // حالة المخزون
+                          Row(
+                            children: [
+                              Icon(
+                                isOutOfStock ? Icons.warning : Icons.check_circle,
+                                color: isOutOfStock
+                                    ? const Color(0xFFF44336)
+                                    : const Color(0xFF4CAF50),
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isOutOfStock
+                                    ? 'نفذ من المخزون'
+                                    : 'متاح (${product.availableQuantity})',
+                                style: TextStyle(
+                                  color: isOutOfStock
+                                      ? const Color(0xFFF44336)
+                                      : const Color(0xFF4CAF50),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // حالة المخزون البصرية (فقط للشاشات الكبيرة)
+                    if (!isSmallScreen)
+                      Container(
+                        width: 12,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: isOutOfStock
+                              ? const Color(0xFFF44336)
+                              : const Color(0xFF4CAF50),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                  ],
                 ),
-              ],
-            ),
           ),
 
           // تفاصيل المنتج
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
             child: Column(
               children: [
                 // الأسعار
@@ -5599,60 +5886,111 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       child: _buildPriceInfo(
                         'سعر الجملة',
                         product.wholesalePrice,
+                        isSmallScreen,
                       ),
                     ),
                     Expanded(
-                      child: _buildPriceInfo('الحد الأدنى', product.minPrice),
+                      child: _buildPriceInfo('الحد الأدنى', product.minPrice, isSmallScreen),
                     ),
                     Expanded(
-                      child: _buildPriceInfo('الحد الأقصى', product.maxPrice),
+                      child: _buildPriceInfo('الحد الأقصى', product.maxPrice, isSmallScreen),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: isSmallScreen ? 12 : 16),
 
                 // أزرار الإجراءات
-                Row(
-                  children: [
-                    if (isOutOfStock) ...[
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _restockProduct(product),
-                          icon: const Icon(Icons.add_shopping_cart),
-                          label: const Text('إعادة التخزين'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF4CAF50),
-                            foregroundColor: Colors.white,
+                isSmallScreen
+                  ? Column(
+                      children: [
+                        if (isOutOfStock) ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _restockProduct(product),
+                              icon: const Icon(Icons.add_shopping_cart, size: 16),
+                              label: const Text('إعادة التخزين', style: TextStyle(fontSize: 12)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF4CAF50),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _editProduct(product),
+                                icon: const Icon(Icons.edit, size: 16),
+                                label: const Text('تعديل', style: TextStyle(fontSize: 12)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFFffc107),
+                                  side: const BorderSide(color: Color(0xFFffc107)),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _deleteProduct(product),
+                                icon: const Icon(Icons.delete, size: 16),
+                                label: const Text('حذف', style: TextStyle(fontSize: 12)),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFFF44336),
+                                  side: const BorderSide(color: Color(0xFFF44336)),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        if (isOutOfStock) ...[
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _restockProduct(product),
+                              icon: const Icon(Icons.add_shopping_cart),
+                              label: const Text('إعادة التخزين'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF4CAF50),
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _editProduct(product),
+                            icon: const Icon(Icons.edit),
+                            label: const Text('تعديل'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFffc107),
+                              side: const BorderSide(color: Color(0xFFffc107)),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _editProduct(product),
-                        icon: const Icon(Icons.edit),
-                        label: const Text('تعديل'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFffc107),
-                          side: const BorderSide(color: Color(0xFFffc107)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _deleteProduct(product),
+                            icon: const Icon(Icons.delete),
+                            label: const Text('حذف'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFF44336),
+                              side: const BorderSide(color: Color(0xFFF44336)),
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _deleteProduct(product),
-                        icon: const Icon(Icons.delete),
-                        label: const Text('حذف'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFF44336),
-                          side: const BorderSide(color: Color(0xFFF44336)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -5662,16 +6000,22 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   // بناء معلومات السعر
-  Widget _buildPriceInfo(String label, double price) {
+  Widget _buildPriceInfo(String label, double price, [bool isSmallScreen = false]) {
     return Column(
       children: [
-        Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.grey[400],
+            fontSize: isSmallScreen ? 10 : 12,
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           '${price.toStringAsFixed(0)} د.ع',
-          style: const TextStyle(
-            color: Color(0xFFffc107),
-            fontSize: 14,
+          style: TextStyle(
+            color: const Color(0xFFffc107),
+            fontSize: isSmallScreen ? 12 : 14,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -7987,5 +8331,145 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     } catch (e) {
       _showErrorSnackBar('خطأ في الاتصال بالخادم: $e');
     }
+  }
+
+  // بناء معلومات المنتج للشاشات الصغيرة
+  Widget _buildProductInfoSmall(Product product, bool isOutOfStock) {
+    return Column(
+      children: [
+        // اسم المنتج
+        Text(
+          product.name,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+
+        // الفئة
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFffc107).withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            product.category.isEmpty ? 'عام' : product.category,
+            style: const TextStyle(
+              color: Color(0xFFffc107),
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // حالة المخزون
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isOutOfStock ? Icons.warning : Icons.check_circle,
+              color: isOutOfStock
+                  ? const Color(0xFFF44336)
+                  : const Color(0xFF4CAF50),
+              size: 14,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isOutOfStock
+                  ? 'نفذ من المخزون'
+                  : 'متاح (${product.availableQuantity})',
+              style: TextStyle(
+                color: isOutOfStock
+                    ? const Color(0xFFF44336)
+                    : const Color(0xFF4CAF50),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // بناء شريط التنقل السفلي للهواتف
+  Widget _buildBottomNavigationBar() {
+    final menuItems = [
+      {'icon': Icons.dashboard, 'title': 'الرئيسية', 'index': 0},
+      {'icon': Icons.shopping_cart, 'title': 'الطلبات', 'index': 1},
+      {'icon': Icons.people, 'title': 'المستخدمين', 'index': 2},
+      {'icon': Icons.inventory, 'title': 'المنتجات', 'index': 3},
+      {'icon': Icons.settings, 'title': 'الإعدادات', 'index': 8},
+    ];
+
+    return Container(
+      height: 70,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF16213e), Color(0xFF1a1a2e)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 10,
+            offset: Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: menuItems.map((item) {
+          final isSelected = _selectedTabIndex == item['index'];
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedTabIndex = item['index'] as int;
+              });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: isSelected
+                  ? const Color(0xFFffd700).withValues(alpha: 0.2)
+                  : Colors.transparent,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    item['icon'] as IconData,
+                    color: isSelected
+                        ? const Color(0xFFffd700)
+                        : Colors.white70,
+                    size: 20,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item['title'] as String,
+                    style: TextStyle(
+                      color: isSelected
+                        ? const Color(0xFFffd700)
+                        : Colors.white70,
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 }

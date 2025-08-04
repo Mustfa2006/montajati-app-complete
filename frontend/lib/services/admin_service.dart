@@ -1532,24 +1532,31 @@ class AdminService {
       // التحقق من وجود الجدول أولاً
       debugPrint('محاولة إضافة منتج: $name');
 
-      // إنشاء مصفوفة الصور
-      List<String> images = [imageUrl];
-      if (additionalImages != null && additionalImages.isNotEmpty) {
-        images.addAll(additionalImages);
-      }
-
+      // إنشاء البيانات الأساسية فقط
       final productData = <String, dynamic>{
         'name': name,
         'description': description,
         'wholesale_price': wholesalePrice,
         'min_price': minPrice,
         'max_price': maxPrice,
-        'image_url': imageUrl, // الصورة الرئيسية
-        'images': images, // مصفوفة جميع الصور
+        'image_url': imageUrl,
         'category': category.isEmpty ? 'عام' : category,
         'available_quantity': availableQuantity > 0 ? availableQuantity : 100,
         'is_active': true,
+        'created_at': DateTime.now().toIso8601String(),
       };
+
+      // إضافة الصور الإضافية إذا كانت متوفرة
+      if (additionalImages != null && additionalImages.isNotEmpty) {
+        List<String> allImages = [imageUrl];
+        allImages.addAll(additionalImages);
+        try {
+          productData['images'] = allImages;
+        } catch (e) {
+          // تجاهل إذا كان حقل images غير موجود
+          debugPrint('⚠️ حقل images غير متوفر: $e');
+        }
+      }
 
       debugPrint('بيانات المنتج: $productData');
 
@@ -1563,22 +1570,20 @@ class AdminService {
     } catch (e) {
       debugPrint('خطأ في إضافة المنتج: $e');
 
-      // إذا كان الخطأ متعلق بعدم وجود الجدول
+      // معالجة أخطاء مختلفة
+      String errorMessage = 'فشل في إضافة المنتج';
+
       if (e.toString().contains('relation "products" does not exist')) {
-        throw Exception(
-          'جدول المنتجات غير موجود في قاعدة البيانات. يرجى إنشاؤه أولاً.',
-        );
+        errorMessage = 'جدول المنتجات غير موجود في قاعدة البيانات';
+      } else if (e.toString().contains('column') && e.toString().contains('does not exist')) {
+        errorMessage = 'خطأ في هيكل قاعدة البيانات';
+      } else if (e.toString().contains('permission')) {
+        errorMessage = 'ليس لديك صلاحية لإضافة المنتجات';
+      } else if (e.toString().contains('network')) {
+        errorMessage = 'مشكلة في الاتصال بالإنترنت';
       }
 
-      // إذا كان الخطأ متعلق بالأعمدة
-      if (e.toString().contains('column') &&
-          e.toString().contains('does not exist')) {
-        throw Exception(
-          'بعض الأعمدة مفقودة في جدول المنتجات. يرجى تحديث هيكل الجدول.',
-        );
-      }
-
-      throw Exception('خطأ في إضافة المنتج: $e');
+      throw Exception(errorMessage);
     }
   }
 

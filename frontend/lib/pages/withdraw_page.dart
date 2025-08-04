@@ -1276,7 +1276,7 @@ class _WithdrawPageState extends State<WithdrawPage>
           await prefs.setString('current_user_id', currentUserId!);
           debugPrint('✅ تم العثور على معرف المستخدم وحفظه: $currentUserId');
         } else {
-          throw Exception('لم يتم العثور على المستخدم في قاعدة البيانات');
+          throw Exception('لم يتم العثور على بيانات المستخدم');
         }
       }
 
@@ -1369,7 +1369,7 @@ class _WithdrawPageState extends State<WithdrawPage>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '❌ فشل في سحب الأرباح من قاعدة البيانات\n'
+                '❌ فشل في معالجة طلب السحب\n'
                 '💰 تم إرجاع المبلغ إلى رصيدك\n'
                 '🔄 يرجى المحاولة مرة أخرى',
                 style: GoogleFonts.cairo(),
