@@ -1382,7 +1382,9 @@ router.get('/app-version', (req, res) => {
       downloadUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.6.1.apk',
       forceUpdate: true,
       changelog: 'تحسينات عامة وإصلاحات مهمة',
-      releaseDate: new Date().toISOString()
+      releaseDate: new Date().toISOString(),
+      fileSize: '25 MB',
+      minAndroidVersion: '21'
     });
 
     console.log('✅ تم إرسال معلومات الإصدار');

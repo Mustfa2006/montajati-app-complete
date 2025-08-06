@@ -116,12 +116,12 @@ class _ForceUpdateDialogState extends State<ForceUpdateDialog> {
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // الوصف
             Text(
-              'يرجى تحديث التطبيق للحصول على أحدث الميزات والتحسينات',
+              'يرجى تحديث التطبيق للتمتع بأحدث المميزات',
               style: GoogleFonts.cairo(
                 fontSize: 16,
                 color: Colors.grey.shade600,
@@ -181,7 +181,7 @@ class _ForceUpdateDialogState extends State<ForceUpdateDialog> {
                     elevation: 2,
                   ),
                   child: Text(
-                    'تحديث',
+                    'تحديث الآن',
                     style: GoogleFonts.cairo(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
@@ -214,40 +214,75 @@ class _ForceUpdateDialogState extends State<ForceUpdateDialog> {
     }
   }
   
-  /// تحميل وتثبيت APK
+  /// تحميل وتثبيت APK مع التحميل في الخلفية
   Future<void> _downloadAndInstallAPK() async {
     try {
-      final response = await http.get(Uri.parse(widget.downloadUrl));
-      final bytes = response.bodyBytes;
-      final totalBytes = bytes.length;
-      
-      // محاكاة التقدم
-      for (int i = 0; i <= 100; i += 5) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        setState(() {
-          _downloadProgress = i / 100;
-          _statusText = 'جاري التحميل... ${i}%';
-        });
+      setState(() {
+        _statusText = 'بدء التحميل...';
+        _downloadProgress = 0.0;
+      });
+
+      // تحميل الملف مع عرض التقدم الحقيقي
+      final request = http.Request('GET', Uri.parse(widget.downloadUrl));
+      final response = await request.send();
+
+      if (response.statusCode != 200) {
+        throw Exception('فشل في الاتصال بالخادم');
       }
-      
-      // حفظ الملف
+
+      final contentLength = response.contentLength ?? 0;
       final directory = await getExternalStorageDirectory();
       final filePath = '${directory!.path}/montajati_update.apk';
       final file = File(filePath);
-      await file.writeAsBytes(bytes);
-      
+
+      // إنشاء sink للكتابة
+      final sink = file.openWrite();
+      int downloadedBytes = 0;
+
+      // تحميل البيانات مع عرض التقدم
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        downloadedBytes += chunk.length;
+
+        if (contentLength > 0) {
+          final progress = downloadedBytes / contentLength;
+          setState(() {
+            _downloadProgress = progress;
+            _statusText = 'جاري التحميل... ${(progress * 100).toInt()}%';
+          });
+        }
+      }
+
+      await sink.close();
+
       setState(() {
         _statusText = 'تم التحميل، جاري التثبيت...';
+        _downloadProgress = 1.0;
       });
-      
-      // فتح ملف APK للتثبيت
-      await OpenFile.open(filePath);
-      
-      // إغلاق التطبيق بعد فتح التثبيت
-      await Future.delayed(const Duration(seconds: 2));
-      exit(0);
-      
+
+      // انتظار قصير قبل فتح التثبيت
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // فتح ملف APK للتثبيت التلقائي
+      final result = await OpenFile.open(filePath);
+
+      if (result.type == ResultType.done) {
+        setState(() {
+          _statusText = 'جاري التثبيت... يرجى المتابعة في شاشة التثبيت';
+        });
+
+        // إغلاق التطبيق بعد فتح التثبيت لإتمام العملية
+        await Future.delayed(const Duration(seconds: 3));
+        exit(0);
+      } else {
+        throw Exception('فشل في فتح ملف التثبيت');
+      }
+
     } catch (e) {
+      setState(() {
+        _isDownloading = false;
+        _statusText = 'حدث خطأ: ${e.toString()}';
+      });
       throw Exception('فشل في التحميل: $e');
     }
   }
