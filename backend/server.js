@@ -64,10 +64,9 @@ console.log('✅ تم إعداد Supabase بنجاح');
 app.get('/', (req, res) => {
   res.json({
     message: 'مرحباً بك في API تطبيق منتجاتي 🚀',
-    version: '1.0.1',
+    version: '1.0.0',
     status: 'running',
-    timestamp: new Date().toISOString(),
-    updateSystem: 'active'
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -96,9 +95,9 @@ app.get('/downloads-check', (req, res) => {
 });
 
 // Route مخصص لخدمة ملف APK
-app.get('/downloads/montajati-v3.6.1.apk', (req, res) => {
+app.get('/downloads/montajati-v3.7.0.apk', (req, res) => {
   const fs = require('fs');
-  const filePath = path.join(__dirname, 'downloads', 'montajati-v3.6.1.apk');
+  const filePath = path.join(__dirname, 'downloads', 'montajati-v3.7.0.apk');
 
   console.log('📱 طلب تحميل ملف APK:', filePath);
 
@@ -119,7 +118,7 @@ app.get('/downloads/montajati-v3.6.1.apk', (req, res) => {
 
     // إعداد headers للتحميل
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-    res.setHeader('Content-Disposition', 'attachment; filename="montajati-v3.6.1.apk"');
+    res.setHeader('Content-Disposition', 'attachment; filename="montajati-v3.7.0.apk"');
     res.setHeader('Content-Length', stats.size);
 
     // إرسال الملف

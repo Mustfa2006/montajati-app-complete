@@ -1377,13 +1377,13 @@ router.get('/app-version', (req, res) => {
     console.log('📱 طلب فحص إصدار التطبيق');
 
     res.json({
-      version: '3.6.1',
-      buildNumber: 14,
-      downloadUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.6.1.apk',
+      version: '3.7.0',
+      buildNumber: 15,
+      downloadUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.7.0.apk',
       forceUpdate: true,
-      changelog: 'تحسينات عامة وإصلاحات مهمة',
+      changelog: 'تحديث مهم: تحسينات الأداء وإصلاحات الأمان',
       releaseDate: new Date().toISOString(),
-      fileSize: '25 MB',
+      fileSize: '26 MB',
       minAndroidVersion: '21'
     });
 
