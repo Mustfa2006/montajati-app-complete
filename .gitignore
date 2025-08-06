@@ -61,6 +61,8 @@ frontend/windows/build/
 
 # ⚠️ LARGE BINARY FILES
 *.apk
+# استثناء: السماح بملفات APK في مجلد downloads
+!backend/downloads/*.apk
 *.dill
 *.so
 *.dylib
