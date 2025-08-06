@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'config/supabase_config.dart';
 import 'config/api_config.dart';
 import 'providers/order_status_provider.dart';
+import 'services/force_update_service.dart';
 import 'router.dart';
 
 

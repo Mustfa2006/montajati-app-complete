@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import '../services/cart_service.dart';
 import '../services/real_auth_service.dart';
+import '../services/force_update_service.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
 
 import '../services/favorites_service.dart';
@@ -102,6 +103,11 @@ class _NewProductsPageState extends State<NewProductsPage>
 
     // تشغيل التحويل التلقائي للطلبات المجدولة عند فتح الصفحة
     _runAutoConversion();
+
+    // فحص التحديثات
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ForceUpdateService.checkForUpdate(context);
+    });
   }
 
   // دالة تحديث البيانات عند السحب

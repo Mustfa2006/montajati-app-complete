@@ -57,23 +57,9 @@ class OfficialOrdersService extends ChangeNotifier {
         '💰 الربح النهائي من ملخص الطلب (بعد خصم التوصيل): $finalProfit د.ع',
       );
 
-      // ✅ إذا لم يتم إرسال الربح النهائي، احسبه من العناصر (بدون خصم التوصيل)
-      // ⚠️ هذا فقط كـ fallback - يجب أن يأتي الربح النهائي من ملخص الطلب
-      if (finalProfit == 0) {
-        debugPrint('⚠️ تحذير: لم يتم إرسال الربح النهائي من ملخص الطلب!');
-        debugPrint('🔄 حساب الربح من العناصر كـ fallback...');
-
-        for (var item in items) {
-          final itemProfit =
-              (item.customerPrice - item.wholesalePrice) * item.quantity;
-          finalProfit += itemProfit.round();
-          debugPrint('💰 ربح ${item.name}: $itemProfit د.ع');
-        }
-        debugPrint('💰 إجمالي الربح المحسوب من العناصر: $finalProfit د.ع');
-        debugPrint('⚠️ هذا الربح لا يشمل خصم تكلفة التوصيل!');
-      } else {
-        debugPrint('✅ تم استلام الربح النهائي من ملخص الطلب: $finalProfit د.ع');
-      }
+      // ✅ استخدام الربح النهائي من ملخص الطلب دائماً (يشمل خصم التوصيل)
+      debugPrint('✅ تم استلام الربح النهائي من ملخص الطلب: $finalProfit د.ع');
+      debugPrint('ℹ️ هذا الربح يشمل خصم تكلفة التوصيل إذا تم دفعها من الربح');
 
       // ✅ تحقق نهائي من الربح
       if (finalProfit < 0) {
@@ -128,6 +114,7 @@ class OfficialOrdersService extends ChangeNotifier {
         'total': totals['total'] ?? 0,
         'profit': finalProfit, // ✅ الربح النهائي بعد خصم تكلفة التوصيل
         'profit_amount': finalProfit, // ✅ إضافة profit_amount أيضاً
+        'delivery_paid_from_profit': totals['deliveryPaidFromProfit'] ?? 0, // ✅ المبلغ المدفوع من الربح
         'status': 'active',
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),

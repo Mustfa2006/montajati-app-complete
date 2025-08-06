@@ -941,6 +941,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         'total': finalTotal,
         'profit': finalProfit,
         'deliveryPaidByUser': deliveryPaidByUser,
+        'deliveryPaidFromProfit': deliveryPaidByUser, // ✅ إضافة المبلغ المدفوع من الربح
         'scheduledDate': widget.orderData['scheduledDate'],
         'scheduleNotes': widget.orderData['scheduleNotes'],
       };

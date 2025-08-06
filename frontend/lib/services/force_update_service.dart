@@ -1,0 +1,254 @@
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import 'dart:io';
+import 'package:google_fonts/google_fonts.dart';
+
+/// خدمة التحديث الإجباري
+class ForceUpdateService {
+  static const String UPDATE_CHECK_URL = 'https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/app-version';
+  
+  /// فحص وجود تحديث
+  static Future<void> checkForUpdate(BuildContext context) async {
+    try {
+      // الحصول على معلومات التطبيق الحالي
+      final packageInfo = await PackageInfo.fromPlatform();
+      final currentVersion = packageInfo.version;
+      final currentBuildNumber = int.parse(packageInfo.buildNumber);
+      
+      // فحص الإصدار من الخادم
+      final response = await http.get(Uri.parse(UPDATE_CHECK_URL));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final serverVersion = data['version'] as String;
+        final serverBuildNumber = data['buildNumber'] as int;
+        final downloadUrl = data['downloadUrl'] as String;
+        final forceUpdate = data['forceUpdate'] as bool? ?? true;
+        
+        // مقارنة الإصدارات
+        if (serverBuildNumber > currentBuildNumber && forceUpdate) {
+          _showForceUpdateDialog(context, downloadUrl);
+        }
+      }
+    } catch (e) {
+      print('خطأ في فحص التحديث: $e');
+    }
+  }
+  
+  /// عرض شاشة التحديث الإجباري
+  static void _showForceUpdateDialog(BuildContext context, String downloadUrl) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // لا يمكن إغلاقها
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => false, // منع الإغلاق بزر الرجوع
+          child: ForceUpdateDialog(downloadUrl: downloadUrl),
+        );
+      },
+    );
+  }
+}
+
+/// شاشة التحديث الإجباري
+class ForceUpdateDialog extends StatefulWidget {
+  final String downloadUrl;
+  
+  const ForceUpdateDialog({Key? key, required this.downloadUrl}) : super(key: key);
+  
+  @override
+  _ForceUpdateDialogState createState() => _ForceUpdateDialogState();
+}
+
+class _ForceUpdateDialogState extends State<ForceUpdateDialog> {
+  bool _isDownloading = false;
+  double _downloadProgress = 0.0;
+  String _statusText = '';
+  
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.blue.shade50,
+              Colors.white,
+            ],
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // أيقونة التحديث
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.blue.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.system_update,
+                size: 40,
+                color: Colors.blue.shade700,
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            // العنوان
+            Text(
+              'يوجد تحديث جديد',
+              style: GoogleFonts.cairo(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade800,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // الوصف
+            Text(
+              'يرجى تحديث التطبيق للحصول على أحدث الميزات والتحسينات',
+              style: GoogleFonts.cairo(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            const SizedBox(height: 30),
+            
+            // شريط التقدم (يظهر أثناء التحميل)
+            if (_isDownloading) ...[
+              Container(
+                width: double.infinity,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: _downloadProgress,
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(height: 12),
+              
+              Text(
+                _statusText,
+                style: GoogleFonts.cairo(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              
+              const SizedBox(height: 20),
+            ],
+            
+            // زر التحديث
+            if (!_isDownloading)
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () => _startUpdate(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 2,
+                  ),
+                  child: Text(
+                    'تحديث',
+                    style: GoogleFonts.cairo(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  /// بدء عملية التحديث
+  Future<void> _startUpdate() async {
+    setState(() {
+      _isDownloading = true;
+      _statusText = 'جاري التحميل...';
+      _downloadProgress = 0.0;
+    });
+    
+    try {
+      // تحميل الملف
+      await _downloadAndInstallAPK();
+    } catch (e) {
+      setState(() {
+        _isDownloading = false;
+        _statusText = 'حدث خطأ، يرجى المحاولة مرة أخرى';
+      });
+    }
+  }
+  
+  /// تحميل وتثبيت APK
+  Future<void> _downloadAndInstallAPK() async {
+    try {
+      final response = await http.get(Uri.parse(widget.downloadUrl));
+      final bytes = response.bodyBytes;
+      final totalBytes = bytes.length;
+      
+      // محاكاة التقدم
+      for (int i = 0; i <= 100; i += 5) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        setState(() {
+          _downloadProgress = i / 100;
+          _statusText = 'جاري التحميل... ${i}%';
+        });
+      }
+      
+      // حفظ الملف
+      final directory = await getExternalStorageDirectory();
+      final filePath = '${directory!.path}/montajati_update.apk';
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+      
+      setState(() {
+        _statusText = 'تم التحميل، جاري التثبيت...';
+      });
+      
+      // فتح ملف APK للتثبيت
+      await OpenFile.open(filePath);
+      
+      // إغلاق التطبيق بعد فتح التثبيت
+      await Future.delayed(const Duration(seconds: 2));
+      exit(0);
+      
+    } catch (e) {
+      throw Exception('فشل في التحميل: $e');
+    }
+  }
+}

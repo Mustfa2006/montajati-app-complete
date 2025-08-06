@@ -1368,4 +1368,31 @@ router.post('/send-bulk', async (req, res) => {
   }
 });
 
+/**
+ * API للتحقق من إصدار التطبيق
+ * GET /api/app-version
+ */
+router.get('/app-version', (req, res) => {
+  try {
+    console.log('📱 طلب فحص إصدار التطبيق');
+
+    res.json({
+      version: '3.6.1',
+      buildNumber: 14,
+      downloadUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.6.1.apk',
+      forceUpdate: true,
+      changelog: 'تحسينات عامة وإصلاحات مهمة',
+      releaseDate: new Date().toISOString()
+    });
+
+    console.log('✅ تم إرسال معلومات الإصدار');
+  } catch (error) {
+    console.error('❌ خطأ في API إصدار التطبيق:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
