@@ -50,8 +50,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // خدمة الملفات الثابتة من مجلد downloads
-app.use('/downloads', express.static('downloads'));
+const path = require('path');
+app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
 console.log('✅ تم إعداد خدمة الملفات الثابتة من مجلد downloads');
+console.log('📁 مسار مجلد downloads:', path.join(__dirname, 'downloads'));
 
 // تحقق من اتصال Supabase
 console.log('✅ تم إعداد Supabase بنجاح');
@@ -66,6 +68,30 @@ app.get('/', (req, res) => {
     status: 'running',
     timestamp: new Date().toISOString()
   });
+});
+
+// Route للتحقق من ملفات downloads
+app.get('/downloads-check', (req, res) => {
+  const fs = require('fs');
+  const downloadsPath = path.join(__dirname, 'downloads');
+
+  try {
+    const files = fs.readdirSync(downloadsPath);
+    res.json({
+      success: true,
+      message: 'ملفات مجلد downloads',
+      path: downloadsPath,
+      files: files,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في قراءة مجلد downloads',
+      error: error.message,
+      path: downloadsPath
+    });
+  }
 });
 
 // Health check endpoint
