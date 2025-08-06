@@ -57,14 +57,38 @@
 -keepattributes Signature
 -keepattributes *Annotation*
 
-# تحسين الأداء
--optimizations !code/simplification/arithmetic
--optimizations !code/simplification/cast
--optimizations !field/*
--optimizations !class/merging/*
--optimizationpasses 5
--allowaccessmodification
+# تحسين الأداء - مبسط لتجنب أخطاء R8
+-dontoptimize
 -dontpreverify
 
 # قواعد خاصة بالتطبيق
 -keep class com.montajati.app.** { *; }
+
+# قواعد إضافية لحل مشاكل R8
+-keep class * extends java.lang.Exception
+-keep class * extends java.lang.Error
+-keep class * extends java.lang.RuntimeException
+
+# حفظ جميع الـ enums
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# حفظ الـ Serializable classes
+-keepclassmembers class * implements java.io.Serializable {
+    static final long serialVersionUID;
+    private static final java.io.ObjectStreamField[] serialPersistentFields;
+    private void writeObject(java.io.ObjectOutputStream);
+    private void readObject(java.io.ObjectInputStream);
+    java.lang.Object writeReplace();
+    java.lang.Object readResolve();
+}
+
+# قواعد خاصة بـ Supabase
+-keep class io.supabase.** { *; }
+-dontwarn io.supabase.**
+
+# قواعد خاصة بـ HTTP clients
+-keep class retrofit2.** { *; }
+-dontwarn retrofit2.**

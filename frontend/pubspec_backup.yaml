@@ -16,7 +16,7 @@ publish_to: 'none'
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 3.6.0+13
+version: 3.3.0+10
 
 environment:
   sdk: ^3.8.1
@@ -94,7 +94,7 @@ dependencies:
   # توليد UUID
   uuid: ^4.5.1
 
-  # Firebase للإشعارات الفورية - إصدارات متوافقة ومستقرة
+  # Firebase للإشعارات الفورية - إصدارات متوافقة ومستقرة (Android/iOS فقط)
   firebase_core: ^2.32.0
   firebase_messaging: ^14.7.10
   flutter_local_notifications: ^17.2.3

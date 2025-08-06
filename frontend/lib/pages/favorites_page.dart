@@ -504,16 +504,17 @@ class _FavoritesPageState extends State<FavoritesPage>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // اسم المنتج - متعدد الأسطر ومتجاوب
-                        Flexible(
+                        Expanded(
+                          flex: 2,
                           child: Text(
                             product.name,
                             style: GoogleFonts.cairo(
                               color: Colors.white,
                               fontSize: titleFontSize,
                               fontWeight: FontWeight.bold,
-                              height: 1.2, // زيادة المسافة بين الأسطر
+                              height: 1.3, // زيادة المسافة بين الأسطر
                             ),
-                            maxLines: 2, // السماح بسطرين
+                            maxLines: 3, // السماح بثلاثة أسطر
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.start,
                           ),

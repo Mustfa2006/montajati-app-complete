@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import '../services/cart_service.dart';
 import '../services/real_auth_service.dart';
@@ -64,9 +65,10 @@ class _NewProductsPageState extends State<NewProductsPage>
   List<Product> filteredProducts = [];
   bool _isLoadingProducts = false;
 
-  // متغيرات البحث
+  // متغيرات البحث مع تحسين الأداء
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  Timer? _searchDebounceTimer;
 
   // متحكم التمرير وزر الرجوع لبداية الصفحة
   late ScrollController _scrollController;
@@ -137,32 +139,61 @@ class _NewProductsPageState extends State<NewProductsPage>
   @override
   void dispose() {
     _bannerTimer?.cancel();
+    _searchDebounceTimer?.cancel(); // تنظيف مؤقت البحث
     _bannerPageController.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // دالة البحث المستمر
+  // دالة البحث المستمر مع تحسين الأداء و debouncing
   void _onSearchChanged() {
-    setState(() {
-      _searchQuery = _searchController.text;
-      _filterProducts();
+    final newQuery = _searchController.text.trim();
+
+    // إلغاء المؤقت السابق
+    _searchDebounceTimer?.cancel();
+
+    // إنشاء مؤقت جديد للتأخير
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+      // تحديث فقط إذا تغير النص فعلياً
+      if (_searchQuery != newQuery) {
+        setState(() {
+          _searchQuery = newQuery;
+          _filterProducts();
+        });
+      }
     });
   }
 
-  // تصفية المنتجات حسب البحث - البحث في بداية اسم المنتج فقط
+  // تصفية المنتجات محسنة للأداء العالي والتمرير السلس
   void _filterProducts() {
-    if (_searchQuery.isEmpty) {
-      filteredProducts = List.from(products);
+    final query = _searchQuery.toLowerCase().trim();
+
+    List<Product> newFiltered;
+
+    if (query.isEmpty) {
+      newFiltered = products;
     } else {
-      filteredProducts = products.where((product) {
-        // البحث فقط في بداية اسم المنتج
-        return product.name.toLowerCase().startsWith(
-          _searchQuery.toLowerCase(),
-        );
+      // تحسين البحث باستخدام where مع early return
+      newFiltered = products.where((product) {
+        return product.name.toLowerCase().startsWith(query);
       }).toList();
     }
+
+    // تحديث فقط إذا تغيرت النتائج فعلياً
+    if (filteredProducts.length != newFiltered.length ||
+        !_listsEqual(filteredProducts, newFiltered)) {
+      filteredProducts = newFiltered;
+    }
+  }
+
+  // دالة مساعدة للمقارنة بين القوائم
+  bool _listsEqual(List<Product> list1, List<Product> list2) {
+    if (list1.length != list2.length) return false;
+    for (int i = 0; i < list1.length; i++) {
+      if (list1[i].id != list2[i].id) return false;
+    }
+    return true;
   }
 
   // بدء التقليب التلقائي للبانرات
@@ -225,10 +256,11 @@ class _NewProductsPageState extends State<NewProductsPage>
       // جلب المنتجات من Supabase (فقط المنتجات المتاحة في المخزون)
       final response = await Supabase.instance.client
           .from('products')
-          .select('*, available_from, available_to, available_quantity')
+          .select('*, available_from, available_to, available_quantity, display_order')
           .eq('is_active', true)
           .gt('available_quantity', 0) // فقط المنتجات التي لديها كمية متاحة
-          .order('created_at', ascending: false);
+          .order('display_order', ascending: true) // ترتيب حسب display_order أولاً
+          .order('created_at', ascending: false); // ثم حسب تاريخ الإنشاء
 
       final List<Product> loadedProducts = [];
 
@@ -258,6 +290,7 @@ class _NewProductsPageState extends State<NewProductsPage>
             availableFrom: item['available_from'] ?? 90,
             availableTo: item['available_to'] ?? 80,
             availableQuantity: item['available_quantity'] ?? 100,
+            displayOrder: item['display_order'] ?? 999, // قيمة افتراضية عالية
             createdAt: item['created_at'] != null
                 ? DateTime.parse(item['created_at'])
                 : DateTime.now(),
@@ -268,21 +301,25 @@ class _NewProductsPageState extends State<NewProductsPage>
         );
       }
 
-      setState(() {
-        products = loadedProducts;
-        filteredProducts = List.from(loadedProducts);
-        _isLoadingProducts = false;
-      });
+      // تحديث واحد فقط لتحسين الأداء
+      if (mounted) {
+        setState(() {
+          products = loadedProducts;
+          filteredProducts = loadedProducts; // استخدام نفس القائمة بدلاً من نسخها
+          _isLoadingProducts = false;
+        });
+      }
 
       debugPrint('✅ تم جلب ${products.length} منتج من قاعدة البيانات');
     } catch (e) {
       debugPrint('❌ خطأ في جلب المنتجات: $e');
-      setState(() {
-        _isLoadingProducts = false;
-        // في حالة الخطأ، استخدم قائمة فارغة
-        products = [];
-        filteredProducts = List.from(products);
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingProducts = false;
+          products = [];
+          filteredProducts = [];
+        });
+      }
     }
   }
 
@@ -399,7 +436,11 @@ class _NewProductsPageState extends State<NewProductsPage>
               indicatorColor: const Color(0xFFffd700),
               child: SingleChildScrollView(
                 controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                // تحسينات إضافية للأداء
+                clipBehavior: Clip.none, // تحسين الرسم
                 child: Padding(
                   padding: const EdgeInsets.only(
                     bottom: 100,
@@ -1005,8 +1046,18 @@ class _NewProductsPageState extends State<NewProductsPage>
               childAspectRatio: childAspectRatio,
             ),
             itemCount: filteredProducts.length,
+            // تحسينات الأداء المحسنة للتمرير السلس
+            cacheExtent: 500, // تقليل التخزين المؤقت لتحسين الذاكرة
+            addAutomaticKeepAlives: false, // تقليل استهلاك الذاكرة
+            addRepaintBoundaries: true, // تحسين الرسم
+            addSemanticIndexes: false, // تقليل العمليات غير الضرورية
             itemBuilder: (context, index) {
-              return _buildSmartProductCard(filteredProducts[index]);
+              // تحسين بناء العنصر مع تحسينات إضافية
+              final product = filteredProducts[index];
+              return RepaintBoundary(
+                key: ValueKey('product_${product.id}'),
+                child: _buildOptimizedProductCard(product),
+              );
             },
           );
         },
@@ -1014,9 +1065,15 @@ class _NewProductsPageState extends State<NewProductsPage>
     );
   }
 
-  // بناء بطاقة المنتج الذكية والمتجاوبة
-  Widget _buildSmartProductCard(Product product) {
+  // بناء بطاقة المنتج المحسنة للأداء العالي والتمرير السلس
+  Widget _buildOptimizedProductCard(Product product) {
+    // تحسين الأداء بحفظ القيم المحسوبة
+    final imageUrl = product.images.isNotEmpty
+        ? product.images.first
+        : 'https://picsum.photos/400/400?random=1';
+
     return LayoutBuilder(
+      key: ValueKey('layout_${product.id}'), // مفتاح فريد لتحسين الأداء
       builder: (context, constraints) {
         // حساب الأحجام بناءً على عرض البطاقة
         double cardWidth = constraints.maxWidth;
@@ -1279,60 +1336,65 @@ class _NewProductsPageState extends State<NewProductsPage>
         ),
         child: Stack(
           children: [
-            // صورة المنتج - تملأ الإطار بالكامل
-            Image.network(
-              product.images.isNotEmpty
+            // صورة المنتج محسنة للأداء العالي والتمرير السلس
+            CachedNetworkImage(
+              imageUrl: product.images.isNotEmpty
                   ? product.images.first
                   : 'https://picsum.photos/400/400?random=1',
               width: double.infinity,
               height: double.infinity,
-              fit: BoxFit.cover, // تملأ الإطار مع الحفاظ على النسبة
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1a1a2e),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        FontAwesomeIcons.image,
-                        color: Color(0xFFffd700),
-                        size: 40,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'لا توجد صورة',
-                        style: GoogleFonts.cairo(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1a1a2e),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
+              fit: BoxFit.cover,
+              // تحسينات الأداء المتقدمة
+              memCacheWidth: 300, // تقليل استهلاك الذاكرة
+              memCacheHeight: 300,
+              maxWidthDiskCache: 400,
+              maxHeightDiskCache: 400,
+              fadeInDuration: const Duration(milliseconds: 200), // انتقال سلس
+              fadeOutDuration: const Duration(milliseconds: 100),
+              // مؤشر التحميل المحسن
+              placeholder: (context, url) => Container(
+                width: double.infinity,
+                height: double.infinity,
+                color: const Color(0xFF1a1a2e),
+                child: const Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
                     child: CircularProgressIndicator(
-                      color: Color(0xFFffd700),
-                      strokeWidth: 3,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                      strokeWidth: 2,
                     ),
                   ),
-                );
-              },
+                ),
+              ),
+              // معالج الأخطاء المحسن
+              errorWidget: (context, url, error) => Container(
+                width: double.infinity,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1a1a2e),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      FontAwesomeIcons.image,
+                      color: Color(0xFFffd700),
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'لا توجد صورة',
+                      style: GoogleFonts.cairo(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
 
             // الكمية المتاحة في الزاوية العلوية اليسرى - مكبرة

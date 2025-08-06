@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -115,9 +116,10 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
               // الوصف
               _buildTextField(
                 controller: _descriptionController,
-                label: 'وصف المنتج',
+                label: 'وصف المنتج • يتوسع تلقائياً مع النص',
                 icon: FontAwesomeIcons.alignLeft,
-                maxLines: 3,
+                expandable: true,
+                minLines: 3,
                 validator: (value) {
                   if (value?.isEmpty ?? true) return 'يرجى إدخال وصف المنتج';
                   return null;
@@ -271,15 +273,21 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
     required String label,
     required IconData icon,
     int maxLines = 1,
+    int? minLines,
+    bool expandable = false,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
-    return TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      validator: validator,
-      style: GoogleFonts.cairo(color: Colors.white),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      child: TextFormField(
+        controller: controller,
+        maxLines: expandable ? null : maxLines,
+        minLines: expandable ? (minLines ?? 3) : null,
+        keyboardType: keyboardType,
+        validator: validator,
+        style: GoogleFonts.cairo(color: Colors.white),
+        textAlignVertical: expandable ? TextAlignVertical.top : TextAlignVertical.center,
       decoration: InputDecoration(
         labelText: label,
         labelStyle: GoogleFonts.cairo(color: const Color(0xFFffd700)),
@@ -299,7 +307,8 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
           borderSide: const BorderSide(color: Color(0xFFffd700), width: 2),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildDropdown() {
@@ -439,16 +448,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                       return 'رقم غير صحيح';
                     }
 
-                    // التحقق من أن "إلى" أقل من "من"
-                    final fromValue = int.tryParse(
-                      _availableFromController.text,
-                    );
-                    final toValue = int.tryParse(value);
-                    if (fromValue != null && toValue != null) {
-                      if (toValue >= fromValue) {
-                        return '"إلى" يجب أن يكون أقل من "من"';
-                      }
-                    }
+                    // تم إزالة التحقق من العلاقة بين "من" و "إلى" للسماح بأي قيم
                     return null;
                   },
                 ),
@@ -457,7 +457,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
           ),
           const SizedBox(height: 10),
           Text(
-            '💡 ملاحظة: "من" يجب أن يكون أكبر من "إلى" - سيتم تقليل العدد تلقائياً مع كل حجز',
+            '💡 ملاحظة: يمكنك تحديد أي نطاق تريده - النظام مرن ويدعم جميع القيم',
             style: GoogleFonts.cairo(
               color: Colors.orange,
               fontSize: 12,
@@ -499,11 +499,84 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
           ),
           if (_selectedImages.isNotEmpty) ...[
             const SizedBox(height: 15),
-            Text(
-              'تم اختيار ${_selectedImages.length} صورة',
-              style: GoogleFonts.cairo(
-                color: Colors.green,
-                fontWeight: FontWeight.bold,
+            Row(
+              children: [
+                Icon(
+                  FontAwesomeIcons.images,
+                  color: const Color(0xFFffd700),
+                  size: 16,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'الصور المختارة (${_selectedImages.length})',
+                  style: GoogleFonts.cairo(
+                    color: const Color(0xFFffd700),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFffd700).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Text(
+                '💡 الصورة الأولى ستكون الصورة الرئيسية للمنتج',
+                style: GoogleFonts.cairo(
+                  color: Colors.white,
+                  fontSize: 12,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildImagePreview(),
+          ] else ...[
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.grey[800],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.grey[600]!,
+                  style: BorderStyle.solid,
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(
+                      FontAwesomeIcons.images,
+                      size: 30,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'لم يتم اختيار صور بعد',
+                      style: GoogleFonts.cairo(
+                        color: Colors.grey[400],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'اضغط على "اختيار الصور" أعلاه',
+                      style: GoogleFonts.cairo(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -523,6 +596,209 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
     }
   }
 
+  // دالة معاينة الصور
+  Widget _buildImagePreview() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _selectedImages.asMap().entries.map((entry) {
+        final index = entry.key;
+        final image = entry.value;
+        final isMainImage = index == 0;
+
+        return GestureDetector(
+          onTap: () => _setAsMainImage(index),
+          child: Stack(
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isMainImage ? const Color(0xFFffd700) : Colors.grey[300]!,
+                    width: isMainImage ? 2 : 1,
+                  ),
+                  boxShadow: isMainImage ? [
+                    BoxShadow(
+                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                      blurRadius: 4,
+                      spreadRadius: 1,
+                    ),
+                  ] : null,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _buildImageWidget(image),
+                ),
+              ),
+
+              // شارة الصورة الرئيسية
+              if (isMainImage)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFffd700),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'رئيسية',
+                      style: GoogleFonts.cairo(
+                        fontSize: 8,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // زر الحذف
+              Positioned(
+                top: 4,
+                left: 4,
+                child: GestureDetector(
+                  onTap: () => _removeImage(index),
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      FontAwesomeIcons.xmark,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
+                ),
+              ),
+
+              // رقم الصورة
+              Positioned(
+                bottom: 4,
+                left: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${index + 1}',
+                    style: GoogleFonts.cairo(
+                      fontSize: 8,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // دالة بناء عنصر الصورة
+  Widget _buildImageWidget(XFile image) {
+    if (image.path.startsWith('http')) {
+      return Image.network(
+        image.path,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            color: Colors.grey[300],
+            child: const Icon(FontAwesomeIcons.image, color: Colors.grey),
+          );
+        },
+      );
+    } else {
+      // صورة محلية - استخدام FutureBuilder لقراءة البيانات
+      return FutureBuilder<Uint8List>(
+        future: image.readAsBytes(),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            return Image.memory(
+              snapshot.data!,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[300],
+                  child: const Icon(FontAwesomeIcons.image, color: Colors.grey),
+                );
+              },
+            );
+          } else if (snapshot.hasError) {
+            return Container(
+              color: Colors.grey[300],
+              child: const Icon(FontAwesomeIcons.image, color: Colors.grey),
+            );
+          } else {
+            return Container(
+              color: Colors.grey[100],
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'تحميل...',
+                      style: GoogleFonts.cairo(
+                        fontSize: 8,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+        },
+      );
+    }
+  }
+
+  // دالة تحديد الصورة الرئيسية
+  void _setAsMainImage(int index) {
+    if (index == 0) return;
+
+    setState(() {
+      final selectedImage = _selectedImages.removeAt(index);
+      _selectedImages.insert(0, selectedImage);
+    });
+
+    // طباعة معلومات تشخيصية
+    debugPrint('🔄 تم تحديد الصورة رقم ${index + 1} كصورة رئيسية');
+    debugPrint('📋 ترتيب الصور الحالي:');
+    for (int i = 0; i < _selectedImages.length; i++) {
+      debugPrint('  ${i + 1}. ${_selectedImages[i].name} ${i == 0 ? '(رئيسية)' : ''}');
+    }
+
+    _showSuccessSnackBar('✅ تم تحديد الصورة كصورة رئيسية');
+  }
+
+  // دالة حذف صورة
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+
+    _showSuccessSnackBar('تم حذف الصورة');
+  }
+
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) {
       _showErrorSnackBar('يرجى ملء جميع الحقول المطلوبة');
@@ -539,6 +815,11 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
     });
 
     try {
+      // طباعة ترتيب الصور قبل الحفظ
+      debugPrint('📋 ترتيب الصور قبل الحفظ:');
+      for (int i = 0; i < _selectedImages.length; i++) {
+        debugPrint('  ${i + 1}. ${_selectedImages[i].name} ${i == 0 ? '(رئيسية)' : ''}');
+      }
       final wholesalePrice = double.parse(_wholesalePriceController.text);
       final minPrice = _minPriceController.text.isNotEmpty
           ? double.parse(_minPriceController.text)

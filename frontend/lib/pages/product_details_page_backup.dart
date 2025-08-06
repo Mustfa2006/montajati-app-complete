@@ -6,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+
 import 'dart:io';
 // استيراد مشروط لـ saver_gallery (Android/iOS فقط)
 import 'package:saver_gallery/saver_gallery.dart' if (dart.library.html) 'dart:html';
@@ -437,26 +437,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               androidRelativePath: "Pictures/منتجاتي",
             );
 
-            if (result.isSuccess) {
-              debugPrint('✅ تم حفظ الصورة بنجاح في معرض الهاتف');
-            } else {
-              throw 'فشل في حفظ الصورة في معرض الهاتف: ${result.errorMessage}';
-            }
-          } else {
-            // حفظ في مجلد Downloads للكمبيوتر
-            final downloadsDir = await getDownloadsDirectory();
-            if (downloadsDir != null) {
-              final saveDir = Directory('${downloadsDir.path}/منتجاتي');
-              if (!await saveDir.exists()) {
-                await saveDir.create(recursive: true);
-              }
+          debugPrint('� نتيجة حفظ الصورة: $result');
 
-              final file = File('${saveDir.path}/$fullFileName');
-              await file.writeAsBytes(bytes);
-              debugPrint('✅ تم حفظ الصورة في: ${file.path}');
-            } else {
-              throw 'لا يمكن الوصول إلى مجلد التحميلات';
-            }
+          if (result.isSuccess) {
+            debugPrint('✅ تم حفظ الصورة بنجاح في معرض الهاتف');
+          } else {
+            throw 'فشل في حفظ الصورة في معرض الهاتف: ${result.errorMessage}';
           }
 
           // إشعار بنجاح التحميل والحفظ
@@ -471,6 +457,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 duration: Duration(seconds: 3),
               ),
             );
+          }
+          } else {
+            // حفظ في مجلد Downloads للكمبيوتر (غير مدعوم في هذا الإصدار)
+            debugPrint('⚠️ حفظ الصور غير مدعوم على هذا النظام');
           }
           return true;
         } else {

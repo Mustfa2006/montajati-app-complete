@@ -97,7 +97,14 @@ class SmartInventoryManager {
 
       // إضافة الصور إذا كانت متوفرة
       if (images != null && images.isNotEmpty) {
-        updateData['image_url'] = images.first;
+        updateData['image_url'] = images.first; // الصورة الرئيسية للتوافق مع النظام القديم
+        updateData['images'] = images; // جميع الصور في حقل منفصل
+
+        if (kDebugMode) {
+          debugPrint('📸 حفظ الصور في قاعدة البيانات:');
+          debugPrint('📸 image_url (رئيسية): ${images.first}');
+          debugPrint('📸 images (جميع الصور): $images');
+        }
       }
 
       await _supabase.from('products').update(updateData).eq('id', productId);
@@ -206,6 +213,20 @@ class SmartInventoryManager {
       if (images != null && images.isNotEmpty) {
         productData['image_url'] = images.first;
         productData['images'] = images;
+      }
+
+      // تحديث ترتيب المنتجات الموجودة أولاً
+      try {
+        await _supabase.rpc('increment_display_order');
+        productData['display_order'] = 1; // المنتج الجديد يظهر أولاً
+        if (kDebugMode) {
+          debugPrint('🎯 المنتج الجديد سيظهر في الترتيب الأول');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('⚠️ خطأ في تحديث ترتيب المنتجات: $e');
+        }
+        productData['display_order'] = 1; // استخدم ترتيب افتراضي
       }
 
       final response = await _supabase.from('products').insert(productData).select().single();

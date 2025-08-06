@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -252,9 +253,10 @@ class _AddProductPageState extends State<AddProductPage>
           controller: _descriptionController,
           label: 'وصف المنتج',
           hint: 'اكتب وصفاً مفصلاً للمنتج، مميزاته، واستخداماته...',
-          maxLines: 4,
+          expandable: true,
+          minLines: 3,
           isRequired: true,
-          helpText: 'وصف جيد يساعد التجار على فهم المنتج بشكل أفضل',
+          helpText: 'وصف جيد يساعد التجار على فهم المنتج بشكل أفضل • المربع سيتوسع تلقائياً مع النص • اكتب بحرية!',
           validator: (value) {
             if (value == null || value.trim().isEmpty) {
               return 'وصف المنتج مطلوب';
@@ -534,18 +536,101 @@ class _AddProductPageState extends State<AddProductPage>
             ),
           ],
         ),
+        const SizedBox(height: 20),
+
+        // عرض الصور المختارة أو رسالة عدم وجود صور
         if (_selectedImages.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          Text(
-            'الصور المختارة (${_selectedImages.length})',
-            style: GoogleFonts.cairo(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF1a1a2e),
+          Row(
+            children: [
+              Icon(
+                FontAwesomeIcons.images,
+                color: const Color(0xFFffd700),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'الصور المختارة (${_selectedImages.length})',
+                style: GoogleFonts.cairo(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF1a1a2e),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFffd700).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFFffd700).withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  FontAwesomeIcons.lightbulb,
+                  color: const Color(0xFFffd700),
+                  size: 14,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'اضغط على أي صورة لتحديدها كصورة رئيسية • استخدم الأسهم لإعادة الترتيب • اضغط على ⭐ لتحديد الصورة الرئيسية • اضغط على ✕ لحذف الصورة',
+                    style: GoogleFonts.cairo(
+                      fontSize: 12,
+                      color: const Color(0xFF1a1a2e),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 15),
           _buildImagePreview(),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey[300]!,
+              ),
+            ),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.images,
+                    size: 40,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'لم يتم اختيار صور بعد',
+                    style: GoogleFonts.cairo(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'اضغط على "اختيار صور المنتج" أعلاه لإضافة صور',
+                    style: GoogleFonts.cairo(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
         const SizedBox(height: 20),
         _buildImageTips(),
@@ -678,6 +763,8 @@ class _AddProductPageState extends State<AddProductPage>
     required String hint,
     bool isRequired = false,
     int maxLines = 1,
+    int? minLines,
+    bool expandable = false,
     TextInputType keyboardType = TextInputType.text,
     String? suffix,
     String? helpText,
@@ -704,13 +791,17 @@ class _AddProductPageState extends State<AddProductPage>
           ],
         ),
         const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          validator: validator,
-          style: GoogleFonts.cairo(fontSize: 14, color: Colors.black),
-          decoration: InputDecoration(
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          child: TextFormField(
+            controller: controller,
+            maxLines: expandable ? null : maxLines,
+            minLines: expandable ? (minLines ?? 3) : null,
+            keyboardType: keyboardType,
+            validator: validator,
+            style: GoogleFonts.cairo(fontSize: 14, color: Colors.black),
+            textAlignVertical: expandable ? TextAlignVertical.top : TextAlignVertical.center,
+            decoration: InputDecoration(
             hintText: hint,
             hintStyle: GoogleFonts.cairo(color: Colors.grey[500], fontSize: 14),
             suffixText: suffix,
@@ -728,29 +819,78 @@ class _AddProductPageState extends State<AddProductPage>
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFffd700), width: 2),
+              borderSide: BorderSide(
+                color: const Color(0xFFffd700),
+                width: expandable ? 3 : 2,
+              ),
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: Colors.red, width: 2),
             ),
-            contentPadding: const EdgeInsets.symmetric(
+            contentPadding: EdgeInsets.symmetric(
               horizontal: 15,
-              vertical: 12,
+              vertical: expandable ? 15 : 12,
             ),
             filled: true,
             fillColor: Colors.white,
+            // إضافة أيقونة للحقول القابلة للتوسع
+            prefixIcon: expandable ? Padding(
+              padding: const EdgeInsets.only(left: 12, right: 8, top: 12),
+              child: Icon(
+                FontAwesomeIcons.alignLeft,
+                color: const Color(0xFFffd700),
+                size: 16,
+              ),
+            ) : null,
           ),
         ),
+      ),
         if (helpText != null) ...[
           const SizedBox(height: 5),
-          Text(
-            helpText,
-            style: GoogleFonts.cairo(
-              fontSize: 12,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  helpText,
+                  style: GoogleFonts.cairo(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+              // عداد الأحرف للحقول القابلة للتوسع
+              if (expandable)
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: controller,
+                  builder: (context, value, child) {
+                    final charCount = value.text.length;
+                    final color = charCount > 500
+                        ? Colors.orange
+                        : charCount > 200
+                            ? const Color(0xFFffd700)
+                            : Colors.grey[600];
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color?.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: color!, width: 1),
+                      ),
+                      child: Text(
+                        '$charCount حرف',
+                        style: GoogleFonts.cairo(
+                          fontSize: 11,
+                          color: color,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
           ),
         ],
       ],
@@ -901,65 +1041,228 @@ class _AddProductPageState extends State<AddProductPage>
       children: _selectedImages.asMap().entries.map((entry) {
         final index = entry.key;
         final image = entry.value;
-        return Stack(
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: _buildImagePreviewWidget(image),
-              ),
-            ),
-            if (index == 0)
-              Positioned(
-                top: 5,
-                right: 5,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
+        final isMainImage = index == 0;
+
+        return GestureDetector(
+          onTap: () => _setAsMainImage(index),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: Stack(
+              children: [
+                Container(
+                  width: 120,
+                  height: 120,
                   decoration: BoxDecoration(
-                    color: Colors.blue,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isMainImage ? const Color(0xFFffd700) : Colors.grey[300]!,
+                      width: isMainImage ? 3 : 1,
+                    ),
+                    boxShadow: isMainImage ? [
+                      BoxShadow(
+                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ] : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    'رئيسية',
-                    style: GoogleFonts.cairo(
-                      fontSize: 10,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: _buildImagePreviewWidget(image),
+                  ),
+                ),
+
+              // شارة الصورة الرئيسية
+              if (isMainImage)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFffd700),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          FontAwesomeIcons.star,
+                          size: 10,
+                          color: Colors.black,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'رئيسية',
+                          style: GoogleFonts.cairo(
+                            fontSize: 10,
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // زر تحديد كصورة رئيسية
+              if (!isMainImage)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: GestureDetector(
+                    onTap: () => _setAsMainImage(index),
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFffd700),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        FontAwesomeIcons.star,
+                        color: Color(0xFFffd700),
+                        size: 12,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // زر الحذف
+              Positioned(
+                top: 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () => _removeImage(index),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      FontAwesomeIcons.xmark,
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                      size: 12,
                     ),
                   ),
                 ),
               ),
-            Positioned(
-              top: 5,
-              left: 5,
-              child: GestureDetector(
-                onTap: () => _removeImage(index),
-                child: Container(
-                  width: 25,
-                  height: 25,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    FontAwesomeIcons.xmark,
-                    color: Colors.white,
-                    size: 12,
-                  ),
+
+              // رقم الصورة وأزرار التحكم
+              Positioned(
+                bottom: 8,
+                left: 8,
+                right: 8,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // رقم الصورة
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${index + 1}',
+                        style: GoogleFonts.cairo(
+                          fontSize: 10,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                    // أزرار إعادة الترتيب
+                    if (_selectedImages.length > 1)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (index > 0)
+                            GestureDetector(
+                              onTap: () => _moveImageLeft(index),
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  FontAwesomeIcons.arrowLeft,
+                                  color: Colors.white,
+                                  size: 8,
+                                ),
+                              ),
+                            ),
+                          if (index > 0 && index < _selectedImages.length - 1)
+                            const SizedBox(width: 4),
+                          if (index < _selectedImages.length - 1)
+                            GestureDetector(
+                              onTap: () => _moveImageRight(index),
+                              child: Container(
+                                width: 20,
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.8),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  FontAwesomeIcons.arrowRight,
+                                  color: Colors.white,
+                                  size: 8,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        );
+            ],
+          ),
+        ),
+      );
       }).toList(),
     );
   }
@@ -999,9 +1302,11 @@ class _AddProductPageState extends State<AddProductPage>
           const SizedBox(height: 10),
           ...const [
             '• استخدم صور عالية الجودة وواضحة',
-            '• أضف صور من زوايا مختلفة',
-            '• تأكد من إضاءة جيدة',
-            '• الصورة الأولى ستكون الصورة الرئيسية',
+            '• أضف صور من زوايا مختلفة للمنتج',
+            '• تأكد من إضاءة جيدة وخلفية مناسبة',
+            '• اضغط على أي صورة لتحديدها كصورة رئيسية',
+            '• الصورة الرئيسية ستظهر في صفحة المنتجات',
+            '• يمكنك إعادة ترتيب الصور بسهولة',
           ].map(
             (tip) => Padding(
               padding: const EdgeInsets.only(bottom: 5),
@@ -1025,6 +1330,51 @@ class _AddProductPageState extends State<AddProductPage>
     setState(() {
       _selectedImages.removeAt(index);
     });
+  }
+
+  // دالة تحديد الصورة الرئيسية
+  void _setAsMainImage(int index) {
+    if (index == 0) return; // الصورة الأولى هي الرئيسية بالفعل
+
+    setState(() {
+      // نقل الصورة المختارة إلى المقدمة
+      final selectedImage = _selectedImages.removeAt(index);
+      _selectedImages.insert(0, selectedImage);
+    });
+
+    // طباعة معلومات تشخيصية
+    debugPrint('🔄 تم تحديد الصورة رقم ${index + 1} كصورة رئيسية');
+    debugPrint('📋 ترتيب الصور الحالي:');
+    for (int i = 0; i < _selectedImages.length; i++) {
+      debugPrint('  ${i + 1}. ${_selectedImages[i].name} ${i == 0 ? '(رئيسية)' : ''}');
+    }
+
+    // إظهار رسالة تأكيد
+    _showSuccessSnackBar('✅ تم تحديد الصورة كصورة رئيسية');
+  }
+
+  // دالة نقل الصورة لليسار
+  void _moveImageLeft(int index) {
+    if (index <= 0) return;
+
+    setState(() {
+      final image = _selectedImages.removeAt(index);
+      _selectedImages.insert(index - 1, image);
+    });
+
+    _showSuccessSnackBar('تم نقل الصورة لليسار ✅');
+  }
+
+  // دالة نقل الصورة لليمين
+  void _moveImageRight(int index) {
+    if (index >= _selectedImages.length - 1) return;
+
+    setState(() {
+      final image = _selectedImages.removeAt(index);
+      _selectedImages.insert(index + 1, image);
+    });
+
+    _showSuccessSnackBar('تم نقل الصورة لليمين ✅');
   }
 
   Future<void> _pickImages() async {
@@ -1123,15 +1473,54 @@ class _AddProductPageState extends State<AddProductPage>
         },
       );
     } else {
-      // صورة محلية
-      return Image.network(
-        image.path,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            color: Colors.grey[200],
-            child: const Icon(FontAwesomeIcons.image, color: Colors.grey),
-          );
+      // صورة محلية - استخدام FutureBuilder لقراءة البيانات
+      return FutureBuilder<Uint8List>(
+        future: image.readAsBytes(),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            return Image.memory(
+              snapshot.data!,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: Colors.grey[200],
+                  child: const Icon(FontAwesomeIcons.image, color: Colors.grey),
+                );
+              },
+            );
+          } else if (snapshot.hasError) {
+            return Container(
+              color: Colors.grey[200],
+              child: const Icon(FontAwesomeIcons.image, color: Colors.grey),
+            );
+          } else {
+            return Container(
+              color: Colors.grey[100],
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'تحميل...',
+                      style: GoogleFonts.cairo(
+                        fontSize: 8,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
         },
       );
     }
@@ -1290,6 +1679,12 @@ class _AddProductPageState extends State<AddProductPage>
       debugPrint('✅ جميع اختبارات Supabase نجحت - يمكن المتابعة');
 
       _showSuccessSnackBar('جاري رفع الصور...');
+
+      // طباعة ترتيب الصور قبل الرفع
+      debugPrint('📋 ترتيب الصور قبل الرفع:');
+      for (int i = 0; i < _selectedImages.length; i++) {
+        debugPrint('  ${i + 1}. ${_selectedImages[i].name} ${i == 0 ? '(رئيسية)' : ''}');
+      }
 
       // رفع الصورة الأولى (الرئيسية)
       String? imageUrl;

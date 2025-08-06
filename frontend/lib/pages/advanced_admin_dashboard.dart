@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -2143,15 +2144,81 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     );
   }
 
-  void _editProduct(Product product) {
-    // مؤقتاً سنفتح نافذة تعديل بسيطة
+  void _editProduct(Product product) async {
+    // تحميل الصور أولاً
+    final images = await _loadProductImages(product);
+
+    // التحقق من أن الويدجت لا يزال مثبتاً
+    if (!mounted) return;
+
+    // فتح نافذة التعديل مع الصور المحملة
     showDialog(
       context: context,
-      builder: (context) => _buildEditProductDialog(product),
+      builder: (context) => _buildEditProductDialog(product, images),
     );
   }
 
-  Widget _buildEditProductDialog(Product product) {
+  // دالة تحميل صور المنتج من قاعدة البيانات
+  Future<List<String>> _loadProductImages(Product product) async {
+    List<String> currentImages = [];
+
+    // أولاً: إضافة الصور من حقل images (للمنتجات الجديدة)
+    if (product.images.isNotEmpty) {
+      for (String imageUrl in product.images) {
+        if (imageUrl.isNotEmpty &&
+            !imageUrl.contains('placeholder') &&
+            !currentImages.contains(imageUrl)) {
+          currentImages.add(imageUrl);
+        }
+      }
+    }
+
+    // ثانياً: إذا لم توجد صور في حقل images، تحقق من image_url (للمنتجات القديمة)
+    if (currentImages.isEmpty) {
+      try {
+        final productData = await Supabase.instance.client
+            .from('products')
+            .select('image_url, images')
+            .eq('id', product.id)
+            .single();
+
+        // إضافة image_url إذا كان موجوداً
+        if (productData['image_url'] != null &&
+            productData['image_url'].toString().isNotEmpty &&
+            !productData['image_url'].toString().contains('placeholder')) {
+          currentImages.add(productData['image_url'].toString());
+        }
+
+        // إضافة الصور من حقل images إذا كان موجوداً
+        if (productData['images'] != null && productData['images'] is List) {
+          final imagesList = List<String>.from(productData['images']);
+          for (String imageUrl in imagesList) {
+            if (imageUrl.isNotEmpty &&
+                !imageUrl.contains('placeholder') &&
+                !currentImages.contains(imageUrl)) {
+              currentImages.add(imageUrl);
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ خطأ في جلب صور المنتج: $e');
+      }
+    }
+
+    // إذا لم توجد أي صور، أضف صورة افتراضية
+    if (currentImages.isEmpty) {
+      currentImages.add('https://via.placeholder.com/400x300/1a1a2e/ffd700?text=منتج');
+    }
+
+    // طباعة معلومات تشخيصية
+    debugPrint('🔍 تحميل صور المنتج: ${product.name}');
+    debugPrint('📸 حقل الصور: ${product.images}');
+    debugPrint('📸 الصور المحملة: $currentImages');
+
+    return currentImages;
+  }
+
+  Widget _buildEditProductDialog(Product product, List<String> preloadedImages) {
     final nameController = TextEditingController(text: product.name);
     final descriptionController = TextEditingController(
       text: product.description,
@@ -2177,11 +2244,20 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     final availableToController = TextEditingController(
       text: (product.availableTo > 0 ? product.availableTo : 80).toString(),
     );
+    final displayOrderController = TextEditingController(
+      text: product.displayOrder.toString(),
+    );
 
     String selectedCategory = product.category.isNotEmpty
         ? product.category
         : 'عام';
-    List<String> currentImages = List<String>.from(product.images);
+
+    // استخدام الصور المحملة مسبقاً
+    List<String> currentImages = List.from(preloadedImages);
+
+    // طباعة معلومات تشخيصية
+    debugPrint('🔍 تحميل صور المنتج: ${product.name}');
+    debugPrint('📸 الصور المحملة مسبقاً: $currentImages');
 
     final List<String> categories = [
       'عام',
@@ -2225,9 +2301,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   // وصف المنتج
                   _buildEditTextField(
                     descriptionController,
-                    'وصف المنتج',
+                    'وصف المنتج • يتوسع تلقائياً مع النص',
                     Icons.description,
-                    maxLines: 3,
+                    expandable: true,
+                    minLines: 3,
                   ),
                   const SizedBox(height: 15),
 
@@ -2360,6 +2437,58 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   ),
                   const SizedBox(height: 20),
 
+                  // ترتيب العرض
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2a2a2e),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.sort,
+                              color: Color(0xFFffd700),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'ترتيب العرض في صفحة المنتجات',
+                              style: GoogleFonts.cairo(
+                                color: const Color(0xFFffd700),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildEditTextField(
+                          displayOrderController,
+                          'رقم الترتيب (1 = أول منتج، 2 = ثاني منتج)',
+                          Icons.format_list_numbered,
+                          keyboardType: TextInputType.number,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'ملاحظة: رقم 1 يعني أول منتج في الصفحة، رقم 5 يعني خامس منتج، وهكذا',
+                          style: GoogleFonts.cairo(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
                   // إدارة الصور
                   Text(
                     'صور المنتج',
@@ -2372,86 +2501,409 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   const SizedBox(height: 10),
 
                   // زر اختيار الصور
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      await _pickImages(setState, currentImages);
-                    },
-                    icon: const Icon(Icons.add_photo_alternate),
-                    label: const Text('اختيار الصور'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFffd700),
-                      foregroundColor: Colors.black,
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        debugPrint('📸 النقر على زر اختيار الصور');
+                        debugPrint('📸 عدد الصور الحالية: ${currentImages.length}');
+                        await _pickImages(setState, currentImages);
+                      },
+                      icon: const Icon(FontAwesomeIcons.images),
+                      label: Text(
+                        currentImages.isEmpty ? 'اختيار صور المنتج' : 'إضافة المزيد من الصور',
+                        style: GoogleFonts.cairo(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFffd700),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 15),
 
-                  // عرض الصور الحالية مع إمكانية الحذف
+                  // عرض الصور الحالية مع إمكانية التحكم
                   if (currentImages.isNotEmpty) ...[
-                    Text(
-                      'الصور الحالية:',
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                    Row(
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.images,
+                          color: const Color(0xFFffd700),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'الصور الحالية (${currentImages.length})',
+                          style: GoogleFonts.cairo(
+                            color: const Color(0xFFffd700),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFffd700).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            FontAwesomeIcons.lightbulb,
+                            color: const Color(0xFFffd700),
+                            size: 12,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'اضغط على أي صورة لتحديدها كصورة رئيسية • اضغط على ✕ لحذف الصورة',
+                              style: GoogleFonts.cairo(
+                                color: Colors.white,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 10),
                     SizedBox(
-                      height: 120,
+                      height: 140,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: currentImages.length,
                         itemBuilder: (context, index) {
-                          return Container(
-                            margin: const EdgeInsets.only(right: 10),
-                            child: Stack(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    currentImages[index],
-                                    width: 100,
-                                    height: 100,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) {
-                                      return Container(
-                                        width: 100,
-                                        height: 100,
-                                        color: Colors.grey[300],
-                                        child: const Icon(
-                                          Icons.image_not_supported,
-                                        ),
-                                      );
-                                    },
+                          final isMainImage = index == 0;
+                          return GestureDetector(
+                            onTap: () {
+                              if (index != 0) {
+                                setState(() {
+                                  final selectedImage = currentImages.removeAt(index);
+                                  currentImages.insert(0, selectedImage);
+                                });
+
+                                // طباعة معلومات تشخيصية
+                                debugPrint('🔄 تم تحديد الصورة رقم ${index + 1} كصورة رئيسية');
+                                debugPrint('📋 ترتيب الصور الحالي:');
+                                for (int i = 0; i < currentImages.length; i++) {
+                                  debugPrint('  ${i + 1}. ${currentImages[i]} ${i == 0 ? '(رئيسية)' : ''}');
+                                }
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      '✅ تم تحديد الصورة كصورة رئيسية',
+                                      style: GoogleFonts.cairo(),
+                                    ),
+                                    backgroundColor: Colors.green,
+                                    duration: const Duration(seconds: 2),
                                   ),
-                                ),
-                                // زر حذف الصورة
-                                Positioned(
-                                  top: 5,
-                                  right: 5,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        currentImages.removeAt(index);
-                                      });
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.all(4),
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
+                                );
+                              }
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 10),
+                              child: Stack(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: isMainImage ? const Color(0xFFffd700) : Colors.grey[600]!,
+                                        width: isMainImage ? 3 : 1,
                                       ),
-                                      child: const Icon(
-                                        Icons.close,
-                                        color: Colors.white,
-                                        size: 16,
+                                      boxShadow: isMainImage ? [
+                                        BoxShadow(
+                                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                                          blurRadius: 8,
+                                          spreadRadius: 2,
+                                        ),
+                                      ] : null,
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Image.network(
+                                        currentImages[index],
+                                        width: 110,
+                                        height: 110,
+                                        fit: BoxFit.cover,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return Container(
+                                            width: 110,
+                                            height: 110,
+                                            color: Colors.grey[100],
+                                            child: Center(
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 20,
+                                                    height: 20,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                                                      value: loadingProgress.expectedTotalBytes != null
+                                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                                          : null,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    'تحميل...',
+                                                    style: GoogleFonts.cairo(
+                                                      fontSize: 8,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            width: 110,
+                                            height: 110,
+                                            color: Colors.grey[300],
+                                            child: Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.image_not_supported,
+                                                  color: Colors.grey,
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'خطأ في التحميل',
+                                                  style: GoogleFonts.cairo(
+                                                    fontSize: 8,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+
+                                  // شارة الصورة الرئيسية
+                                  if (isMainImage)
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFffd700),
+                                          borderRadius: BorderRadius.circular(8),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.2),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              FontAwesomeIcons.star,
+                                              size: 8,
+                                              color: Colors.black,
+                                            ),
+                                            const SizedBox(width: 3),
+                                            Text(
+                                              'رئيسية',
+                                              style: GoogleFonts.cairo(
+                                                fontSize: 8,
+                                                color: Colors.black,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+
+                                  // زر تحديد كصورة رئيسية
+                                  if (!isMainImage)
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            final selectedImage = currentImages.removeAt(index);
+                                            currentImages.insert(0, selectedImage);
+                                          });
+
+                                          // طباعة معلومات تشخيصية
+                                          debugPrint('⭐ تم تحديد الصورة رقم ${index + 1} كصورة رئيسية (عبر الزر)');
+                                          debugPrint('📋 ترتيب الصور الحالي:');
+                                          for (int i = 0; i < currentImages.length; i++) {
+                                            debugPrint('  ${i + 1}. ${currentImages[i]} ${i == 0 ? '(رئيسية)' : ''}');
+                                          }
+
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                '✅ تم تحديد الصورة كصورة رئيسية',
+                                                style: GoogleFonts.cairo(),
+                                              ),
+                                              backgroundColor: Colors.green,
+                                              duration: const Duration(seconds: 2),
+                                            ),
+                                          );
+                                        },
+                                        child: Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(alpha: 0.9),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: const Color(0xFFffd700),
+                                              width: 2,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withValues(alpha: 0.2),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: const Icon(
+                                            FontAwesomeIcons.star,
+                                            color: Color(0xFFffd700),
+                                            size: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+
+                                  // زر حذف الصورة
+                                  Positioned(
+                                    top: 6,
+                                    left: 6,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          currentImages.removeAt(index);
+                                        });
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'تم حذف الصورة',
+                                              style: GoogleFonts.cairo(),
+                                            ),
+                                            backgroundColor: Colors.red,
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                      child: Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          color: Colors.red.withValues(alpha: 0.9),
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.2),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          FontAwesomeIcons.xmark,
+                                          color: Colors.white,
+                                          size: 10,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // رقم الصورة
+                                  Positioned(
+                                    bottom: 6,
+                                    left: 6,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(alpha: 0.7),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '${index + 1}',
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 8,
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           );
                         },
+                      ),
+                    ),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.all(15),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.grey[600]!,
+                        ),
+                      ),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              FontAwesomeIcons.images,
+                              size: 30,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'لا توجد صور للمنتج',
+                              style: GoogleFonts.cairo(
+                                color: Colors.grey[400],
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'اضغط على "اختيار الصور" أعلاه لإضافة صور',
+                              style: GoogleFonts.cairo(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -2470,6 +2922,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
+
+                // طباعة معلومات تشخيصية قبل التحديث
+                debugPrint('💾 تحديث المنتج: ${nameController.text}');
+                debugPrint('📸 ترتيب الصور قبل الحفظ:');
+                for (int i = 0; i < currentImages.length; i++) {
+                  debugPrint('  ${i + 1}. ${currentImages[i]} ${i == 0 ? '(رئيسية)' : ''}');
+                }
+
                 await _updateProductInDatabase(
                   product.id,
                   nameController.text,
@@ -2486,6 +2946,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       product.availableQuantity,
                   selectedCategory,
                   currentImages,
+                  int.tryParse(displayOrderController.text) ?? product.displayOrder,
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -2504,21 +2965,37 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     String label,
     IconData icon, {
     int maxLines = 1,
+    int? minLines,
+    bool expandable = false,
+    TextInputType? keyboardType,
   }) {
-    return TextField(
-      controller: controller,
-      style: const TextStyle(color: Colors.white),
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: Icon(icon, color: const Color(0xFFffc107)),
-        border: const OutlineInputBorder(),
-        enabledBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Colors.grey),
-        ),
-        focusedBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFffc107)),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      child: TextField(
+        controller: controller,
+        style: const TextStyle(color: Colors.white),
+        keyboardType: keyboardType,
+        maxLines: expandable ? null : maxLines,
+        minLines: expandable ? (minLines ?? 3) : null,
+        textAlignVertical: expandable ? TextAlignVertical.top : TextAlignVertical.center,
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.grey),
+          prefixIcon: Icon(icon, color: const Color(0xFFffc107)),
+          border: const OutlineInputBorder(),
+          enabledBorder: const OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.grey),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(
+              color: const Color(0xFFffc107),
+              width: expandable ? 2 : 1,
+            ),
+          ),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: expandable ? 16 : 12,
+          ),
         ),
       ),
     );
@@ -2536,8 +3013,17 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     int availableQuantity,
     String category,
     List<String> images,
+    int displayOrder,
   ) async {
     try {
+      // طباعة معلومات تشخيصية قبل التحديث
+      debugPrint('💾 تحديث المنتج في قاعدة البيانات: $name');
+      debugPrint('🔢 ترتيب العرض: $displayOrder');
+      debugPrint('📸 الصور المرسلة للحفظ:');
+      for (int i = 0; i < images.length; i++) {
+        debugPrint('  ${i + 1}. ${images[i]} ${i == 0 ? '(رئيسية)' : ''}');
+      }
+
       // استخدام النظام الذكي لتحديث المنتج
       final result = await SmartInventoryManager.updateProductWithSmartInventory(
         productId: productId,
@@ -2555,8 +3041,24 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         throw Exception(result['message'] ?? 'فشل في تحديث المنتج');
       }
 
+      // تحديث ترتيب العرض والصور منفصلاً (لضمان الحفظ الصحيح)
+      await Supabase.instance.client
+          .from('products')
+          .update({
+            'display_order': displayOrder,
+            'images': images, // تحديث حقل الصور مباشرة
+            'image_url': images.isNotEmpty ? images.first : null, // تحديث الصورة الرئيسية
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', productId);
+
       debugPrint('✅ تم تحديث المنتج بالنظام الذكي: ${result['message']}');
       debugPrint('🎯 النطاق الذكي: ${result['smart_range']}');
+      debugPrint('🔢 تم تحديث ترتيب العرض إلى: $displayOrder');
+      debugPrint('📸 تم تحديث الصور في قاعدة البيانات:');
+      for (int i = 0; i < images.length; i++) {
+        debugPrint('  ${i + 1}. ${images[i]} ${i == 0 ? '(رئيسية - محدثة)' : ''}');
+      }
 
       // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
       try {
@@ -2578,13 +3080,17 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         debugPrint('⚠️ خطأ في إرسال طلب مراقبة المنتج: $e');
       }
 
-      setState(() {}); // إعادة تحميل القائمة
+      // تحديث قائمة المنتجات فوراً
+      _loadAllProducts();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم تحديث المنتج بنجاح'),
-            backgroundColor: Color(0xFF4CAF50),
+          SnackBar(
+            content: Text(
+              '✅ تم تحديث المنتج وجميع الصور بنجاح!',
+              style: GoogleFonts.cairo(),
+            ),
+            backgroundColor: const Color(0xFF4CAF50),
           ),
         );
       }
@@ -3923,6 +4429,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             currentImages.addAll(newImageUrls);
           });
 
+          // طباعة معلومات تشخيصية
+          debugPrint('✅ تم رفع ${newImageUrls.length} صورة جديدة');
+          debugPrint('📸 الصور الجديدة: $newImageUrls');
+          debugPrint('📸 إجمالي الصور الآن: ${currentImages.length}');
+          for (int i = 0; i < currentImages.length; i++) {
+            debugPrint('  ${i + 1}. ${currentImages[i]} ${i == 0 ? '(رئيسية)' : ''}');
+          }
+
           if (mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
@@ -5253,22 +5767,54 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       final response = await Supabase.instance.client
           .from('products')
           .select(
-            'id, name, description, image_url, wholesale_price, min_price, max_price, available_quantity, available_from, available_to, category, is_active, created_at',
+            'id, name, description, image_url, images, wholesale_price, min_price, max_price, available_quantity, available_from, available_to, category, display_order, is_active, created_at',
           )
           .eq('is_active', true)
-          .order('created_at', ascending: false);
+          .order('display_order', ascending: true) // ترتيب حسب display_order أولاً
+          .order('created_at', ascending: false); // ثم حسب تاريخ الإنشاء
 
       debugPrint('📦 تم جلب ${response.length} منتج من قاعدة البيانات');
 
       final products = <Product>[];
       for (final json in response) {
         try {
-          // تحويل البيانات إلى نموذج Product
+          // تحويل البيانات إلى نموذج Product مع معالجة الصور بشكل صحيح
+          List<String> productImages = [];
+
+          // أولاً: تحقق من حقل images (للمنتجات الجديدة)
+          if (json['images'] != null && json['images'] is List) {
+            final imagesList = List<String>.from(json['images']);
+            for (String imageUrl in imagesList) {
+              if (imageUrl.isNotEmpty && !imageUrl.contains('placeholder')) {
+                productImages.add(imageUrl);
+              }
+            }
+          }
+
+          // ثانياً: إذا لم توجد صور، تحقق من image_url (للمنتجات القديمة)
+          if (productImages.isEmpty && json['image_url'] != null) {
+            final imageUrl = json['image_url'].toString();
+            if (imageUrl.isNotEmpty && !imageUrl.contains('placeholder')) {
+              productImages.add(imageUrl);
+            }
+          }
+
+          // إذا لم توجد أي صور، أضف صورة افتراضية
+          if (productImages.isEmpty) {
+            productImages.add('https://via.placeholder.com/400x300/1a1a2e/ffd700?text=منتج');
+          }
+
+          // طباعة معلومات تشخيصية
+          debugPrint('📸 تحميل صور المنتج: ${json['name']}');
+          debugPrint('📸 حقل images: ${json['images']}');
+          debugPrint('📸 حقل image_url: ${json['image_url']}');
+          debugPrint('📸 الصور النهائية: $productImages');
+
           final product = Product(
             id: json['id'] ?? '',
             name: json['name'] ?? 'منتج بدون اسم',
             description: json['description'] ?? '',
-            images: [json['image_url'] ?? ''],
+            images: productImages,
             wholesalePrice: (json['wholesale_price'] ?? 0).toDouble(),
             minPrice: (json['min_price'] ?? 0).toDouble(),
             maxPrice: (json['max_price'] ?? 0).toDouble(),
@@ -5278,6 +5824,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             availableFrom: json['available_from'] ?? 90,
             availableTo: json['available_to'] ?? 80,
             availableQuantity: json['available_quantity'] ?? 100,
+            displayOrder: json['display_order'] ?? 999, // قيمة افتراضية عالية
             createdAt:
                 DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
             updatedAt:

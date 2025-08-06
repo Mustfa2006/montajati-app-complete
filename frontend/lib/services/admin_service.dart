@@ -1532,7 +1532,18 @@ class AdminService {
       // التحقق من وجود الجدول أولاً
       debugPrint('محاولة إضافة منتج: $name');
 
-      // إنشاء البيانات الأساسية فقط
+      // أولاً: تحديث ترتيب جميع المنتجات الموجودة (زيادة 1 لكل منتج)
+      debugPrint('🔄 تحديث ترتيب المنتجات الموجودة...');
+      try {
+        await _supabase.rpc('increment_display_order');
+        debugPrint('✅ تم تحديث ترتيب المنتجات الموجودة');
+      } catch (e) {
+        debugPrint('⚠️ خطأ في تحديث ترتيب المنتجات: $e');
+        // في حالة الفشل، استخدم ترتيب عالي للمنتج الجديد
+        debugPrint('🔄 سيتم استخدام ترتيب افتراضي للمنتج الجديد');
+      }
+
+      // إنشاء البيانات الأساسية مع ترتيب العرض = 1 (أول منتج)
       final productData = <String, dynamic>{
         'name': name,
         'description': description,
@@ -1542,20 +1553,29 @@ class AdminService {
         'image_url': imageUrl,
         'category': category.isEmpty ? 'عام' : category,
         'available_quantity': availableQuantity > 0 ? availableQuantity : 100,
+        'display_order': 1, // المنتج الجديد يظهر أولاً
         'is_active': true,
         'created_at': DateTime.now().toIso8601String(),
       };
+
+      debugPrint('🎯 المنتج الجديد سيظهر في الترتيب الأول');
 
       // إضافة الصور الإضافية إذا كانت متوفرة
       if (additionalImages != null && additionalImages.isNotEmpty) {
         List<String> allImages = [imageUrl];
         allImages.addAll(additionalImages);
-        try {
-          productData['images'] = allImages;
-        } catch (e) {
-          // تجاهل إذا كان حقل images غير موجود
-          debugPrint('⚠️ حقل images غير متوفر: $e');
-        }
+        productData['images'] = allImages;
+
+        debugPrint('📸 حفظ جميع الصور:');
+        debugPrint('📸 image_url (رئيسية): $imageUrl');
+        debugPrint('📸 images (جميع الصور): $allImages');
+      } else {
+        // حتى لو لم توجد صور إضافية، احفظ الصورة الرئيسية في حقل images
+        productData['images'] = [imageUrl];
+
+        debugPrint('📸 حفظ الصورة الرئيسية فقط:');
+        debugPrint('📸 image_url: $imageUrl');
+        debugPrint('📸 images: [$imageUrl]');
       }
 
       debugPrint('بيانات المنتج: $productData');

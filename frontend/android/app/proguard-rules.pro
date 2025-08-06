@@ -65,10 +65,8 @@
 -keep class com.google.android.gms.measurement.internal.** { *; }
 -dontwarn com.google.android.gms.measurement.internal.**
 
-# قواعد للحفاظ على أداء التطبيق
--optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
--optimizationpasses 5
--allowaccessmodification
+# قواعد للحفاظ على أداء التطبيق - مبسطة
+-dontoptimize
 -dontpreverify
 
 # قواعد إضافية لتجنب التحذيرات

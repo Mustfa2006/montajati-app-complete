@@ -12,6 +12,7 @@ class Product {
   final int availableTo;
   final int availableQuantity;
   final String category;
+  final int displayOrder; // ترتيب عرض المنتج (1 = أول منتج، 2 = ثاني منتج، إلخ)
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -29,6 +30,7 @@ class Product {
     required this.availableTo,
     required this.availableQuantity,
     required this.category,
+    this.displayOrder = 999, // قيمة افتراضية عالية للمنتجات الجديدة
     required this.createdAt,
     required this.updatedAt,
   });
@@ -48,6 +50,7 @@ class Product {
       availableTo: json['available_to'] ?? 80,
       availableQuantity: json['available_quantity'] ?? 100,
       category: json['category']?.toString() ?? '',
+      displayOrder: json['display_order'] ?? 999, // قيمة افتراضية عالية
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'])
           : DateTime.now(),
@@ -72,6 +75,7 @@ class Product {
       'available_to': availableTo,
       'available_quantity': availableQuantity,
       'category': category,
+      'display_order': displayOrder,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -91,6 +95,7 @@ class Product {
     int? availableTo,
     int? availableQuantity,
     String? category,
+    int? displayOrder,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -108,6 +113,7 @@ class Product {
       availableTo: availableTo ?? this.availableTo,
       availableQuantity: availableQuantity ?? this.availableQuantity,
       category: category ?? this.category,
+      displayOrder: displayOrder ?? this.displayOrder,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

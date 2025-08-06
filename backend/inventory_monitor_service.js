@@ -96,11 +96,12 @@ class InventoryMonitorService {
           stats.outOfStock++;
 
           // إرسال إشعار نفاد المخزون فقط إذا:
-          // 1. لم يتم إرسال إشعار مؤخراً، أو
-          // 2. الكمية تغيرت من رقم أكبر إلى 0 (نفاد جديد)
+          // 1. الكمية تغيرت من رقم أكبر إلى 0 (نفاد جديد)، أو
+          // 2. لم يتم إرسال إشعار لهذا المنتج من قبل
           const isNewOutOfStock = lastQuantity !== undefined && lastQuantity > this.thresholds.outOfStock && quantity <= this.thresholds.outOfStock;
+          const hasNeverSentAlert = !this.sentAlerts.has(`out_of_stock_${productId}`);
 
-          if (isNewOutOfStock || !this.isAlertRecentlySent(`out_of_stock_${productId}`, 4 * 60 * 60 * 1000)) {
+          if (isNewOutOfStock || hasNeverSentAlert) {
             const alertSent = await this.sendOutOfStockAlert(product);
             if (alertSent.success) {
               stats.sentNotifications++;
@@ -121,10 +122,11 @@ class InventoryMonitorService {
 
           // إرسال إشعار مخزون منخفض فقط إذا:
           // 1. الكمية تغيرت من رقم أكبر إلى 5 (انخفاض جديد)، أو
-          // 2. لم يتم إرسال إشعار مؤخراً
+          // 2. لم يتم إرسال إشعار لهذا المنتج من قبل
           const isNewLowStock = lastQuantity !== undefined && lastQuantity > this.thresholds.lowStock && quantity === this.thresholds.lowStock;
+          const hasNeverSentLowStockAlert = !this.sentAlerts.has(`low_stock_${productId}`);
 
-          if (isNewLowStock || !this.isAlertRecentlySent(`low_stock_${productId}`, 8 * 60 * 60 * 1000)) {
+          if (isNewLowStock || hasNeverSentLowStockAlert) {
             const alertSent = await this.sendLowStockAlert(product);
             if (alertSent.success) {
               stats.sentNotifications++;
@@ -144,9 +146,10 @@ class InventoryMonitorService {
           stats.normal++;
 
           // إزالة المنتج من قائمة الإشعارات المرسلة إذا كان المخزون طبيعي الآن
-          // ولكن فقط إذا كان منخفضاً من قبل (للسماح بإشعارات جديدة عند الانخفاض مرة أخرى)
+          // ولكن فقط إذا كان منخفضاً أو نافداً من قبل (للسماح بإشعارات جديدة عند الانخفاض مرة أخرى)
           if (lastQuantity !== undefined && lastQuantity <= this.thresholds.lowStock) {
             this.clearAlertHistory(productId);
+            console.log(`🔄 تم مسح تاريخ الإشعارات للمنتج: ${productName} (تم تجديد المخزون من ${lastQuantity} إلى ${quantity})`);
           }
         }
       }
@@ -196,8 +199,8 @@ class InventoryMonitorService {
         };
       }
 
-      const quantity = product.available_quantity || 0;
       const productId = product.id;
+      const quantity = product.available_quantity || 0;
       const lastQuantity = this.lastKnownQuantities.get(productId);
       const alerts = [];
 
@@ -206,10 +209,11 @@ class InventoryMonitorService {
 
       // فحص حالة المخزون
       if (quantity <= this.thresholds.outOfStock) {
-        // إرسال إشعار فقط إذا كان نفاد جديد أو لم يتم إرسال إشعار مؤخراً
+        // إرسال إشعار فقط إذا كان نفاد جديد أو لم يتم إرسال إشعار من قبل
         const isNewOutOfStock = lastQuantity !== undefined && lastQuantity > this.thresholds.outOfStock;
+        const hasNeverSentAlert = !this.sentAlerts.has(`out_of_stock_${productId}`);
 
-        if (isNewOutOfStock || !this.isAlertRecentlySent(`out_of_stock_${productId}`, 4 * 60 * 60 * 1000)) {
+        if (isNewOutOfStock || hasNeverSentAlert) {
           const alertSent = await this.sendOutOfStockAlert(product);
           alerts.push({
             productId: product.id,
@@ -222,10 +226,11 @@ class InventoryMonitorService {
         }
 
       } else if (quantity === this.thresholds.lowStock) {
-        // إرسال إشعار فقط إذا كان انخفاض جديد أو لم يتم إرسال إشعار مؤخراً
+        // إرسال إشعار فقط إذا كان انخفاض جديد أو لم يتم إرسال إشعار من قبل
         const isNewLowStock = lastQuantity !== undefined && lastQuantity > this.thresholds.lowStock;
+        const hasNeverSentLowStockAlert = !this.sentAlerts.has(`low_stock_${productId}`);
 
-        if (isNewLowStock || !this.isAlertRecentlySent(`low_stock_${productId}`, 8 * 60 * 60 * 1000)) {
+        if (isNewLowStock || hasNeverSentLowStockAlert) {
           const alertSent = await this.sendLowStockAlert(product);
           alerts.push({
             productId: product.id,
@@ -238,9 +243,10 @@ class InventoryMonitorService {
         }
 
       } else {
-        // إزالة المنتج من قائمة الإشعارات المرسلة فقط إذا كان منخفضاً من قبل
+        // إزالة المنتج من قائمة الإشعارات المرسلة فقط إذا كان منخفضاً أو نافداً من قبل
         if (lastQuantity !== undefined && lastQuantity <= this.thresholds.lowStock) {
           this.clearAlertHistory(productId);
+          console.log(`🔄 تم مسح تاريخ الإشعارات للمنتج: ${product.name} (تم تجديد المخزون من ${lastQuantity} إلى ${quantity})`);
         }
       }
 
@@ -272,11 +278,11 @@ class InventoryMonitorService {
     try {
       const alertKey = `out_of_stock_${product.id}`;
       
-      // تحقق من عدم إرسال نفس الإشعار مؤخراً (خلال 4 ساعات)
-      if (this.isAlertRecentlySent(alertKey, 4 * 60 * 60 * 1000)) {
+      // تحقق من عدم إرسال نفس الإشعار من قبل
+      if (this.sentAlerts.has(alertKey)) {
         return {
           success: false,
-          reason: 'تم إرسال الإشعار مؤخراً'
+          reason: 'تم إرسال الإشعار من قبل'
         };
       }
 
@@ -309,11 +315,11 @@ class InventoryMonitorService {
     try {
       const alertKey = `low_stock_${product.id}`;
       
-      // تحقق من عدم إرسال نفس الإشعار مؤخراً (خلال 8 ساعات)
-      if (this.isAlertRecentlySent(alertKey, 8 * 60 * 60 * 1000)) {
+      // تحقق من عدم إرسال نفس الإشعار من قبل
+      if (this.sentAlerts.has(alertKey)) {
         return {
           success: false,
-          reason: 'تم إرسال الإشعار مؤخراً'
+          reason: 'تم إرسال الإشعار من قبل'
         };
       }
 
