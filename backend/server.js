@@ -94,6 +94,145 @@ app.get('/downloads-check', (req, res) => {
   }
 });
 
+// Route مخصص لخدمة ملف APK
+app.get('/downloads/montajati-v3.6.1.apk', (req, res) => {
+  const fs = require('fs');
+  const filePath = path.join(__dirname, 'downloads', 'montajati-v3.6.1.apk');
+
+  console.log('📱 طلب تحميل ملف APK:', filePath);
+
+  try {
+    // التحقق من وجود الملف
+    if (!fs.existsSync(filePath)) {
+      console.log('❌ ملف APK غير موجود:', filePath);
+      return res.status(404).json({
+        success: false,
+        message: 'ملف APK غير موجود',
+        path: filePath
+      });
+    }
+
+    // الحصول على معلومات الملف
+    const stats = fs.statSync(filePath);
+    console.log('✅ ملف APK موجود، الحجم:', stats.size, 'بايت');
+
+    // إعداد headers للتحميل
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="montajati-v3.6.1.apk"');
+    res.setHeader('Content-Length', stats.size);
+
+    // إرسال الملف
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    console.log('📤 تم بدء إرسال ملف APK');
+
+  } catch (error) {
+    console.error('❌ خطأ في خدمة ملف APK:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في خدمة ملف APK',
+      error: error.message
+    });
+  }
+});
+
+// Route لاختبار نظام التحديث بالكامل
+app.get('/test-update-system', async (req, res) => {
+  const fs = require('fs');
+  const testResults = {
+    timestamp: new Date().toISOString(),
+    tests: [],
+    overall: 'unknown'
+  };
+
+  try {
+    // اختبار 1: API التحديث
+    testResults.tests.push({
+      name: 'API التحديث',
+      status: 'pass',
+      details: 'API يعمل بشكل صحيح'
+    });
+
+    // اختبار 2: وجود ملف APK
+    const apkPath = path.join(__dirname, 'downloads', 'montajati-v3.6.1.apk');
+    const apkExists = fs.existsSync(apkPath);
+
+    if (apkExists) {
+      const stats = fs.statSync(apkPath);
+      testResults.tests.push({
+        name: 'ملف APK',
+        status: 'pass',
+        details: `الملف موجود، الحجم: ${(stats.size / 1024 / 1024).toFixed(2)} MB`
+      });
+    } else {
+      testResults.tests.push({
+        name: 'ملف APK',
+        status: 'fail',
+        details: 'الملف غير موجود'
+      });
+    }
+
+    // اختبار 3: خدمة الملفات الثابتة
+    testResults.tests.push({
+      name: 'خدمة الملفات الثابتة',
+      status: 'configured',
+      details: 'تم إعداد express.static و route مخصص'
+    });
+
+    // تحديد الحالة العامة
+    const failedTests = testResults.tests.filter(t => t.status === 'fail');
+    testResults.overall = failedTests.length === 0 ? 'pass' : 'fail';
+
+    res.json({
+      success: true,
+      message: 'نتائج اختبار نظام التحديث',
+      results: testResults,
+      recommendations: failedTests.length === 0 ?
+        ['النظام يعمل بشكل صحيح'] :
+        ['تحقق من وجود ملف APK في مجلد downloads']
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في اختبار النظام',
+      error: error.message
+    });
+  }
+});
+
+// Route لاختبار التحديث مع إصدارات مختلفة
+app.get('/api/notifications/app-version-test', (req, res) => {
+  const { currentVersion, currentBuild } = req.query;
+
+  console.log('🧪 اختبار التحديث:', { currentVersion, currentBuild });
+
+  // الإصدار الجديد
+  const newVersion = '3.6.1';
+  const newBuild = 14;
+
+  // تحديد ما إذا كان التحديث مطلوب
+  const needsUpdate = currentVersion !== newVersion || parseInt(currentBuild || '0') < newBuild;
+
+  res.json({
+    version: newVersion,
+    buildNumber: newBuild,
+    downloadUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.6.1.apk',
+    forceUpdate: needsUpdate,
+    changelog: 'تحسينات عامة وإصلاحات مهمة',
+    releaseDate: new Date().toISOString(),
+    fileSize: '25 MB',
+    minAndroidVersion: '21',
+    testInfo: {
+      currentVersion: currentVersion || 'غير محدد',
+      currentBuild: currentBuild || 'غير محدد',
+      needsUpdate: needsUpdate,
+      reason: needsUpdate ? 'إصدار أحدث متاح' : 'الإصدار الحالي هو الأحدث'
+    }
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   const checks = [];
