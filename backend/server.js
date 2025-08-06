@@ -49,6 +49,10 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// خدمة الملفات الثابتة من مجلد downloads
+app.use('/downloads', express.static('downloads'));
+console.log('✅ تم إعداد خدمة الملفات الثابتة من مجلد downloads');
+
 // تحقق من اتصال Supabase
 console.log('✅ تم إعداد Supabase بنجاح');
 
