@@ -64,9 +64,10 @@ console.log('✅ تم إعداد Supabase بنجاح');
 app.get('/', (req, res) => {
   res.json({
     message: 'مرحباً بك في API تطبيق منتجاتي 🚀',
-    version: '1.0.0',
+    version: '1.0.1',
     status: 'running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    updateSystem: 'active'
   });
 });
 
