@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -43,8 +42,6 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   AdminStats? _stats;
   List<AdminOrder> _recentOrders = [];
   List<AdminUser> _topUsers = [];
-  // ignore: unused_field
-  List<AdminProduct> _topProducts = [];
 
   // حالة التحميل
   bool _isLoading = true;
@@ -163,7 +160,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         _stats = results[0] as AdminStats;
         _recentOrders = (results[1] as List<AdminOrder>);
         _topUsers = (results[2] as List<AdminUser>).take(5).toList();
-        _topProducts = (results[3] as List<AdminProduct>).take(5).toList();
+        // _topProducts = (results[3] as List<AdminProduct>).take(5).toList(); // غير مستخدم
         _isLoading = false;
       });
     } catch (e) {
@@ -200,7 +197,6 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       );
       _recentOrders = [];
       _topUsers = [];
-      _topProducts = [];
     });
   }
 

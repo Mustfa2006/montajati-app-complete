@@ -9,33 +9,34 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// خدمة التحديث الإجباري
 class ForceUpdateService {
-  static const String UPDATE_CHECK_URL = 'https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/app-version';
+  static const String updateCheckUrl = 'https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/app-version';
   
   /// فحص وجود تحديث
   static Future<void> checkForUpdate(BuildContext context) async {
     try {
       // الحصول على معلومات التطبيق الحالي
       final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
       final currentBuildNumber = int.parse(packageInfo.buildNumber);
-      
+
       // فحص الإصدار من الخادم
-      final response = await http.get(Uri.parse(UPDATE_CHECK_URL));
-      
+      final response = await http.get(Uri.parse(updateCheckUrl));
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final serverVersion = data['version'] as String;
         final serverBuildNumber = data['buildNumber'] as int;
         final downloadUrl = data['downloadUrl'] as String;
         final forceUpdate = data['forceUpdate'] as bool? ?? true;
-        
+
         // مقارنة الإصدارات
         if (serverBuildNumber > currentBuildNumber && forceUpdate) {
-          _showForceUpdateDialog(context, downloadUrl);
+          // التحقق من أن context ما زال صالحاً
+          if (context.mounted) {
+            _showForceUpdateDialog(context, downloadUrl);
+          }
         }
       }
     } catch (e) {
-      print('خطأ في فحص التحديث: $e');
+      debugPrint('خطأ في فحص التحديث: $e');
     }
   }
   
@@ -45,8 +46,8 @@ class ForceUpdateService {
       context: context,
       barrierDismissible: false, // لا يمكن إغلاقها
       builder: (BuildContext context) {
-        return WillPopScope(
-          onWillPop: () async => false, // منع الإغلاق بزر الرجوع
+        return PopScope(
+          canPop: false, // منع الإغلاق بزر الرجوع
           child: ForceUpdateDialog(downloadUrl: downloadUrl),
         );
       },
@@ -57,11 +58,11 @@ class ForceUpdateService {
 /// شاشة التحديث الإجباري
 class ForceUpdateDialog extends StatefulWidget {
   final String downloadUrl;
-  
-  const ForceUpdateDialog({Key? key, required this.downloadUrl}) : super(key: key);
+
+  const ForceUpdateDialog({super.key, required this.downloadUrl});
   
   @override
-  _ForceUpdateDialogState createState() => _ForceUpdateDialogState();
+  State<ForceUpdateDialog> createState() => _ForceUpdateDialogState();
 }
 
 class _ForceUpdateDialogState extends State<ForceUpdateDialog> {
