@@ -1133,7 +1133,7 @@ class _NewProductsPageState extends State<NewProductsPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // صورة المنتج الكبيرة - تملأ معظم البطاقة
-                _buildLargeProductImage(product, imageHeight),
+                _buildLargeProductImage(product, imageHeight, imageUrl),
 
                 // معلومات المنتج المضغوطة
                 Expanded(
@@ -1320,7 +1320,7 @@ class _NewProductsPageState extends State<NewProductsPage>
   }
 
   // بناء صورة المنتج الكبيرة التي تملأ الإطار
-  Widget _buildLargeProductImage(Product product, double imageHeight) {
+  Widget _buildLargeProductImage(Product product, double imageHeight, String imageUrl) {
     return Container(
       width: double.infinity,
       height: imageHeight,
@@ -1344,9 +1344,7 @@ class _NewProductsPageState extends State<NewProductsPage>
           children: [
             // صورة المنتج محسنة للأداء العالي والتمرير السلس
             CachedNetworkImage(
-              imageUrl: product.images.isNotEmpty
-                  ? product.images.first
-                  : 'https://picsum.photos/400/400?random=1',
+              imageUrl: imageUrl,
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
