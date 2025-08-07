@@ -646,11 +646,63 @@ app.put('/api/web/orders/:orderId/status', async (req, res) => {
       });
     }
 
+    if (!data || data.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'الطلب غير موجود'
+      });
+    }
+
     console.log('✅ تم تحديث حالة الطلب بنجاح من الويب');
+
+    // 🔔 إرسال إشعار للمستخدم - الإصلاح الأساسي
+    try {
+      const updatedOrder = data[0];
+      console.log('📱 بدء إرسال إشعار تحديث الحالة...');
+      console.log('📊 بيانات الطلب:', {
+        id: updatedOrder.id,
+        customer_phone: updatedOrder.customer_phone || updatedOrder.user_phone,
+        customer_name: updatedOrder.customer_name,
+        new_status: status
+      });
+
+      // إرسال إشعار عبر خدمة الإشعارات المستهدفة
+      if (targetedNotificationService && targetedNotificationService.initialized) {
+        const userPhone = updatedOrder.customer_phone || updatedOrder.user_phone;
+        const customerName = updatedOrder.customer_name || 'عميل';
+
+        if (userPhone) {
+          console.log(`📤 إرسال إشعار للمستخدم: ${userPhone}`);
+
+          const notificationResult = await targetedNotificationService.sendOrderStatusNotification(
+            updatedOrder.id,
+            userPhone,
+            customerName,
+            'active', // الحالة السابقة
+            status    // الحالة الجديدة
+          );
+
+          if (notificationResult.success) {
+            console.log('✅ تم إرسال الإشعار بنجاح');
+          } else {
+            console.log('⚠️ فشل في إرسال الإشعار:', notificationResult.error);
+          }
+        } else {
+          console.log('⚠️ رقم هاتف المستخدم غير متوفر');
+        }
+      } else {
+        console.log('⚠️ خدمة الإشعارات غير مُهيأة');
+      }
+    } catch (notificationError) {
+      console.error('❌ خطأ في إرسال الإشعار:', notificationError.message);
+      // لا نوقف العملية إذا فشل الإشعار
+    }
+
     res.json({
       success: true,
       message: 'تم تحديث حالة الطلب بنجاح',
-      data: data
+      data: data[0],
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
