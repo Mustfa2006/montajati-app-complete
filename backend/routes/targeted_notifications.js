@@ -136,56 +136,10 @@ router.get('/status', async (req, res) => {
 // إرسال الإشعارات يدوياً
 // ===================================
 
-/**
- * إرسال إشعار حالة طلب يدوياً
- * POST /api/notifications/order-status
- */
-router.post('/order-status', async (req, res) => {
-  try {
-    const { orderId, userId, customerName, oldStatus, newStatus } = req.body;
-
-    // التحقق من البيانات المطلوبة
-    if (!orderId || !userId || !customerName || !newStatus) {
-      return res.status(400).json({
-        success: false,
-        error: 'البيانات المطلوبة: orderId, userId, customerName, newStatus'
-      });
-    }
-
-    console.log(`🔧 طلب إرسال إشعار حالة طلب يدوياً:`);
-    console.log(`📦 الطلب: ${orderId}`);
-    console.log(`👤 المستخدم: ${userId}`);
-    console.log(`👥 العميل: ${customerName}`);
-    console.log(`🔄 الحالة الجديدة: ${newStatus}`);
-
-    const result = await notificationMasterService.sendOrderStatusNotification(
-      orderId,
-      userId,
-      customerName,
-      oldStatus || 'unknown',
-      newStatus
-    );
-
-    if (result.success) {
-      res.json({
-        success: true,
-        message: 'تم إرسال إشعار حالة الطلب بنجاح',
-        data: result
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        error: result.error
-      });
-    }
-  } catch (error) {
-    console.error('❌ خطأ في API إرسال إشعار حالة الطلب:', error.message);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
+// ❌ تم حذف نظام إرسال إشعارات الطلبات المكرر
+// ✅ الإشعارات تُرسل الآن من:
+// 1. routes/orders.js - للتحديث اليدوي
+// 2. routes/waseet_statuses.js - للمزامنة مع الوسيط
 
 /**
  * إرسال إشعار حالة طلب سحب يدوياً

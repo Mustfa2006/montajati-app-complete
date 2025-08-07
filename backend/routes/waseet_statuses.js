@@ -96,11 +96,11 @@ router.post('/update-order-status', async (req, res) => {
           console.log(`📱 إرسال إشعار تحديث حالة الطلب ${orderId} للعميل ${orderData.customer_name}`);
 
           await targetedNotificationService.sendOrderStatusNotification(
-            orderId,
-            orderData.customer_id || orderData.customer_phone,
-            orderData.customer_name || 'عميل',
-            result.oldStatus || 'unknown',
-            result.newStatus || waseetStatusText
+            orderData.customer_phone, // userPhone - المعامل الأول
+            orderId,                   // orderId - المعامل الثاني
+            result.newStatus || waseetStatusText, // newStatus - المعامل الثالث
+            orderData.customer_name || 'عميل',   // customerName - المعامل الرابع
+            'تم تحديث حالة الطلب من الوسيط'      // notes - المعامل الخامس
           );
 
           console.log(`✅ تم إرسال إشعار تحديث الحالة بنجاح`);
