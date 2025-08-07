@@ -1,13 +1,17 @@
 {
-    "name": "منتجاتي - Montajati",
+    "name": "منتجاتي - منصة الدروب شيبنگ الأولى في العراق",
     "short_name": "منتجاتي",
-    "start_url": ".",
+    "start_url": "/",
+    "scope": "/",
     "display": "standalone",
-    "background_color": "#ffffff",
+    "background_color": "#16213e",
     "theme_color": "#ffd700",
-    "description": "تطبيق منتجاتي لإدارة الدروب شيبنغ في العراق",
-    "orientation": "portrait-primary",
+    "description": "منصة منتجاتي للدروب شيبنگ - اكتشف آلاف المنتجات بأسعار الجملة واربح من التجارة الإلكترونية",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "categories": ["shopping", "business", "productivity"],
+    "lang": "ar",
+    "dir": "rtl",
     "icons": [
         {
             "src": "icons/Icon-192.png",

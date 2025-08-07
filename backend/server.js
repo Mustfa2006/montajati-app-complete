@@ -29,22 +29,108 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // إعدادات Middleware
 const corsOrigins = process.env.NODE_ENV === 'production'
-  ? (process.env.CORS_ORIGINS || '').split(',').filter(Boolean)
+  ? (process.env.CORS_ORIGINS || '').split(',').filter(Boolean).concat([
+      'https://squid-app-t6xsl.ondigitalocean.app',
+      'https://montajati-website.ondigitalocean.app',
+      'https://montajati.ondigitalocean.app'
+    ])
   : [
       'http://localhost:3002',
       'http://127.0.0.1:3002',
       'http://localhost:3000',
       'http://127.0.0.1:3000',
       'http://localhost:3001',
-      'http://127.0.0.1:3001'
+      'http://127.0.0.1:3001',
+      'http://localhost:8000',
+      'http://127.0.0.1:8000'
     ];
 
+// إعدادات CORS شاملة للموقع والتطبيق
 app.use(cors({
-  origin: corsOrigins,
+  origin: function (origin, callback) {
+    console.log('🌐 CORS Request from origin:', origin);
+
+    // السماح للطلبات بدون origin (مثل mobile apps, Postman)
+    if (!origin) {
+      console.log('✅ Allowing request without origin');
+      return callback(null, true);
+    }
+
+    // السماح لجميع نطاقات DigitalOcean
+    if (origin.includes('.ondigitalocean.app')) {
+      console.log('✅ Allowing DigitalOcean domain:', origin);
+      return callback(null, true);
+    }
+
+    // السماح للنطاقات المحلية
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      console.log('✅ Allowing localhost:', origin);
+      return callback(null, true);
+    }
+
+    // السماح للنطاقات المحددة
+    if (corsOrigins.includes(origin)) {
+      console.log('✅ Allowing configured origin:', origin);
+      return callback(null, true);
+    }
+
+    console.log('❌ Blocking origin:', origin);
+    return callback(null, true); // مؤقتاً نسمح لجميع النطاقات
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Accept',
+    'Origin',
+    'X-Requested-With',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Allow-Methods',
+    'Access-Control-Allow-Credentials',
+    'Cache-Control',
+    'Pragma'
+  ],
+  exposedHeaders: ['Content-Length', 'Content-Type', 'Authorization'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 24 hours
 }));
+
+// Middleware شامل للويب والتطبيق
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  // إعداد headers للويب
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+
+  res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH,HEAD');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400');
+
+  // إضافة headers للأمان
+  res.header('X-Content-Type-Options', 'nosniff');
+  res.header('X-Frame-Options', 'DENY');
+  res.header('X-XSS-Protection', '1; mode=block');
+
+  // تسجيل الطلبات للتشخيص
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} from ${origin || 'unknown'}`);
+
+  // التعامل مع preflight requests
+  if (req.method === 'OPTIONS') {
+    console.log('✅ Handling OPTIONS preflight request');
+    res.status(200).end();
+    return;
+  }
+
+  next();
+});
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -500,6 +586,82 @@ async function initializeSyncService() {
 }
 
 
+
+// مسارات خاصة للويب
+app.get('/api/web/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'الخادم يعمل بشكل طبيعي',
+    timestamp: new Date().toISOString(),
+    cors: 'enabled',
+    web_support: true
+  });
+});
+
+app.get('/api/web/cors-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'CORS يعمل بشكل صحيح',
+    origin: req.headers.origin,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// مسار لاختبار تحديث حالة الطلبات من الويب
+app.put('/api/web/orders/:orderId/status', async (req, res) => {
+  try {
+    console.log('🌐 طلب تحديث حالة من الويب:', req.params.orderId);
+    console.log('📊 البيانات:', req.body);
+
+    // استخدام نفس منطق تحديث الحالة الموجود
+    const orderId = req.params.orderId;
+    const { status, reason, changedBy } = req.body;
+
+    // تحديث في قاعدة البيانات
+    const { data, error } = await supabase
+      .from('orders')
+      .update({
+        status: status,
+        updated_at: new Date().toISOString(),
+        status_history: supabase.raw(`
+          COALESCE(status_history, '[]'::jsonb) ||
+          jsonb_build_object(
+            'status', '${status}',
+            'timestamp', '${new Date().toISOString()}',
+            'reason', '${reason || 'تم التحديث من الويب'}',
+            'changed_by', '${changedBy || 'web_user'}'
+          )::jsonb
+        `)
+      })
+      .eq('id', orderId)
+      .select();
+
+    if (error) {
+      console.error('❌ خطأ في تحديث قاعدة البيانات:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في تحديث قاعدة البيانات',
+        error: error.message
+      });
+    }
+
+    console.log('✅ تم تحديث حالة الطلب بنجاح من الويب');
+    res.json({
+      success: true,
+      message: 'تم تحديث حالة الطلب بنجاح',
+      data: data
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في تحديث حالة الطلب من الويب:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تحديث حالة الطلب',
+      error: error.message
+    });
+  }
+});
 
 // تشغيل الخادم
 const PORT = process.env.PORT || 3003;

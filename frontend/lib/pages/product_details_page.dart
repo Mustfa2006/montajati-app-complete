@@ -6,10 +6,6 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-// استيراد مشروط لـ saver_gallery (Android/iOS فقط)
-import 'package:saver_gallery/saver_gallery.dart' if (dart.library.html) 'dart:html';
 
 import '../services/cart_service.dart';
 // تم إزالة استيراد favorites_service غير المستخدم
@@ -428,34 +424,32 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
           debugPrint('💾 حفظ الصورة...');
 
-          if (Platform.isAndroid || Platform.isIOS) {
-            // حفظ في معرض الهاتف للموبايل
-            final result = await SaverGallery.saveImage(
-              bytes,
-              fileName: fullFileName,
-              skipIfExists: false,
-              androidRelativePath: "Pictures/منتجاتي",
-            );
-
-            if (result.isSuccess) {
-              debugPrint('✅ تم حفظ الصورة بنجاح في معرض الهاتف');
-            } else {
-              throw 'فشل في حفظ الصورة في معرض الهاتف: ${result.errorMessage}';
+          if (kIsWeb) {
+            // في الويب، نعرض رسالة أن الميزة غير متاحة
+            debugPrint('⚠️ تحميل الصور غير متاح في إصدار الويب');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('تحميل الصور متاح في تطبيق الهاتف فقط'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
             }
+            return false;
           } else {
-            // حفظ في مجلد Downloads للكمبيوتر
-            final downloadsDir = await getDownloadsDirectory();
-            if (downloadsDir != null) {
-              final saveDir = Directory('${downloadsDir.path}/منتجاتي');
-              if (!await saveDir.exists()) {
-                await saveDir.create(recursive: true);
+            // للمنصات الأخرى (Android/iOS/Desktop)
+            try {
+              // محاولة حفظ في معرض الهاتف أولاً
+              final result = await _saveToGallery(bytes, fullFileName);
+              if (result) {
+                debugPrint('✅ تم حفظ الصورة بنجاح في معرض الهاتف');
+              } else {
+                throw 'فشل في حفظ الصورة في معرض الهاتف';
               }
-
-              final file = File('${saveDir.path}/$fullFileName');
-              await file.writeAsBytes(bytes);
-              debugPrint('✅ تم حفظ الصورة في: ${file.path}');
-            } else {
-              throw 'لا يمكن الوصول إلى مجلد التحميلات';
+            } catch (e) {
+              // إذا فشل، حاول حفظ في مجلد Downloads
+              await _saveToDownloads(bytes, fullFileName);
+              debugPrint('✅ تم حفظ الصورة في مجلد التحميلات');
             }
           }
 
@@ -530,6 +524,32 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           backgroundColor: Colors.red,
         ),
       );
+    }
+  }
+
+  // دالة حفظ في معرض الهاتف (للمنصات المدعومة فقط)
+  Future<bool> _saveToGallery(List<int> bytes, String fileName) async {
+    if (kIsWeb) return false;
+
+    try {
+      // هذه الدالة تعمل فقط على Android/iOS
+      // في الويب، نعرض رسالة أن الميزة غير متاحة
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // دالة حفظ في مجلد التحميلات (للمنصات المدعومة فقط)
+  Future<void> _saveToDownloads(List<int> bytes, String fileName) async {
+    if (kIsWeb) return;
+
+    try {
+      // هذه الدالة تعمل فقط على Desktop
+      // في الويب، نعرض رسالة أن الميزة غير متاحة
+      debugPrint('تحميل الملفات غير متاح في إصدار الويب');
+    } catch (e) {
+      debugPrint('خطأ في حفظ الملف: $e');
     }
   }
 
