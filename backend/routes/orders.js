@@ -292,6 +292,59 @@ router.put('/:id/status', async (req, res) => {
 
     console.log(`✅ تم تحديث حالة الطلب ${id} بنجاح`);
 
+    // 🔔 إرسال إشعار للمستخدم عند تحديث الحالة - الإصلاح الأساسي
+    try {
+      console.log('📱 بدء إرسال إشعار تحديث الحالة للمستخدم...');
+
+      // الحصول على معلومات الطلب المحدث
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .select('customer_phone, user_phone, customer_name, customer_id')
+        .eq('id', id)
+        .single();
+
+      if (orderError) {
+        console.error('❌ خطأ في جلب معلومات الطلب للإشعار:', orderError);
+      } else if (orderData) {
+        const userPhone = orderData.customer_phone || orderData.user_phone;
+        const customerName = orderData.customer_name || 'عميل';
+
+        if (userPhone) {
+          console.log(`📤 إرسال إشعار للمستخدم: ${userPhone}`);
+          console.log(`👤 اسم العميل: ${customerName}`);
+          console.log(`🔄 الحالة الجديدة: ${normalizedStatus}`);
+
+          // استدعاء خدمة الإشعارات المستهدفة
+          const targetedNotificationService = require('../services/targeted_notification_service');
+
+          // تهيئة الخدمة إذا لم تكن مُهيأة
+          if (!targetedNotificationService.initialized) {
+            await targetedNotificationService.initialize();
+          }
+
+          // إرسال الإشعار
+          const notificationResult = await targetedNotificationService.sendOrderStatusNotification(
+            userPhone,
+            id,
+            normalizedStatus,
+            customerName,
+            notes || 'تم تحديث حالة الطلب'
+          );
+
+          if (notificationResult.success) {
+            console.log('✅ تم إرسال إشعار تحديث الحالة بنجاح');
+          } else {
+            console.log('⚠️ فشل في إرسال الإشعار:', notificationResult.error);
+          }
+        } else {
+          console.log('⚠️ لا يوجد رقم هاتف للمستخدم - لن يتم إرسال إشعار');
+        }
+      }
+    } catch (notificationError) {
+      console.error('❌ خطأ في إرسال إشعار تحديث الحالة:', notificationError.message);
+      // لا نوقف العملية إذا فشل الإشعار
+    }
+
     // 🚀 إرسال الطلب لشركة الوسيط عند تغيير الحالة إلى "قيد التوصيل"
     console.log(`🔍 فحص إرسال الطلب للوسيط - الحالة المحولة: "${normalizedStatus}"`);
 
