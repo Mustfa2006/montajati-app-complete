@@ -156,13 +156,21 @@ class OrderSyncService {
         return 'returned'; // مرتجع
       case '7':
         return 'pending'; // في الانتظار
+
+      // ✅ إضافة الحالات المفقودة
+      case '17':
+        return 'cancelled'; // تم الارجاع الى التاجر → الغاء الطلب
+      case '23':
+        return 'cancelled'; // ارسال الى مخزن الارجاعات → الغاء الطلب
       default:
         // إذا لم نتمكن من تحديد الحالة، نستخدم النص كما هو
         if (waseetStatus.contains('تم التسليم') ||
             waseetStatus.contains('مسلم')) {
           return 'delivered';
         } else if (waseetStatus.contains('ملغي') ||
-            waseetStatus.contains('مرفوض')) {
+            waseetStatus.contains('مرفوض') ||
+            waseetStatus.contains('ارجاع') ||
+            waseetStatus.contains('مخزن')) {
           return 'cancelled';
         } else if (waseetStatus.contains('في الطريق') ||
             waseetStatus.contains('خرج للتوصيل')) {
@@ -493,8 +501,25 @@ class OrderSyncService {
 
         final currentStatus = currentOrderResponse['status'] as String?;
 
-        // ✅ تجاهل التحديث إذا كانت الحالة الحالية نهائية
-        final finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
+        // ✅ تجاهل التحديث إذا كانت الحالة الحالية نهائية - قائمة موحدة
+        final finalStatuses = [
+          // الحالات المحلية
+          'delivered',
+          'cancelled',
+
+          // النصوص العربية الكاملة
+          'تم التسليم للزبون',
+          'الغاء الطلب', // ✅ هذا ما يظهر في التطبيق (يشمل ارسال الى مخزن الارجاعات)
+          'رفض الطلب',
+          'تم الارجاع الى التاجر',
+          'مفصول عن الخدمة',
+          'طلب مكرر',
+          'حظر المندوب',
+          'مستلم مسبقا'
+
+          // ملاحظة: "ارسال الى مخزن الارجاعات" يتم تحويلها إلى "الغاء الطلب"
+        ];
+
         if (currentStatus != null && finalStatuses.contains(currentStatus)) {
           debugPrint('⏹️ تم تجاهل تحديث الطلب $qrId - الحالة نهائية: $currentStatus');
           return;

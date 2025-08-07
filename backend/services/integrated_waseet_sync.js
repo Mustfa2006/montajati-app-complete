@@ -165,11 +165,16 @@ class IntegratedWaseetSync {
         .from('orders')
         .select('id, waseet_order_id, waseet_status_id, waseet_status_text, user_phone, primary_phone, customer_name, status')
         .not('waseet_order_id', 'is', null)
-        // ✅ استبعاد الحالات النهائية - استخدام فلتر منفصل لتجنب مشكلة النص العربي
+        // ✅ استبعاد الحالات النهائية - استخدام القائمة الموحدة
         .neq('status', 'تم التسليم للزبون')
         .neq('status', 'الغاء الطلب')
         .neq('status', 'رفض الطلب')
         .neq('status', 'تم الارجاع الى التاجر')
+        // ملاحظة: "ارسال الى مخزن الارجاعات" يتم تحويلها إلى "الغاء الطلب"
+        .neq('status', 'مفصول عن الخدمة')
+        .neq('status', 'طلب مكرر')
+        .neq('status', 'حظر المندوب')
+        .neq('status', 'مستلم مسبقا')
         .neq('status', 'delivered')
         .neq('status', 'cancelled');
 
@@ -319,7 +324,7 @@ class IntegratedWaseetSync {
       13: 'في مخزن مرتجع بغداد',
       14: 'اعادة الارسال الى الزبون',
       17: 'تم الارجاع الى التاجر',
-      23: 'الغاء الطلب',
+      23: 'الغاء الطلب', // ✅ ارسال الى مخزن الارجاعات → الغاء الطلب في التطبيق
       24: 'تم تغيير محافظة الزبون',
       25: 'لا يرد',
       26: 'لا يرد بعد الاتفاق',

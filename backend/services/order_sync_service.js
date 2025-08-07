@@ -386,9 +386,9 @@ class OrderSyncService {
           const statusResult = await this.checkOrderStatus(order.waseet_order_id);
           
           if (statusResult && statusResult.status !== order.status) {
-            // ✅ فحص إذا كانت الحالة الحالية نهائية
-            const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
-            if (finalStatuses.includes(order.status)) {
+            // ✅ فحص إذا كانت الحالة الحالية نهائية - استخدام القائمة الموحدة
+            const statusMapper = require('../sync/status_mapper');
+            if (statusMapper.isFinalStatus(order.status)) {
               console.log(`⏹️ تم تجاهل تحديث الطلب ${order.id} - الحالة نهائية: ${order.status}`);
               continue;
             }
