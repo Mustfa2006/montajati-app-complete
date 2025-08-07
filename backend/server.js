@@ -400,6 +400,15 @@ try {
   console.log('❌ خطأ في تحميل routes/support:', error.message);
 }
 
+// Routes لتحديث التطبيق الصامت
+try {
+  const appConfigRoutes = require('./routes/app_config');
+  app.use('/api/app-config', appConfigRoutes);
+  console.log('✅ تم تحميل نظام التحديث الصامت للتطبيق');
+} catch (error) {
+  console.log('❌ خطأ في تحميل routes/app_config:', error.message);
+}
+
 // معالجة الأخطاء العامة
 app.use((err, req, res, next) => {
   console.error('خطأ في الخادم:', err.stack);

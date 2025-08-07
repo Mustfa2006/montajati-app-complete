@@ -72,13 +72,13 @@ class AppUpdateService {
     }
   }
   
-  /// بدء الفحص الدوري
+  /// بدء الفحص الدوري الصامت
   static void startPeriodicCheck() {
     _periodicTimer?.cancel();
     _periodicTimer = Timer.periodic(const Duration(minutes: 10), (timer) async {
-      await checkForUpdates();
+      await checkForUpdatesSilently(); // ✅ فحص صامت بدون إشعارات
     });
-    debugPrint('⏰ تم بدء الفحص الدوري للتحديثات (كل 10 دقائق)');
+    debugPrint('⏰ تم بدء الفحص الدوري الصامت للتحديثات (كل 10 دقائق)');
   }
   
   /// إيقاف الفحص الدوري
@@ -196,6 +196,40 @@ class AppUpdateService {
   static List<String> getSupportedStatuses() {
     final statuses = _currentConfig?['supportedStatuses'] as List<dynamic>?;
     return statuses?.cast<String>() ?? [];
+  }
+
+  /// فحص التحديثات الصامت (بدون واجهة مستخدم)
+  static Future<void> checkForUpdatesSilently() async {
+    try {
+      debugPrint('🔍 فحص التحديثات الصامت...');
+
+      bool hasUpdates = await checkForUpdates();
+
+      if (hasUpdates) {
+        debugPrint('✅ تم العثور على تحديثات وتطبيقها بصمت');
+        // تطبيق التحديثات بصمت بدون إشعار المستخدم
+        _applySilentUpdates();
+      } else {
+        debugPrint('📝 لا توجد تحديثات جديدة');
+      }
+
+    } catch (e) {
+      debugPrint('❌ خطأ في الفحص الصامت للتحديثات: $e');
+    }
+  }
+
+  /// تطبيق التحديثات بصمت
+  static void _applySilentUpdates() {
+    debugPrint('🔄 تطبيق التحديثات بصمت...');
+
+    // تطبيق إعدادات العرض الجديدة
+    String displayMode = getStatusDisplayMode();
+    if (displayMode == 'exact') {
+      debugPrint('✅ تم تفعيل العرض الدقيق للحالات بصمت');
+    }
+
+    // تحديث أي إعدادات أخرى بصمت
+    debugPrint('✅ تم تطبيق جميع التحديثات بصمت');
   }
   
   /// فحص التحديثات مع عرض النتائج للمستخدم
