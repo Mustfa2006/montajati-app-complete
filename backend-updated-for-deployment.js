@@ -80,6 +80,12 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// خدمة الملفات الثابتة للموقع
+app.use(express.static('public', {
+  maxAge: '1d',
+  etag: false
+}));
+
 // مسارات خاصة للويب - حل مشكلة CORS
 app.get('/api/web/health', (req, res) => {
   res.json({
@@ -177,14 +183,40 @@ app.all('/api/*', (req, res) => {
   });
 });
 
-// مسار الجذر
+// خدمة الموقع - الصفحة الرئيسية
 app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'خادم منتجاتي يعمل بشكل طبيعي',
-    version: '2.0.0',
-    cors: 'enabled',
-    timestamp: new Date().toISOString()
+  res.sendFile('index.html', { root: 'public' }, (err) => {
+    if (err) {
+      console.log('❌ خطأ في إرسال index.html:', err);
+      res.json({
+        success: true,
+        message: 'خادم منتجاتي يعمل بشكل طبيعي',
+        version: '2.0.0',
+        cors: 'enabled',
+        timestamp: new Date().toISOString(),
+        note: 'الموقع غير متاح - ملفات الموقع مفقودة'
+      });
+    }
+  });
+});
+
+// مسار لجميع الصفحات الأخرى (SPA routing)
+app.get('*', (req, res, next) => {
+  // إذا كان الطلب لـ API، تجاهل
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
+
+  // إرسال index.html لجميع المسارات الأخرى
+  res.sendFile('index.html', { root: 'public' }, (err) => {
+    if (err) {
+      console.log('❌ خطأ في إرسال index.html للمسار:', req.path);
+      res.status(404).json({
+        success: false,
+        message: 'الصفحة غير موجودة',
+        path: req.path
+      });
+    }
   });
 });
 
