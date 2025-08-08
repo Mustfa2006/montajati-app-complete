@@ -164,7 +164,7 @@ class IntegratedWaseetSync {
       const { data: dbOrders, error } = await this.supabase
         .from('orders')
         .select('id, waseet_order_id, waseet_qr_id, waseet_status_id, waseet_status_text, user_phone, primary_phone, customer_name, status')
-        .or('not.waseet_order_id.is.null,not.waseet_qr_id.is.null')
+        .or('waseet_order_id.not.is.null,waseet_qr_id.not.is.null')
         // ✅ استبعاد الحالات النهائية - استخدام القائمة الموحدة
         .neq('status', 'تم التسليم للزبون')
         .neq('status', 'الغاء الطلب')
