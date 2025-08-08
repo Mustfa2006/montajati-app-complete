@@ -355,7 +355,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                 Expanded(
                   child: _buildQuickInfo(
                     'الحالة',
-                    _getStatusText(order.waseetStatus ?? order.status),
+                    _getStatusText(order.status),
                     FontAwesomeIcons.circleInfo,
                     statusColor,
                   ),
@@ -1089,7 +1089,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
 
           _buildInfoRow('رقم الطلب', order.orderNumber),
           _buildInfoRow('تاريخ الإنشاء', _formatDate(order.createdAt)),
-          _buildInfoRow('الحالة الحالية', _getStatusText(order.waseetStatus ?? order.status)),
+          _buildInfoRow('الحالة الحالية', _getStatusText(order.status)),
           _buildInfoRow('عدد المنتجات', order.itemsCount.toString()),
 
           // عرض معرف الوسيط إذا كان موجوداً
@@ -1562,7 +1562,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  'الحالة الحالية: ${_getStatusText(order.waseetStatus ?? order.status)}',
+                  'الحالة الحالية: ${_getStatusText(order.status)}',
                   style: const TextStyle(
                     color: Color(0xFFffd700),
                     fontSize: 14,

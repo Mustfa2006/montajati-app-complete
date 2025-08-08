@@ -22,9 +22,12 @@ class IntegratedWaseetSync {
     this.isRunning = false;
     this.syncInterval = 5 * 60 * 1000; // كل 5 دقائق
     this.syncIntervalId = null;
+    // مؤقت بديل يعتمد على setTimeout المتسلسل (أكثر موثوقية على الاستضافة)
+    this.syncTimeoutId = null;
     this.lastSyncTime = null;
+    this.nextRunAt = null;
     this.isCurrentlySyncing = false;
-    
+
     // إحصائيات
     this.stats = {
       totalSyncs: 0,
@@ -74,20 +77,29 @@ class IntegratedWaseetSync {
       this.isRunning = true;
       this.stats.startTime = Date.now();
       
-      // مزامنة فورية
+      // مزامنة فورية أولى
       await this.performSync();
-      
-      // بدء المزامنة المستمرة
-      this.syncIntervalId = setInterval(async () => {
-        if (!this.isCurrentlySyncing) {
-          await this.performSync();
-        }
-      }, this.syncInterval);
-      
+
+      // جدولة بالمؤقت التسلسلي لضمان العمل حتى لو تم قتل event loop لفترة قصيرة
+      const scheduleNext = () => {
+        // لا نضاعف التايمر
+        if (this.syncTimeoutId) clearTimeout(this.syncTimeoutId);
+        this.nextRunAt = new Date(Date.now() + this.syncInterval);
+        this.syncTimeoutId = setTimeout(async () => {
+          try {
+            await this.performSync();
+          } finally {
+            scheduleNext(); // أعِد الجدولة دائماً
+          }
+        }, this.syncInterval);
+      };
+
+      scheduleNext();
+
       const intervalMinutes = this.syncInterval / (60 * 1000);
-      console.log(`✅ نظام المزامنة يعمل - كل ${intervalMinutes} دقيقة`);
-      
-      return { success: true, message: 'تم بدء النظام بنجاح' };
+      console.log(`✅ نظام المزامنة يعمل - كل ${intervalMinutes} دقيقة (timeout-loop)`);
+
+      return { success: true, message: 'تم بدء النظام بنجاح', nextRunAt: this.nextRunAt };
       
     } catch (error) {
       console.error('❌ فشل بدء النظام:', error.message);
@@ -107,6 +119,10 @@ class IntegratedWaseetSync {
     if (this.syncIntervalId) {
       clearInterval(this.syncIntervalId);
       this.syncIntervalId = null;
+    }
+    if (this.syncTimeoutId) {
+      clearTimeout(this.syncTimeoutId);
+      this.syncTimeoutId = null;
     }
     this.isRunning = false;
     console.log('⏹️ تم إيقاف نظام المزامنة');
@@ -163,7 +179,7 @@ class IntegratedWaseetSync {
       // جلب الطلبات من قاعدة البيانات مع بيانات الإشعارات (استبعاد الحالات النهائية)
       const { data: dbOrders, error } = await this.supabase
         .from('orders')
-        .select('id, waseet_order_id, waseet_qr_id, waseet_status_id, waseet_status_text, user_phone, primary_phone, customer_name, status')
+        .select('id, waseet_order_id, waseet_qr_id, waseet_status_id, waseet_status_text, waseet_status, user_phone, primary_phone, customer_name, status')
         .or('waseet_order_id.not.is.null,waseet_qr_id.not.is.null')
         // ✅ استبعاد الحالات النهائية - استخدام القائمة الموحدة
         .neq('status', 'تم التسليم للزبون')
@@ -197,14 +213,16 @@ class IntegratedWaseetSync {
         const waseetStatusId = parseInt(waseetOrder.status_id);
         const waseetStatusText = waseetOrder.status;
 
-        // التحقق من وجود تغيير
+        // ✅ تحويل حالة الوسيط إلى حالة التطبيق المعيارية (قبل قرار التخطي)
+        const appStatus = this.mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
+
+        // التحقق من وجود تغيير حقيقي يؤثر على ما يظهر في التطبيق
+        // لا نتخطى إذا كانت حالة التطبيق (status) في قاعدة البيانات لا تساوي الحالة المحوّلة
         if (dbOrder.waseet_status_id === waseetStatusId &&
-            dbOrder.waseet_status_text === waseetStatusText) {
+            dbOrder.waseet_status_text === waseetStatusText &&
+            dbOrder.status === appStatus) {
           continue;
         }
-
-        // ✅ تحويل حالة الوسيط إلى حالة التطبيق المعيارية
-        const appStatus = this.mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
 
         console.log(`🔄 تحديث الطلب ${dbOrder.id}:`);
         console.log(`   الحالة من الوسيط: "${waseetStatusText}" (ID=${waseetStatusId})`);
@@ -215,6 +233,8 @@ class IntegratedWaseetSync {
           .from('orders')
           .update({
             status: appStatus,
+            // اجعل waseet_status يعكس الحالة القياسية للتطبيق لضمان عرض صحيح في الواجهة
+            waseet_status: appStatus,
             waseet_status_id: waseetStatusId,
             waseet_status_text: waseetStatusText,
             last_status_check: new Date().toISOString(),

@@ -217,9 +217,11 @@ class RealWaseetSyncSystem {
       const { error } = await this.supabase
         .from('orders')
         .update({
-          status: appStatus, // ← حفظ حالة التطبيق القياسية (مثلاً: 'cancelled')
-          waseet_status: waseetStatusText, // حفظ نص الوسيط كما هو للمرجع
+          status: appStatus, // ← حفظ حالة التطبيق القياسية (مثلاً: 'الغاء الطلب')
+          // اجعل waseet_status يساوي الحالة القياسية ليتم عرضها بشكل صحيح في الواجهة
+          waseet_status: appStatus,
           waseet_status_id: parseInt(waseetStatusId),
+          // احتفظ بالنص الأصلي القادم من الوسيط للمرجع فقط
           waseet_status_text: waseetStatusText,
           last_status_check: new Date().toISOString(),
           status_updated_at: new Date().toISOString()
