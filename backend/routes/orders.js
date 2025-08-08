@@ -131,6 +131,58 @@ router.get('/', async (req, res) => {
 });
 
 // ===================================
+// مسارات المزامنة مع الوسيط (يجب أن تأتي قبل /:id)
+// ===================================
+
+// مسار اختبار بسيط
+router.get('/test-route', (req, res) => {
+  res.json({ success: true, message: 'المسار يعمل!' });
+});
+
+// GET /api/orders/waseet-sync-status - حالة نظام المزامنة مع الوسيط
+router.get('/waseet-sync-status', async (req, res) => {
+  try {
+    if (global.waseetSyncSystem) {
+      const stats = global.waseetSyncSystem.getSystemStats();
+
+      res.json({
+        success: true,
+        data: {
+          isRunning: stats.isRunning,
+          syncInterval: stats.syncInterval,
+          syncIntervalMinutes: stats.syncIntervalMinutes,
+          lastSyncTime: stats.lastSyncTime,
+          nextSyncIn: stats.nextSyncIn,
+          nextSyncInMinutes: stats.nextSyncIn ? Math.round(stats.nextSyncIn / 60000) : null,
+          stats: {
+            totalSyncs: stats.stats.totalSyncs,
+            successfulSyncs: stats.stats.successfulSyncs,
+            failedSyncs: stats.stats.failedSyncs,
+            ordersUpdated: stats.stats.ordersUpdated,
+            lastError: stats.stats.lastError
+          }
+        }
+      });
+    } else {
+      res.json({
+        success: true,
+        data: {
+          isRunning: false,
+          message: 'النظام غير مهيأ'
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب حالة النظام:', error);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في جلب حالة النظام'
+    });
+  }
+});
+
+// ===================================
 // GET /api/orders/:id - جلب طلب محدد
 // ===================================
 router.get('/:id', async (req, res) => {
@@ -917,48 +969,7 @@ router.post('/stop-waseet-sync', async (req, res) => {
   }
 });
 
-// GET /api/orders/waseet-sync-status - حالة نظام المزامنة مع الوسيط
-router.get('/waseet-sync-status', async (req, res) => {
-  try {
-    if (global.waseetSyncSystem) {
-      const stats = global.waseetSyncSystem.getSystemStats();
-
-      res.json({
-        success: true,
-        data: {
-          isRunning: stats.isRunning,
-          syncInterval: stats.syncInterval,
-          syncIntervalMinutes: stats.syncIntervalMinutes,
-          lastSyncTime: stats.lastSyncTime,
-          nextSyncIn: stats.nextSyncIn,
-          nextSyncInMinutes: stats.nextSyncIn ? Math.round(stats.nextSyncIn / 60000) : null,
-          stats: {
-            totalSyncs: stats.stats.totalSyncs,
-            successfulSyncs: stats.stats.successfulSyncs,
-            failedSyncs: stats.stats.failedSyncs,
-            ordersUpdated: stats.stats.ordersUpdated,
-            lastError: stats.stats.lastError
-          }
-        }
-      });
-    } else {
-      res.json({
-        success: true,
-        data: {
-          isRunning: false,
-          message: 'النظام غير مهيأ'
-        }
-      });
-    }
-
-  } catch (error) {
-    console.error('❌ خطأ في جلب حالة النظام:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في جلب حالة النظام'
-    });
-  }
-});
+// تم نقل هذا المسار إلى الأعلى لتجنب التعارض مع /:id
 
 // POST /api/orders/force-waseet-sync - تنفيذ مزامنة فورية مع الوسيط
 router.post('/force-waseet-sync', async (req, res) => {
@@ -1022,8 +1033,8 @@ router.post('/force-sync-now', async (req, res) => {
 // نظام المزامنة المدمج مع الوسيط - Production APIs
 // ===================================
 
-// GET /api/orders/waseet-sync-status - حالة نظام المزامنة
-router.get('/waseet-sync-status', async (req, res) => {
+// GET /api/orders/integrated-sync-status - حالة نظام المزامنة المدمج
+router.get('/integrated-sync-status', async (req, res) => {
   try {
     const waseetSync = require('../services/integrated_waseet_sync');
     const stats = waseetSync.getStats();
