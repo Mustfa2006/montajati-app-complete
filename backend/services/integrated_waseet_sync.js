@@ -217,10 +217,15 @@ class IntegratedWaseetSync {
         const appStatus = this.mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
 
         // التحقق من وجود تغيير حقيقي يؤثر على ما يظهر في التطبيق
-        // لا نتخطى إذا كانت حالة التطبيق (status) في قاعدة البيانات لا تساوي الحالة المحوّلة
+        console.log(`🔍 فحص الطلب ${dbOrder.id}:`);
+        console.log(`   📊 قاعدة البيانات - waseet_status_id: ${dbOrder.waseet_status_id}, waseet_status_text: "${dbOrder.waseet_status_text}", status: "${dbOrder.status}"`);
+        console.log(`   📊 الوسيط - waseet_status_id: ${waseetStatusId}, waseet_status_text: "${waseetStatusText}", appStatus: "${appStatus}"`);
+        console.log(`   🔍 مقارنة - status_id: ${dbOrder.waseet_status_id === waseetStatusId}, status_text: ${dbOrder.waseet_status_text === waseetStatusText}, status: ${dbOrder.status === appStatus}`);
+
         if (dbOrder.waseet_status_id === waseetStatusId &&
             dbOrder.waseet_status_text === waseetStatusText &&
             dbOrder.status === appStatus) {
+          console.log(`   ⏭️ تخطي الطلب ${dbOrder.id} - لا يوجد تغيير`);
           continue;
         }
 
@@ -244,10 +249,12 @@ class IntegratedWaseetSync {
 
         if (!updateError) {
           updatedCount++;
-          console.log(`🔄 تحديث الطلب ${waseetOrder.id}: ${waseetStatusText} → ${appStatus}`);
+          console.log(`✅ تم تحديث الطلب ${dbOrder.id} بنجاح: ${waseetStatusText} → ${appStatus}`);
 
           // إرسال إشعار للمستخدم عند تغيير الحالة
           await this.sendStatusChangeNotification(dbOrder, appStatus, waseetStatusText);
+        } else {
+          console.error(`❌ فشل تحديث الطلب ${dbOrder.id}:`, updateError);
         }
       }
 

@@ -139,6 +139,61 @@ router.get('/test-route', (req, res) => {
   res.json({ success: true, message: 'المسار يعمل!' });
 });
 
+// مسار لاختبار النظام المدمج مباشرة
+router.get('/check-integrated-sync', async (req, res) => {
+  try {
+    const waseetSync = require('../services/integrated_waseet_sync');
+    const stats = waseetSync.getStats();
+
+    res.json({
+      success: true,
+      data: {
+        isRunning: waseetSync.isRunning,
+        stats: stats,
+        message: 'النظام المدمج متاح'
+      }
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      message: 'النظام المدمج غير متاح'
+    });
+  }
+});
+
+// مسار لتنفيذ مزامنة فورية مع النظام المدمج
+router.post('/run-integrated-sync', async (req, res) => {
+  try {
+    const waseetSync = require('../services/integrated_waseet_sync');
+
+    console.log('🔄 تنفيذ مزامنة فورية مع النظام المدمج...');
+
+    // تأكد من أن النظام يعمل
+    if (!waseetSync.isRunning) {
+      console.log('🚀 بدء النظام المدمج...');
+      await waseetSync.start();
+    }
+
+    // تنفيذ مزامنة فورية
+    const result = await waseetSync.forcSync();
+
+    res.json({
+      success: true,
+      message: 'تم تنفيذ المزامنة الفورية بنجاح',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في المزامنة الفورية:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      message: 'فشل في تنفيذ المزامنة'
+    });
+  }
+});
+
 // GET /api/orders/waseet-sync-status - حالة نظام المزامنة مع الوسيط
 router.get('/waseet-sync-status', async (req, res) => {
   try {
