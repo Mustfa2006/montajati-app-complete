@@ -201,19 +201,18 @@ class IntegratedWaseetSync {
           continue;
         }
 
-        // ✅ استخدام الحالة الأصلية من الوسيط بدلاً من التحويل
-        let appStatus = waseetStatusText; // استخدام النص الأصلي من الوسيط
+        // ✅ تحويل حالة الوسيط إلى حالة التطبيق المعيارية
+        const appStatus = this.mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
 
         console.log(`🔄 تحديث الطلب ${dbOrder.id}:`);
-        console.log(`   الحالة من الوسيط: "${waseetStatusText}"`);
-        console.log(`   معرف الحالة: ${waseetStatusId}`);
-        console.log(`   الحالة المحفوظة: "${appStatus}"`);
+        console.log(`   الحالة من الوسيط: "${waseetStatusText}" (ID=${waseetStatusId})`);
+        console.log(`   الحالة بعد التحويل: "${appStatus}"`);
 
-        // تحديث الطلب بالحالة الأصلية من الوسيط
+        // تحديث الطلب بالحالة المعيارية + حفظ حالة الوسيط كما هي
         const { error: updateError } = await this.supabase
           .from('orders')
           .update({
-            status: appStatus, // ✅ الحالة الأصلية من الوسيط
+            status: appStatus,
             waseet_status_id: waseetStatusId,
             waseet_status_text: waseetStatusText,
             last_status_check: new Date().toISOString(),
@@ -223,8 +222,7 @@ class IntegratedWaseetSync {
 
         if (!updateError) {
           updatedCount++;
-          console.log(`🔄 تحديث الطلب ${waseetOrder.id}: ${waseetStatusText}`);
-          console.log(`✅ تم حفظ الحالة الأصلية: "${appStatus}"`);
+          console.log(`🔄 تحديث الطلب ${waseetOrder.id}: ${waseetStatusText} → ${appStatus}`);
 
           // إرسال إشعار للمستخدم عند تغيير الحالة
           await this.sendStatusChangeNotification(dbOrder, appStatus, waseetStatusText);
