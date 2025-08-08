@@ -163,8 +163,8 @@ class IntegratedWaseetSync {
       // جلب الطلبات من قاعدة البيانات مع بيانات الإشعارات (استبعاد الحالات النهائية)
       const { data: dbOrders, error } = await this.supabase
         .from('orders')
-        .select('id, waseet_order_id, waseet_status_id, waseet_status_text, user_phone, primary_phone, customer_name, status')
-        .not('waseet_order_id', 'is', null)
+        .select('id, waseet_order_id, waseet_qr_id, waseet_status_id, waseet_status_text, user_phone, primary_phone, customer_name, status')
+        .or('not.waseet_order_id.is.null,not.waseet_qr_id.is.null')
         // ✅ استبعاد الحالات النهائية - استخدام القائمة الموحدة
         .neq('status', 'تم التسليم للزبون')
         .neq('status', 'الغاء الطلب')
@@ -186,8 +186,10 @@ class IntegratedWaseetSync {
       let updatedCount = 0;
       
       for (const waseetOrder of waseetResult.orders) {
-        const dbOrder = dbOrders?.find(order => 
-          order.waseet_order_id === waseetOrder.id
+        const dbOrder = dbOrders?.find(order =>
+          order.waseet_order_id === waseetOrder.id ||
+          order.waseet_qr_id === waseetOrder.qrId ||
+          order.waseet_qr_id === waseetOrder.id // في بعض الاستجابات يكون نفس الحقل
         );
 
         if (!dbOrder) continue;
