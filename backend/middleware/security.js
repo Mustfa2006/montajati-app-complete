@@ -11,26 +11,55 @@ const cors = require('cors');
  */
 const corsOptions = {
   origin: function (origin, callback) {
-    // قائمة المواقع المسموحة
-    const allowedOrigins = [
+    // قائمة المواقع المسموحة (ثابتة + من المتغيرات)
+    const staticAllowed = [
       'http://localhost:3000',
+      'http://127.0.0.1:3000',
       'http://localhost:3001',
-      'https://your-frontend-domain.com',
+      'http://127.0.0.1:3001',
+      'http://localhost:3002',
+      'http://127.0.0.1:3002',
+      'https://muntgati.netlify.app',
       process.env.FRONTEND_URL
-    ].filter(Boolean);
+    ];
+    const envAllowed = (process.env.CORS_ORIGINS || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const allowedOrigins = [...staticAllowed, ...envAllowed].filter(Boolean);
 
-    // السماح للطلبات بدون origin (مثل التطبيقات المحمولة)
+    // السماح للطلبات بدون origin (مثل التطبيقات المحمولة/الـ curl)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
+
+    let hostname = '';
+    try { hostname = new URL(origin).hostname; } catch (_) { hostname = origin; }
+
+    const allow = (
+      allowedOrigins.includes(origin) ||
+      hostname === 'muntgati.netlify.app' ||
+      hostname.endsWith('.netlify.app') ||
+      hostname.endsWith('.vercel.app') ||
+      hostname.endsWith('.ondigitalocean.app') ||
+      hostname === 'localhost' ||
+      hostname.startsWith('localhost:') ||
+      hostname === '127.0.0.1'
+    );
+
+    if (allow) {
+      return callback(null, true);
     } else {
-      callback(new Error('غير مسموح بواسطة CORS'));
+      console.warn(`❌ CORS blocked origin: ${origin} (host=${hostname})`);
+      return callback(new Error('غير مسموح بواسطة CORS'));
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin',
+    'Access-Control-Allow-Origin'
+  ],
+  exposedHeaders: ['Content-Length', 'Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
 };
 
 /**

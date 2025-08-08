@@ -81,6 +81,8 @@ class OfficialMontajatiServer {
 
     // ✅ إعدادات CORS الآمنة
     this.app.use(cors(corsOptions));
+    // ✅ تعامل مع طلبات OPTIONS بشكل عام (preflight)
+    this.app.options('*', cors(corsOptions));
 
     // ✅ تنظيف وتعقيم المدخلات
     this.app.use(sanitizeInput);
