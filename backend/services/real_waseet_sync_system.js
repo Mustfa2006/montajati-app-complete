@@ -209,12 +209,16 @@ class RealWaseetSyncSystem {
         return 'matched';
       }
 
+      // تحويل حالة الوسيط إلى حالة التطبيق القياسية
+      const statusMapper = require('../sync/status_mapper');
+      const appStatus = statusMapper.mapWaseetToLocal(waseetStatusText);
+
       // تحديث الطلب في قاعدة البيانات
       const { error } = await this.supabase
         .from('orders')
         .update({
-          status: waseetStatusText,
-          waseet_status: 'active',
+          status: appStatus, // ← حفظ حالة التطبيق القياسية (مثلاً: 'cancelled')
+          waseet_status: waseetStatusText, // حفظ نص الوسيط كما هو للمرجع
           waseet_status_id: parseInt(waseetStatusId),
           waseet_status_text: waseetStatusText,
           last_status_check: new Date().toISOString(),
@@ -226,10 +230,10 @@ class RealWaseetSyncSystem {
         throw new Error(`خطأ في تحديث الطلب: ${error.message}`);
       }
 
-      console.log(`🔄 تم تحديث الطلب ${waseetOrder.id}: ${currentStatusText} → ${waseetStatusText}`);
-      
+      console.log(`🔄 تم تحديث الطلب ${waseetOrder.id}: ${currentStatusText} → ${appStatus} (وسيط: ${waseetStatusText})`);
+
       // إضافة سجل في تاريخ الحالات
-      await this.addStatusHistory(dbOrder.id, currentStatusText, waseetStatusText);
+      await this.addStatusHistory(dbOrder.id, currentStatusText, appStatus);
       
       return 'updated';
       
