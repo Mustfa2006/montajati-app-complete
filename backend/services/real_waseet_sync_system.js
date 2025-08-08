@@ -209,9 +209,9 @@ class RealWaseetSyncSystem {
         return 'matched';
       }
 
-      // تحويل حالة الوسيط إلى حالة التطبيق القياسية
-      const statusMapper = require('../sync/status_mapper');
-      const appStatus = statusMapper.mapWaseetToLocal(waseetStatusText);
+      // تحويل حالة الوسيط إلى حالة التطبيق القياسية (نص عربي)
+      const waseetSyncInstance = require('./integrated_waseet_sync');
+      const appStatus = waseetSyncInstance.mapWaseetStatusToApp(parseInt(waseetStatusId), waseetStatusText);
 
       // تحديث الطلب في قاعدة البيانات
       const { error } = await this.supabase
