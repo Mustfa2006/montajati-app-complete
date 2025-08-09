@@ -416,7 +416,7 @@ class OrderSyncService {
         location: orderResponse['notes'] ?? 'عنوان العميل',
         typeName: waseetData['typeName'],
         itemsNumber: waseetData['itemsCount'],
-        price: waseetData['totalPrice'],
+        price: orderResponse['total'] ?? 25000,
         packageSize: '1',
         merchantNotes: 'طلب من تطبيق منتجاتي - تم الموافقة عليه',
         replacement: 0,

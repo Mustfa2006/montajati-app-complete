@@ -496,15 +496,23 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     final provinceName = widget.orderData['province'] as String?;
     final baseDeliveryFee = _getDeliveryFeeByProvince(provinceName); // السعر الأساسي للمحافظة
     final deliveryPaidByUser = baseDeliveryFee - _deliveryFee; // المبلغ المدفوع من الربح
-    final finalTotal = subtotal + _deliveryFee; // العميل يدفع أقل
+
+    // 🎯 المبلغ الإجمالي الكامل (للوسيط) = subtotal + رسوم التوصيل الكاملة
+    final fullTotal = subtotal + baseDeliveryFee;
+
+    // 💰 المبلغ المدفوع من العميل (مخفض) = subtotal + رسوم التوصيل المخفضة
+    final customerTotal = subtotal + _deliveryFee;
+
     final finalProfit = profit - deliveryPaidByUser; // المستخدم يدفع من ربحه
 
     return {
       'subtotal': subtotal,
       'profit': profit,
       'deliveryFee': _deliveryFee,
+      'baseDeliveryFee': baseDeliveryFee,
       'deliveryPaidByUser': deliveryPaidByUser,
-      'finalTotal': finalTotal,
+      'fullTotal': fullTotal, // 🎯 المبلغ الكامل للوسيط
+      'customerTotal': customerTotal, // 💰 المبلغ المدفوع من العميل
       'finalProfit': finalProfit,
     };
   }
@@ -513,7 +521,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     final values = _calculateFinalValues();
 
     final subtotal = values['subtotal']!;
-    final finalTotal = values['finalTotal']!;
+    final fullTotal = values['fullTotal']!; // 🎯 المبلغ الكامل للوسيط
+    final customerTotal = values['customerTotal']!; // 💰 المبلغ المدفوع من العميل
     final finalProfit = values['finalProfit']!;
 
     return Container(
@@ -544,7 +553,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
           _buildSummaryRow('المجموع الفرعي', subtotal),
           _buildSummaryRow('رسوم التوصيل', _deliveryFee),
           const Divider(color: Color(0xFFffd700), thickness: 1),
-          _buildSummaryRow('المجموع النهائي', finalTotal, isTotal: true),
+          _buildSummaryRow('المجموع النهائي', customerTotal, isTotal: true), // 💰 المبلغ المدفوع من العميل
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(8), // تصغير الحشو
@@ -913,14 +922,16 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       final subtotal = values['subtotal']!;
       final profit = values['profit']!;
       final deliveryPaidByUser = values['deliveryPaidByUser']!;
-      final finalTotal = values['finalTotal']!;
+      final fullTotal = values['fullTotal']!; // 🎯 المبلغ الكامل للوسيط
+      final customerTotal = values['customerTotal']!; // 💰 المبلغ المدفوع من العميل
       final finalProfit = values['finalProfit']!;
 
       // إنشاء الطلب فعلياً في قاعدة البيانات
       debugPrint('📋 إنشاء الطلب الجديد في قاعدة البيانات...');
       debugPrint('💰 المجموع الفرعي: $subtotal د.ع');
       debugPrint('🚚 رسوم التوصيل: $_deliveryFee د.ع');
-      debugPrint('💰 المجموع النهائي: $finalTotal د.ع');
+      debugPrint('💰 المجموع الكامل (للوسيط): $fullTotal د.ع');
+      debugPrint('💰 المجموع المدفوع (من العميل): $customerTotal د.ع');
       debugPrint('💎 الربح النهائي: $finalProfit د.ع');
 
       // ✅ إعداد البيانات النهائية للإرسال (من ملخص الطلب)
@@ -938,7 +949,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         // ✅ القيم المحسوبة في ملخص الطلب (النهائية)
         'subtotal': subtotal,
         'deliveryFee': _deliveryFee,
-        'total': finalTotal,
+        'total': customerTotal, // 💰 المبلغ المدفوع من العميل
+        'waseetTotal': fullTotal, // 🎯 المبلغ الكامل للوسيط
         'profit': finalProfit,
         'deliveryPaidByUser': deliveryPaidByUser,
         'deliveryPaidFromProfit': deliveryPaidByUser, // ✅ إضافة المبلغ المدفوع من الربح
@@ -954,7 +966,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       debugPrint('🔍 التحقق من القيم المحسوبة:');
       debugPrint('   - _deliveryFee: $_deliveryFee د.ع');
       debugPrint('   - deliveryPaidByUser: $deliveryPaidByUser د.ع');
-      debugPrint('   - finalTotal: $finalTotal د.ع');
+      debugPrint('   - fullTotal (للوسيط): $fullTotal د.ع');
+      debugPrint('   - customerTotal (من العميل): $customerTotal د.ع');
       debugPrint('   - finalProfit: $finalProfit د.ع');
       debugPrint('   - رسوم التوصيل: ${finalOrderData['deliveryFee']} د.ع');
       debugPrint('   - المجموع النهائي: ${finalOrderData['total']} د.ع');

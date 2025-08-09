@@ -149,7 +149,7 @@ class OrderSyncService {
         location: location,
         type_name: waseetData.typeName || 'عادي',
         items_number: waseetData.itemsCount || 1,
-        price: waseetData.totalPrice || order.total || 25000,
+        price: order.total || 25000,
         package_size: 1, // ID رقمي
         merchant_notes: merchantNotes,
         replacement: 0
@@ -275,7 +275,15 @@ class OrderSyncService {
 
         if (orderItems && orderItems.length > 0) {
           itemsCount = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
-          totalPrice = orderItems.reduce((sum, item) => sum + ((item.customer_price || 0) * (item.quantity || 1)), 0);
+
+          // 🔧 حساب مجموع المنتجات فقط (بدون رسوم التوصيل)
+          const productsSubtotal = orderItems.reduce((sum, item) => sum + ((item.customer_price || 0) * (item.quantity || 1)), 0);
+
+          // 🎯 استخدام المبلغ من عمود total فقط
+          totalPrice = order.total;
+
+          console.log(`💰 مجموع المنتجات فقط: ${productsSubtotal} د.ع`);
+          console.log(`💰 المبلغ الإجمالي الكامل: ${totalPrice} د.ع`);
 
           // تكوين نص أسماء المنتجات مع عدد القطع (كل منتج في سطر منفصل)
           const productList = orderItems.map(item => {
