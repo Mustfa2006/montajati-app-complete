@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/admin_service.dart';
-import '../services/order_sync_service.dart';
 import '../widgets/common_header.dart';
 
 class OrderDetailsPage extends StatefulWidget {
@@ -88,9 +87,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
           ),
         );
 
-        // فحص حالة الطلب في شركة الوسيط
-        await OrderSyncService.checkOrderStatus(_orderDetails!.waseetQrId!);
-
+        // تم حذف OrderSyncService - لم يعد مطلوباً
         // إعادة تحميل تفاصيل الطلب
         await _loadOrderDetails();
 

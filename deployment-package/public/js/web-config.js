@@ -1,13 +1,13 @@
-// إعدادات خاصة بالموقع
+// إعدادات خاصة بالموقع - نفس نظام التطبيق بالضبط
 window.webConfig = {
   // رابط الخادم - نفس النطاق (لا توجد مشاكل CORS)
   apiBaseUrl: '',
   
-  // مسارات خاصة بالويب
+  // مسارات API - نفس التطبيق بالضبط
   webApiPaths: {
     health: '/api/web/health',
     corsTest: '/api/web/cors-test',
-    updateOrderStatus: '/api/web/orders/{orderId}/status'
+    updateOrderStatus: '/api/orders/{orderId}/status'  // 🎯 نفس مسار التطبيق
   },
   
   // إعدادات الطلبات
@@ -36,7 +36,7 @@ window.webConfig = {
   },
   
   // معلومات الإصدار
-  version: '1.0.0',
+  version: '2.2.0',
   buildDate: new Date().toISOString(),
   platform: 'web'
 };
@@ -77,7 +77,7 @@ window.testCORS = async function() {
   }
 };
 
-// دالة محسنة لتحديث حالة الطلب
+// دالة محسنة لتحديث حالة الطلب - نفس نظام التطبيق بالضبط
 window.updateOrderStatusWeb = async function(orderId, status, reason = '', changedBy = 'web_user') {
   try {
     console.log('🚀 بدء تحديث حالة الطلب من الويب:', orderId);
@@ -85,10 +85,11 @@ window.updateOrderStatusWeb = async function(orderId, status, reason = '', chang
     const url = window.webConfig.apiBaseUrl + 
                 window.webConfig.webApiPaths.updateOrderStatus.replace('{orderId}', orderId);
     
+    // 🎯 نفس البيانات المرسلة من التطبيق بالضبط
     const requestData = {
       status: status,
-      reason: reason,
-      changedBy: changedBy
+      notes: reason || 'تم التحديث من الويب',  // نفس اسم الحقل في التطبيق
+      changedBy: changedBy || 'web_user'
     };
     
     console.log('📤 إرسال طلب التحديث:', url, requestData);
@@ -110,21 +111,20 @@ window.updateOrderStatusWeb = async function(orderId, status, reason = '', chang
     
   } catch (error) {
     console.error('❌ خطأ في تحديث حالة الطلب:', error);
-    throw error;
+    
+    // تحديد نوع الخطأ وإرجاع رسالة مناسبة
+    let errorMessage = window.webConfig.errorMessages.server;
+    
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      errorMessage = window.webConfig.errorMessages.network;
+    } else if (error.message.includes('CORS')) {
+      errorMessage = window.webConfig.errorMessages.cors;
+    } else if (error.name === 'AbortError') {
+      errorMessage = window.webConfig.errorMessages.timeout;
+    }
+    
+    throw new Error(errorMessage);
   }
 };
 
-// تشغيل اختبارات الاتصال عند تحميل الصفحة
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('🌐 تم تحميل إعدادات الويب');
-  console.log('📊 إعدادات الخادم:', window.webConfig);
-  
-  // اختبار الاتصال بعد 2 ثانية
-  setTimeout(async () => {
-    console.log('🔍 اختبار الاتصال بالخادم...');
-    await window.testServerConnection();
-    await window.testCORS();
-  }, 2000);
-});
-
-console.log('✅ تم تحميل ملف إعدادات الويب');
+console.log('🌐 تم تحميل إعدادات الموقع - نفس نظام التطبيق بالضبط');
