@@ -254,6 +254,16 @@ class ErrorHandler {
 
   /// تسجيل الخطأ مع معلومات إضافية
   static void logError(dynamic error, {String? context, Map<String, dynamic>? additionalInfo}) {
-    // تسجيل صامت للخطأ
+    final errorInfo = {
+      'error': error.toString(),
+      'context': context,
+      'timestamp': DateTime.now().toIso8601String(),
+      'isNetworkError': isNetworkError(error),
+      'isServerError': isServerError(error),
+      'isAuthError': isAuthError(error),
+      ...?additionalInfo,
+    };
+
+    debugPrint('❌ خطأ مسجل: ${errorInfo.toString()}');
   }
 }

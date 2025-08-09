@@ -33,7 +33,10 @@ class OfficialOrdersService extends ChangeNotifier {
     String? userPhone, // ✅ إضافة رقم هاتف المستخدم
   }) async {
     try {
-      // بدء إنشاء طلب رسمي
+      debugPrint('🏛️ === بدء إنشاء طلب رسمي ===');
+      debugPrint('👤 العميل: $customerName');
+      debugPrint('📱 الهاتف: $primaryPhone');
+      debugPrint('📦 عدد العناصر: ${items.length}');
 
       // 1. توليد معرف طلب فريد
       final timestamp = DateTime.now().millisecondsSinceEpoch;

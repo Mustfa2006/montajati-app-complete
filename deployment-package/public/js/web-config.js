@@ -1,7 +1,7 @@
 // إعدادات خاصة بالموقع
 window.webConfig = {
-  // رابط الخادم
-  apiBaseUrl: 'https://clownfish-app-krnk9.ondigitalocean.app',
+  // رابط الخادم - نفس النطاق (لا توجد مشاكل CORS)
+  apiBaseUrl: '',
   
   // مسارات خاصة بالويب
   webApiPaths: {

@@ -55,8 +55,16 @@ class ApiConfig {
     return '$apiUrl/$endpoint';
   }
 
-  // تحميل صامت للإعدادات
+  // ✅ طباعة معلومات الإعدادات
   static void printConfig() {
-    // تحميل صامت
+    if (enableLogging) {
+      debugPrint('🔧 إعدادات API:');
+      debugPrint('   البيئة: إنتاج (تطوير مع خادم حقيقي)');
+      debugPrint('   الرابط الأساسي: $baseUrl');
+      debugPrint('   رابط API: $apiUrl');
+      debugPrint('   المهلة الزمنية: ${defaultTimeout.inSeconds} ثانية');
+      debugPrint('   التسجيل: ${enableLogging ? 'مُفعل' : 'مُعطل'}');
+      debugPrint('   وضع التطوير: ${kDebugMode ? 'نعم' : 'لا'}');
+    }
   }
 }

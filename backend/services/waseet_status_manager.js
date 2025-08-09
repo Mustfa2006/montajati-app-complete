@@ -70,6 +70,7 @@ class WaseetStatusManager {
   // تحديث حالة الطلب
   async updateOrderStatus(orderId, waseetStatusId, waseetStatusText = null) {
     try {
+      console.log(`🔄 تحديث حالة الطلب ${orderId} إلى ${waseetStatusId}`);
 
       // جلب الطلب الحالي للتحقق من حالته
       const { data: currentOrder, error: fetchError } = await this.supabase
@@ -85,6 +86,7 @@ class WaseetStatusManager {
       // ✅ فحص إذا كانت الحالة الحالية نهائية
       const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'تم الارجاع الى التاجر', 'delivered', 'cancelled'];
       if (finalStatuses.includes(currentOrder.status)) {
+        console.log(`⏹️ تم تجاهل تحديث الطلب ${orderId} - الحالة نهائية: ${currentOrder.status}`);
         return {
           success: false,
           message: 'الحالة نهائية ولا يمكن تحديثها',
@@ -117,7 +119,9 @@ class WaseetStatusManager {
         throw new Error(`خطأ في تحديث قاعدة البيانات: ${error.message}`);
       }
 
-      // تم التحديث بصمت
+      console.log(`✅ تم تحديث حالة الطلب ${orderId} بنجاح`);
+      console.log(`   📊 حالة الطلب في قاعدة البيانات: ${statusText}`);
+      console.log(`   📋 ID الحالة: ${waseetStatusId}`);
 
       return {
         success: true,
@@ -190,6 +194,7 @@ class WaseetStatusManager {
   // مزامنة الحالات مع قاعدة البيانات
   async syncStatusesToDatabase() {
     try {
+      console.log('🔄 مزامنة حالات الوسيط مع قاعدة البيانات...');
 
       for (const status of this.approvedStatuses) {
         const { error } = await this.supabase
@@ -207,9 +212,11 @@ class WaseetStatusManager {
         }
       }
 
+      console.log('✅ تم مزامنة جميع الحالات بنجاح');
       return true;
 
     } catch (error) {
+      console.error('❌ خطأ في مزامنة الحالات:', error.message);
       return false;
     }
   }
@@ -259,7 +266,11 @@ class WaseetStatusManager {
     }
 
     const statusInfo = this.getStatusById(waseetStatusId);
-    // فحص صامت للحالة
+    if (statusInfo && waseetStatusText && statusInfo.text !== waseetStatusText) {
+      console.warn(`⚠️ تحذير: نص الحالة لا يطابق المتوقع`);
+      console.warn(`   المتوقع: ${statusInfo.text}`);
+      console.warn(`   المستلم: ${waseetStatusText}`);
+    }
 
     return {
       isValid: errors.length === 0,

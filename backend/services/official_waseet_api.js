@@ -1,452 +1,474 @@
-// ===================================
-// عميل API الوسيط الرسمي
-// Official Waseet API Client
-// ===================================
+const axios = require('axios');
+const FormData = require('form-data');
 
-const https = require('https');
-const { URLSearchParams } = require('url');
-
+/**
+ * خدمة API الوسيط الرسمية حسب التوثيق المحدث
+ * URL: https://api.alwaseet-iq.net/v1/merchant/login
+ * Method: POST
+ * Content-Type: multipart/form-data
+ */
 class OfficialWaseetAPI {
   constructor(username, password) {
-    // استخدام متغيرات البيئة إذا لم يتم تمرير البيانات
-    this.username = username || process.env.WASEET_USERNAME;
-    this.password = password || process.env.WASEET_PASSWORD;
-    this.baseURL = 'https://api.alwaseet-iq.net/v1/merchant';
+    this.username = username;
+    this.password = password;
+    this.baseUrl = 'https://api.alwaseet-iq.net';
     this.token = null;
-    this.tokenExpiresAt = null;
-
-    // التحقق من وجود بيانات المصادقة (تحذير فقط، لا نرمي خطأ)
-    if (!this.username || !this.password) {
-      console.warn('⚠️ بيانات المصادقة مع الوسيط غير موجودة: WASEET_USERNAME و WASEET_PASSWORD');
-      console.warn('💡 سيتم تخطي إرسال الطلبات للوسيط حتى يتم إضافة البيانات');
-      this.isConfigured = false;
-    } else {
-      this.isConfigured = true;
-      console.log('✅ تم العثور على بيانات المصادقة مع الوسيط');
-    }
+    this.tokenExpiry = null;
+    this.timeout = 30000;
   }
 
-  // تسجيل الدخول والحصول على Token
-  async login() {
+  /**
+   * تسجيل الدخول حسب API الرسمي
+   * POST /v1/merchant/login
+   * Content-Type: multipart/form-data
+   */
+  async authenticate() {
     try {
-      // التحقق من وجود بيانات المصادقة
-      if (!this.isConfigured) {
-        console.warn('⚠️ لا يمكن تسجيل الدخول - بيانات المصادقة غير موجودة');
-        return false;
+      // التحقق من صحة التوكن الحالي
+      if (this.isTokenValid()) {
+        console.log('✅ استخدام التوكن الحالي الصالح');
+        return this.token;
       }
 
-      console.log('🔐 تسجيل الدخول إلى API الوسيط الرسمي...');
+      console.log('🔐 تسجيل الدخول باستخدام API الرسمي...');
+      console.log(`👤 اسم المستخدم: ${this.username}`);
 
-      const formData = new URLSearchParams();
+      // إعداد البيانات حسب التوثيق الرسمي - multipart/form-data
+      const formData = new FormData();
       formData.append('username', this.username);
       formData.append('password', this.password);
-      
-      const response = await this.makeRequest('POST', '/login', formData.toString(), {
-        'Content-Type': 'application/x-www-form-urlencoded'
+
+      const loginUrl = `${this.baseUrl}/v1/merchant/login`;
+      console.log(`🔗 URL: ${loginUrl}`);
+
+      const response = await axios.post(loginUrl, formData, {
+        headers: {
+          ...formData.getHeaders(), // للحصول على Content-Type الصحيح
+          'User-Agent': 'Montajati-App/2.2.0'
+        },
+        timeout: this.timeout,
+        validateStatus: (status) => status < 500 // قبول حتى 4xx للتحقق
       });
 
-      if (response.data && response.data.status === true && response.data.data && response.data.data.token) {
-        this.token = response.data.data.token;
-        this.tokenExpiresAt = new Date(Date.now() + (24 * 60 * 60 * 1000)); // 24 ساعة
+      console.log(`📊 كود الاستجابة: ${response.status}`);
+      console.log(`📄 بيانات الاستجابة:`, response.data);
+
+      // معالجة الاستجابة حسب التوثيق الرسمي
+      if (response.status === 200 && response.data) {
+        const responseData = response.data;
         
-        console.log('✅ تم تسجيل الدخول بنجاح');
-        console.log(`🔑 Token: ${this.token.substring(0, 20)}...`);
-        
-        return true;
+        // التحقق من نجاح العملية حسب التوثيق
+        if (responseData.status === true && responseData.errNum === 'S000') {
+          // استخراج التوكن من البيانات
+          if (responseData.data && responseData.data.token) {
+            this.token = responseData.data.token;
+            this.tokenExpiry = Date.now() + (30 * 60 * 1000); // صالح لمدة 30 دقيقة
+            
+            console.log(`✅ تم تسجيل الدخول بنجاح!`);
+            console.log(`🎫 التوكن: ${this.token.substring(0, 20)}...`);
+            console.log(`📝 رسالة النجاح: ${responseData.msg}`);
+            
+            return this.token;
+          } else {
+            throw new Error('لم يتم العثور على التوكن في الاستجابة');
+          }
+        } else {
+          // معالجة الأخطاء حسب التوثيق
+          const errorCode = responseData.errNum || 'غير محدد';
+          const errorMessage = responseData.msg || 'خطأ غير معروف';
+          throw new Error(`فشل تسجيل الدخول - كود الخطأ: ${errorCode}, الرسالة: ${errorMessage}`);
+        }
       } else {
-        console.error('❌ فشل في تسجيل الدخول:', response.data);
-        return false;
+        throw new Error(`استجابة غير متوقعة من الخادم: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.error('❌ فشل تسجيل الدخول:', error.message);
+      
+      // طباعة تفاصيل الخطأ للتشخيص
+      if (error.response) {
+        console.error(`📊 كود الاستجابة: ${error.response.status}`);
+        console.error(`📄 بيانات الخطأ:`, error.response.data);
       }
       
-    } catch (error) {
-      console.error('❌ خطأ في تسجيل الدخول:', error.message);
-      return false;
+      throw new Error(`فشل في تسجيل الدخول: ${error.message}`);
     }
   }
 
-  // التحقق من صحة Token
+  /**
+   * التحقق من صحة التوكن
+   */
   isTokenValid() {
-    return this.token && this.tokenExpiresAt && new Date() < this.tokenExpiresAt;
+    return this.token && this.tokenExpiry && Date.now() < this.tokenExpiry;
   }
 
-  // تسجيل الدخول التلقائي إذا لزم الأمر
-  async ensureAuthenticated() {
-    if (!this.isTokenValid()) {
-      console.log('🔄 Token منتهي الصلاحية، إعادة تسجيل الدخول...');
-      return await this.login();
-    }
-    return true;
-  }
-
-  // جلب جميع حالات الطلبات
+  /**
+   * جلب حالات الطلبات من API الوسيط
+   * سأجرب عدة endpoints محتملة
+   */
   async getOrderStatuses() {
     try {
-      console.log('📊 جلب جميع حالات الطلبات من الوسيط...');
-      
-      if (!await this.ensureAuthenticated()) {
-        throw new Error('فشل في المصادقة');
-      }
+      // التأكد من تسجيل الدخول
+      const token = await this.authenticate();
 
-      const response = await this.makeRequest('GET', `/statuses?token=${this.token}`);
+      console.log('📊 جلب حالات الطلبات من الوسيط...');
+      console.log(`🎫 استخدام التوكن: ${token.substring(0, 20)}...`);
 
-      if (response.data && response.data.status === true && response.data.data) {
-        const statuses = response.data.data;
-        
-        console.log(`✅ تم جلب ${statuses.length} حالة من الوسيط`);
-        
-        console.log('\n📋 جميع حالات الطلبات في الوسيط:');
-        console.log('='.repeat(60));
-        
-        statuses.forEach((status, index) => {
-          console.log(`${index + 1}. ID: ${status.id} - "${status.status}"`);
-        });
-        
-        return statuses;
-      } else {
-        console.error('❌ فشل في جلب الحالات:', response.data);
-        return null;
-      }
-      
-    } catch (error) {
-      console.error('❌ خطأ في جلب حالات الطلبات:', error.message);
-      return null;
-    }
-  }
+      // قائمة endpoints محتملة لجلب الحالات
+      const possibleEndpoints = [
+        '/v1/merchant/orders',
+        '/v1/merchant/statuses',
+        '/v1/orders',
+        '/v1/statuses',
+        '/merchant/orders',
+        '/merchant/statuses',
+        '/orders',
+        '/statuses'
+      ];
 
-  // إنشاء طلب جديد
-  async createOrder(orderData) {
-    try {
-      // التحقق من وجود بيانات المصادقة
-      if (!this.isConfigured) {
-        console.warn('⚠️ لا يمكن إنشاء طلب - بيانات المصادقة مع الوسيط غير موجودة');
-        return {
-          success: false,
-          error: 'بيانات المصادقة مع الوسيط غير موجودة (WASEET_USERNAME, WASEET_PASSWORD)',
-          needsConfiguration: true
-        };
-      }
+      let lastError = null;
 
-      console.log('📦 إنشاء طلب جديد في الوسيط...');
-      console.log('📋 بيانات الطلب:', orderData);
+      for (const endpoint of possibleEndpoints) {
+        try {
+          const fullUrl = `${this.baseUrl}${endpoint}`;
+          console.log(`🔍 جرب endpoint: ${fullUrl}`);
 
-      if (!await this.ensureAuthenticated()) {
-        throw new Error('فشل في المصادقة');
-      }
-
-      // تحضير بيانات الطلب حسب التعليمات الرسمية من شركة الوسيط
-      const formData = new URLSearchParams();
-
-      // البيانات المطلوبة حسب التعليمات الرسمية
-      formData.append('client_name', orderData.clientName || orderData.client_name);
-      formData.append('client_mobile', orderData.clientMobile || orderData.client_mobile);
-
-      if (orderData.clientMobile2 || orderData.client_mobile2) {
-        formData.append('client_mobile2', orderData.clientMobile2 || orderData.client_mobile2);
-      }
-
-      formData.append('city_id', orderData.cityId || orderData.city_id);
-      formData.append('region_id', orderData.regionId || orderData.region_id);
-      formData.append('location', orderData.location);
-      formData.append('type_name', orderData.typeName || orderData.type_name);
-      formData.append('items_number', orderData.itemsNumber || orderData.items_number);
-      formData.append('price', orderData.price);
-      formData.append('package_size', orderData.packageSize || orderData.package_size);
-
-      if (orderData.merchantNotes || orderData.merchant_notes) {
-        formData.append('merchant_notes', orderData.merchantNotes || orderData.merchant_notes);
-      }
-
-      formData.append('replacement', orderData.replacement || 0);
-
-      // إرسال الطلب مع token في URL كما هو مطلوب
-      const response = await this.makeRequest('POST', `/create-order?token=${this.token}`, formData.toString(), {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      });
-
-      if (response.data && response.data.status === true && response.data.data) {
-        const orderResult = response.data.data;
-        console.log('✅ تم إنشاء الطلب بنجاح');
-        console.log(`🆔 QR ID: ${orderResult.qrId || orderResult.id}`);
-
-        return {
-          success: true,
-          qrId: orderResult.qrId || orderResult.id,
-          data: orderResult
-        };
-      } else {
-        console.error('❌ فشل في إنشاء الطلب:', response.data);
-        return {
-          success: false,
-          error: response.data?.message || 'فشل في إنشاء الطلب'
-        };
-      }
-
-    } catch (error) {
-      console.error('❌ خطأ في إنشاء الطلب:', error.message);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  // جلب حالة طلب محدد
-  async getOrderStatus(qrId) {
-    try {
-      console.log(`🔍 جلب حالة الطلب ${qrId}...`);
-
-      if (!await this.ensureAuthenticated()) {
-        throw new Error('فشل في المصادقة');
-      }
-
-      const formData = new URLSearchParams();
-      formData.append('qrId', qrId);
-
-      const response = await this.makeRequest('POST', `/get-order-status?token=${this.token}`, formData.toString(), {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      });
-
-      if (response.data && response.data.status === true && response.data.data) {
-        const orderStatus = response.data.data;
-        console.log(`✅ تم جلب حالة الطلب ${qrId}: ${orderStatus.status}`);
-
-        return {
-          success: true,
-          status: orderStatus.status,
-          localStatus: this.mapWaseetStatusToLocal(orderStatus.status),
-          data: orderStatus
-        };
-      } else {
-        console.error(`❌ فشل في جلب حالة الطلب ${qrId}:`, response.data);
-        return {
-          success: false,
-          error: response.data?.message || 'فشل في جلب حالة الطلب'
-        };
-      }
-
-    } catch (error) {
-      console.error(`❌ خطأ في جلب حالة الطلب ${qrId}:`, error.message);
-      return {
-        success: false,
-        error: error.message
-      };
-    }
-  }
-
-  // تحويل حالة الوسيط إلى حالة محلية
-  mapWaseetStatusToLocal(waseetStatus) {
-    const statusMap = {
-      'pending': 'in_delivery',
-      'picked_up': 'in_delivery',
-      'in_transit': 'in_delivery',
-      'delivered': 'delivered',
-      'returned': 'returned',
-      'cancelled': 'cancelled'
-    };
-
-    return statusMap[waseetStatus] || 'in_delivery';
-  }
-
-  // جلب جميع الطلبات
-  async getOrders() {
-    try {
-      console.log('📦 جلب جميع الطلبات من الوسيط...');
-      
-      if (!await this.ensureAuthenticated()) {
-        throw new Error('فشل في المصادقة');
-      }
-
-      const response = await this.makeRequest('GET', `/merchant-orders?token=${this.token}`);
-
-      if (response.data && response.data.status === true && response.data.data) {
-        const orders = response.data.data;
-        
-        console.log(`✅ تم جلب ${orders.length} طلب من الوسيط`);
-        
-        // استخراج الحالات من الطلبات
-        const statusesFromOrders = new Set();
-        orders.forEach(order => {
-          if (order.status) {
-            statusesFromOrders.add(order.status);
-          }
-        });
-        
-        if (statusesFromOrders.size > 0) {
-          console.log('\n📊 الحالات المستخدمة في الطلبات الفعلية:');
-          console.log('-'.repeat(50));
-          Array.from(statusesFromOrders).forEach((status, index) => {
-            console.log(`${index + 1}. "${status}"`);
+          // جرب مع التوكن في query parameter
+          const response = await axios.get(fullUrl, {
+            params: {
+              token: token
+            },
+            headers: {
+              'User-Agent': 'Montajati-App/2.2.0',
+              'Accept': 'application/json'
+            },
+            timeout: this.timeout,
+            validateStatus: (status) => status < 500
           });
-        }
-        
-        return orders;
-      } else {
-        console.error('❌ فشل في جلب الطلبات:', response.data);
-        return null;
-      }
-      
-    } catch (error) {
-      console.error('❌ خطأ في جلب الطلبات:', error.message);
-      return null;
-    }
-  }
 
-  // جلب المدن
-  async getCities() {
-    try {
-      if (!await this.ensureAuthenticated()) {
-        throw new Error('فشل في المصادقة');
-      }
+          console.log(`📊 استجابة ${endpoint}: ${response.status}`);
 
-      const response = await this.makeRequest('GET', `/citys?token=${this.token}`);
-      
-      if (response.data && response.data.status === true && response.data.data) {
-        console.log(`✅ تم جلب ${response.data.data.length} مدينة`);
-        return response.data.data;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('❌ خطأ في جلب المدن:', error.message);
-      return null;
-    }
-  }
+          if (response.status === 200 && response.data) {
+            console.log(`✅ نجح endpoint: ${endpoint}`);
+            console.log(`📄 بيانات الاستجابة:`, response.data);
 
-  // جلب أحجام الطرود
-  async getPackageSizes() {
-    try {
-      if (!await this.ensureAuthenticated()) {
-        throw new Error('فشل في المصادقة');
-      }
-
-      const response = await this.makeRequest('GET', `/package-sizes?token=${this.token}`);
-      
-      if (response.data && response.data.status === true && response.data.data) {
-        console.log(`✅ تم جلب ${response.data.data.length} حجم طرد`);
-        return response.data.data;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('❌ خطأ في جلب أحجام الطرود:', error.message);
-      return null;
-    }
-  }
-
-  // دالة مساعدة لإرسال الطلبات
-  makeRequest(method, path, data = null, extraHeaders = {}) {
-    return new Promise((resolve, reject) => {
-      const url = new URL(this.baseURL + path);
-      
-      const options = {
-        hostname: url.hostname,
-        port: url.port || 443,
-        path: url.pathname + url.search,
-        method: method,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Montajati-App/1.0',
-          ...extraHeaders
-        },
-        timeout: 30000
-      };
-
-      if (data && method !== 'GET') {
-        options.headers['Content-Length'] = Buffer.byteLength(data);
-      }
-
-      const req = https.request(options, (res) => {
-        let responseData = '';
-        
-        res.on('data', (chunk) => {
-          responseData += chunk;
-        });
-        
-        res.on('end', () => {
-          try {
-            const parsedData = responseData ? JSON.parse(responseData) : {};
-            resolve({
-              statusCode: res.statusCode,
-              headers: res.headers,
-              data: parsedData,
-              rawData: responseData
-            });
-          } catch (parseError) {
-            resolve({
-              statusCode: res.statusCode,
-              headers: res.headers,
-              data: null,
-              rawData: responseData,
-              parseError: parseError.message
-            });
+            return {
+              success: true,
+              endpoint: endpoint,
+              data: response.data,
+              total: Array.isArray(response.data) ? response.data.length :
+                     (response.data.data && Array.isArray(response.data.data)) ? response.data.data.length : 'غير محدد'
+            };
           }
-        });
-      });
 
-      req.on('error', (error) => {
-        reject(error);
-      });
+        } catch (error) {
+          console.log(`❌ فشل ${endpoint}: ${error.response?.status || error.message}`);
+          lastError = error;
 
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('Request timeout'));
-      });
+          // إذا كان 401 أو 403، قد يكون التوكن خاطئ
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            console.log('🔄 إعادة تعيين التوكن والمحاولة مرة أخرى...');
+            this.resetToken();
+            break; // اخرج من الحلقة وأعد المحاولة
+          }
 
-      if (data && method !== 'GET') {
-        req.write(data);
+          continue;
+        }
       }
-      
-      req.end();
-    });
+
+      // إذا فشلت جميع المحاولات، جرب مع التوكن في header
+      console.log('🔄 جرب مع التوكن في Authorization header...');
+
+      for (const endpoint of possibleEndpoints.slice(0, 4)) { // جرب أهم 4 endpoints فقط
+        try {
+          const fullUrl = `${this.baseUrl}${endpoint}`;
+          console.log(`🔍 جرب مع header: ${fullUrl}`);
+
+          const response = await axios.get(fullUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'User-Agent': 'Montajati-App/2.2.0',
+              'Accept': 'application/json'
+            },
+            timeout: this.timeout,
+            validateStatus: (status) => status < 500
+          });
+
+          console.log(`📊 استجابة ${endpoint} مع header: ${response.status}`);
+
+          if (response.status === 200 && response.data) {
+            console.log(`✅ نجح endpoint مع header: ${endpoint}`);
+            console.log(`📄 بيانات الاستجابة:`, response.data);
+
+            return {
+              success: true,
+              endpoint: endpoint,
+              method: 'header',
+              data: response.data,
+              total: Array.isArray(response.data) ? response.data.length :
+                     (response.data.data && Array.isArray(response.data.data)) ? response.data.data.length : 'غير محدد'
+            };
+          }
+
+        } catch (error) {
+          console.log(`❌ فشل ${endpoint} مع header: ${error.response?.status || error.message}`);
+          lastError = error;
+          continue;
+        }
+      }
+
+      // إذا فشل كل شيء
+      throw new Error(`فشل في جلب الحالات من جميع endpoints. آخر خطأ: ${lastError?.message}`);
+
+    } catch (error) {
+      console.error('❌ فشل جلب حالات الطلبات:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        details: error.response?.data || null
+      };
+    }
   }
 
-  // تحليل شامل لجميع البيانات
-  async getCompleteAnalysis() {
+  /**
+   * جلب حالة طلب محدد من الوسيط
+   */
+  async getOrderStatus(waseetOrderId) {
     try {
-      console.log('🔍 بدء التحليل الشامل لـ API الوسيط...\n');
-      
-      const results = {
-        statuses: null,
-        orders: null,
-        cities: null,
-        packageSizes: null,
-        summary: {}
-      };
+      // التأكد من تسجيل الدخول
+      const token = await this.authenticate();
 
-      // 1. جلب الحالات
-      results.statuses = await this.getOrderStatuses();
-      
-      // 2. جلب الطلبات
-      results.orders = await this.getOrders();
-      
-      // 3. جلب المدن
-      results.cities = await this.getCities();
-      
-      // 4. جلب أحجام الطرود
-      results.packageSizes = await this.getPackageSizes();
+      console.log(`🔍 جلب حالة الطلب ${waseetOrderId}...`);
 
-      // 5. إنشاء ملخص
-      results.summary = {
-        totalStatuses: results.statuses ? results.statuses.length : 0,
-        totalOrders: results.orders ? results.orders.length : 0,
-        totalCities: results.cities ? results.cities.length : 0,
-        totalPackageSizes: results.packageSizes ? results.packageSizes.length : 0,
-        timestamp: new Date().toISOString()
-      };
+      // قائمة endpoints محتملة لجلب حالة طلب محدد
+      const possibleEndpoints = [
+        `/v1/merchant/order/${waseetOrderId}`,
+        `/v1/merchant/orders/${waseetOrderId}`,
+        `/v1/order/${waseetOrderId}`,
+        `/v1/orders/${waseetOrderId}`,
+        `/merchant/order/${waseetOrderId}`,
+        `/merchant/orders/${waseetOrderId}`
+      ];
 
-      console.log('\n📊 ملخص التحليل الشامل:');
-      console.log('='.repeat(50));
-      console.log(`📋 إجمالي الحالات: ${results.summary.totalStatuses}`);
-      console.log(`📦 إجمالي الطلبات: ${results.summary.totalOrders}`);
-      console.log(`🏙️ إجمالي المدن: ${results.summary.totalCities}`);
-      console.log(`📏 إجمالي أحجام الطرود: ${results.summary.totalPackageSizes}`);
+      let lastError = null;
 
-      return results;
-      
+      for (const endpoint of possibleEndpoints) {
+        try {
+          const fullUrl = `${this.baseUrl}${endpoint}`;
+          console.log(`🔍 جرب endpoint: ${fullUrl}`);
+
+          // جرب مع التوكن في query parameter
+          const response = await axios.get(fullUrl, {
+            params: {
+              token: token
+            },
+            headers: {
+              'User-Agent': 'Montajati-App/2.2.0',
+              'Accept': 'application/json'
+            },
+            timeout: this.timeout,
+            validateStatus: (status) => status < 500
+          });
+
+          console.log(`📊 استجابة ${endpoint}: ${response.status}`);
+
+          if (response.status === 200 && response.data) {
+            console.log(`✅ نجح endpoint: ${endpoint}`);
+            console.log(`📄 بيانات الطلب:`, response.data);
+
+            return {
+              success: true,
+              endpoint: endpoint,
+              data: response.data
+            };
+          }
+
+        } catch (error) {
+          console.log(`❌ فشل ${endpoint}: ${error.response?.status || error.message}`);
+          lastError = error;
+          continue;
+        }
+      }
+
+      // إذا فشلت جميع المحاولات، جرب مع التوكن في header
+      console.log('🔄 جرب مع التوكن في Authorization header...');
+
+      for (const endpoint of possibleEndpoints.slice(0, 3)) { // جرب أهم 3 endpoints فقط
+        try {
+          const fullUrl = `${this.baseUrl}${endpoint}`;
+          console.log(`🔍 جرب مع header: ${fullUrl}`);
+
+          const response = await axios.get(fullUrl, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'User-Agent': 'Montajati-App/2.2.0',
+              'Accept': 'application/json'
+            },
+            timeout: this.timeout,
+            validateStatus: (status) => status < 500
+          });
+
+          console.log(`📊 استجابة ${endpoint} مع header: ${response.status}`);
+
+          if (response.status === 200 && response.data) {
+            console.log(`✅ نجح endpoint مع header: ${endpoint}`);
+            console.log(`📄 بيانات الطلب:`, response.data);
+
+            return {
+              success: true,
+              endpoint: endpoint,
+              method: 'header',
+              data: response.data
+            };
+          }
+
+        } catch (error) {
+          console.log(`❌ فشل ${endpoint} مع header: ${error.response?.status || error.message}`);
+          lastError = error;
+          continue;
+        }
+      }
+
+      // إذا فشل كل شيء
+      throw new Error(`فشل في جلب حالة الطلب ${waseetOrderId}. آخر خطأ: ${lastError?.message}`);
+
     } catch (error) {
-      console.error('❌ خطأ في التحليل الشامل:', error.message);
-      return null;
+      console.error(`❌ فشل جلب حالة الطلب ${waseetOrderId}:`, error.message);
+      return {
+        success: false,
+        error: error.message,
+        details: error.response?.data || null
+      };
     }
+  }
+
+  /**
+   * جلب جميع طلبات التاجر (API الرسمي)
+   */
+  async getAllMerchantOrders() {
+    try {
+      // التأكد من تسجيل الدخول
+      const token = await this.authenticate();
+
+      console.log('📊 جلب جميع طلبات التاجر من API الرسمي...');
+
+      const response = await axios.get(`${this.baseUrl}/v1/merchant/merchant-orders`, {
+        params: {
+          token: token
+        },
+        headers: {
+          'User-Agent': 'Montajati-App/2.2.0',
+          'Accept': 'application/json'
+        },
+        timeout: this.timeout,
+        validateStatus: (status) => status < 500
+      });
+
+      console.log(`📊 استجابة جلب الطلبات: ${response.status}`);
+
+      if (response.status === 200 && response.data) {
+        const responseData = response.data;
+
+        if (responseData.status === true && responseData.errNum === 'S000') {
+          const orders = responseData.data || [];
+          console.log(`✅ تم جلب ${orders.length} طلب بنجاح`);
+
+          return {
+            success: true,
+            orders: orders,
+            total: orders.length
+          };
+        } else {
+          throw new Error(`فشل API: ${responseData.errNum} - ${responseData.msg}`);
+        }
+      } else {
+        throw new Error(`استجابة غير متوقعة: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.error('❌ فشل جلب طلبات التاجر:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  /**
+   * جلب طلبات محددة بالـ IDs (API الرسمي)
+   */
+  async getOrdersByIds(orderIds) {
+    try {
+      // التأكد من تسجيل الدخول
+      const token = await this.authenticate();
+
+      if (!Array.isArray(orderIds) || orderIds.length === 0) {
+        throw new Error('يجب تمرير مصفوفة من IDs الطلبات');
+      }
+
+      // حد أقصى 25 طلب حسب التوثيق
+      const limitedIds = orderIds.slice(0, 25);
+      const idsString = limitedIds.join(',');
+
+      console.log(`📊 جلب ${limitedIds.length} طلب محدد من API الرسمي...`);
+
+      const FormData = require('form-data');
+      const formData = new FormData();
+      formData.append('ids', idsString);
+
+      const response = await axios.post(`${this.baseUrl}/v1/merchant/get-orders-by-ids-bulk`, formData, {
+        params: {
+          token: token
+        },
+        headers: {
+          ...formData.getHeaders(),
+          'User-Agent': 'Montajati-App/2.2.0',
+          'Accept': 'application/json'
+        },
+        timeout: this.timeout,
+        validateStatus: (status) => status < 500
+      });
+
+      console.log(`📊 استجابة جلب الطلبات المحددة: ${response.status}`);
+
+      if (response.status === 200 && response.data) {
+        const responseData = response.data;
+
+        if (responseData.status === true && responseData.errNum === 'S000') {
+          const orders = responseData.data || [];
+          console.log(`✅ تم جلب ${orders.length} طلب محدد بنجاح`);
+
+          return {
+            success: true,
+            orders: orders,
+            total: orders.length,
+            requestedIds: limitedIds
+          };
+        } else {
+          throw new Error(`فشل API: ${responseData.errNum} - ${responseData.msg}`);
+        }
+      } else {
+        throw new Error(`استجابة غير متوقعة: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.error('❌ فشل جلب الطلبات المحددة:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  /**
+   * إعادة تعيين التوكن
+   */
+  resetToken() {
+    this.token = null;
+    this.tokenExpiry = null;
+    console.log('🔄 تم إعادة تعيين التوكن');
   }
 }
 

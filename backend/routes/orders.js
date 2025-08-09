@@ -16,6 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // ===================================
 router.get('/debug-waseet', async (req, res) => {
   try {
+    console.log('🔍 فحص مفصل لحالة الوسيط...');
 
     const debugInfo = {
       timestamp: new Date().toISOString(),
@@ -48,7 +49,7 @@ router.get('/debug-waseet', async (req, res) => {
       };
     }
 
-    // معلومات التشخيص محفوظة
+    console.log('📋 معلومات التشخيص:', JSON.stringify(debugInfo, null, 2));
 
     res.json({
       success: true,
@@ -166,8 +167,11 @@ router.post('/run-integrated-sync', async (req, res) => {
   try {
     const waseetSync = require('../services/integrated_waseet_sync');
 
+    console.log('🔄 تنفيذ مزامنة فورية مع النظام المدمج...');
+
     // تأكد من أن النظام يعمل
     if (!waseetSync.isRunning) {
+      console.log('🚀 بدء النظام المدمج...');
       await waseetSync.start();
     }
 
@@ -659,7 +663,7 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // تم إنشاء الطلب بصمت
+    console.log(`✅ تم إنشاء طلب جديد: ${data.id}`);
 
     res.status(201).json({
       success: true,

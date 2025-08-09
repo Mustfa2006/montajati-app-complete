@@ -1,7 +1,7 @@
 import java.util.Properties
 import java.io.FileInputStream
 
-// إعدادات Kotlin محسنة للسرعة
+// إعدادات Kotlin محسنة لتجنب مشاكل daemon
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
         jvmTarget = "1.8"
@@ -11,6 +11,8 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
             "-Xno-receiver-assertions"
         )
     }
+    // تعطيل incremental compilation
+    incremental = false
 }
 
 plugins {
@@ -48,8 +50,8 @@ android {
         applicationId = "com.montajati.app"
         minSdk = 21 // Android 5.0 كحد أدنى للإنتاج
         targetSdk = 35 // Android 15 - مطلوب للمكونات الإضافية
-        versionCode = 16
-        versionName = "3.8.0"
+        versionCode = 8
+        versionName = "2.2.0"
 
         // إعدادات التطبيق للإنتاج
         resValue("string", "app_name", "منتجاتي")
@@ -59,8 +61,10 @@ android {
         multiDexEnabled = true
         vectorDrawables.useSupportLibrary = true
 
-        // إعدادات Architecture - سيتم التحكم بها عبر splits
-        // ndk abiFilters محذوف لتجنب التضارب مع splits
+        // إعدادات Architecture - دعم جميع المعماريات للتطوير والاختبار
+        ndk {
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+        }
     }
 
     // إعدادات التوقيع
@@ -108,8 +112,15 @@ android {
         }
     }
 
-    // تعطيل splits لتسريع البناء - سنبني APK واحد شامل
-    // splits معطل مؤقتاً لتسريع البناء
+    // إعدادات Splits لتحسين حجم APK - دعم جميع المعماريات
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true // إنشاء APK شامل يدعم جميع المعماريات
+        }
+    }
 }
 
 flutter {

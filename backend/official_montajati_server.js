@@ -130,7 +130,7 @@ class OfficialMontajatiServer {
       const url = req.originalUrl;
       const ip = req.ip || req.connection.remoteAddress;
       
-      // تسجيل صامت للطلبات
+      console.log(`📡 ${timestamp} - ${method} ${url} - ${ip}`);
       
       // إضافة معرف فريد للطلب
       req.requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -316,18 +316,18 @@ class OfficialMontajatiServer {
     try {
       const fcmRoutes = require('./routes/fcm_tokens');
       this.app.use('/api/fcm', fcmRoutes);
-      // تحميل صامت
+      console.log('✅ تم تحميل مسارات FCM');
     } catch (error) {
-      // تحميل صامت
+      console.warn('⚠️ تحذير في تحميل مسارات FCM:', error.message);
     }
 
     // مسارات الإشعارات
     try {
       const notificationRoutes = require('./routes/notifications');
       this.app.use('/api/notifications', notificationRoutes);
-      // تحميل صامت
+      console.log('✅ تم تحميل مسارات الإشعارات');
     } catch (error) {
-      // تحميل صامت
+      console.warn('⚠️ تحذير في تحميل مسارات الإشعارات:', error.message);
     }
 
     // مسارات الطلبات
@@ -387,7 +387,7 @@ class OfficialMontajatiServer {
     // مسارات مراقبة المخزون
     this.setupInventoryRoutes();
 
-    // تم تحميل المسارات
+    console.log('✅ انتهى تحميل جميع المسارات');
 
     // معالج 404 للمسارات غير الموجودة
     this.app.use('*', (req, res) => {
@@ -548,7 +548,9 @@ class OfficialMontajatiServer {
   // ===================================
   async initialize() {
     try {
-      // تهيئة صامتة للخادم
+      console.log('🚀 تهيئة الخادم الرسمي لنظام منتجاتي...');
+      console.log(`📊 البيئة: ${this.environment}`);
+      console.log(`🌐 المنفذ: ${this.port}`);
 
       // تهيئة الخدمات الأساسية
       await this.notificationManager.initialize();
@@ -621,7 +623,8 @@ class OfficialMontajatiServer {
         this.state.isRunning = true;
         this.state.startedAt = new Date();
 
-        // الخادم يعمل بصمت
+        console.log('🎉 الخادم الرسمي لنظام منتجاتي يعمل بنجاح!');
+        console.log(`🌐 الرابط: https://clownfish-app-krnk9.ondigitalocean.app`);
 
         // بدء المراقبة الدورية للمخزون
         this.startInventoryMonitoring();
@@ -729,8 +732,36 @@ class OfficialMontajatiServer {
   // ===================================
   // تسجيل الأخطاء
   // ===================================
-  async logError() {
-    // تسجيل صامت للأخطاء
+  async logError(error, req = null, service = 'server') {
+    try {
+      const errorLog = {
+        timestamp: new Date().toISOString(),
+        service: service,
+        error: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        },
+        request: req ? {
+          id: req.requestId,
+          method: req.method,
+          url: req.originalUrl,
+          ip: req.ip,
+          userAgent: req.get('User-Agent'),
+        } : null,
+        system: {
+          uptime: process.uptime(),
+          memory: process.memoryUsage(),
+          platform: process.platform,
+        }
+      };
+
+      // يمكن إضافة تسجيل في قاعدة البيانات هنا
+      console.error('📝 تسجيل خطأ:', errorLog);
+
+    } catch (logError) {
+      console.error('❌ خطأ في تسجيل الخطأ:', logError);
+    }
   }
 
   // ===================================

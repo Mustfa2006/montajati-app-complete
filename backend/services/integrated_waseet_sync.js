@@ -68,6 +68,7 @@ class IntegratedWaseetSync {
       // اختبار الاتصال
       const testResult = await this.testConnection();
       if (!testResult.success) {
+        console.error('❌ فشل اختبار الاتصال:', testResult.error);
         // إعادة المحاولة بعد دقيقة
         setTimeout(() => this.start(), 60000);
         return { success: false, error: testResult.error };
@@ -95,9 +96,13 @@ class IntegratedWaseetSync {
 
       scheduleNext();
 
-      return { success: true, message: 'تم بدء النظام بنجاح', nextRunAt: this.nextRunAt };
+      const intervalMinutes = this.syncInterval / (60 * 1000);
+      console.log(`✅ نظام المزامنة يعمل - كل ${intervalMinutes} دقيقة (timeout-loop)`);
 
+      return { success: true, message: 'تم بدء النظام بنجاح', nextRunAt: this.nextRunAt };
+      
     } catch (error) {
+      console.error('❌ فشل بدء النظام:', error.message);
       this.stats.lastError = error.message;
       
       // إعادة المحاولة بعد دقيقة
@@ -120,6 +125,7 @@ class IntegratedWaseetSync {
       this.syncTimeoutId = null;
     }
     this.isRunning = false;
+    console.log('⏹️ تم إيقاف نظام المزامنة');
     return { success: true };
   }
 
@@ -211,11 +217,21 @@ class IntegratedWaseetSync {
         const appStatus = this.mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
 
         // التحقق من وجود تغيير حقيقي يؤثر على ما يظهر في التطبيق
+        console.log(`🔍 فحص الطلب ${dbOrder.id}:`);
+        console.log(`   📊 قاعدة البيانات - waseet_status_id: ${dbOrder.waseet_status_id}, waseet_status_text: "${dbOrder.waseet_status_text}", status: "${dbOrder.status}"`);
+        console.log(`   📊 الوسيط - waseet_status_id: ${waseetStatusId}, waseet_status_text: "${waseetStatusText}", appStatus: "${appStatus}"`);
+        console.log(`   🔍 مقارنة - status_id: ${dbOrder.waseet_status_id === waseetStatusId}, status_text: ${dbOrder.waseet_status_text === waseetStatusText}, status: ${dbOrder.status === appStatus}`);
+
         if (dbOrder.waseet_status_id === waseetStatusId &&
             dbOrder.waseet_status_text === waseetStatusText &&
             dbOrder.status === appStatus) {
+          console.log(`   ⏭️ تخطي الطلب ${dbOrder.id} - لا يوجد تغيير`);
           continue;
         }
+
+        console.log(`🔄 تحديث الطلب ${dbOrder.id}:`);
+        console.log(`   الحالة من الوسيط: "${waseetStatusText}" (ID=${waseetStatusId})`);
+        console.log(`   الحالة بعد التحويل: "${appStatus}"`);
 
         // تحديث الطلب بالحالة المعيارية + حفظ حالة الوسيط كما هي
         const { error: updateError } = await this.supabase
@@ -233,17 +249,25 @@ class IntegratedWaseetSync {
 
         if (!updateError) {
           updatedCount++;
+          console.log(`✅ تم تحديث الطلب ${dbOrder.id} بنجاح: ${waseetStatusText} → ${appStatus}`);
 
           // إرسال إشعار للمستخدم عند تغيير الحالة
           await this.sendStatusChangeNotification(dbOrder, appStatus, waseetStatusText);
+        } else {
+          console.error(`❌ فشل تحديث الطلب ${dbOrder.id}:`, updateError);
         }
       }
 
       this.stats.successfulSyncs++;
       this.stats.ordersUpdated += updatedCount;
       this.lastSyncTime = new Date();
-
+      
+      if (updatedCount > 0) {
+        console.log(`✅ تم تحديث ${updatedCount} طلب`);
+      }
+      
     } catch (error) {
+      console.error('❌ فشل المزامنة:', error.message);
       this.stats.failedSyncs++;
       this.stats.lastError = error.message;
     } finally {

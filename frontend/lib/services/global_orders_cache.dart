@@ -40,14 +40,20 @@ class GlobalOrdersCache extends ChangeNotifier {
   /// 🚀 تهيئة الكاش - يتم استدعاؤها مرة واحدة عند بدء التطبيق
   Future<void> initialize() async {
     if (_isInitialized) {
+      debugPrint('⚡ GlobalOrdersCache مهيأ بالفعل - عرض فوري');
       return;
     }
+
+    debugPrint('🚀 تهيئة GlobalOrdersCache...');
     
     try {
       // تحميل البيانات مرة واحدة فقط
       await _loadAllData();
       
       _isInitialized = true;
+      debugPrint('✅ تم تهيئة GlobalOrdersCache بنجاح');
+      debugPrint('📊 الطلبات العادية: ${_orders.length}');
+      debugPrint('📅 الطلبات المجدولة: ${_scheduledOrders.length}');
       
       // إشعار المستمعين
       notifyListeners();
@@ -55,22 +61,25 @@ class GlobalOrdersCache extends ChangeNotifier {
       _scheduledOrdersStreamController.add(_scheduledOrders);
       
     } catch (e) {
-      // تهيئة صامتة
+      debugPrint('❌ خطأ في تهيئة GlobalOrdersCache: $e');
     }
   }
 
   /// 🔄 تحديث البيانات في الخلفية
   Future<void> updateInBackground() async {
     if (_isUpdating) {
+      debugPrint('⚠️ التحديث جاري بالفعل - تجاهل الطلب');
       return;
     }
 
     _isUpdating = true;
+    debugPrint('🔄 تحديث البيانات في الخلفية...');
     
     try {
       await _loadAllData();
       
       _lastUpdate = DateTime.now();
+      debugPrint('✅ تم تحديث البيانات في الخلفية');
       
       // إشعار المستمعين بالتحديث
       notifyListeners();
@@ -78,7 +87,7 @@ class GlobalOrdersCache extends ChangeNotifier {
       _scheduledOrdersStreamController.add(_scheduledOrders);
       
     } catch (e) {
-      // تحديث صامت
+      debugPrint('❌ خطأ في تحديث البيانات: $e');
     } finally {
       _isUpdating = false;
     }
@@ -100,6 +109,7 @@ class GlobalOrdersCache extends ChangeNotifier {
       await scheduledService.loadScheduledOrders(userPhone: currentUserPhone);
       _scheduledOrders = List.from(scheduledService.scheduledOrders);
     } catch (e) {
+      debugPrint('❌ خطأ في تحميل البيانات: $e');
       // في حالة الخطأ، نحتفظ بالبيانات الحالية
       _orders = _orders.isEmpty ? [] : _orders;
       _scheduledOrders = _scheduledOrders.isEmpty ? [] : _scheduledOrders;
@@ -144,6 +154,7 @@ class GlobalOrdersCache extends ChangeNotifier {
 
   /// 🔄 فرض التحديث
   Future<void> forceRefresh() async {
+    debugPrint('🔄 فرض تحديث GlobalOrdersCache...');
     _isInitialized = false;
     await initialize();
   }

@@ -161,7 +161,7 @@ class SmartFCMRefreshService {
         .rpc('get_fcm_tokens_stats');
 
       if (error) {
-        // فشل صامت
+        console.warn('⚠️ فشل في جلب إحصائيات FCM Tokens:', error.message);
         return;
       }
 
@@ -175,10 +175,10 @@ class SmartFCMRefreshService {
           created_at: new Date().toISOString()
         });
 
-      // تم حفظ الإحصائيات بصمت
+      console.log(`📊 تم حفظ إحصائيات FCM Tokens: ${stats.active_tokens} نشط من ${stats.total_tokens} إجمالي`);
 
     } catch (error) {
-      // فشل صامت
+      console.warn('⚠️ فشل في تحديث إحصائيات FCM Tokens:', error.message);
     }
   }
 

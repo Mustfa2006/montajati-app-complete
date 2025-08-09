@@ -256,8 +256,12 @@ class OrderStatusHelper {
     return getAvailableStatuses().contains(getArabicStatus(status));
   }
 
-  /// تشخيص صامت للحالة
+  /// طباعة معلومات التشخيص (للتطوير فقط)
   static void debugStatus(String? databaseStatus) {
-    // تشخيص صامت
+    debugPrint('🔍 تشخيص الحالة:');
+    debugPrint('📋 قيمة قاعدة البيانات: "$databaseStatus"');
+    debugPrint('📋 النص العربي: "${getArabicStatus(databaseStatus)}"');
+    debugPrint('📋 اللون: ${getStatusColor(databaseStatus)}');
+    debugPrint('📋 الأيقونة: ${getStatusIcon(databaseStatus)}');
   }
 }

@@ -26,7 +26,7 @@ class LazyLoadingService {
   /// تحميل صفحة محددة
   static Future<void> _loadPage(String pageName) async {
     try {
-      // تحميل صفحة: $pageName
+      debugPrint('🔄 تحميل صفحة: $pageName');
 
       switch (pageName) {
         case 'products':
@@ -48,15 +48,15 @@ class LazyLoadingService {
           await _loadSettingsPage();
           break;
         default:
-          // صفحة غير معروفة: $pageName
+          debugPrint('⚠️ صفحة غير معروفة: $pageName');
       }
 
       _loadedPages[pageName] = true;
       _loadingFutures.remove(pageName);
-      // تم تحميل صفحة: $pageName
+      debugPrint('✅ تم تحميل صفحة: $pageName');
 
     } catch (e) {
-      // خطأ في تحميل صفحة $pageName: $e
+      debugPrint('❌ خطأ في تحميل صفحة $pageName: $e');
       _loadingFutures.remove(pageName);
     }
   }
@@ -65,14 +65,14 @@ class LazyLoadingService {
   static Future<void> _loadProductsPage() async {
     // تحميل بيانات المنتجات فقط عند الحاجة
     await Future.delayed(const Duration(milliseconds: 100));
-    // تم تحميل بيانات المنتجات
+    debugPrint('📦 تم تحميل بيانات المنتجات');
   }
 
   /// تحميل صفحة الطلبات
   static Future<void> _loadOrdersPage() async {
     // تحميل بيانات الطلبات وتهيئة المزامنة
     await Future.delayed(const Duration(milliseconds: 200));
-    // تم تحميل بيانات الطلبات
+    debugPrint('📋 تم تحميل بيانات الطلبات');
   }
 
   /// تحميل صفحة الأرباح

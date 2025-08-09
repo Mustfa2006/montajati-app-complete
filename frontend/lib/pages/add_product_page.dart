@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/admin_service.dart';
 import '../services/image_upload_service.dart';
-// خدمات الاختبار تم حذفها لتحسين الأداء
+import '../services/storage_test_service.dart';
+import '../services/supabase_test_service.dart';
+import '../services/image_upload_test_service.dart';
 
 class AddProductPage extends StatefulWidget {
   const AddProductPage({super.key});
@@ -503,6 +505,33 @@ class _AddProductPageState extends State<AddProductPage>
                   ),
                 ),
                 const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _testStorage,
+                  child: Container(
+                    width: 100,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.orange,
+                        width: 2,
+                        style: BorderStyle.solid,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.orange.withValues(alpha: 0.05),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'اختبار Storage',
+                        style: GoogleFonts.cairo(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
@@ -1397,7 +1426,36 @@ class _AddProductPageState extends State<AddProductPage>
   }
 
   // اختبار Storage
-  // تم حذف دالة اختبار Storage لتحسين الأداء
+  Future<void> _testStorage() async {
+    _showSuccessSnackBar('جاري اختبار Storage...');
+
+    try {
+      // تشغيل اختبار شامل
+      final results = await StorageTestService.runCompleteTest();
+
+      // طباعة التقرير المفصل
+      StorageTestService.printDetailedReport(results);
+
+      // عرض النتيجة للمستخدم
+      final allWorking =
+          results['bucket_exists'] &&
+          results['can_list_files'] &&
+          results['can_upload'] &&
+          results['can_download'] &&
+          results['can_delete'];
+
+      if (allWorking) {
+        _showSuccessSnackBar('✅ جميع اختبارات Storage نجحت!');
+      } else {
+        final errors = results['errors'] as List<String>;
+        _showErrorSnackBar(
+          '❌ بعض اختبارات Storage فشلت:\n${errors.join('\n')}',
+        );
+      }
+    } catch (e) {
+      _showErrorSnackBar('خطأ في اختبار Storage: $e');
+    }
+  }
 
   // بناء معاينة الصورة
   Widget _buildImagePreviewWidget(XFile image) {
@@ -1547,38 +1605,124 @@ class _AddProductPageState extends State<AddProductPage>
     });
 
     try {
+      // 🔍 اختبار Supabase شامل
+      debugPrint('🔍 بدء اختبار Supabase الشامل...');
+      final supabaseResults = await SupabaseTestService.runCompleteTest();
+      SupabaseTestService.printDetailedReport(supabaseResults);
+
+      // التحقق من جميع المتطلبات
+      if (!supabaseResults['connection']) {
+        _showErrorSnackBar(
+          '❌ فشل في الاتصال بـ Supabase!\nتحقق من الإنترنت والإعدادات',
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (!supabaseResults['storage']) {
+        _showErrorSnackBar(
+          '❌ فشل في الاتصال بـ Storage!\nتحقق من صلاحيات Supabase',
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (!supabaseResults['bucket_exists']) {
+        debugPrint('⚠️ Bucket غير موجود، محاولة إنشاؤه...');
+        final created = await SupabaseTestService.createBucketIfNeeded();
+        if (!created) {
+          // بدلاً من إيقاف العملية، سنحاول المتابعة مع تحذير
+          _showErrorSnackBar(
+            '⚠️ تحذير: مشكلة في bucket الصور!\nسيتم المحاولة مع الإعدادات الحالية...',
+          );
+
+          // انتظار قصير ثم المتابعة
+          await Future.delayed(const Duration(seconds: 2));
+        } else {
+          // إعادة اختبار بعد إنشاء bucket
+          debugPrint('🔄 إعادة اختبار بعد إنشاء bucket...');
+          final retestResults = await SupabaseTestService.runCompleteTest();
+          if (!retestResults['bucket_permissions'] ||
+              !retestResults['upload_test']) {
+            _showErrorSnackBar(
+              '⚠️ تحذير: مشكلة في صلاحيات bucket!\nسيتم المحاولة مع الإعدادات الحالية...',
+            );
+            await Future.delayed(const Duration(seconds: 2));
+          }
+        }
+      }
+
+      if (!supabaseResults['bucket_permissions']) {
+        _showErrorSnackBar(
+          '❌ لا توجد صلاحيات لقراءة bucket!\nتحقق من RLS policies في Supabase',
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      if (!supabaseResults['upload_test']) {
+        _showErrorSnackBar(
+          '❌ فشل في اختبار رفع الملفات!\nتحقق من صلاحيات الرفع في Supabase',
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      debugPrint('✅ جميع اختبارات Supabase نجحت - يمكن المتابعة');
+
       _showSuccessSnackBar('جاري رفع الصور...');
+
+      // طباعة ترتيب الصور قبل الرفع
+      debugPrint('📋 ترتيب الصور قبل الرفع:');
+      for (int i = 0; i < _selectedImages.length; i++) {
+        debugPrint('  ${i + 1}. ${_selectedImages[i].name} ${i == 0 ? '(رئيسية)' : ''}');
+      }
 
       // رفع الصورة الأولى (الرئيسية)
       String? imageUrl;
 
       // التحقق من نوع الصورة
       if (_selectedImages.first.path.startsWith('http')) {
-        // صورة من رابط - استخدمها مباشرة
+        // صورة تجريبية من رابط - استخدمها مباشرة
         imageUrl = _selectedImages.first.path;
+        _showSuccessSnackBar('تم استخدام الصورة التجريبية! ✅');
       } else {
-        // صورة محلية - ارفعها
+        // صورة محلية - ارفعها مع اختبار مفصل
         _showSuccessSnackBar('جاري رفع الصورة الرئيسية...');
 
-        final uploadResult = await ImageUploadService.uploadSingleImage(
+        debugPrint('🔄 بدء رفع الصورة الرئيسية: ${_selectedImages.first.name}');
+
+        // اختبار رفع الصورة الحقيقية
+        final uploadResult = await ImageUploadTestService.testRealImageUpload(
           _selectedImages.first,
         );
 
-        if (uploadResult == null) {
+        ImageUploadTestService.printTestReport(uploadResult);
+
+        if (!uploadResult['success']) {
+          debugPrint('❌ فشل في رفع الصورة الرئيسية');
           _showErrorSnackBar(
             'فشل في رفع الصورة الرئيسية!\n\n'
+            'السبب: ${uploadResult['error']}\n\n'
             'تحقق من:\n'
             '• حجم الصورة (أقل من 50MB)\n'
             '• نوع الصورة (JPG, PNG, GIF, WEBP)\n'
-            '• اتصالك بالإنترنت',
+            '• اتصالك بالإنترنت\n'
+            '• صلاحيات Supabase Storage',
           );
-          setState(() {
-            _isLoading = false;
-          });
           return;
         }
 
-        imageUrl = uploadResult;
+        imageUrl = uploadResult['url'];
+        debugPrint('✅ تم رفع الصورة الرئيسية: $imageUrl');
         _showSuccessSnackBar('تم رفع الصورة الرئيسية بنجاح! ✅');
       }
 
@@ -1642,8 +1786,8 @@ class _AddProductPageState extends State<AddProductPage>
         wholesalePrice: wholesalePrice,
         minPrice: minPrice,
         maxPrice: maxPrice,
-        imageUrl: imageUrl.isNotEmpty
-            ? imageUrl
+        imageUrl: (imageUrl?.isNotEmpty == true)
+            ? imageUrl!
             : 'https://via.placeholder.com/400x300/1a1a2e/ffd700?text=منتج+جديد',
         category: _selectedCategory.isEmpty ? 'عام' : _selectedCategory,
         availableQuantity: stockQuantity,
