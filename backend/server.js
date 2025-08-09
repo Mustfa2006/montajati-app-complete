@@ -138,11 +138,9 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // خدمة الملفات الثابتة من مجلد downloads
 const path = require('path');
 app.use('/downloads', express.static(path.join(__dirname, 'downloads')));
-console.log('✅ تم إعداد خدمة الملفات الثابتة من مجلد downloads');
-console.log('📁 مسار مجلد downloads:', path.join(__dirname, 'downloads'));
+// تم إعداد خدمة الملفات الثابتة
 
-// تحقق من اتصال Supabase
-console.log('✅ تم إعداد Supabase بنجاح');
+// تم إعداد Supabase
 
 
 
@@ -718,15 +716,7 @@ app.put('/api/web/orders/:orderId/status', async (req, res) => {
 // تشغيل الخادم
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, '0.0.0.0', async () => {
-  console.log(`🚀 الخادم يعمل على المنفذ ${PORT}`);
-  console.log(`🌐 البيئة: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🕐 وقت البدء: ${new Date().toISOString()}`);
-  console.log(`🔧 إصدار التشخيص الشامل: v2.1 - ${new Date().toISOString()}`);
-  if (process.env.NODE_ENV === 'production') {
-    console.log(`🌍 الخادم متاح على: https://montajati-backend.onrender.com`);
-  } else {
-    console.log(`🌐 الرابط المحلي: http://localhost:${PORT}`);
-  }
+  // الخادم يعمل بصمت
 
   // تهيئة خدمة الإشعارات
   await initializeNotificationService();

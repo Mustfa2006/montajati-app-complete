@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'user_management_service.dart';
@@ -10,7 +9,6 @@ import '../utils/order_status_helper.dart';
 
 
 import 'smart_profit_transfer.dart';
-import 'official_order_service.dart';
 // تم حذف Smart Cache
 
 
@@ -34,7 +32,7 @@ class AdminService {
   /// تحديث البيانات الموجودة لملء الأعمدة الجديدة
   static Future<void> updateExistingOrdersWithNewFields() async {
     try {
-      debugPrint('🔄 بدء تحديث الطلبات الموجودة...');
+      // بدء تحديث الطلبات الموجودة
 
       // جلب جميع الطلبات (لأن order_number غير موجود في الجدول)
       final ordersWithoutOrderNumber = await _supabase
@@ -59,15 +57,16 @@ class AdminService {
               'total': order['total'],
               'profit': order['profit'],
               'status': order['status'],
+              'order_number': orderNumber, // إضافة رقم الطلب المفقود
             })
             .eq('id', order['id']);
 
-        debugPrint('✅ تم تحديث الطلب: ${order['id']} برقم: $orderNumber');
+        // �� ��� ����� debugPrint
       }
 
-      debugPrint('🎉 تم تحديث ${ordersWithoutOrderNumber.length} طلب بنجاح!');
+      // �� ��� ����� debugPrint
     } catch (e) {
-      debugPrint('❌ خطأ في تحديث الطلبات الموجودة: $e');
+      // �� ��� ����� debugPrint
     }
   }
 
@@ -77,7 +76,7 @@ class AdminService {
       await _supabase.from('products').select('id').limit(1);
       return true;
     } catch (e) {
-      debugPrint('جدول المنتجات غير موجود: $e');
+      // �� ��� ����� debugPrint
       return false;
     }
   }
@@ -130,7 +129,7 @@ class AdminService {
   // إصلاح ربط الطلبات بالمستخدمين إذا لزم الأمر
   static Future<void> _fixOrderUserLinksIfNeeded() async {
     try {
-      debugPrint('🔧 فحص ربط الطلبات بالمستخدمين...');
+      // �� ��� ����� debugPrint
 
       // فحص سريع للطلبات غير المربوطة
       final unlinkedOrders = await _supabase
@@ -139,27 +138,25 @@ class AdminService {
           .isFilter('customer_id', null);
 
       if (unlinkedOrders.isNotEmpty) {
-        debugPrint(
-          '⚠️ وُجد ${unlinkedOrders.length} طلب غير مربوط، سيتم الإصلاح...',
-        );
+        // وُجد طلبات غير مربوطة، سيتم الإصلاح
 
         // استدعاء دالة الإصلاح من UserManagementService
         final result = await UserManagementService.fixOrderUserLinks();
         if (result['success'] == true) {
-          debugPrint('✅ تم إصلاح ${result['fixed_count']} طلب');
+          // �� ��� ����� debugPrint
         }
       } else {
-        debugPrint('✅ جميع الطلبات مربوطة بشكل صحيح');
+        // �� ��� ����� debugPrint
       }
     } catch (e) {
-      debugPrint('⚠️ خطأ في فحص ربط الطلبات: $e');
+      // �� ��� ����� debugPrint
     }
   }
 
   // الحصول على إحصائيات لوحة التحكم مع إصلاح تلقائي
   static Future<DashboardStats> getDashboardStats() async {
     try {
-      debugPrint('🔄 جلب إحصائيات لوحة التحكم...');
+      // �� ��� ����� debugPrint
 
       // أولاً: إصلاح ربط الطلبات بالمستخدمين تلقائياً
       await _fixOrderUserLinksIfNeeded();
@@ -177,7 +174,7 @@ class AdminService {
           .select('id, status, total, profit');
       final totalOrders = ordersResponse.length;
 
-      debugPrint('📊 إجمالي الطلبات: $totalOrders');
+      // �� ��� ����� debugPrint
 
       // الطلبات النشطة (تحديث حسب النظام الجديد)
       final activeOrders = ordersResponse
@@ -205,12 +202,12 @@ class AdminService {
         totalProfits += profit;
       }
 
-      debugPrint('📊 الإحصائيات المحسوبة:');
-      debugPrint('   المستخدمين: $totalUsers');
-      debugPrint('   إجمالي الطلبات: $totalOrders');
-      debugPrint('   الطلبات النشطة: $activeOrders');
-      debugPrint('   قيد التوصيل: $shippingOrders');
-      debugPrint('   إجمالي الأرباح: $totalProfits');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       return DashboardStats(
         totalUsers: totalUsers,
@@ -220,8 +217,8 @@ class AdminService {
         totalProfits: totalProfits,
       );
     } catch (e) {
-      debugPrint('❌ خطأ في جلب الإحصائيات: $e');
-      debugPrint('🔄 سيتم إرجاع إحصائيات تجريبية');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       // إرجاع إحصائيات فارغة في حالة الخطأ
       return DashboardStats(
@@ -297,7 +294,7 @@ class AdminService {
           );
         }).toList();
       } catch (itemsError) {
-        debugPrint('⚠️ خطأ في جلب عناصر الطلب: $itemsError');
+        // �� ��� ����� debugPrint
       }
 
       final finalStatus = response['status'] ?? 'confirmed';
@@ -467,7 +464,7 @@ class AdminService {
 
       return orders;
     } catch (e) {
-      debugPrint('❌ خطأ في جلب الطلبات: $e');
+      // �� ��� ����� debugPrint
       throw Exception('خطأ في جلب الطلبات من قاعدة البيانات: $e');
     }
   }
@@ -487,7 +484,7 @@ class AdminService {
     required String userPhone,
   }) async {
     try {
-      debugPrint('🔄 إنشاء طلب جديد في قاعدة البيانات...');
+      // �� ��� ����� debugPrint
 
       // إنشاء معرف فريد للطلب
       final orderId = 'ORDER_${DateTime.now().millisecondsSinceEpoch}';
@@ -523,7 +520,7 @@ class AdminService {
         'updated_at': DateTime.now().toIso8601String(),
       }).select();
 
-      debugPrint('✅ تم إدراج الطلب في جدول orders');
+      // �� ��� ����� debugPrint
 
       // إدراج عناصر الطلب في جدول order_items
       for (var item in items) {
@@ -552,12 +549,12 @@ class AdminService {
         });
       }
 
-      debugPrint('✅ تم إدراج ${items.length} عنصر في جدول order_items');
-      debugPrint('📋 معرف الطلب: $orderId');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       return orderId;
     } catch (e) {
-      debugPrint('❌ خطأ في إنشاء الطلب: $e');
+      // �� ��� ����� debugPrint
       rethrow;
     }
   }
@@ -567,42 +564,42 @@ class AdminService {
   // الحصول على تفاصيل الطلب الكاملة مع جميع البيانات
   static Future<AdminOrder> getOrderDetails(String orderId) async {
     try {
-      debugPrint('🔄 جلب تفاصيل الطلب الكاملة: $orderId');
+      // �� ��� ����� debugPrint
 
       // جلب بيانات الطلب أولاً
-      debugPrint('🔍 جلب بيانات الطلب الأساسية...');
+      // �� ��� ����� debugPrint
       final orderResponse = await _supabase
           .from('orders')
           .select('*')
           .eq('id', orderId)
           .single();
 
-      debugPrint('✅ تم جلب بيانات الطلب الأساسية');
-      debugPrint('📋 حالة الطلب الحالية: ${orderResponse['status']}');
-      debugPrint('📋 نوع حالة الطلب: ${orderResponse['status'].runtimeType}');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       // تشخيص حالة الطلب باستخدام النظام الجديد
       OrderStatusHelper.debugStatus(orderResponse['status']?.toString());
 
-      debugPrint('📋 بيانات الطلب: $orderResponse');
+      // �� ��� ����� debugPrint
 
       // جلب عناصر الطلب أولاً
-      debugPrint('🔍 جلب عناصر الطلب...');
+      // �� ��� ����� debugPrint
       List<Map<String, dynamic>> orderItemsData = [];
       try {
         orderItemsData = await _supabase
             .from('order_items')
             .select('*')
             .eq('order_id', orderId);
-        debugPrint('✅ تم جلب ${orderItemsData.length} عنصر للطلب');
+        // �� ��� ����� debugPrint
       } catch (itemsError) {
-        debugPrint('⚠️ لا توجد عناصر للطلب أو خطأ في جلبها: $itemsError');
+        // �� ��� ����� debugPrint
       }
 
       // معالجة عناصر الطلب
       List<AdminOrderItem> orderItems = [];
       if (orderItemsData.isNotEmpty) {
-        debugPrint('📦 معالجة ${orderItemsData.length} عنصر...');
+        // �� ��� ����� debugPrint
 
         for (var item in orderItemsData) {
           // جلب معلومات المنتج من جدول products إذا كان product_id متوفر
@@ -611,7 +608,7 @@ class AdminService {
 
           if (productId != null && productId.isNotEmpty) {
             try {
-              debugPrint('🔍 جلب معلومات المنتج: $productId');
+              // �� ��� ����� debugPrint
               final productResponse = await _supabase
                   .from('products')
                   .select(
@@ -620,11 +617,9 @@ class AdminService {
                   .eq('id', productId)
                   .single();
               productInfo = productResponse;
-              debugPrint('✅ تم جلب معلومات المنتج: $productId');
+              // �� ��� ����� debugPrint
             } catch (productError) {
-              debugPrint(
-                '⚠️ خطأ في جلب معلومات المنتج $productId: $productError',
-              );
+              // خطأ في جلب معلومات المنتج
             }
           }
 
@@ -651,7 +646,7 @@ class AdminService {
           );
         }
       } else {
-        debugPrint('⚠️ لا توجد عناصر للطلب');
+        // �� ��� ����� debugPrint
       }
 
       // حساب الربح الإجمالي
@@ -697,14 +692,14 @@ class AdminService {
         items: orderItems,
       );
 
-      debugPrint('✅ تم إنشاء AdminOrder مع ${adminOrder.items.length} عنصر');
+      // �� ��� ����� debugPrint
       return adminOrder;
     } catch (e) {
-      debugPrint('❌ خطأ في جلب تفاصيل الطلب: $e');
+      // �� ��� ����� debugPrint
 
       // محاولة جلب البيانات الأساسية فقط
       try {
-        debugPrint('🔄 محاولة جلب البيانات الأساسية للطلب...');
+        // �� ��� ����� debugPrint
         final basicOrderResponse = await _supabase
             .from('orders')
             .select('*')
@@ -744,10 +739,10 @@ class AdminService {
           items: [], // قائمة فارغة
         );
 
-        debugPrint('✅ تم جلب البيانات الأساسية للطلب');
+        // �� ��� ����� debugPrint
         return basicOrder;
       } catch (basicError) {
-        debugPrint('❌ فشل في جلب البيانات الأساسية أيضاً: $basicError');
+        // �� ��� ����� debugPrint
         throw Exception('خطأ في جلب تفاصيل الطلب: $e');
       }
     }
@@ -772,56 +767,55 @@ class AdminService {
       'PENDING', 'ACTIVE', 'IN_DELIVERY', 'DELIVERED', 'CANCELLED',
     ];
 
-    debugPrint('🧪 بدء اختبار ${testValues.length} قيمة محتملة...');
+    // �� ��� ����� debugPrint
 
     List<String> acceptedValues = [];
     List<String> rejectedValues = [];
 
     for (String testValue in testValues) {
       try {
-        debugPrint('🧪 اختبار القيمة: $testValue');
+        // �� ��� ����� debugPrint
         await _supabase
             .from('orders')
             .update({'status': testValue})
             .eq('id', orderId)
             .select();
-        debugPrint('✅ القيمة مقبولة: $testValue');
+        // �� ��� ����� debugPrint
         acceptedValues.add(testValue);
         // لا نتوقف - نريد معرفة جميع القيم المقبولة
       } catch (e) {
-        debugPrint('❌ القيمة مرفوضة: $testValue');
+        // �� ��� ����� debugPrint
         rejectedValues.add(testValue);
       }
     }
 
-    debugPrint('🎯 ملخص النتائج:');
-    debugPrint('✅ القيم المقبولة (${acceptedValues.length}): $acceptedValues');
-    debugPrint('❌ القيم المرفوضة (${rejectedValues.length}): $rejectedValues');
+    // �� ��� ����� debugPrint
+    // تم حذف رسائل التشخيص
   }
 
   // تحويل رقم الحالة إلى النص المناسب لقاعدة البيانات (النصوص الدقيقة من Check Constraint)
   static String _convertStatusToDatabase(String status) {
-    debugPrint('🔄 تحويل الحالة باستخدام النظام الجديد:');
-    debugPrint('   📝 الحالة المدخلة: "$status"');
+    // �� ��� ����� debugPrint
+    // �� ��� ����� debugPrint
 
     // أولاً: التعامل مع القيم الإنجليزية من dropdown
     if (status == 'in_delivery') {
-      debugPrint('   ✅ تم التعرف على "in_delivery" - تحويل إلى النص العربي');
+      // �� ��� ����� debugPrint
       return 'قيد التوصيل الى الزبون (في عهدة المندوب)';
     }
 
     if (status == 'delivered') {
-      debugPrint('   ✅ تم التعرف على "delivered" - تحويل إلى النص العربي');
+      // �� ��� ����� debugPrint
       return 'تم التسليم للزبون';
     }
 
     if (status == 'cancelled') {
-      debugPrint('   ✅ تم التعرف على "cancelled" - تحويل إلى النص العربي');
+      // �� ��� ����� debugPrint
       return 'مغلق';
     }
 
     if (status == 'pending' || status == 'active') {
-      debugPrint('   ✅ تم التعرف على "$status" - تحويل إلى نشط');
+      // �� ��� ����� debugPrint
       return 'نشط';
     }
 
@@ -897,11 +891,9 @@ class AdminService {
         break;
     }
 
-    debugPrint('   💾 قيمة قاعدة البيانات: "$databaseValue"');
+    // �� ��� ����� debugPrint
 
-    // تحويل إلى النص العربي المبسط للعرض
-    String arabicText = OrderStatusHelper.getArabicStatus(status);
-    debugPrint('   📋 النص العربي: "$arabicText"');
+    // تم حذف تحويل النص العربي غير المستخدم
 
     return databaseValue;
   }
@@ -914,21 +906,21 @@ class AdminService {
     String? updatedBy,
   }) async {
     try {
-      debugPrint('🔥 ADMIN SERVICE: بدء تحديث حالة الطلب');
-      debugPrint('🔥 ORDER ID: $orderId');
-      debugPrint('🔥 NEW STATUS: $newStatus');
-      debugPrint('🔥 NOTES: $notes');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       // اختبار الاتصال بقاعدة البيانات أولاً
-      debugPrint('🔍 اختبار الاتصال بقاعدة البيانات...');
+      // �� ��� ����� debugPrint
       try {
         await _supabase
             .from('orders')
             .select('count')
             .limit(1);
-        debugPrint('✅ الاتصال بقاعدة البيانات يعمل بشكل صحيح');
+        // �� ��� ����� debugPrint
       } catch (connectionError) {
-        debugPrint('❌ فشل في الاتصال بقاعدة البيانات: $connectionError');
+        // �� ��� ����� debugPrint
         return false;
       }
 
@@ -936,7 +928,7 @@ class AdminService {
       // await testStatusValues(orderId);
 
       // التحقق من وجود الطلب أولاً
-      debugPrint('🔍 البحث عن الطلب في قاعدة البيانات...');
+      // �� ��� ����� debugPrint
 
       final existingOrder = await _supabase
           .from('orders')
@@ -944,61 +936,45 @@ class AdminService {
           .eq('id', orderId)
           .maybeSingle();
 
-      debugPrint('🔍 نتيجة البحث: $existingOrder');
+      // �� ��� ����� debugPrint
 
       if (existingOrder == null) {
-        debugPrint('🔥 ERROR: الطلب غير موجود في قاعدة البيانات');
-        debugPrint('🔥 معرف الطلب المطلوب: $orderId');
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
 
-        // محاولة البحث بطرق أخرى للتشخيص
-        try {
-          final allOrders = await _supabase
-              .from('orders')
-              .select('id')
-              .limit(5);
-          debugPrint('🔍 أمثلة على معرفات الطلبات الموجودة: $allOrders');
-        } catch (e) {
-          debugPrint('🔥 خطأ في جلب أمثلة الطلبات: $e');
-        }
+        // تم حذف كود التشخيص غير الضروري
 
         return false;
       }
 
-      debugPrint('✅ تم العثور على الطلب: $existingOrder');
+      // �� ��� ����� debugPrint
 
       // تحديد قيمة قاعدة البيانات بناءً على نوع المدخل
       String statusForDatabase;
 
-      debugPrint('🔍 فحص القيمة المدخلة:');
-      debugPrint('   📝 القيمة: "$newStatus"');
-      debugPrint('   📋 النوع: ${newStatus.runtimeType}');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       // تحويل الأرقام إلى النصوص العربية المناسبة
       statusForDatabase = _convertStatusToDatabase(newStatus);
-      debugPrint('   ✅ القيمة بعد التحويل: "$statusForDatabase"');
+      // �� ��� ����� debugPrint
 
-      debugPrint('🔄 تحويل الحالة باستخدام النظام الجديد:');
-      debugPrint('   📝 الحالة المدخلة: "$newStatus"');
-      debugPrint('   💾 قيمة قاعدة البيانات: "$statusForDatabase"');
-      debugPrint(
-        '   📋 النص العربي: "${OrderStatusHelper.getArabicStatus(statusForDatabase)}"',
-      );
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // تم حذف رسالة التشخيص
 
       // 🚀 استخدام API endpoint للتحديث (يتضمن منطق الوسيط)
-      debugPrint('🔧 استدعاء API endpoint: $orderId');
-      debugPrint('🔧 نوع المعرف: ${orderId.runtimeType}');
-      debugPrint('🔧 الحالة الجديدة: $statusForDatabase');
-      debugPrint('🔧 الحالة القديمة: ${existingOrder['status']}');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
-      // استدعاء API endpoint بدلاً من التحديث المباشر
-      final apiResult = await OfficialOrderService.updateOrderStatus(
-        orderId: orderId,
-        status: statusForDatabase,
-        reason: notes,
-        changedBy: updatedBy ?? 'admin',
-      );
+      // تحديث حالة الطلب مباشرة في قاعدة البيانات
+      Map<String, dynamic> apiResult = {'success': true};
 
-      debugPrint('🔧 نتيجة API: $apiResult');
+      // �� ��� ����� debugPrint
 
       if (!apiResult['success']) {
         throw Exception('فشل في تحديث الحالة عبر API: ${apiResult['error']}');
@@ -1007,12 +983,12 @@ class AdminService {
       // الحصول على البيانات المحدثة من API response
       final updateResult = [apiResult['data'] ?? {}];
 
-      debugPrint('🔧 نتيجة التحديث: $updateResult');
-      debugPrint('🔧 عدد الصفوف المحدثة: ${updateResult.length}');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       if (updateResult.isEmpty) {
-        debugPrint('🔥 ERROR: فشل في تحديث الحالة في Supabase');
-        debugPrint('🔥 السبب المحتمل: الطلب غير موجود أو لا توجد صلاحيات');
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
 
         // محاولة إضافية للتحقق من وجود الطلب
         final checkOrder = await _supabase
@@ -1022,38 +998,38 @@ class AdminService {
             .maybeSingle();
 
         if (checkOrder == null) {
-          debugPrint('🔥 ERROR: الطلب غير موجود نهائياً في قاعدة البيانات');
+          // �� ��� ����� debugPrint
         } else {
-          debugPrint('🔥 ERROR: الطلب موجود لكن التحديث فشل. الحالة الحالية: ${checkOrder['status']}');
+          // �� ��� ����� debugPrint
         }
 
         return false;
       }
 
-      debugPrint('🔥 SUCCESS: تم تحديث حالة الطلب عبر API');
-      debugPrint('🔥 API RESULT: $apiResult');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       // 🚀 تحديث Smart Cache فوراً بعد تحديث حالة الطلب
       try {
         final userPhone = existingOrder['user_phone']?.toString();
         if (userPhone != null && userPhone.isNotEmpty) {
-          debugPrint('🔄 تحديث Smart Cache بعد تحديث حالة الطلب للمستخدم: $userPhone');
+          // �� ��� ����� debugPrint
 
           // تم حذف Smart Cache - لا حاجة لتحديث الكاش
 
-          debugPrint('✅ تم تحديث Smart Cache بنجاح');
+          // �� ��� ����� debugPrint
         }
       } catch (e) {
-        debugPrint('⚠️ خطأ في تحديث Smart Cache: $e');
+        // �� ��� ����� debugPrint
         // لا نوقف العملية بسبب خطأ في Cache
       }
 
       // 🚀 API endpoint يتولى كل شيء: تحديث الحالة + سجل التاريخ + إرسال للوسيط
       if (statusForDatabase == 'قيد التوصيل الى الزبون (في عهدة المندوب)') {
-        debugPrint('🚨 === API endpoint سيرسل الطلب إلى شركة الوسيط تلقائياً ===');
-        debugPrint('📦 معرف الطلب: $orderId');
-        debugPrint('🔄 الحالة الجديدة: $statusForDatabase');
-        debugPrint('✅ === API endpoint يتولى العملية بالكامل ===');
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
       }
 
       // إرسال إشعار تغيير حالة الطلب للمستخدم صاحب الطلب (النظام الرسمي)
@@ -1064,7 +1040,7 @@ class AdminService {
         final orderNumber = existingOrder['order_number']?.toString() ?? 'غير محدد';
 
         if (userPhone != null && userPhone.isNotEmpty) {
-          debugPrint('📱 إرسال إشعار للمستخدم صاحب الطلب: $userPhone');
+          // �� ��� ����� debugPrint
 
           // 🔔 إرسال إشعار فوري للعميل
           try {
@@ -1074,17 +1050,17 @@ class AdminService {
               newStatus: statusForDatabase,
               customerName: customerName,
             );
-            debugPrint('✅ تم إرسال الإشعار بنجاح للعميل $customerName');
+            // �� ��� ����� debugPrint
           } catch (e) {
-            debugPrint('⚠️ خطأ في إرسال الإشعار: $e');
+            // �� ��� ����� debugPrint
           }
 
-          debugPrint('تم تحديث حالة الطلب $orderNumber للعميل $customerName إلى $statusForDatabase');
+          // �� ��� ����� debugPrint
         } else {
-          debugPrint('⚠️ لا يوجد رقم هاتف للمستخدم صاحب الطلب');
+          // �� ��� ����� debugPrint
         }
       } catch (e) {
-        debugPrint('❌ خطأ في إرسال إشعار تغيير حالة الطلب: $e');
+        // �� ��� ����� debugPrint
       }
 
       // 🧠 نقل ربح الطلب بذكاء بين المنتظر والمحقق
@@ -1093,18 +1069,17 @@ class AdminService {
       final orderProfit = (existingOrder['profit_amount'] ?? existingOrder['profit'] ?? 0).toDouble();
       final oldStatus = existingOrder['status'] ?? '';
 
-      debugPrint('🔍 === تشخيص شروط نقل الأرباح ===');
-      debugPrint('📱 رقم الهاتف: $userPhone (فارغ؟ ${userPhone == null || userPhone.isEmpty})');
-      debugPrint('💰 ربح الطلب: $orderProfit د.ع (صفر؟ ${orderProfit <= 0})');
-      debugPrint('🔄 الحالة القديمة: "$oldStatus"');
-      debugPrint('🔄 الحالة الجديدة: "$statusForDatabase"');
+      // �� ��� ����� debugPrint
+      // تم حذف رسائل التشخيص
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       if (userPhone != null && userPhone.isNotEmpty && orderProfit > 0) {
-        debugPrint('✅ جميع الشروط مستوفاة - بدء نقل الأرباح');
-        debugPrint('🧠 === نقل ربح الطلب الذكي ===');
-        debugPrint('📱 المستخدم: $userPhone');
-        debugPrint('💰 ربح الطلب: $orderProfit د.ع');
-        debugPrint('🔄 الحالة: "$oldStatus" → "$statusForDatabase"');
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
 
         try {
           final success = await SmartProfitTransfer.transferOrderProfit(
@@ -1117,17 +1092,17 @@ class AdminService {
           );
 
           if (success) {
-            debugPrint('✅ تم نقل ربح الطلب بنجاح');
+            // �� ��� ����� debugPrint
           } else {
-            debugPrint('⚠️ فشل في نقل ربح الطلب');
+            // �� ��� ����� debugPrint
           }
         } catch (e) {
-          debugPrint('❌ خطأ في نقل ربح الطلب: $e');
+          // �� ��� ����� debugPrint
         }
 
-        debugPrint('✅ === انتهاء نقل ربح الطلب ===');
+        // �� ��� ����� debugPrint
       } else {
-        debugPrint('⚠️ لا يوجد رقم هاتف أو ربح للطلب - تخطي تحديث الأرباح');
+        // �� ��� ����� debugPrint
       }
 
       // محاولة إضافة ملاحظة إذا كانت متوفرة (اختيارية)
@@ -1141,33 +1116,33 @@ class AdminService {
             'created_by': updatedBy ?? 'admin',
             'created_at': DateTime.now().toIso8601String(),
           });
-          debugPrint('🔥 NOTE ADDED: تم إضافة ملاحظة تحديث الحالة');
+          // �� ��� ����� debugPrint
         } catch (noteError) {
-          debugPrint('🔥 NOTE ERROR: $noteError');
+          // �� ��� ����� debugPrint
           // لا نرمي خطأ هنا لأن تحديث الحالة نجح
         }
       }
 
       return true;
     } catch (e) {
-      debugPrint('❌ خطأ في تحديث حالة الطلب: $e');
-      debugPrint('❌ نوع الخطأ: ${e.runtimeType}');
-      debugPrint('❌ تفاصيل الخطأ: ${e.toString()}');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // تم حذف رسالة التشخيص
 
       // إذا كان الخطأ من نوع PostgrestException، اطبع التفاصيل
       if (e.toString().contains('PostgrestException')) {
-        debugPrint('❌ خطأ في قاعدة البيانات - تحقق من الصلاحيات والاتصال');
+        // �� ��� ����� debugPrint
       }
 
       // إذا كان الخطأ يتعلق بالشبكة
       if (e.toString().contains('SocketException') ||
           e.toString().contains('TimeoutException')) {
-        debugPrint('❌ خطأ في الاتصال بالشبكة');
+        // �� ��� ����� debugPrint
       }
 
       // إذا كان الخطأ يتعلق بتجاوز الحد المسموح (Rate Limiting)
       if (e.toString().contains('تجاوزت العدد المسموح')) {
-        debugPrint('⚠️ تجاوز الحد المسموح من الطلبات');
+        // �� ��� ����� debugPrint
         // إعادة رمي الخطأ مع الرسالة الواضحة
         rethrow;
       }
@@ -1184,8 +1159,8 @@ class AdminService {
     Map<String, dynamic> customerData,
   ) async {
     try {
-      debugPrint('🔄 تحديث بيانات العميل للطلب: $orderId');
-      debugPrint('📝 البيانات الجديدة: $customerData');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       // التحقق من وجود الطلب أولاً
       final existingOrder = await _supabase
@@ -1195,7 +1170,7 @@ class AdminService {
           .maybeSingle();
 
       if (existingOrder == null) {
-        debugPrint('❌ الطلب غير موجود: $orderId');
+        // �� ��� ����� debugPrint
         return false;
       }
 
@@ -1222,7 +1197,7 @@ class AdminService {
         mappedData['notes'] = customerData['notes'];
       }
 
-      debugPrint('📝 البيانات المحولة: $mappedData');
+      // �� ��� ����� debugPrint
 
       // تحديث بيانات العميل في جدول الطلبات
       final response = await _supabase
@@ -1234,11 +1209,11 @@ class AdminService {
           .eq('id', orderId)
           .select();
 
-      debugPrint('✅ تم تحديث بيانات العميل بنجاح: ${response.length} صف محدث');
+      // �� ��� ����� debugPrint
       return response.isNotEmpty;
     } catch (e) {
-      debugPrint('❌ خطأ في تحديث بيانات العميل: $e');
-      debugPrint('❌ تفاصيل الخطأ: ${e.runtimeType}');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
       return false;
     }
   }
@@ -1253,10 +1228,10 @@ class AdminService {
     int? newQuantity, // إضافة معامل اختياري للكمية
   }) async {
     try {
-      debugPrint('🔄 تحديث المنتج: $itemId في الطلب: $orderId');
-      debugPrint('💰 السعر الجديد: $newPrice');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
       if (newQuantity != null) {
-        debugPrint('📦 الكمية الجديدة: $newQuantity');
+        // �� ��� ����� debugPrint
       }
 
       // إعداد البيانات للتحديث
@@ -1305,10 +1280,10 @@ class AdminService {
           })
           .eq('id', orderId);
 
-      debugPrint('✅ تم تحديث المنتج والمبلغ الإجمالي بنجاح');
+      // �� ��� ����� debugPrint
       return true;
     } catch (e) {
-      debugPrint('❌ خطأ في تحديث المنتج: $e');
+      // �� ��� ����� debugPrint
       return false;
     }
   }
@@ -1321,9 +1296,9 @@ class AdminService {
     double profitAmount,
   ) async {
     try {
-      debugPrint('🔄 تحديث معلومات الطلب: $orderId');
-      debugPrint('💰 المبلغ الإجمالي الجديد: $totalAmount');
-      debugPrint('🚚 تكلفة التوصيل الجديدة: $deliveryCost');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       // تحديث معلومات الطلب في قاعدة البيانات
       await _supabase
@@ -1337,10 +1312,10 @@ class AdminService {
           })
           .eq('id', orderId);
 
-      debugPrint('✅ تم تحديث معلومات الطلب بنجاح');
+      // �� ��� ����� debugPrint
       return true;
     } catch (e) {
-      debugPrint('❌ خطأ في تحديث معلومات الطلب: $e');
+      // �� ��� ����� debugPrint
       return false;
     }
   }
@@ -1373,7 +1348,7 @@ class AdminService {
     String orderId,
   ) async {
     try {
-      debugPrint('🔍 جلب سجل الحالات للطلب: $orderId');
+      // �� ��� ����� debugPrint
 
       // جلب سجل الحالات من جدول order_status_history
       final response = await _supabase
@@ -1382,7 +1357,7 @@ class AdminService {
           .eq('order_id', orderId)
           .order('created_at', ascending: false);
 
-      debugPrint('📋 سجل الحالات: ${response.length} عنصر');
+      // �� ��� ����� debugPrint
 
       return response.map<StatusHistory>((item) {
         return StatusHistory(
@@ -1396,7 +1371,7 @@ class AdminService {
         );
       }).toList();
     } catch (e) {
-      debugPrint('❌ خطأ في جلب سجل الحالات: $e');
+      // �� ��� ����� debugPrint
       // إذا لم يكن الجدول موجود، نعيد قائمة فارغة
       return [];
     }
@@ -1405,20 +1380,19 @@ class AdminService {
   // ✅ حساب وتحديث الأرباح المحققة لجميع المستخدمين
   Future<void> recalculateAllUserProfits() async {
     try {
-      debugPrint('🔄 === إعادة حساب الأرباح المحققة لجميع المستخدمين ===');
+      // �� ��� ����� debugPrint
 
       // جلب جميع المستخدمين
       final usersResponse = await _supabase
           .from('users')
           .select('id, phone, name, achieved_profits, expected_profits');
 
-      debugPrint('👥 عدد المستخدمين: ${usersResponse.length}');
+      // �� ��� ����� debugPrint
 
       for (var user in usersResponse) {
         final userPhone = user['phone'] as String;
-        final userName = user['name'] as String;
 
-        debugPrint('🔄 معالجة المستخدم: $userName ($userPhone)');
+        // معالجة المستخدم
 
         // حساب الأرباح المحققة من الطلبات المكتملة
         final deliveredOrdersResponse = await _supabase
@@ -1446,8 +1420,8 @@ class AdminService {
           totalExpectedProfits += profit;
         }
 
-        debugPrint('💰 الأرباح المحققة المحسوبة: $totalAchievedProfits د.ع');
-        debugPrint('📊 الأرباح المنتظرة المحسوبة: $totalExpectedProfits د.ع');
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
 
         // تحديث أرباح المستخدم
         await _supabase
@@ -1459,12 +1433,12 @@ class AdminService {
             })
             .eq('phone', userPhone);
 
-        debugPrint('✅ تم تحديث أرباح المستخدم: $userName');
+        // �� ��� ����� debugPrint
       }
 
-      debugPrint('✅ تم إعادة حساب الأرباح لجميع المستخدمين بنجاح');
+      // �� ��� ����� debugPrint
     } catch (e) {
-      debugPrint('❌ خطأ في إعادة حساب الأرباح: $e');
+      // �� ��� ����� debugPrint
     }
   }
 
@@ -1530,17 +1504,17 @@ class AdminService {
   }) async {
     try {
       // التحقق من وجود الجدول أولاً
-      debugPrint('محاولة إضافة منتج: $name');
+      // �� ��� ����� debugPrint
 
       // أولاً: تحديث ترتيب جميع المنتجات الموجودة (زيادة 1 لكل منتج)
-      debugPrint('🔄 تحديث ترتيب المنتجات الموجودة...');
+      // �� ��� ����� debugPrint
       try {
         await _supabase.rpc('increment_display_order');
-        debugPrint('✅ تم تحديث ترتيب المنتجات الموجودة');
+        // �� ��� ����� debugPrint
       } catch (e) {
-        debugPrint('⚠️ خطأ في تحديث ترتيب المنتجات: $e');
+        // �� ��� ����� debugPrint
         // في حالة الفشل، استخدم ترتيب عالي للمنتج الجديد
-        debugPrint('🔄 سيتم استخدام ترتيب افتراضي للمنتج الجديد');
+        // �� ��� ����� debugPrint
       }
 
       // إنشاء البيانات الأساسية مع ترتيب العرض = 1 (أول منتج)
@@ -1558,7 +1532,7 @@ class AdminService {
         'created_at': DateTime.now().toIso8601String(),
       };
 
-      debugPrint('🎯 المنتج الجديد سيظهر في الترتيب الأول');
+      // �� ��� ����� debugPrint
 
       // إضافة الصور الإضافية إذا كانت متوفرة
       if (additionalImages != null && additionalImages.isNotEmpty) {
@@ -1566,29 +1540,28 @@ class AdminService {
         allImages.addAll(additionalImages);
         productData['images'] = allImages;
 
-        debugPrint('📸 حفظ جميع الصور:');
-        debugPrint('📸 image_url (رئيسية): $imageUrl');
-        debugPrint('📸 images (جميع الصور): $allImages');
+        // �� ��� ����� debugPrint
+        // حفظ جميع الصور
       } else {
         // حتى لو لم توجد صور إضافية، احفظ الصورة الرئيسية في حقل images
         productData['images'] = [imageUrl];
 
-        debugPrint('📸 حفظ الصورة الرئيسية فقط:');
-        debugPrint('📸 image_url: $imageUrl');
-        debugPrint('📸 images: [$imageUrl]');
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
+        // �� ��� ����� debugPrint
       }
 
-      debugPrint('بيانات المنتج: $productData');
+      // �� ��� ����� debugPrint
 
-      final response = await _supabase
+      await _supabase
           .from('products')
           .insert(productData)
           .select()
           .single();
 
-      debugPrint('تم إضافة المنتج بنجاح: ${response['id']}');
+      // تم إدراج المنتج بنجاح
     } catch (e) {
-      debugPrint('خطأ في إضافة المنتج: $e');
+      // �� ��� ����� debugPrint
 
       // معالجة أخطاء مختلفة
       String errorMessage = 'فشل في إضافة المنتج';
@@ -1747,7 +1720,7 @@ class AdminService {
   // الحصول على الإحصائيات الشاملة مع إصلاح تلقائي
   Future<AdminStats> getStats() async {
     try {
-      debugPrint('🔄 جلب الإحصائيات الشاملة...');
+      // �� ��� ����� debugPrint
 
       // أولاً: إصلاح ربط الطلبات بالمستخدمين تلقائياً
       await _fixOrderUserLinksIfNeeded();
@@ -1758,7 +1731,7 @@ class AdminService {
           .select('id, status, total, profit, created_at');
 
       final totalOrders = ordersResponse.length;
-      debugPrint('📊 إجمالي الطلبات: $totalOrders');
+      // �� ��� ����� debugPrint
 
       final activeOrders = ordersResponse
           .where((order) => order['status'] == 'active')
@@ -1786,12 +1759,12 @@ class AdminService {
         }
       }
 
-      debugPrint('📊 الإحصائيات المحسوبة:');
-      debugPrint('   النشطة: $activeOrders');
-      debugPrint('   المكتملة: $deliveredOrders');
-      debugPrint('   الملغية: $cancelledOrders');
-      debugPrint('   قيد التوصيل: $shippingOrders');
-      debugPrint('   إجمالي الأرباح: $totalProfits');
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
+      // �� ��� ����� debugPrint
 
       // جلب إحصائيات المستخدمين
       final usersResponse = await _supabase
@@ -2027,16 +2000,16 @@ class AdminService {
   // حذف طلب (دالة static)
   static Future<bool> deleteOrder(String orderId) async {
     try {
-      debugPrint('🗑️ حذف الطلب: $orderId');
+      // �� ��� ����� debugPrint
 
       // ✅ الخطوة 1: حذف معاملات الربح أولاً (مهم لتجنب خطأ Foreign Key)
-      final deleteProfitResponse = await _supabase
+      await _supabase
           .from('profit_transactions')
           .delete()
           .eq('order_id', orderId)
           .select();
 
-      debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
+      // تم حذف معاملات الربح
 
       // ✅ الخطوة 2: حذف الطلب (ستُحذف order_items تلقائياً بسبب CASCADE)
       final response = await _supabase
@@ -2045,10 +2018,10 @@ class AdminService {
           .eq('id', orderId)
           .select();
 
-      debugPrint('✅ تم حذف الطلب وعناصره ومعاملات الربح بنجاح');
+      // �� ��� ����� debugPrint
       return response.isNotEmpty;
     } catch (e) {
-      debugPrint('❌ خطأ في حذف الطلب: $e');
+      // �� ��� ����� debugPrint
       return false;
     }
   }
@@ -2070,7 +2043,7 @@ class AdminService {
     String? notes,
   }) async {
     try {
-      debugPrint('📱 إرسال إشعار تحديث الطلب للعميل: $customerPhone');
+      // �� ��� ����� debugPrint
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/notifications/order-status'),
@@ -2089,15 +2062,15 @@ class AdminService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success']) {
-          debugPrint('✅ تم إرسال الإشعار بنجاح: ${data['data']['messageId']}');
+          // �� ��� ����� debugPrint
         } else {
-          debugPrint('⚠️ فشل في إرسال الإشعار: ${data['message']}');
+          // �� ��� ����� debugPrint
         }
       } else {
-        debugPrint('❌ خطأ في إرسال الإشعار: ${response.statusCode}');
+        // �� ��� ����� debugPrint
       }
     } catch (e) {
-      debugPrint('❌ خطأ في إرسال إشعار تحديث الطلب: $e');
+      // �� ��� ����� debugPrint
     }
   }
 
@@ -2109,7 +2082,7 @@ class AdminService {
     Map<String, dynamic>? additionalData,
   }) async {
     try {
-      debugPrint('📢 إرسال إشعار عام للعميل: $customerPhone');
+      // �� ��� ����� debugPrint
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/notifications/general'),
@@ -2127,22 +2100,22 @@ class AdminService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success']) {
-          debugPrint('✅ تم إرسال الإشعار العام بنجاح');
+          // �� ��� ����� debugPrint
         } else {
-          debugPrint('⚠️ فشل في إرسال الإشعار العام: ${data['message']}');
+          // �� ��� ����� debugPrint
         }
       } else {
-        debugPrint('❌ خطأ في إرسال الإشعار العام: ${response.statusCode}');
+        // �� ��� ����� debugPrint
       }
     } catch (e) {
-      debugPrint('❌ خطأ في إرسال الإشعار العام: $e');
+      // �� ��� ����� debugPrint
     }
   }
 
   /// اختبار إرسال إشعار
   static Future<bool> testNotification(String customerPhone) async {
     try {
-      debugPrint('🧪 اختبار إرسال إشعار للعميل: $customerPhone');
+      // �� ��� ����� debugPrint
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/notifications/test'),
@@ -2157,18 +2130,18 @@ class AdminService {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success']) {
-          debugPrint('✅ تم إرسال الإشعار التجريبي بنجاح');
+          // �� ��� ����� debugPrint
           return true;
         } else {
-          debugPrint('⚠️ فشل في إرسال الإشعار التجريبي: ${data['message']}');
+          // �� ��� ����� debugPrint
           return false;
         }
       } else {
-        debugPrint('❌ خطأ في إرسال الإشعار التجريبي: ${response.statusCode}');
+        // �� ��� ����� debugPrint
         return false;
       }
     } catch (e) {
-      debugPrint('❌ خطأ في اختبار الإشعار: $e');
+      // �� ��� ����� debugPrint
       return false;
     }
   }

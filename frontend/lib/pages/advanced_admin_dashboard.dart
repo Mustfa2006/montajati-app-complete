@@ -16,7 +16,6 @@ import '../services/smart_inventory_manager.dart';
 import '../models/product.dart';
 import 'advanced_orders_management_page.dart';
 import 'scheduled_orders_main_page.dart';
-import 'scheduled_orders_test_page.dart';
 import 'users_management_page.dart';
 import 'reports_page.dart';
 import 'settings_page.dart';
@@ -3262,7 +3261,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) =>
-                                      const ScheduledOrdersTestPage(),
+                                      const ScheduledOrdersMainPage(),
                                 ),
                               );
                             },

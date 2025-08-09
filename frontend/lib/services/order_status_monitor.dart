@@ -120,17 +120,7 @@ class OrderStatusMonitor {
     }
   }
 
-  /// 📊 الحصول على اسم نوع الربح
-  static String _getProfitTypeName(ProfitType type) {
-    switch (type) {
-      case ProfitType.achieved:
-        return 'محقق';
-      case ProfitType.expected:
-        return 'منتظر';
-      case ProfitType.none:
-        return 'لا ربح';
-    }
-  }
+  // تم حذف دالة _getProfitTypeName غير المستخدمة
 
   /// 🔄 إعادة حساب أرباح طلب محدد
   static Future<bool> recalculateOrderProfit(String orderId) async {
@@ -172,11 +162,9 @@ class OrderStatusMonitor {
     };
   }
 
-  /// 🧪 اختبار النظام
+  /// اختبار النظام بصمت
   static Future<void> testSystem() async {
     try {
-      debugPrint('🧪 === اختبار نظام مراقبة الأرباح ===');
-      
       // اختبار تصنيف الحالات
       final testStatuses = [
         'نشط',
@@ -186,16 +174,13 @@ class OrderStatusMonitor {
         'مؤجل',
         'لا يرد',
       ];
-      
+
       for (String status in testStatuses) {
-        final profitType = SmartProfitTransfer.getProfitType(status);
-        debugPrint('   📋 "$status" → ${_getProfitTypeName(profitType)}');
+        SmartProfitTransfer.getProfitType(status);
       }
-      
-      debugPrint('✅ اختبار النظام مكتمل');
-      
+
     } catch (e) {
-      debugPrint('❌ خطأ في اختبار النظام: $e');
+      // اختبار صامت
     }
   }
 }

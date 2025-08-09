@@ -93,13 +93,7 @@ class ProductionLogger {
       timeZone: config.get('system', 'timezone')
     });
 
-    console.log(
-      `${color}[${timestamp}] ${entry.level} [${entry.category}]${reset} ${entry.message}`
-    );
-
-    if (entry.data) {
-      console.log(`${color}📊 البيانات:${reset}`, JSON.parse(entry.data));
-    }
+    // تسجيل صامت
   }
 
   // تسجيل في الملف

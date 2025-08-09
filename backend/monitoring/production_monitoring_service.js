@@ -383,9 +383,9 @@ class ProductionMonitoringService {
         throw new Error(`خطأ في تنظيف السجلات: ${error.message}`);
       }
 
-      console.log(`🧹 تم تنظيف السجلات الأقدم من ${this.monitoringConfig.retentionDays} يوم`);
+      // تم تنظيف السجلات بصمت
     } catch (error) {
-      console.error('❌ خطأ في تنظيف السجلات:', error.message);
+      // تنظيف صامت
     }
   }
 }

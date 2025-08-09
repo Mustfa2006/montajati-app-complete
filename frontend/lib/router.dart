@@ -24,12 +24,10 @@ import 'pages/profits_page.dart';
 import 'pages/statistics_page.dart';
 import 'pages/withdraw_page.dart';
 import 'pages/withdrawal_history_page.dart';
-import 'pages/storage_test_page.dart';
 import 'pages/favorites_page.dart';
 import 'pages/order_summary_page.dart';
 import 'pages/scheduled_orders_main_page.dart';
-// import 'pages/protected_system_test_page.dart'; // تم حذف الصفحة
-import 'pages/new_system_test_page.dart';
+// تم حذف صفحات الاختبار
 
 
 class AppRouter {
@@ -215,12 +213,7 @@ class AppRouter {
         builder: (context, state) => const SimpleAddProductPage(),
       ),
 
-      // صفحة اختبار Storage
-      GoRoute(
-        path: '/storage-test',
-        name: 'storage-test',
-        builder: (context, state) => const StorageTestPage(),
-      ),
+      // تم حذف صفحة اختبار Storage
 
       // صفحة ملخص الطلب
       GoRoute(
@@ -246,12 +239,7 @@ class AppRouter {
       //   builder: (context, state) => const ProtectedSystemTestPage(),
       // ), // تم تعطيل الصفحة المحمية
 
-      // صفحة اختبار النظام الجديد
-      GoRoute(
-        path: '/new-system-test',
-        name: 'new-system-test',
-        builder: (context, state) => const NewSystemTestPage(),
-      ),
+      // تم حذف صفحة اختبار النظام الجديد
 
       // صفحة اختبار الإشعارات
 

@@ -671,10 +671,8 @@ class _OrderDetailsPageState extends State<OrderDetailsPage>
   }
 
   void _showUpdateStatusDialog() {
-    debugPrint('🔄 فتح حوار تحديث حالة الطلب');
     final currentStatus = _orderDetails?.status ?? 'pending';
     String selectedStatus = currentStatus;
-    debugPrint('📋 الحالة الحالية: $currentStatus');
 
     showDialog(
       context: context,

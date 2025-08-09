@@ -2,6 +2,9 @@
 <html>
 
 <head>
+  <!-- 🔒 Console Blocker - يجب أن يكون أول شيء -->
+  <script src="console-blocker.js"></script>
+
   <!--
     If you are serving your web app in a path other than the root, change the
     href value below to reflect the base path you are serving from.
@@ -50,32 +53,29 @@
   <title>منتجاتي - منصة الدروب شيبنگ الأولى في العراق</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- إعدادات خاصة بالويب -->
-  <script src="js/web-config.js"></script>
-  <script src="js/performance-optimizer.js"></script>
+  <!-- إشعارات المتصفح -->
+  <script src="js/notifications.js"></script>
 
+  <!-- تحسينات خاصة للآيفون -->
+  <script src="js/ios-optimizations.js"></script>
 
+  <!-- تحسينات خاصة للآيفون -->
+  <meta name="format-detection" content="telephone=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-touch-fullscreen" content="yes">
 
+  <!-- منع التكبير في iOS -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- تحسين الأداء -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="dns-prefetch" href="https://api.montajati.com">
 
 </head>
 
 <body>
   <script src="flutter_bootstrap.js" async></script>
-
-  <!-- تسجيل Service Worker -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/js/enhanced-service-worker.js')
-          .then(function(registration) {
-            console.log('✅ Service Worker مسجل بنجاح:', registration.scope);
-          })
-          .catch(function(error) {
-            console.log('❌ فشل تسجيل Service Worker:', error);
-          });
-      });
-    }
-  </script>
 </body>
 
 </html>

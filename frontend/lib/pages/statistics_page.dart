@@ -25,13 +25,9 @@ class _StatisticsPageState extends State<StatisticsPage>
 
   // البيانات الحقيقية من قاعدة البيانات
   int _totalOrders = 0;
-  double _totalProfits = 0.0;
   double _realizedProfits = 0.0;
-  // تم إزالة _expectedProfits غير المستخدم
   int _activeOrders = 0;
   int _deliveredOrders = 0;
-  // تم إزالة _inDeliveryOrders غير المستخدم
-  // تم إزالة _cancelledOrders غير المستخدم
 
   // بيانات أفضل المنتجات
   List<Map<String, dynamic>> _topProducts = [];
@@ -169,9 +165,7 @@ class _StatisticsPageState extends State<StatisticsPage>
   // إعادة تعيين الإحصائيات إلى الصفر
   void _resetStatistics() {
     _totalOrders = 0;
-    _totalProfits = 0.0;
     _realizedProfits = 0.0;
-    // تم إزالة تعيين المتغيرات غير المستخدمة
     _activeOrders = 0;
     _deliveredOrders = 0;
     _topProducts = [];
@@ -190,9 +184,7 @@ class _StatisticsPageState extends State<StatisticsPage>
     debugPrint('📊 عدد الطلبات المستلمة: ${orders.length}');
 
     _totalOrders = orders.length;
-    _totalProfits = 0.0;
     _realizedProfits = 0.0;
-    // تم إزالة تعيين المتغيرات غير المستخدمة
     _activeOrders = 0;
     _deliveredOrders = 0;
 
@@ -221,7 +213,6 @@ class _StatisticsPageState extends State<StatisticsPage>
         case 'delivered':
           _deliveredOrders++;
           _realizedProfits += profit;
-          _totalProfits += profit;
           break;
         case 'active':
         case 'confirmed':
@@ -240,12 +231,7 @@ class _StatisticsPageState extends State<StatisticsPage>
       }
     }
 
-    debugPrint('📊 === نتائج حساب الإحصائيات ===');
-    debugPrint('📈 إجمالي الطلبات: $_totalOrders');
-    debugPrint('✅ الطلبات المكتملة: $_deliveredOrders');
-    debugPrint('🔄 الطلبات النشطة: $_activeOrders');
-    debugPrint('💰 إجمالي الأرباح: $_totalProfits د.ع');
-    debugPrint('💵 الأرباح المحققة: $_realizedProfits د.ع');
+    // حساب صامت للإحصائيات
 
     // حساب الطلبات الشهرية
     _calculateMonthlyOrders(orders);

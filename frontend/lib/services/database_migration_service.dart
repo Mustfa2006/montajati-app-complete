@@ -7,7 +7,7 @@ class DatabaseMigrationService {
   // تحديث جدول الطلبات لإضافة حقول شركة الوسيط
   static Future<void> migrateOrdersTable() async {
     try {
-      debugPrint('🔄 بدء تحديث جدول الطلبات لإضافة حقول شركة الوسيط...');
+      // بدء تحديث جدول الطلبات
 
       // إضافة الحقول المفقودة أولاً
       final basicFieldsQuery = '''
@@ -27,13 +27,13 @@ class DatabaseMigrationService {
 
       try {
         await _supabase.rpc('execute_sql', params: {'sql': basicFieldsQuery});
-        debugPrint('✅ تم إضافة الحقول الأساسية بنجاح');
+        // تم إضافة الحقول الأساسية
       } catch (e) {
         if (e.toString().contains('Could not find the function public.execute_sql')) {
-          debugPrint('⚠️ دالة execute_sql غير متوفرة - تخطي تحديث قاعدة البيانات');
+          // دالة execute_sql غير متوفرة
           return;
         }
-        debugPrint('! خطأ في إضافة الحقول الأساسية: $e');
+        // خطأ في إضافة الحقول الأساسية
       }
 
       // تحديث البيانات الموجودة
@@ -56,13 +56,13 @@ class DatabaseMigrationService {
 
       try {
         await _supabase.rpc('execute_sql', params: {'sql': updateDataQuery});
-        debugPrint('✅ تم تحديث البيانات الموجودة بنجاح');
+        // تم تحديث البيانات الموجودة
       } catch (e) {
         if (e.toString().contains('Could not find the function public.execute_sql')) {
-          debugPrint('⚠️ دالة execute_sql غير متوفرة - تخطي تحديث البيانات');
+          // دالة execute_sql غير متوفرة
           return;
         }
-        debugPrint('⚠️ خطأ في تحديث البيانات: $e');
+        // خطأ في تحديث البيانات
       }
 
       // إضافة حقول شركة الوسيط
@@ -78,9 +78,9 @@ class DatabaseMigrationService {
 
       try {
         await _supabase.rpc('execute_sql', params: {'sql': waseetFieldsQuery});
-        debugPrint('✅ تم إضافة حقول شركة الوسيط بنجاح');
+        // تم إضافة حقول شركة الوسيط
       } catch (e) {
-        debugPrint('⚠️ خطأ في إضافة حقول شركة الوسيط: $e');
+        // خطأ في إضافة حقول شركة الوسيط
       }
 
       // إنشاء الفهارس
@@ -93,22 +93,22 @@ class DatabaseMigrationService {
       for (final query in indexQueries) {
         try {
           await _supabase.rpc('execute_sql', params: {'sql': query});
-          debugPrint('✅ تم إنشاء فهرس بنجاح');
+          // تم إنشاء فهرس
         } catch (e) {
-          debugPrint('⚠️ خطأ في إنشاء الفهرس: $e');
+          // خطأ في إنشاء الفهرس
         }
       }
 
-      debugPrint('✅ تم تحديث جدول الطلبات بنجاح');
+      // تم تحديث جدول الطلبات
     } catch (e) {
-      debugPrint('❌ خطأ في تحديث جدول الطلبات: $e');
+      // خطأ في تحديث جدول الطلبات
     }
   }
 
   // إنشاء جدول لحفظ حالات الطلبات من شركة الوسيط
   static Future<void> createOrderStatusesTable() async {
     try {
-      debugPrint('🔄 إنشاء جدول حالات الطلبات...');
+      // إنشاء جدول حالات الطلبات
 
       final createTableQuery = '''
         CREATE TABLE IF NOT EXISTS waseet_order_statuses (
@@ -120,9 +120,9 @@ class DatabaseMigrationService {
       ''';
 
       await _supabase.rpc('execute_sql', params: {'sql': createTableQuery});
-      debugPrint('✅ تم إنشاء جدول حالات الطلبات بنجاح');
+      // تم إنشاء جدول حالات الطلبات
     } catch (e) {
-      debugPrint('❌ خطأ في إنشاء جدول حالات الطلبات: $e');
+      // خطأ في إنشاء جدول حالات الطلبات
     }
   }
 
@@ -348,7 +348,7 @@ class DatabaseMigrationService {
 
   // تشغيل جميع عمليات التحديث
   static Future<void> runAllMigrations() async {
-    debugPrint('🚀 بدء تشغيل جميع عمليات تحديث قاعدة البيانات...');
+    // بدء تشغيل جميع عمليات تحديث قاعدة البيانات
 
     await migrateOrdersTable();
     await createOrderStatusesTable();
@@ -356,7 +356,7 @@ class DatabaseMigrationService {
     await updateOrderStatusMapping();
     await fixScheduledOrdersFunction();
 
-    debugPrint('✅ تم الانتهاء من جميع عمليات تحديث قاعدة البيانات');
+    // تم الانتهاء من جميع عمليات تحديث قاعدة البيانات
   }
 
   // فحص ما إذا كانت التحديثات مطلوبة
