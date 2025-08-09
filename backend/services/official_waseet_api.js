@@ -6,7 +6,7 @@
 const https = require('https');
 const { URLSearchParams } = require('url');
 
-class WaseetAPIClient {
+class OfficialWaseetAPI {
   constructor(username, password) {
     // استخدام متغيرات البيئة إذا لم يتم تمرير البيانات
     this.username = username || process.env.WASEET_USERNAME;
@@ -450,4 +450,4 @@ class WaseetAPIClient {
   }
 }
 
-module.exports = WaseetAPIClient;
+module.exports = OfficialWaseetAPI;
