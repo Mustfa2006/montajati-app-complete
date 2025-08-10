@@ -1,13 +1,16 @@
 const OfficialWaseetAPI = require('./official_waseet_api');
 const { createClient } = require('@supabase/supabase-js');
 const targetedNotificationService = require('./targeted_notification_service');
+const EventEmitter = require('events');
 
 /**
  * نظام المزامنة المدمج مع الخادم - للإنتاج على Render
  * Integrated Waseet Sync for Production Server
  */
-class IntegratedWaseetSync {
+class IntegratedWaseetSync extends EventEmitter {
   constructor() {
+    super(); // استدعاء constructor الخاص بـ EventEmitter
+
     this.supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -53,6 +56,7 @@ class IntegratedWaseetSync {
       
     } catch (error) {
       console.error('❌ فشل البدء التلقائي:', error.message);
+      this.emit('error', error);
     }
   }
 
@@ -69,6 +73,10 @@ class IntegratedWaseetSync {
       const testResult = await this.testConnection();
       if (!testResult.success) {
         console.error('❌ فشل اختبار الاتصال:', testResult.error);
+
+        // إرسال حدث الخطأ
+        this.emit('error', new Error(testResult.error));
+
         // إعادة المحاولة بعد دقيقة
         setTimeout(() => this.start(), 60000);
         return { success: false, error: testResult.error };
@@ -270,6 +278,9 @@ class IntegratedWaseetSync {
       console.error('❌ فشل المزامنة:', error.message);
       this.stats.failedSyncs++;
       this.stats.lastError = error.message;
+
+      // إرسال حدث الخطأ
+      this.emit('error', error);
     } finally {
       this.isCurrentlySyncing = false;
     }
