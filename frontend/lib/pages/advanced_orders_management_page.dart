@@ -140,7 +140,7 @@ class _AdvancedOrdersManagementPageState
 
       _applyFilters();
       if (!loadMore) {
-        _calculateStatistics();
+        await _calculateStatistics();
       }
     } catch (e) {
       setState(() {
