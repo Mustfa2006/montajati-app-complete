@@ -32,7 +32,7 @@ const IntegratedWaseetSync = require('./services/integrated_waseet_sync');
 const FCMCleanupService = require('./services/fcm_cleanup_service');
 
 // نظام المزامنة المدمج مع الوسيط
-const waseetSync = require('./services/integrated_waseet_sync');
+const waseetSync = new IntegratedWaseetSync();
 
 class OfficialMontajatiServer {
   constructor() {
