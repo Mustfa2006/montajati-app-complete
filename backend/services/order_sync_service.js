@@ -404,7 +404,7 @@ class OrderSyncService {
       // جلب جميع الطلبات المرسلة للوسيط (استبعاد الحالات النهائية)
       const { data: orders, error } = await this.supabase
         .from('orders')
-        .select('id, waseet_order_id, status, customer_name')
+        .select('id, waseet_order_id, status, customer_name, customer_phone, user_phone')
         .not('waseet_order_id', 'is', null)
         // ✅ استبعاد الحالات النهائية - استخدام فلتر منفصل لتجنب مشكلة النص العربي
         .neq('status', 'تم التسليم للزبون')
@@ -452,6 +452,76 @@ class OrderSyncService {
               .eq('id', order.id);
 
             console.log(`✅ تم تحديث حالة الطلب ${order.id}: ${order.status} → ${statusResult.status}`);
+
+            // 📱 إرسال إشعار للمستخدم بالحالة الجديدة (فقط للحالات المحددة)
+            try {
+              const userPhone = order.customer_phone || order.user_phone;
+              const customerName = order.customer_name || 'عميل';
+              const newStatus = statusResult.localStatus || statusResult.status;
+
+              // 🎯 قائمة الحالات التي يجب إرسال إشعار لها
+              const allowedNotificationStatuses = [
+                'active',
+                'in_delivery',
+                'delivered',
+                'cancelled',
+                'قيد التوصيل الى الزبون (في عهدة المندوب)',
+                'تم تغيير محافظة الزبون',
+                'لا يرد',
+                'لا يرد بعد الاتفاق',
+                'مغلق',
+                'مغلق بعد الاتفاق',
+                'مؤجل',
+                'مؤجل لحين اعادة الطلب لاحقا',
+                'الغاء الطلب',
+                'رفض الطلب',
+                'مفصول عن الخدمة',
+                'طلب مكرر',
+                'مستلم مسبقا',
+                'الرقم غير معرف',
+                'الرقم غير داخل في الخدمة',
+                'العنوان غير دقيق',
+                'لم يطلب',
+                'حظر المندوب',
+                'لا يمكن الاتصال بالرقم',
+                'تغيير المندوب'
+              ];
+
+              // فحص إذا كانت الحالة الجديدة ضمن القائمة المسموحة
+              if (!allowedNotificationStatuses.includes(newStatus)) {
+                console.log(`🚫 تم تجاهل إشعار الحالة "${newStatus}" - غير مدرجة في القائمة المسموحة`);
+              } else if (userPhone) {
+                console.log(`📤 إرسال إشعار تحديث الحالة للمستخدم: ${userPhone} - الحالة: ${newStatus}`);
+
+                // استدعاء خدمة الإشعارات المستهدفة
+                const targetedNotificationService = require('./targeted_notification_service');
+
+                // تهيئة الخدمة إذا لم تكن مُهيأة
+                if (!targetedNotificationService.initialized) {
+                  await targetedNotificationService.initialize();
+                }
+
+                // إرسال الإشعار
+                const notificationResult = await targetedNotificationService.sendOrderStatusNotification(
+                  userPhone,
+                  order.id,
+                  newStatus,
+                  customerName,
+                  'تم تحديث حالة الطلب من الوسيط'
+                );
+
+                if (notificationResult.success) {
+                  console.log(`✅ تم إرسال إشعار تحديث الحالة بنجاح للطلب ${order.id}`);
+                } else {
+                  console.log(`⚠️ فشل في إرسال إشعار للطلب ${order.id}: ${notificationResult.error}`);
+                }
+              } else {
+                console.log(`⚠️ رقم هاتف المستخدم غير متوفر للطلب ${order.id}`);
+              }
+            } catch (notificationError) {
+              console.error(`❌ خطأ في إرسال إشعار للطلب ${order.id}:`, notificationError.message);
+            }
+
             updatedCount++;
           }
 
