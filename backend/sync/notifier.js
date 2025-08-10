@@ -56,6 +56,12 @@ class NotificationService {
     try {
       console.log(`📤 إرسال إشعار تحديث حالة الطلب ${order.id} إلى ${newStatus}`);
 
+      // 🚫 تجاهل إشعار حالة "confirmed" (تثبيت الطلب)
+      if (newStatus === 'confirmed' || newStatus === 'فعال') {
+        console.log('🚫 تم تجاهل إشعار تثبيت الطلب');
+        return;
+      }
+
       // الحصول على FCM token للمستخدم
       const { data: fcmTokens, error } = await this.supabase
         .from('fcm_tokens')

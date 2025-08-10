@@ -428,6 +428,12 @@ class OrderSyncService {
           const statusResult = await this.checkOrderStatus(order.waseet_order_id);
           
           if (statusResult && statusResult.status !== order.status) {
+            // 🚫 تجاهل حالة "فعال" من الوسيط
+            if (statusResult.status === 'فعال' || statusResult.status === 'active') {
+              console.log(`🚫 تم تجاهل حالة "فعال" للطلب ${order.id}`);
+              continue;
+            }
+
             // ✅ فحص إذا كانت الحالة الحالية نهائية - استخدام القائمة الموحدة
             const statusMapper = require('../sync/status_mapper');
             if (statusMapper.isFinalStatus(order.status)) {
