@@ -55,6 +55,10 @@ class OrderSyncService {
       }
 
       console.log(`📋 تم جلب بيانات الطلب: ${order.customer_name}`);
+      console.log(`📍 بيانات العنوان الأولية:`);
+      console.log(`   - المحافظة: "${order.province || order.customer_province || 'غير محدد'}"`);
+      console.log(`   - المدينة: "${order.city || order.customer_city || 'غير محدد'}"`);
+      console.log(`   - العنوان: "${order.customer_address || order.delivery_address || order.address || 'غير محدد'}"`);
 
       // التحقق من وجود بيانات الوسيط المحفوظة
       let waseetData = null;
@@ -110,10 +114,12 @@ class OrderSyncService {
         location = order.delivery_address.trim();
       } else if (order.notes && order.notes.trim() !== '') {
         location = order.notes.trim();
-      } else if (order.province && order.city) {
-        location = `${order.province} - ${order.city}`;
-      } else if (order.city) {
-        location = order.city;
+      } else if ((order.province || order.customer_province) && (order.city || order.customer_city)) {
+        const province = order.province || order.customer_province;
+        const city = order.city || order.customer_city;
+        location = `${province} - ${city}`;
+      } else if (order.city || order.customer_city) {
+        location = order.city || order.customer_city;
       } else {
         // استخدام عنوان افتراضي مقبول من الوسيط
         location = 'بغداد - الكرخ - شارع الرئيسي';
@@ -131,7 +137,9 @@ class OrderSyncService {
       const rejectedTexts = ['عنوان العميل', 'لا يوجد عنوان', 'غير محدد'];
       if (rejectedTexts.some(text => location.includes(text))) {
         console.log('⚠️ العنوان يحتوي على نص افتراضي مرفوض، استخدام عنوان بديل');
-        location = `${order.province || 'بغداد'} - ${order.city || 'الكرخ'} - شارع الرئيسي`;
+        const province = order.province || order.customer_province || 'بغداد';
+        const city = order.city || order.customer_city || 'الكرخ';
+        location = `${province} - ${city} - شارع الرئيسي`;
       }
 
       console.log(`✅ العنوان النهائي للوسيط: "${location}"`);
@@ -204,23 +212,27 @@ class OrderSyncService {
    */
   async createDefaultWaseetData(order) {
     try {
+      // استخراج المحافظة والمدينة من جميع الأعمدة المحتملة
+      const province = order.province || order.customer_province || '';
+      const city = order.city || order.customer_city || '';
+
       console.log(`🔍 فحص بيانات الطلب للوسيط:`);
-      console.log(`   - المحافظة: "${order.province}"`);
-      console.log(`   - المدينة: "${order.city}"`);
-      console.log(`   - العنوان: "${order.customer_address}"`);
+      console.log(`   - المحافظة: "${province}"`);
+      console.log(`   - المدينة: "${city}"`);
+      console.log(`   - العنوان: "${customer_notes}"`);
 
       // البحث في قاعدة البيانات عن المحافظة والمدينة
       let cityData = { cityId: '1', regionId: '1' }; // بغداد افتراضياً
 
       // البحث عن المحافظة في قاعدة البيانات
-      if (order.province) {
-        console.log(`🔍 البحث عن المحافظة "${order.province}" في قاعدة البيانات...`);
+      if (province) {
+        console.log(`🔍 البحث عن المحافظة "${province}" في قاعدة البيانات...`);
 
         const { data: provinces, error: provinceError } = await this.supabase
           .from('provinces')
           .select('id, name, external_id')
           .eq('provider_name', 'alwaseet')
-          .ilike('name', `%${order.province}%`);
+          .ilike('name', `%${province}%`);
 
         if (provinceError) {
           console.log(`❌ خطأ في البحث عن المحافظة: ${provinceError.message}`);
@@ -231,15 +243,15 @@ class OrderSyncService {
           cityData.cityId = province.external_id || '1';
 
           // البحث عن المدينة في نفس المحافظة
-          if (order.city) {
-            console.log(`🔍 البحث عن المدينة "${order.city}" في المحافظة "${province.name}"...`);
+          if (city) {
+            console.log(`🔍 البحث عن المدينة "${city}" في المحافظة "${province.name}"...`);
 
             const { data: cities, error: cityError } = await this.supabase
               .from('cities')
               .select('id, name, external_id')
               .eq('provider_name', 'alwaseet')
               .eq('province_id', province.id)
-              .ilike('name', `%${order.city}%`);
+              .ilike('name', `%${city}%`);
 
             if (cityError) {
               console.log(`❌ خطأ في البحث عن المدينة: ${cityError.message}`);
@@ -248,11 +260,11 @@ class OrderSyncService {
               console.log(`✅ تم العثور على المدينة: ${city.name} (ID: ${city.id}, External ID: ${city.external_id})`);
               cityData.regionId = city.external_id || '1';
             } else {
-              console.log(`❌ لم يتم العثور على المدينة "${order.city}" في المحافظة "${province.name}"`);
+              console.log(`❌ لم يتم العثور على المدينة "${city}" في المحافظة "${province.name}"`);
             }
           }
         } else {
-          console.log(`❌ لم يتم العثور على المحافظة "${order.province}" في قاعدة البيانات`);
+          console.log(`❌ لم يتم العثور على المحافظة "${province}" في قاعدة البيانات`);
         }
       }
 
