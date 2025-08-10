@@ -31,8 +31,7 @@ const OfficialNotificationManager = require('./services/official_notification_ma
 const IntegratedWaseetSync = require('./services/integrated_waseet_sync');
 const FCMCleanupService = require('./services/fcm_cleanup_service');
 
-// نظام المزامنة المدمج مع الوسيط
-const waseetSync = new IntegratedWaseetSync();
+// نظام المزامنة المدمج مع الوسيط (سيتم إنشاؤه في الـ constructor)
 
 class OfficialMontajatiServer {
   constructor() {
@@ -571,9 +570,8 @@ class OfficialMontajatiServer {
       this.inventoryMonitor = global.inventoryMonitorInstance;
       this.state.services.inventoryMonitor = this.inventoryMonitor;
 
-      // تهيئة خدمة المزامنة المتقدمة
+      // تهيئة خدمة المزامنة
       try {
-        await this.syncManager.initialize();
         this.state.services.sync = this.syncManager;
         console.log('✅ تم تهيئة خدمة المزامنة بنجاح');
 
@@ -604,7 +602,7 @@ class OfficialMontajatiServer {
 
       // بدء نظام المزامنة المدمج مع الوسيط
       console.log('🚀 بدء نظام المزامنة المدمج مع الوسيط...');
-      waseetSync.autoStart();
+      this.syncManager.autoStart();
 
       return true;
 

@@ -405,7 +405,5 @@ class IntegratedWaseetSync {
   }
 }
 
-// إنشاء instance واحد للتطبيق
-const waseetSyncInstance = new IntegratedWaseetSync();
-
-module.exports = waseetSyncInstance;
+// تصدير الـ Class للاستخدام
+module.exports = IntegratedWaseetSync;
