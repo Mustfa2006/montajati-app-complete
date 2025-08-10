@@ -12,7 +12,6 @@ import 'dart:convert';
 // تم إزالة Smart Cache - الجلب المباشر من قاعدة البيانات
 import '../widgets/pull_to_refresh_wrapper.dart';
 import '../utils/error_handler.dart';
-import '../services/order_sync_service.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
 import '../widgets/bottom_navigation_bar.dart';
@@ -88,8 +87,7 @@ class _OrdersPageState extends State<OrdersPage> {
     // إعادة تعيين الفلتر إلى "الكل"
     selectedFilter = 'all';
 
-    // بدء مراقبة تحديثات الطلبات من شركة الوسيط
-    OrderSyncService.startOrderSync();
+    // تم حذف OrderSyncService - كان معطلاً ولا يؤثر على التطبيق
   }
 
   // تم حذف دالة _initializeSmartCache - استخدام التحميل التدريجي المباشر

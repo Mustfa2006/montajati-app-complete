@@ -13,7 +13,6 @@ import 'router.dart';
 
 
 import 'services/database_migration_service.dart';
-import 'services/background_order_sync_service.dart';
 import 'services/location_cache_service.dart';
 import 'services/order_monitoring_service.dart';
 import 'services/fcm_service.dart';
@@ -381,13 +380,7 @@ void _scheduleBackgroundServices() {
       debugPrint('❌ خطأ في مراقبة الأرباح: $e');
     }
 
-    // تهيئة المزامنة التلقائية
-    try {
-      await BackgroundOrderSyncService.initialize();
-      debugPrint('✅ تم تهيئة المزامنة التلقائية في الخلفية');
-    } catch (e) {
-      debugPrint('❌ خطأ في المزامنة التلقائية: $e');
-    }
+    // تم حذف BackgroundOrderSyncService - كان معطلاً ولا يؤثر على التطبيق
 
     // تشغيل تحديثات قاعدة البيانات في الخلفية
     try {

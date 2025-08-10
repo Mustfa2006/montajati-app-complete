@@ -241,7 +241,10 @@ class AdminService {
     int offset = 0,
   }) async {
     try {
-      final response = await _supabase
+      debugPrint('🔍 getOrdersSummary - statusFilter: $statusFilter, limit: $limit, offset: $offset');
+
+      // بناء الاستعلام الأساسي
+      var query = _supabase
           .from('orders')
           .select('''
             id,
@@ -253,12 +256,24 @@ class AdminService {
             status,
             created_at,
             updated_at
-          ''')
+          ''');
+
+      // 🎯 تطبيق فلتر الحالة إذا كان محدد
+      if (statusFilter != null && statusFilter != 'all') {
+        debugPrint('🔍 تطبيق فلتر الحالة: $statusFilter');
+        query = query.eq('status', statusFilter);
+      }
+
+      // تطبيق الترتيب والحد
+      final response = await query
           .order('created_at', ascending: false)
           .range(offset, offset + limit - 1);
 
+      debugPrint('📊 تم جلب ${response.length} طلب مع فلتر: $statusFilter');
+
       return response.map<OrderSummary>((order) => OrderSummary.fromJson(order)).toList();
     } catch (e) {
+      debugPrint('❌ خطأ في جلب ملخص الطلبات: $e');
       throw Exception('خطأ في جلب ملخص الطلبات: $e');
     }
   }
