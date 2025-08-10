@@ -42,7 +42,7 @@ const RESOURCES = {"assets/AssetManifest.bin": "f7a24edb41efc4575e6d0fbb1e7a78cb
 "js/ios-optimizations.js": "e975048de673809b3443f99f1d6e2738",
 "js/light-protection.js": "a2768e629eae165a90d20f88c5d3c199",
 "js/web-config.js": "412ffb0b3cffe6a9fc9f9fa8d4205d5a",
-"main.dart.js": "816f68f5e7e96f699f35f7499353f679",
+"main.dart.js": "67ec59124778998f3dccefb1c2238285",
 "manifest.json": "49af2d5c7112a03edbad0696b25b43cf",
 "robots.txt": "398157d4258f8a71769b584a3c26f65d",
 "sitemap.xml": "6743b12e16654e67ef2b9c37ca2d6d2c",

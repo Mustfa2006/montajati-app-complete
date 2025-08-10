@@ -117,11 +117,11 @@ class _AdvancedOrdersManagementPageState
         });
       }
 
-      // 🚀 جلب ملخص الطلبات فقط (سريع جداً)
+      // 🚀 جلب جميع الطلبات بدون فلتر لتطبيق الفلتر في الواجهة الأمامية
       final summaries = await AdminService.getOrdersSummary(
-        statusFilter: _selectedStatus == 'all' ? null : _selectedStatus,
-        limit: _pageSize,
-        offset: _currentPage * _pageSize,
+        statusFilter: null, // جلب جميع الطلبات
+        limit: 1000, // جلب عدد كبير من الطلبات
+        offset: 0, // البدء من الأول
       );
 
       setState(() {
@@ -203,23 +203,24 @@ class _AdvancedOrdersManagementPageState
           // فلترة مبسطة تطابق حالات قاعدة البيانات الفعلية
           switch (cleanSelectedStatus) {
             case 'processing':
-              // طلبات المعالجات
+              // طلبات المعالجات - جميع الحالات التي تحتاج معالجة
               matchesStatus = _isProcessingStatus(summary.status);
               break;
             case 'active':
-              // الطلبات النشطة
-              matchesStatus = cleanOrderStatus == 'active';
+              // الطلبات النشطة - فحص كلا الحالتين
+              matchesStatus = summary.status.trim() == 'نشط' ||
+                             summary.status.trim() == 'active';
               break;
             case 'in_delivery':
-              // الطلبات قيد التوصيل
-              matchesStatus = cleanOrderStatus == 'in_delivery';
+              // الطلبات قيد التوصيل - فقط "قيد التوصيل الى الزبون (في عهدة المندوب)"
+              matchesStatus = summary.status.trim() == 'قيد التوصيل الى الزبون (في عهدة المندوب)';
               break;
             case 'delivered':
-              // الطلبات المكتملة
-              matchesStatus = cleanOrderStatus == 'delivered';
+              // الطلبات المكتملة - فقط "تم التسليم للزبون"
+              matchesStatus = summary.status.trim() == 'تم التسليم للزبون';
               break;
             case 'cancelled':
-              // الطلبات الملغية
+              // الطلبات الملغية - جميع الحالات الملغية
               matchesStatus = _isCancelledStatus(summary.status);
               break;
             default:
@@ -355,22 +356,22 @@ class _AdvancedOrdersManagementPageState
         } else if (_isCancelledStatus(status)) {
           statusCounts['ملغي'] = (statusCounts['ملغي'] ?? 0) + 1;
         } else {
-          switch (status.toLowerCase().trim()) {
-            case 'active':
-            case 'confirmed':
-            case 'pending':
-              statusCounts['نشط'] = (statusCounts['نشط'] ?? 0) + 1;
-              break;
-            case 'in_delivery':
-            case 'processing':
-            case 'shipped':
-            case 'shipping':
-              statusCounts['قيد التوصيل'] = (statusCounts['قيد التوصيل'] ?? 0) + 1;
-              break;
-            case 'delivered':
-            case 'completed':
-              statusCounts['تم التوصيل'] = (statusCounts['تم التوصيل'] ?? 0) + 1;
-              break;
+          // فحص الحالات الأساسية بدقة
+          final trimmedStatus = status.trim();
+
+          if (trimmedStatus == 'نشط' || trimmedStatus == 'active') {
+            statusCounts['نشط'] = (statusCounts['نشط'] ?? 0) + 1;
+          } else if (trimmedStatus == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
+                     trimmedStatus == 'قيد التوصيل' ||
+                     trimmedStatus == 'قيد التوصيل الى الزبون') {
+            statusCounts['قيد التوصيل'] = (statusCounts['قيد التوصيل'] ?? 0) + 1;
+          } else if (trimmedStatus == 'تم التسليم للزبون' ||
+                     trimmedStatus == 'delivered' ||
+                     trimmedStatus == 'مكتمل') {
+            statusCounts['تم التوصيل'] = (statusCounts['تم التوصيل'] ?? 0) + 1;
+          } else if (trimmedStatus == 'الغاء الطلب' ||
+                     trimmedStatus == 'رفض الطلب') {
+            statusCounts['ملغي'] = (statusCounts['ملغي'] ?? 0) + 1;
           }
         }
       }
@@ -1624,30 +1625,31 @@ class _AdvancedOrdersManagementPageState
 
   // دوال مساعدة لفحص الحالات
   bool _isProcessingStatus(String status) {
-    return status == 'تم تغيير محافظة الزبون' ||
-           status == 'تغيير المندوب' ||
-           status == 'لا يرد' ||
-           status == 'لا يرد بعد الاتفاق' ||
-           status == 'مغلق' ||
-           status == 'مغلق بعد الاتفاق' ||
-           status == 'الرقم غير معرف' ||
-           status == 'الرقم غير داخل في الخدمة' ||
-           status == 'لا يمكن الاتصال بالرقم' ||
-           status == 'مؤجل' ||
-           status == 'مؤجل لحين اعادة الطلب لاحقا' ||
-           status == 'مفصول عن الخدمة' ||
-           status == 'طلب مكرر' ||
-           status == 'مستلم مسبقا' ||
-           status == 'العنوان غير دقيق' ||
-           status == 'لم يطلب' ||
-           status == 'حظر المندوب';
+    final trimmedStatus = status.trim();
+    return trimmedStatus == 'تم تغيير محافظة الزبون' ||
+           trimmedStatus == 'تغيير المندوب' ||
+           trimmedStatus == 'لا يرد' ||
+           trimmedStatus == 'لا يرد بعد الاتفاق' ||
+           trimmedStatus == 'مغلق' ||
+           trimmedStatus == 'مغلق بعد الاتفاق' ||
+           trimmedStatus == 'الرقم غير معرف' ||
+           trimmedStatus == 'الرقم غير داخل في الخدمة' ||
+           trimmedStatus == 'لا يمكن الاتصال بالرقم' ||
+           trimmedStatus == 'مؤجل' ||
+           trimmedStatus == 'مؤجل لحين اعادة الطلب لاحقا' ||
+           trimmedStatus == 'مفصول عن الخدمة' ||
+           trimmedStatus == 'طلب مكرر' ||
+           trimmedStatus == 'مستلم مسبقا' ||
+           trimmedStatus == 'العنوان غير دقيق' ||
+           trimmedStatus == 'لم يطلب' ||
+           trimmedStatus == 'حظر المندوب';
   }
 
   bool _isCancelledStatus(String status) {
-    return status == 'الغاء الطلب' ||
-           status == 'رفض الطلب' ||
-           status == 'تم الارجاع الى التاجر' ||
-           status == 'cancelled';
+    // فقط الحالات الملغية الأساسية
+    final trimmedStatus = status.trim();
+    return trimmedStatus == 'الغاء الطلب' ||
+           trimmedStatus == 'رفض الطلب';
   }
 
   void _showErrorSnackBar(String message) {
