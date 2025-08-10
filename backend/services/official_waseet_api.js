@@ -396,6 +396,134 @@ class OfficialWaseetAPI {
   }
 
   /**
+   * إنشاء طلب جديد في الوسيط
+   * @param {Object} orderData - بيانات الطلب
+   * @returns {Object} نتيجة الإنشاء
+   */
+  async createOrder(orderData) {
+    try {
+      // التأكد من تسجيل الدخول
+      const token = await this.authenticate();
+
+      console.log('📦 إنشاء طلب جديد في الوسيط...');
+      console.log('📋 بيانات الطلب:', orderData);
+
+      // إعداد البيانات حسب API الوسيط
+      const formData = new FormData();
+      formData.append('token', token);
+      formData.append('customer_name', orderData.customer_name || 'عميل');
+      formData.append('customer_phone', orderData.customer_phone || '');
+      formData.append('delivery_address', orderData.delivery_address || '');
+      formData.append('total_amount', orderData.total_amount || 0);
+      formData.append('notes', orderData.notes || '');
+      formData.append('order_reference', orderData.order_reference || '');
+
+      const response = await axios.post(`${this.baseUrl}/v1/merchant/create-order`, formData, {
+        headers: {
+          ...formData.getHeaders(),
+          'User-Agent': 'Montajati-App/2.2.0'
+        },
+        timeout: this.timeout,
+        validateStatus: (status) => status < 500
+      });
+
+      console.log(`📊 استجابة إنشاء الطلب: ${response.status}`);
+
+      if (response.status === 200 && response.data) {
+        const responseData = response.data;
+
+        if (responseData.status === true && responseData.errNum === 'S000') {
+          const qrId = responseData.data?.qr_id || responseData.data?.id;
+          console.log(`✅ تم إنشاء الطلب بنجاح - QR ID: ${qrId}`);
+
+          return {
+            success: true,
+            qrId: qrId,
+            data: responseData.data,
+            message: 'تم إنشاء الطلب بنجاح'
+          };
+        } else {
+          throw new Error(`فشل API: ${responseData.errNum} - ${responseData.msg}`);
+        }
+      } else {
+        throw new Error(`استجابة غير متوقعة: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.error('❌ فشل إنشاء الطلب:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  /**
+   * إنشاء طلب جديد في الوسيط
+   * @param {Object} orderData - بيانات الطلب
+   * @returns {Object} نتيجة الإنشاء
+   */
+  async createOrder(orderData) {
+    try {
+      // التأكد من تسجيل الدخول
+      const token = await this.authenticate();
+
+      console.log('📦 إنشاء طلب جديد في الوسيط...');
+      console.log('📋 بيانات الطلب:', orderData);
+
+      // إعداد البيانات حسب API الوسيط
+      const formData = new FormData();
+      formData.append('token', token);
+      formData.append('customer_name', orderData.customer_name || 'عميل');
+      formData.append('customer_phone', orderData.customer_phone || '');
+      formData.append('delivery_address', orderData.delivery_address || '');
+      formData.append('total_amount', orderData.total_amount || 0);
+      formData.append('notes', orderData.notes || '');
+      formData.append('order_reference', orderData.order_reference || '');
+
+      const response = await axios.post(`${this.baseUrl}/v1/merchant/create-order`, formData, {
+        headers: {
+          ...formData.getHeaders(),
+          'User-Agent': 'Montajati-App/2.2.0'
+        },
+        timeout: this.timeout,
+        validateStatus: (status) => status < 500
+      });
+
+      console.log(`📊 استجابة إنشاء الطلب: ${response.status}`);
+
+      if (response.status === 200 && response.data) {
+        const responseData = response.data;
+
+        if (responseData.status === true && responseData.errNum === 'S000') {
+          const qrId = responseData.data?.qr_id || responseData.data?.id;
+          console.log(`✅ تم إنشاء الطلب بنجاح - QR ID: ${qrId}`);
+
+          return {
+            success: true,
+            qrId: qrId,
+            data: responseData.data,
+            message: 'تم إنشاء الطلب بنجاح'
+          };
+        } else {
+          throw new Error(`فشل API: ${responseData.errNum} - ${responseData.msg}`);
+        }
+      } else {
+        throw new Error(`استجابة غير متوقعة: ${response.status}`);
+      }
+
+    } catch (error) {
+      console.error('❌ فشل إنشاء الطلب:', error.message);
+      return {
+        success: false,
+        error: error.message,
+        details: error.response?.data || null
+      };
+    }
+  }
+
+  /**
    * جلب طلبات محددة بالـ IDs (API الرسمي)
    */
   async getOrdersByIds(orderIds) {
