@@ -223,50 +223,68 @@ class OrderSyncService {
       console.log(`   - المدينة: "${city}"`);
       console.log(`   - الملاحظات: "${order.customer_notes || order.notes || 'لا توجد'}"`);
 
-      // البحث في قاعدة البيانات عن المحافظة والمدينة
-      // ⚠️ تحذير: إذا لم توجد البيانات، سيتم استخدام بغداد كافتراضي
-      let cityData = { cityId: '1', regionId: '1' }; // بغداد افتراضياً
+      // استخدام بيانات المحافظة والمدينة مباشرة من الطلب
+      console.log(`�️ استخدام بيانات المحافظة والمدينة مباشرة من الطلب...`);
 
-      // البحث عن المحافظة في قاعدة البيانات
+      // معرفات افتراضية للوسيط (سيتم تحديثها بناءً على جداول الوسيط)
+      let cityData = {
+        cityId: '1',    // معرف المحافظة في الوسيط
+        regionId: '1'   // معرف المدينة في الوسيط
+      };
+
+      // البحث عن المحافظة في جدول waseet_provinces
       if (province) {
-        console.log(`🔍 البحث عن المحافظة "${province}" في قاعدة البيانات...`);
+        console.log(`🔍 البحث عن المحافظة "${province}" في جدول waseet_provinces...`);
 
         const { data: provinces, error: provinceError } = await this.supabase
-          .from('provinces')
-          .select('id, name, waseet_id')
-          .ilike('name', `%${province}%`);
+          .from('waseet_provinces')
+          .select('waseet_province_id, name_ar')
+          .ilike('name_ar', `%${province}%`);
 
         if (provinceError) {
           console.log(`❌ خطأ في البحث عن المحافظة: ${provinceError.message}`);
         } else if (provinces && provinces.length > 0) {
           const provinceData = provinces[0];
-          console.log(`✅ تم العثور على المحافظة: ${provinceData.name} (ID: ${provinceData.id}, Waseet ID: ${provinceData.waseet_id})`);
+          console.log(`✅ تم العثور على المحافظة: ${provinceData.name_ar} (Waseet ID: ${provinceData.waseet_province_id})`);
 
-          cityData.cityId = provinceData.waseet_id || '1';
+          cityData.cityId = provinceData.waseet_province_id.toString();
 
-          // البحث عن المدينة في نفس المحافظة
+          // البحث عن المدينة في جدول waseet_cities
           if (city) {
-            console.log(`🔍 البحث عن المدينة "${city}" في المحافظة "${provinceData.name}"...`);
+            console.log(`🔍 البحث عن المدينة "${city}" في جدول waseet_cities...`);
 
             const { data: cities, error: cityError } = await this.supabase
-              .from('cities')
-              .select('id, name, waseet_id')
-              .eq('province_id', provinceData.id)
-              .ilike('name', `%${city}%`);
+              .from('waseet_cities')
+              .select('waseet_city_id, name_ar')
+              .eq('waseet_province_id', provinceData.waseet_province_id)
+              .ilike('name_ar', `%${city}%`);
 
             if (cityError) {
               console.log(`❌ خطأ في البحث عن المدينة: ${cityError.message}`);
             } else if (cities && cities.length > 0) {
-              const cityData_found = cities[0];
-              console.log(`✅ تم العثور على المدينة: ${cityData_found.name} (ID: ${cityData_found.id}, Waseet ID: ${cityData_found.waseet_id})`);
-              cityData.regionId = cityData_found.waseet_id || '1';
+              const cityFound = cities[0];
+              console.log(`✅ تم العثور على المدينة: ${cityFound.name_ar} (Waseet ID: ${cityFound.waseet_city_id})`);
+              cityData.regionId = cityFound.waseet_city_id.toString();
             } else {
-              console.log(`❌ لم يتم العثور على المدينة "${city}" في المحافظة "${provinceData.name}"`);
+              console.log(`❌ لم يتم العثور على المدينة "${city}" في المحافظة "${provinceData.name_ar}"`);
+              console.log(`⚠️ سيتم استخدام أول مدينة في المحافظة كافتراضي`);
+
+              // البحث عن أول مدينة في المحافظة
+              const { data: firstCity } = await this.supabase
+                .from('waseet_cities')
+                .select('waseet_city_id, name_ar')
+                .eq('waseet_province_id', provinceData.waseet_province_id)
+                .limit(1);
+
+              if (firstCity && firstCity.length > 0) {
+                cityData.regionId = firstCity[0].waseet_city_id.toString();
+                console.log(`✅ تم استخدام المدينة الافتراضية: ${firstCity[0].name_ar} (ID: ${cityData.regionId})`);
+              }
             }
           }
         } else {
-          console.log(`❌ لم يتم العثور على المحافظة "${province}" في قاعدة البيانات`);
-          console.log(`⚠️ سيتم استخدام بغداد كافتراضي - هذا قد يسبب مشاكل في التوصيل!`);
+          console.log(`❌ لم يتم العثور على المحافظة "${province}" في جدول waseet_provinces`);
+          console.log(`⚠️ سيتم استخدام بغداد كافتراضي`);
         }
       } else {
         console.log(`⚠️ لا توجد محافظة محددة - سيتم استخدام بغداد كافتراضي`);
