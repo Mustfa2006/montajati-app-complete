@@ -521,7 +521,6 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     final values = _calculateFinalValues();
 
     final subtotal = values['subtotal']!;
-    final fullTotal = values['fullTotal']!; // 🎯 المبلغ الكامل للوسيط
     final customerTotal = values['customerTotal']!; // 💰 المبلغ المدفوع من العميل
     final finalProfit = values['finalProfit']!;
 
