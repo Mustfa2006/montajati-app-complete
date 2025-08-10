@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order_summary.dart';
 import '../services/admin_service.dart';
 import '../utils/order_status_helper.dart';
@@ -201,12 +202,16 @@ class _AdvancedOrdersManagementPageState
 
           // فلترة مبسطة تطابق حالات قاعدة البيانات الفعلية
           switch (cleanSelectedStatus) {
+            case 'processing':
+              // طلبات المعالجات
+              matchesStatus = _isProcessingStatus(summary.status);
+              break;
             case 'active':
-              // الطلبات النشطة (17 طلب موجود)
+              // الطلبات النشطة
               matchesStatus = cleanOrderStatus == 'active';
               break;
             case 'in_delivery':
-              // الطلبات قيد التوصيل (1 طلب موجود)
+              // الطلبات قيد التوصيل
               matchesStatus = cleanOrderStatus == 'in_delivery';
               break;
             case 'delivered':
@@ -215,7 +220,7 @@ class _AdvancedOrdersManagementPageState
               break;
             case 'cancelled':
               // الطلبات الملغية
-              matchesStatus = cleanOrderStatus == 'cancelled';
+              matchesStatus = _isCancelledStatus(summary.status);
               break;
             default:
               // مطابقة مباشرة
@@ -310,69 +315,86 @@ class _AdvancedOrdersManagementPageState
     });
   }
 
-  void _calculateStatistics() {
-    // حساب الإحصائيات من ملخص الطلبات (سريع)
-    if (_orderSummaries.isEmpty) {
-      _statistics = {};
-      return;
-    }
+  Future<void> _calculateStatistics() async {
+    // حساب الإحصائيات الحقيقية من قاعدة البيانات
+    try {
+      // جلب جميع الطلبات لحساب العدادات الحقيقية
+      final allOrdersResponse = await Supabase.instance.client
+          .from('orders')
+          .select('status, total');
 
-    // حساب الإحصائيات الأساسية من ملخص الطلبات
-    final totalOrders = _orderSummaries.length;
-    final totalAmount = _orderSummaries.fold<double>(
-      0,
-      (sum, summary) => sum + summary.totalAmount,
-    );
-    // الربح غير متوفر في الملخص، سنحسبه لاحقاً عند الحاجة
-    final totalProfit = 0.0;
-
-    // حساب عدد الطلبات لكل حالة من جميع الطلبات
-    final statusCounts = <String, int>{
-      'نشط': 0,
-      'قيد التوصيل': 0,
-      'تم التوصيل': 0,
-      'ملغي': 0,
-    };
-
-    for (final summary in _orderSummaries) {
-      switch (summary.status.toLowerCase().trim()) {
-        case 'active':
-        case 'confirmed':
-        case 'pending':
-          statusCounts['نشط'] = (statusCounts['نشط'] ?? 0) + 1;
-          break;
-        case 'in_delivery':
-        case 'processing':
-        case 'shipped':
-        case 'shipping':
-          statusCounts['قيد التوصيل'] = (statusCounts['قيد التوصيل'] ?? 0) + 1;
-          break;
-        case 'delivered':
-        case 'completed':
-          statusCounts['تم التوصيل'] = (statusCounts['تم التوصيل'] ?? 0) + 1;
-          break;
-        case 'cancelled':
-        case 'rejected':
-          statusCounts['ملغي'] = (statusCounts['ملغي'] ?? 0) + 1;
-          break;
+      if (allOrdersResponse.isEmpty) {
+        setState(() {
+          _statistics = {};
+        });
+        return;
       }
-    }
 
-    final averageAmount = totalOrders > 0 ? totalAmount / totalOrders : 0.0;
-    final averageProfit = totalOrders > 0 ? totalProfit / totalOrders : 0.0;
+      // حساب الإحصائيات الأساسية من جميع الطلبات
+      final totalOrders = allOrdersResponse.length;
+      final totalAmount = allOrdersResponse.fold<double>(
+        0,
+        (sum, order) => sum + ((order['total'] as num?)?.toDouble() ?? 0.0),
+      );
+      final totalProfit = 0.0; // الربح غير متوفر في الملخص
 
-    // تم حساب الإحصائيات بنجاح
-
-    setState(() {
-      _statistics = {
-        'totalOrders': totalOrders,
-        'totalAmount': totalAmount,
-        'totalProfit': totalProfit,
-        'averageAmount': averageAmount,
-        'averageProfit': averageProfit,
-        'statusCounts': statusCounts,
+      // حساب عدد الطلبات لكل حالة من جميع الطلبات في قاعدة البيانات
+      final statusCounts = <String, int>{
+        'معالجات': 0,
+        'نشط': 0,
+        'قيد التوصيل': 0,
+        'تم التوصيل': 0,
+        'ملغي': 0,
       };
-    });
+
+      for (final order in allOrdersResponse) {
+        final status = order['status'] as String? ?? '';
+
+        if (_isProcessingStatus(status)) {
+          statusCounts['معالجات'] = (statusCounts['معالجات'] ?? 0) + 1;
+        } else if (_isCancelledStatus(status)) {
+          statusCounts['ملغي'] = (statusCounts['ملغي'] ?? 0) + 1;
+        } else {
+          switch (status.toLowerCase().trim()) {
+            case 'active':
+            case 'confirmed':
+            case 'pending':
+              statusCounts['نشط'] = (statusCounts['نشط'] ?? 0) + 1;
+              break;
+            case 'in_delivery':
+            case 'processing':
+            case 'shipped':
+            case 'shipping':
+              statusCounts['قيد التوصيل'] = (statusCounts['قيد التوصيل'] ?? 0) + 1;
+              break;
+            case 'delivered':
+            case 'completed':
+              statusCounts['تم التوصيل'] = (statusCounts['تم التوصيل'] ?? 0) + 1;
+              break;
+          }
+        }
+      }
+
+      final averageAmount = totalOrders > 0 ? totalAmount / totalOrders : 0.0;
+      final averageProfit = totalOrders > 0 ? totalProfit / totalOrders : 0.0;
+
+      // تحديث الإحصائيات
+      setState(() {
+        _statistics = {
+          'totalOrders': totalOrders,
+          'totalAmount': totalAmount,
+          'totalProfit': totalProfit,
+          'averageAmount': averageAmount,
+          'averageProfit': averageProfit,
+          'statusCounts': statusCounts,
+        };
+      });
+    } catch (e) {
+      debugPrint('❌ خطأ في حساب الإحصائيات: $e');
+      setState(() {
+        _statistics = {};
+      });
+    }
   }
 
   @override
@@ -898,6 +920,8 @@ class _AdvancedOrdersManagementPageState
           children: [
             _buildQuickFilterChip('الكل', 'all', Icons.list),
             const SizedBox(width: 8),
+            _buildQuickFilterChip('معالجات', 'processing', Icons.build),
+            const SizedBox(width: 8),
             _buildQuickFilterChip('نشط', 'active', Icons.check_circle),
             const SizedBox(width: 8),
             _buildQuickFilterChip(
@@ -929,6 +953,9 @@ class _AdvancedOrdersManagementPageState
       final statusCounts =
           _statistics['statusCounts'] as Map<String, int>? ?? {};
       switch (value) {
+        case 'processing':
+          count = statusCounts['معالجات'] ?? 0;
+          break;
         case 'active':
           count = statusCounts['نشط'] ?? 0;
           break;
@@ -1392,6 +1419,7 @@ class _AdvancedOrdersManagementPageState
   Widget _buildStatusFilter() {
     final statuses = [
       {'value': 'all', 'label': 'جميع الحالات', 'color': Colors.grey},
+      {'value': 'processing', 'label': 'معالجات', 'color': Colors.purple},
       {'value': 'active', 'label': 'نشط', 'color': Colors.blue},
       {'value': 'in_delivery', 'label': 'قيد التوصيل', 'color': Colors.orange},
       {'value': 'delivered', 'label': 'تم التوصيل', 'color': Colors.green},
@@ -1592,6 +1620,34 @@ class _AdvancedOrdersManagementPageState
     });
     _searchController.clear();
     _applyFilters();
+  }
+
+  // دوال مساعدة لفحص الحالات
+  bool _isProcessingStatus(String status) {
+    return status == 'تم تغيير محافظة الزبون' ||
+           status == 'تغيير المندوب' ||
+           status == 'لا يرد' ||
+           status == 'لا يرد بعد الاتفاق' ||
+           status == 'مغلق' ||
+           status == 'مغلق بعد الاتفاق' ||
+           status == 'الرقم غير معرف' ||
+           status == 'الرقم غير داخل في الخدمة' ||
+           status == 'لا يمكن الاتصال بالرقم' ||
+           status == 'مؤجل' ||
+           status == 'مؤجل لحين اعادة الطلب لاحقا' ||
+           status == 'مفصول عن الخدمة' ||
+           status == 'طلب مكرر' ||
+           status == 'مستلم مسبقا' ||
+           status == 'العنوان غير دقيق' ||
+           status == 'لم يطلب' ||
+           status == 'حظر المندوب';
+  }
+
+  bool _isCancelledStatus(String status) {
+    return status == 'الغاء الطلب' ||
+           status == 'رفض الطلب' ||
+           status == 'تم الارجاع الى التاجر' ||
+           status == 'cancelled';
   }
 
   void _showErrorSnackBar(String message) {
