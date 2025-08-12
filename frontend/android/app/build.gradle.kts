@@ -5,6 +5,8 @@ import java.io.FileInputStream
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions {
         jvmTarget = "1.8"
+        apiVersion = "2.1"
+        languageVersion = "2.1"
         freeCompilerArgs = listOf(
             "-Xno-call-assertions",
             "-Xno-param-assertions",

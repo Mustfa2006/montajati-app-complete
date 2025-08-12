@@ -118,11 +118,13 @@ class _AdvancedOrdersManagementPageState
       }
 
       // 🚀 جلب جميع الطلبات بدون فلتر لتطبيق الفلتر في الواجهة الأمامية
+      debugPrint('🔄 جلب الطلبات من قاعدة البيانات...');
       final summaries = await AdminService.getOrdersSummary(
         statusFilter: null, // جلب جميع الطلبات
         limit: 1000, // جلب عدد كبير من الطلبات
         offset: 0, // البدء من الأول
       );
+      debugPrint('📦 تم جلب ${summaries.length} طلب من قاعدة البيانات');
 
       setState(() {
         if (loadMore) {
@@ -167,10 +169,19 @@ class _AdvancedOrdersManagementPageState
   }
 
   void _applyFilters() {
-    // تطبيق الفلاتر بدون logs مفرطة
+    debugPrint('🔍 بدء تطبيق الفلاتر - الحالة المختارة: $_selectedStatus');
+    debugPrint('📊 عدد الطلبات الكلي: ${_orderSummaries.length}');
+
+    // تطبيق الفلاتر مع تشخيص الحالات
     final statusCounts = <String, int>{};
     for (final summary in _orderSummaries) {
       statusCounts[summary.status] = (statusCounts[summary.status] ?? 0) + 1;
+    }
+
+    // إحصائيات الحالات للمراجعة
+    if (statusCounts.isNotEmpty) {
+      debugPrint('📊 إحصائيات الحالات: ${statusCounts.keys.join(", ")}');
+      debugPrint('📊 تفاصيل الإحصائيات: $statusCounts');
     }
 
     setState(() {
@@ -207,9 +218,9 @@ class _AdvancedOrdersManagementPageState
               matchesStatus = _isProcessingStatus(summary.status);
               break;
             case 'active':
-              // الطلبات النشطة - فحص كلا الحالتين
-              matchesStatus = summary.status.trim() == 'نشط' ||
-                             summary.status.trim() == 'active';
+              // الطلبات النشطة - البحث عن حالة "active" تحديداً
+              matchesStatus = summary.status.trim() == 'active';
+              debugPrint('🔍 فحص طلب ${summary.orderNumber}: status="${summary.status.trim()}", matches=$matchesStatus');
               break;
             case 'in_delivery':
               // الطلبات قيد التوصيل - فقط "قيد التوصيل الى الزبون (في عهدة المندوب)"
@@ -253,6 +264,8 @@ class _AdvancedOrdersManagementPageState
 
       // ترتيب النتائج
       _sortOrders();
+
+      debugPrint('✅ انتهاء تطبيق الفلاتر - عدد النتائج: ${_filteredSummaries.length}');
     });
   }
 
@@ -342,7 +355,7 @@ class _AdvancedOrdersManagementPageState
       // حساب عدد الطلبات لكل حالة من جميع الطلبات في قاعدة البيانات
       final statusCounts = <String, int>{
         'معالجات': 0,
-        'نشط': 0,
+        'active': 0,
         'قيد التوصيل': 0,
         'تم التوصيل': 0,
         'ملغي': 0,
@@ -359,8 +372,9 @@ class _AdvancedOrdersManagementPageState
           // فحص الحالات الأساسية بدقة
           final trimmedStatus = status.trim();
 
-          if (trimmedStatus == 'نشط' || trimmedStatus == 'active') {
-            statusCounts['نشط'] = (statusCounts['نشط'] ?? 0) + 1;
+          if (trimmedStatus == 'active') {
+            statusCounts['active'] = (statusCounts['active'] ?? 0) + 1;
+            debugPrint('✅ طلب نشط: ${order['order_number']} - العدد الحالي: ${statusCounts['active']}');
           } else if (trimmedStatus == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
                      trimmedStatus == 'قيد التوصيل' ||
                      trimmedStatus == 'قيد التوصيل الى الزبون') {
@@ -958,7 +972,7 @@ class _AdvancedOrdersManagementPageState
           count = statusCounts['معالجات'] ?? 0;
           break;
         case 'active':
-          count = statusCounts['نشط'] ?? 0;
+          count = statusCounts['active'] ?? 0;
           break;
         case 'in_delivery':
           count = statusCounts['قيد التوصيل'] ?? 0;
@@ -1006,9 +1020,11 @@ class _AdvancedOrdersManagementPageState
       ),
       selected: isSelected,
       onSelected: (selected) {
+        debugPrint('🔘 تم اختيار فلتر: $value (كان: $_selectedStatus)');
         setState(() {
           _selectedStatus = value;
         });
+        debugPrint('🔘 الحالة الجديدة: $_selectedStatus');
         _applyFilters();
       },
       backgroundColor: const Color(0xFF16213e),

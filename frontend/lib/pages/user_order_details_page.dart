@@ -243,11 +243,9 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
 
     // 2. فحص النص الأصلي للحالة من قاعدة البيانات
     final rawStatus = _order!.rawStatus.toLowerCase();
-    final isRawStatusActive = rawStatus == 'نشط' ||
-                             rawStatus == 'active' ||
+    final isRawStatusActive = rawStatus == 'active' ||
                              rawStatus == 'pending' ||
-                             rawStatus == 'confirmed' ||
-                             rawStatus == 'مؤكد';
+                             rawStatus == 'confirmed';
 
     // 3. التأكد من أن الطلب ليس في حالة نهائية
     final isFinalStatus = rawStatus.contains('تم التوصيل') ||

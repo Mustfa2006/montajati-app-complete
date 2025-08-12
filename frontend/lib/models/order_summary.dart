@@ -1,4 +1,5 @@
 // 🚀 نموذج بيانات مبسط للطلبات - للعرض السريع فقط
+import 'package:flutter/foundation.dart';
 import '../services/admin_service.dart';
 
 class OrderSummary {
@@ -30,6 +31,9 @@ class OrderSummary {
   });
 
   factory OrderSummary.fromJson(Map<String, dynamic> json) {
+    final status = json['status'] ?? 'active';
+    debugPrint('📦 إنشاء OrderSummary: id=${json['id']}, status=$status');
+
     return OrderSummary(
       id: json['id'] ?? '',
       orderNumber: json['id']?.toString().substring(0, 8) ?? '',
@@ -38,7 +42,7 @@ class OrderSummary {
       province: json['province'] ?? '',
       city: json['city'] ?? '',
       totalAmount: (json['total'] as num?)?.toDouble() ?? 0.0,
-      status: json['status'] ?? 'active',
+      status: status,
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
     );

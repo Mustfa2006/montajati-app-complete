@@ -1321,11 +1321,23 @@ router.get('/app-version', (req, res) => {
   try {
     console.log('📱 طلب فحص إصدار التطبيق');
 
+    // الإصدار الحالي للخادم
+    const serverVersion = '3.7.0';
+    const serverBuildNumber = 15;
+
+    // الحصول على إصدار التطبيق من الطلب (إذا تم إرساله)
+    const clientBuildNumber = parseInt(req.query.build_number || '0');
+
+    // تحديد ما إذا كان التحديث إجباري
+    const forceUpdate = serverBuildNumber > clientBuildNumber;
+
+    console.log(`📊 إصدار الخادم: ${serverBuildNumber}, إصدار العميل: ${clientBuildNumber}, تحديث إجباري: ${forceUpdate}`);
+
     res.json({
-      version: '3.7.0',
-      buildNumber: 15,
+      version: serverVersion,
+      buildNumber: serverBuildNumber,
       downloadUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.7.0.apk',
-      forceUpdate: true,
+      forceUpdate: forceUpdate,
       changelog: 'تحديث مهم: تحسينات الأداء وإصلاحات الأمان',
       releaseDate: new Date().toISOString(),
       fileSize: '26 MB',

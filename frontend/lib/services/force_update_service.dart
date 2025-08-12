@@ -18,21 +18,28 @@ class ForceUpdateService {
       final packageInfo = await PackageInfo.fromPlatform();
       final currentBuildNumber = int.parse(packageInfo.buildNumber);
 
-      // فحص الإصدار من الخادم
-      final response = await http.get(Uri.parse(updateCheckUrl));
+      // إرسال رقم الإصدار الحالي للخادم
+      final url = Uri.parse('$updateCheckUrl?build_number=$currentBuildNumber');
+      final response = await http.get(url);
+
+      debugPrint('🔍 فحص التحديث - الإصدار الحالي: $currentBuildNumber');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final serverBuildNumber = data['buildNumber'] as int;
         final downloadUrl = data['downloadUrl'] as String;
-        final forceUpdate = data['forceUpdate'] as bool? ?? true;
+        final forceUpdate = data['forceUpdate'] as bool? ?? false;
 
-        // مقارنة الإصدارات
-        if (serverBuildNumber > currentBuildNumber && forceUpdate) {
+        debugPrint('📊 إصدار الخادم: $serverBuildNumber, تحديث إجباري: $forceUpdate');
+
+        // عرض نافذة التحديث فقط إذا كان هناك تحديث فعلي
+        if (forceUpdate && serverBuildNumber > currentBuildNumber) {
           // التحقق من أن context ما زال صالحاً
           if (context.mounted) {
             _showForceUpdateDialog(context, downloadUrl);
           }
+        } else {
+          debugPrint('✅ التطبيق محدث - لا حاجة للتحديث');
         }
       }
     } catch (e) {

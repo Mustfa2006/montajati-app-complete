@@ -421,7 +421,7 @@ class _OrdersPageState extends State<OrdersPage> {
           .from('orders')
           .select('id')
           .eq('user_phone', currentUserPhone)
-          .inFilter('status', ['نشط', 'active'])
+          .eq('status', 'active')
           .count(CountOption.exact);
       final active = activeResponse.count;
 
@@ -526,7 +526,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   bool _isActiveStatus(String status) {
-    return status == 'نشط' || status == 'active';
+    return status == 'active';
   }
 
   bool _isInDeliveryStatus(String status) {
