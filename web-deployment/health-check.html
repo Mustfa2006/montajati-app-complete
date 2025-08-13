@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>فحص حالة منتجاتي</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+        .logo {
+            font-size: 2.5em;
+            color: #667eea;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .details {
+            text-align: right;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🛍️ منتجاتي</div>
+        <h2>فحص حالة التطبيق</h2>
+        
+        <div id="status" class="status info">
+            🔄 جاري فحص الحالة...
+        </div>
+        
+        <div id="details" class="details" style="display: none;">
+            <strong>تفاصيل الفحص:</strong><br>
+            <span id="timestamp"></span><br>
+            <span id="userAgent"></span><br>
+            <span id="connection"></span>
+        </div>
+        
+        <button class="btn" onclick="checkHealth()">🔄 إعادة الفحص</button>
+        <button class="btn" onclick="goToApp()">🚀 فتح التطبيق</button>
+    </div>
+
+    <script>
+        function checkHealth() {
+            const statusEl = document.getElementById('status');
+            const detailsEl = document.getElementById('details');
+            
+            statusEl.className = 'status info';
+            statusEl.innerHTML = '🔄 جاري فحص الحالة...';
+            
+            // فحص أساسي
+            try {
+                // فحص Service Worker
+                const swSupported = 'serviceWorker' in navigator;
+                
+                // فحص Local Storage
+                const storageSupported = typeof(Storage) !== "undefined";
+                
+                // فحص الاتصال
+                const online = navigator.onLine;
+                
+                // فحص Flutter
+                const flutterLoaded = typeof flutter !== 'undefined';
+                
+                let status = '✅ التطبيق يعمل بشكل طبيعي';
+                let className = 'status success';
+                
+                if (!online) {
+                    status = '⚠️ لا يوجد اتصال بالإنترنت';
+                    className = 'status error';
+                } else if (!swSupported || !storageSupported) {
+                    status = '⚠️ المتصفح لا يدعم جميع الميزات';
+                    className = 'status error';
+                }
+                
+                statusEl.className = className;
+                statusEl.innerHTML = status;
+                
+                // عرض التفاصيل
+                document.getElementById('timestamp').textContent = 'وقت الفحص: ' + new Date().toLocaleString('ar-SA');
+                document.getElementById('userAgent').textContent = 'المتصفح: ' + navigator.userAgent.split(' ')[0];
+                document.getElementById('connection').textContent = 'الاتصال: ' + (online ? 'متصل' : 'غير متصل');
+                
+                detailsEl.style.display = 'block';
+                
+            } catch (error) {
+                statusEl.className = 'status error';
+                statusEl.innerHTML = '❌ خطأ في فحص الحالة: ' + error.message;
+            }
+        }
+        
+        function goToApp() {
+            window.location.href = '/';
+        }
+        
+        // فحص تلقائي عند تحميل الصفحة
+        window.onload = checkHealth;
+    </script>
+</body>
+</html>
