@@ -210,7 +210,7 @@ SELECT
     COUNT(oi.id) as items_count,
     COALESCE(SUM(oi.profit_per_item * oi.quantity), 0) as calculated_profit
 FROM orders o
-LEFT JOIN users u ON o.customer_id = u.id
+LEFT JOIN users u ON o.user_phone = u.phone
 LEFT JOIN order_items oi ON o.id = oi.order_id
 GROUP BY o.id, u.name, u.phone
 ORDER BY o.created_at DESC;

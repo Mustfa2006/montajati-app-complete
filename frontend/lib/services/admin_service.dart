@@ -677,13 +677,28 @@ class AdminService {
         }
       }
 
-      // جلب بيانات المستخدم (التاجر)
+      // جلب بيانات المستخدم (التاجر) عبر user_phone
       String userName = 'غير محدد';
       String userPhone = 'غير محدد';
 
-      // لا يوجد user_id في الجدول الحالي، لذا نستخدم بيانات افتراضية
-      // userName = 'غير محدد';
-      // userPhone = 'غير محدد';
+      // جلب user_phone من الطلب مباشرة
+      userPhone = orderResponse['user_phone']?.toString() ?? 'غير محدد';
+
+      // جلب اسم التاجر من جدول users
+      if (userPhone != 'غير محدد' && userPhone.isNotEmpty) {
+        try {
+          final userResponse = await _supabase
+              .from('users')
+              .select('name')
+              .eq('phone', userPhone)
+              .single();
+
+          userName = userResponse['name']?.toString() ?? 'غير محدد';
+        } catch (userError) {
+          debugPrint('⚠️ لم يتم العثور على اسم التاجر لرقم: $userPhone');
+          userName = 'تاجر غير مسجل';
+        }
+      }
 
       // إنشاء كائن AdminOrder مع جميع البيانات
       final adminOrder = AdminOrder(
@@ -1400,14 +1415,16 @@ class AdminService {
       debugPrint('📋 سجل الحالات: ${response.length} عنصر');
 
       return response.map<StatusHistory>((item) {
+        // ✅ استخدام new_status بدلاً من status
+        final newStatus = item['new_status'] ?? '';
         return StatusHistory(
-          id: item['id'] ?? '',
-          status: item['status'] ?? '',
-          statusText: OrderStatusHelper.getArabicStatus(item['status'] ?? ''),
-          notes: item['notes'],
+          id: item['id']?.toString() ?? '',
+          status: newStatus,
+          statusText: OrderStatusHelper.getArabicStatus(newStatus),
+          notes: item['change_reason'] ?? '', // ✅ استخدام change_reason بدلاً من notes
           createdAt:
               DateTime.tryParse(item['created_at'] ?? '') ?? DateTime.now(),
-          createdBy: item['created_by'],
+          createdBy: item['changed_by'] ?? '', // ✅ استخدام changed_by بدلاً من created_by
         );
       }).toList();
     } catch (e) {

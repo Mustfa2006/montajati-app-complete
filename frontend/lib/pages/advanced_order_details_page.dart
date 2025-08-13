@@ -834,6 +834,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           _buildSummaryRow('عدد المنتجات', '${_order!.itemsCount} منتج'),
           _buildSummaryRow('طريقة الدفع', 'نقداً'),
           _buildSummaryRow('التاجر', _order!.userName),
+          _buildSummaryRow('رقم هاتف التاجر', _order!.userPhone),
         ],
       ),
     );
