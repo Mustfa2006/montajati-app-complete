@@ -394,6 +394,32 @@ class OrderStatusSyncService {
   // ===================================
   async updateOrderStatus(order, statusResult) {
     try {
+      // 🚫 تجاهل حالة "فعال" من الوسيط - لا نريد تغيير status إلى فعال أبداً
+      if (statusResult.waseetStatus === 'فعال' || statusResult.localStatus === 'active') {
+        console.log(`🚫 تم تجاهل حالة "فعال" للطلب ${order.order_number} - لا نريد تحديث status إلى فعال`);
+
+        // فقط تحديث بيانات الوسيط بدون تغيير status
+        const now = new Date().toISOString();
+        const { error: updateError } = await this.supabase
+          .from('orders')
+          .update({
+            // لا نغير status - نتركه كما هو
+            waseet_status: statusResult.waseetStatus,
+            waseet_data: statusResult.waseetData,
+            last_status_check: now,
+            updated_at: now
+            // لا نغير status_updated_at لأننا لم نغير status
+          })
+          .eq('id', order.id);
+
+        if (updateError) {
+          throw new Error(`خطأ في تحديث الطلب: ${updateError.message}`);
+        }
+
+        console.log(`✅ تم تحديث بيانات الوسيط فقط للطلب ${order.order_number} (تجاهل حالة فعال)`);
+        return false; // لم نغير status فعلياً
+      }
+
       // ✅ فحص إذا كانت الحالة الحالية نهائية
       const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
       if (finalStatuses.includes(order.status)) {

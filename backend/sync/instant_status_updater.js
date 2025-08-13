@@ -62,10 +62,41 @@ class InstantStatusUpdater {
         throw new Error(`الطلب ${orderId} غير موجود`);
       }
 
-      // 2. تحويل الحالة من الوسيط إلى المحلية
+      // 2. 🚫 تجاهل حالة "فعال" من الوسيط - لا نريد تغيير status إلى فعال أبداً
+      if (newWaseetStatus === 'فعال' || newWaseetStatus === 'active') {
+        console.log(`🚫 تم تجاهل حالة "فعال" للطلب ${orderId} - لا نريد تحديث status إلى فعال`);
+
+        // فقط تحديث بيانات الوسيط بدون تغيير status
+        const updateData = {
+          waseet_status: newWaseetStatus,
+          last_status_check: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        if (waseetData) {
+          updateData.waseet_data = waseetData;
+        }
+
+        const { error: updateError } = await this.supabase
+          .from('orders')
+          .update(updateData)
+          .eq('id', orderId);
+
+        if (updateError) {
+          throw new Error(`خطأ في تحديث الطلب: ${updateError.message}`);
+        }
+
+        return {
+          success: true,
+          changed: false,
+          message: 'تم تجاهل حالة فعال - تم تحديث بيانات الوسيط فقط'
+        };
+      }
+
+      // 3. تحويل الحالة من الوسيط إلى المحلية (بعد التأكد أنها ليست فعال)
       const newLocalStatus = statusMapper.mapWaseetToLocal(newWaseetStatus);
-      
-      // 3. فحص إذا كانت الحالة الحالية نهائية
+
+      // 5. فحص إذا كانت الحالة الحالية نهائية
       const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
       if (finalStatuses.includes(currentOrder.status)) {
         console.log(`⏹️ تم تجاهل تحديث الطلب ${orderId} - الحالة نهائية: ${currentOrder.status}`);
@@ -76,7 +107,7 @@ class InstantStatusUpdater {
         };
       }
 
-      // 4. التحقق من تغيير الحالة
+      // 6. التحقق من تغيير الحالة
       const hasStatusChanged = newLocalStatus !== currentOrder.status;
       const hasWaseetStatusChanged = newWaseetStatus !== currentOrder.waseet_status;
 
@@ -89,12 +120,12 @@ class InstantStatusUpdater {
         };
       }
 
-      // 5. التحقق من صحة الحالة الجديدة
+      // 7. التحقق من صحة الحالة الجديدة
       if (this.config.enableValidation && !this.validateStatusTransition(currentOrder.status, newLocalStatus)) {
         throw new Error(`انتقال حالة غير صحيح: ${currentOrder.status} → ${newLocalStatus}`);
       }
 
-      // 6. تحديث الطلب في قاعدة البيانات
+      // 8. تحديث الطلب في قاعدة البيانات
       const updateData = {
         waseet_status: newWaseetStatus,
         last_status_check: new Date().toISOString(),

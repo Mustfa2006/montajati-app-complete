@@ -34,12 +34,14 @@ class ForceUpdateService {
 
         // عرض نافذة التحديث فقط إذا كان هناك تحديث فعلي
         if (forceUpdate && serverBuildNumber > currentBuildNumber) {
+          debugPrint('🚨 يوجد تحديث متاح - عرض نافذة التحديث');
           // التحقق من أن context ما زال صالحاً
           if (context.mounted) {
             _showForceUpdateDialog(context, downloadUrl);
           }
         } else {
           debugPrint('✅ التطبيق محدث - لا حاجة للتحديث');
+          debugPrint('📊 تفاصيل: forceUpdate=$forceUpdate, serverBuild=$serverBuildNumber, currentBuild=$currentBuildNumber');
         }
       }
     } catch (e) {

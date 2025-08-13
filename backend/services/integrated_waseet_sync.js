@@ -221,7 +221,29 @@ class IntegratedWaseetSync extends EventEmitter {
         const waseetStatusId = parseInt(waseetOrder.status_id);
         const waseetStatusText = waseetOrder.status;
 
-        // ✅ تحويل حالة الوسيط إلى حالة التطبيق المعيارية (قبل قرار التخطي)
+        // 🚫 تجاهل حالة "فعال" من الوسيط - لا نريد تغيير status إلى فعال أبداً
+        if (waseetStatusText === 'فعال' || waseetStatusId === 1) {
+          console.log(`🚫 تم تجاهل حالة "فعال" للطلب ${dbOrder.id} - لا نريد تحديث status إلى فعال`);
+
+          // فقط تحديث بيانات الوسيط بدون تغيير status
+          const { error: updateError } = await this.supabase
+            .from('orders')
+            .update({
+              // لا نغير status - نتركه كما هو
+              waseet_status_id: waseetStatusId,
+              waseet_status_text: waseetStatusText,
+              last_status_check: new Date().toISOString()
+              // لا نغير status_updated_at لأننا لم نغير status
+            })
+            .eq('id', dbOrder.id);
+
+          if (!updateError) {
+            console.log(`✅ تم تحديث بيانات الوسيط فقط للطلب ${dbOrder.id} (تجاهل حالة فعال)`);
+          }
+          continue;
+        }
+
+        // ✅ تحويل حالة الوسيط إلى حالة التطبيق المعيارية (بعد التأكد أنها ليست فعال)
         const appStatus = this.mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
 
         // التحقق من وجود تغيير حقيقي يؤثر على ما يظهر في التطبيق
