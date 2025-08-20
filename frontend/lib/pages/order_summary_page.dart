@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -503,7 +504,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     // 💰 المبلغ المدفوع من العميل (مخفض) = subtotal + رسوم التوصيل المخفضة
     final customerTotal = subtotal + _deliveryFee;
 
-    final finalProfit = profit - deliveryPaidByUser; // المستخدم يدفع من ربحه
+    // 🔧 إصلاح حساب الربح النهائي - منع الأرقام السالبة
+    final finalProfit = math.max(0, profit - deliveryPaidByUser); // المستخدم يدفع من ربحه
 
     return {
       'subtotal': subtotal,
@@ -968,6 +970,17 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       debugPrint('   - fullTotal (للوسيط): $fullTotal د.ع');
       debugPrint('   - customerTotal (من العميل): $customerTotal د.ع');
       debugPrint('   - finalProfit: $finalProfit د.ع');
+
+      // 🔍 تشخيص مفصل للربح
+      debugPrint('🔍 === تشخيص مفصل للربح ===');
+      debugPrint('   - profit (الأولي): $profit');
+      debugPrint('   - deliveryPaidByUser: $deliveryPaidByUser');
+      debugPrint('   - finalProfit (المحسوب): $finalProfit');
+      debugPrint('   - finalOrderData[profit]: ${finalOrderData['profit']}');
+      debugPrint('   - نوع finalOrderData[profit]: ${finalOrderData['profit'].runtimeType}');
+      debugPrint('   - القيمة بعد toInt(): ${finalOrderData['profit'].toInt()}');
+
+
       debugPrint('   - رسوم التوصيل: ${finalOrderData['deliveryFee']} د.ع');
       debugPrint('   - المجموع النهائي: ${finalOrderData['total']} د.ع');
       debugPrint('   - الربح الأولي: $profit د.ع');

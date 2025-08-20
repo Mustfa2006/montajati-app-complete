@@ -224,9 +224,15 @@ class CartService extends ChangeNotifier {
     int totalProfit = 0;
 
     for (var item in _items) {
+      // حساب المجموع الفرعي والتكلفة
       subtotal += item.customerPrice * item.quantity;
       totalCost += item.wholesalePrice * item.quantity;
-      totalProfit += (item.customerPrice - item.wholesalePrice) * item.quantity;
+
+      // حساب الربح: فقط إذا كان سعر العميل أكبر من 0
+      if (item.customerPrice > 0) {
+        totalProfit += (item.customerPrice - item.wholesalePrice) * item.quantity;
+      }
+      // إذا كان سعر العميل = 0، لا نحسب ربح (بدلاً من ربح سالب)
     }
 
     final total = subtotal + deliveryFee - discount;

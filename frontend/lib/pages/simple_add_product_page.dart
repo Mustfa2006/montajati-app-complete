@@ -7,6 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../services/simple_product_service.dart';
 import '../services/basic_product_service.dart';
 import '../services/smart_inventory_manager.dart';
+import '../services/smart_colors_service.dart';
+import '../widgets/smart_color_picker.dart';
 
 class SimpleAddProductPage extends StatefulWidget {
   const SimpleAddProductPage({super.key});
@@ -29,6 +31,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
   String _selectedCategory = 'عام';
   List<XFile> _selectedImages = [];
   bool _isLoading = false;
+  List<ProductColorInput> _selectedColors = []; // الألوان المختارة
 
   final List<String> _categories = [
     'عام',
@@ -233,6 +236,17 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
 
               // اختيار الصور
               _buildImagePicker(),
+              const SizedBox(height: 20),
+
+              // قسم الألوان - النظام الذكي المتطور
+              SmartColorPicker(
+                onColorsChanged: (colors) {
+                  setState(() {
+                    _selectedColors = colors;
+                  });
+                },
+                initialColors: _selectedColors,
+              ),
               const SizedBox(height: 30),
 
               // زر الحفظ
@@ -863,6 +877,11 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
       }
 
       if (result['success']) {
+        // إضافة الألوان إذا كانت متوفرة
+        if (_selectedColors.isNotEmpty && result['product_id'] != null) {
+          await _saveProductColors(result['product_id']);
+        }
+
         _showSuccessSnackBar('✅ تم إضافة المنتج بنجاح!');
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) context.go('/admin');
@@ -895,5 +914,32 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
         backgroundColor: Colors.green,
       ),
     );
+  }
+
+  /// حفظ ألوان المنتج بعد إنشاء المنتج
+  Future<void> _saveProductColors(String productId) async {
+    try {
+      debugPrint('🎨 بدء حفظ ${_selectedColors.length} لون للمنتج $productId');
+
+      for (final color in _selectedColors) {
+        final result = await SmartColorsService.addColorToProduct(
+          productId: productId,
+          colorName: color.colorName,
+          colorCode: color.colorCode,
+          colorArabicName: color.colorArabicName,
+          totalQuantity: color.quantity,
+        );
+
+        if (result['success']) {
+          debugPrint('✅ تم حفظ اللون: ${color.colorArabicName}');
+        } else {
+          debugPrint('❌ فشل في حفظ اللون: ${color.colorArabicName} - ${result['error']}');
+        }
+      }
+
+      debugPrint('🎨 تم الانتهاء من حفظ الألوان');
+    } catch (e) {
+      debugPrint('❌ خطأ في حفظ الألوان: $e');
+    }
   }
 }

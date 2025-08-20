@@ -79,6 +79,7 @@ class BasicProductService {
         'success': true,
         'message': 'تم إضافة المنتج بنجاح',
         'product': response,
+        'product_id': response['id'], // إضافة معرف المنتج للاستخدام مع الألوان
         'uploaded_images': imageUrls.length,
       };
 

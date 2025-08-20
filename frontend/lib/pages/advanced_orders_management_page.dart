@@ -38,6 +38,7 @@ class _AdvancedOrdersManagementPageState
   bool _isBatchConverting = false;
 
   // متغيرات pagination
+  // ignore: unused_field
   int _currentPage = 0;
   final int _pageSize = 30;
   bool _hasMoreData = true;

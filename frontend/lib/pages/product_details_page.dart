@@ -12,6 +12,8 @@ import '../services/cart_service.dart';
 import '../utils/number_formatter.dart';
 import '../services/permissions_service.dart';
 import '../widgets/common_header.dart';
+import '../widgets/product_colors_display.dart';
+import '../models/product_color.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   final String productId;
@@ -36,6 +38,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   bool _isPriceValid = false;
   // تم إزالة _isFavorite غير المستخدم
   bool favoriteState = false;
+  ProductColor? _selectedColor; // اللون المختار
 
   @override
   void initState() {
@@ -815,6 +818,19 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                ),
+
+                SizedBox(height: 20),
+
+                // ألوان المنتج - النظام الذكي المتطور
+                ProductColorsDisplay(
+                  productId: widget.productId,
+                  selectedColor: _selectedColor,
+                  onColorSelected: (color) {
+                    setState(() {
+                      _selectedColor = color;
+                    });
+                  },
                 ),
 
                 SizedBox(height: 20),

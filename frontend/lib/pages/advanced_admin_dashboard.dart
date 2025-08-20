@@ -12,8 +12,11 @@ import 'package:http/http.dart' as http;
 import '../services/admin_service.dart';
 import '../services/withdrawal_service.dart';
 import '../services/smart_inventory_manager.dart';
+import '../services/smart_colors_service.dart';
 
 import '../models/product.dart';
+import '../models/product_color.dart';
+import '../widgets/colors_management_dialog.dart';
 import 'advanced_orders_management_page.dart';
 import 'scheduled_orders_main_page.dart';
 import 'scheduled_orders_test_page.dart';
@@ -711,7 +714,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               ),
               boxShadow: [
                 BoxShadow(
-                  color: (stat['color'] as Color).withValues(alpha: 0.1),
+                  color: (stat['color'] as Color).withValues(alpha: 0.2),
                   blurRadius: 10,
                   offset: const Offset(0, 5),
                 ),
@@ -761,7 +764,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 Text(
                   stat['title'] as String,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
+                    color: Colors.white.withValues(alpha: 0.8),
                     fontSize: 14,
                   ),
                 ),
@@ -867,7 +870,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             Text(
                               order.customerName,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 12,
                               ),
                             ),
@@ -990,7 +993,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             Text(
                               '${user.totalOrders} طلب',
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: Colors.white.withValues(alpha: 0.8),
                                 fontSize: 12,
                               ),
                             ),
@@ -1208,7 +1211,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     dotData: FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: const Color(0xFFffd700).withValues(alpha: 0.1),
+                      color: const Color(0xFFffd700).withValues(alpha: 0.2),
                     ),
                   ),
                 ],
@@ -2251,6 +2254,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     // استخدام الصور المحملة مسبقاً
     List<String> currentImages = List.from(preloadedImages);
 
+    // متغير لتخزين الألوان
+    List<ProductColor> currentColors = [];
+
     // طباعة معلومات تشخيصية
     debugPrint('🔍 تحميل صور المنتج: ${product.name}');
     debugPrint('📸 الصور المحملة مسبقاً: $currentImages');
@@ -2547,7 +2553,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.1),
+                        color: const Color(0xFFffd700).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: const Color(0xFFffd700).withValues(alpha: 0.3),
@@ -2708,7 +2714,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                           borderRadius: BorderRadius.circular(8),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.2),
+                                              color: Colors.black.withValues(alpha: 0.3),
                                               blurRadius: 4,
                                               offset: const Offset(0, 2),
                                             ),
@@ -2778,7 +2784,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black.withValues(alpha: 0.2),
+                                                color: Colors.black.withValues(alpha: 0.3),
                                                 blurRadius: 4,
                                                 offset: const Offset(0, 2),
                                               ),
@@ -2821,7 +2827,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                           shape: BoxShape.circle,
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.2),
+                                              color: Colors.black.withValues(alpha: 0.3),
                                               blurRadius: 4,
                                               offset: const Offset(0, 2),
                                             ),
@@ -2903,6 +2909,161 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       ),
                     ),
                   ],
+
+                  const SizedBox(height: 20),
+
+                  // قسم الألوان - النظام الذكي المتطور
+                  Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16213e),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              FontAwesomeIcons.palette,
+                              color: const Color(0xFFffd700),
+                              size: 18,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'ألوان المنتج',
+                              style: GoogleFonts.cairo(
+                                color: const Color(0xFFffd700),
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
+
+                        // عرض الألوان الحالية
+                        FutureBuilder<List<ProductColor>>(
+                          future: SmartColorsService.getProductColors(
+                            productId: product.id,
+                            includeUnavailable: true,
+                          ),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFFffd700),
+                                ),
+                              );
+                            }
+
+                            if (snapshot.hasError) {
+                              return Text(
+                                'خطأ في تحميل الألوان: ${snapshot.error}',
+                                style: GoogleFonts.cairo(color: Colors.red),
+                              );
+                            }
+
+                            currentColors = snapshot.data ?? [];
+
+                            if (currentColors.isEmpty) {
+                              return Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[800],
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey[600]!),
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        FontAwesomeIcons.palette,
+                                        color: Colors.grey[400],
+                                        size: 30,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'لا توجد ألوان للمنتج',
+                                        style: GoogleFonts.cairo(
+                                          color: Colors.grey[400],
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: currentColors.map((color) {
+                                return Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: color.flutterColor,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.3),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        color.colorArabicName,
+                                        style: GoogleFonts.cairo(
+                                          color: color.textColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${color.availableQuantity}',
+                                        style: GoogleFonts.cairo(
+                                          color: color.textColor.withValues(alpha: 0.8),
+                                          fontSize: 8,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // زر إدارة الألوان
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              // فتح نافذة إدارة الألوان
+                              _showColorsManagementDialog(product, currentColors, setState);
+                            },
+                            icon: const Icon(FontAwesomeIcons.gear, size: 14),
+                            label: Text(
+                              'إدارة الألوان',
+                              style: GoogleFonts.cairo(fontSize: 12),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFffd700),
+                              foregroundColor: const Color(0xFF1a1a2e),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2953,6 +3114,22 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ],
         );
       },
+    );
+  }
+
+  /// 🎨 نافذة إدارة الألوان المتطورة
+  void _showColorsManagementDialog(Product product, List<ProductColor> currentColors, StateSetter parentSetState) {
+    showDialog(
+      context: context,
+      builder: (context) => ColorsManagementDialog(
+        productId: product.id,
+        productName: product.name,
+        initialColors: currentColors,
+        onColorsUpdated: () {
+          // إعادة تحميل الألوان في النافذة الرئيسية
+          parentSetState(() {});
+        },
+      ),
     );
   }
 
@@ -3529,7 +3706,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.1),
+            color: color.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -3579,7 +3756,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Text(
             title,
             style: GoogleFonts.cairo(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: Colors.white.withValues(alpha: 0.8),
               fontSize: 12,
             ),
           ),
@@ -3777,7 +3954,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                           color: const Color(0xFF1a1a2e),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: Colors.orange.withValues(alpha: 0.2),
+                            color: Colors.orange.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
@@ -4001,7 +4178,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       child: Container(
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+          color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
@@ -4022,7 +4199,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             Text(
               subtitle,
               style: GoogleFonts.cairo(
-                color: Colors.white.withValues(alpha: 0.7),
+                color: Colors.white.withValues(alpha: 0.8),
                 fontSize: 11,
               ),
               textAlign: TextAlign.center,
@@ -4124,7 +4301,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+          color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
@@ -5087,14 +5264,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             Icon(
                               FontAwesomeIcons.inbox,
                               size: 64,
-                              color: Colors.white.withValues(alpha: 0.3),
+                              color: Colors.white.withValues(alpha: 0.6),
                             ),
                             const SizedBox(height: 16),
                             Text(
                               'لا توجد طلبات سحب',
                               style: GoogleFonts.cairo(
                                 fontSize: 18,
-                                color: Colors.white.withValues(alpha: 0.6),
+                                color: Colors.white.withValues(alpha: 0.8),
                               ),
                             ),
                           ],
@@ -5113,14 +5290,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             Icon(
                               FontAwesomeIcons.magnifyingGlass,
                               size: 64,
-                              color: Colors.grey.withValues(alpha: 0.3),
+                              color: Colors.grey.withValues(alpha: 0.6),
                             ),
                             const SizedBox(height: 16),
                             Text(
                               'لا توجد نتائج للبحث "$_searchQuery"',
                               style: GoogleFonts.cairo(
                                 fontSize: 16,
-                                color: Colors.grey.withValues(alpha: 0.6),
+                                color: Colors.grey.withValues(alpha: 0.8),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -5128,7 +5305,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                               'جرب البحث برقم الطلب، اسم المستخدم، أو رقم الهاتف',
                               style: GoogleFonts.cairo(
                                 fontSize: 12,
-                                color: Colors.grey.withValues(alpha: 0.4),
+                                color: Colors.grey.withValues(alpha: 0.6),
                               ),
                             ),
                           ],
@@ -5217,10 +5394,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: statusColor.withValues(alpha: 0.4), width: 2),
+        border: Border.all(color: statusColor.withValues(alpha: 0.3), width: 2),
         boxShadow: [
           BoxShadow(
-            color: statusColor.withValues(alpha: 0.1),
+            color: statusColor.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -5494,7 +5671,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.2),
+          color: Colors.grey.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(6),
         ),
         child: const Icon(FontAwesomeIcons.copy, size: 12, color: Colors.grey),
@@ -6178,7 +6355,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         boxShadow: [
           BoxShadow(
             color: isOutOfStock
-                ? const Color(0xFFF44336).withValues(alpha: 0.3)
+                ? const Color(0xFFF44336).withValues(alpha: 0.2)
                 : Colors.black.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
@@ -6192,8 +6369,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
             decoration: BoxDecoration(
               color: isOutOfStock
-                  ? const Color(0xFFF44336).withValues(alpha: 0.1)
-                  : const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                  ? const Color(0xFFF44336).withValues(alpha: 0.2)
+                  : const Color(0xFF4CAF50).withValues(alpha: 0.2),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(15),
                 topRight: Radius.circular(15),
@@ -6750,14 +6927,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             Icon(
               Icons.image_not_supported,
               size: 80,
-              color: Colors.grey.withValues(alpha: 0.5),
+              color: Colors.grey.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 16),
             Text(
               'لا توجد صور إعلانية',
               style: GoogleFonts.cairo(
                 fontSize: 18,
-                color: Colors.grey.withValues(alpha: 0.7),
+                color: Colors.grey.withValues(alpha: 0.8),
               ),
             ),
             const SizedBox(height: 8),
@@ -6765,7 +6942,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               'اضغط على "إضافة صورة إعلانية" لإضافة أول صورة',
               style: GoogleFonts.cairo(
                 fontSize: 14,
-                color: Colors.grey.withValues(alpha: 0.5),
+                color: Colors.grey.withValues(alpha: 0.6),
               ),
             ),
           ],
@@ -6868,7 +7045,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     child: Text(
                       banner['subtitle'] ?? 'بدون وصف',
                       style: GoogleFonts.cairo(
-                        color: Colors.grey.withValues(alpha: 0.7),
+                        color: Colors.grey.withValues(alpha: 0.6),
                         fontSize: 10,
                         height: 1.1,
                       ),
@@ -7356,7 +7533,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF6366f1).withValues(alpha: 0.3),
+            color: const Color(0xFF6366f1).withValues(alpha: 0.2),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -7367,7 +7544,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -7418,14 +7595,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         _buildNotificationActionButton(
           'تحديث الإحصائيات',
           Icons.refresh,
-          Colors.white.withValues(alpha: 0.2),
+          Colors.white.withValues(alpha: 0.9),
           () => _loadNotificationStats(),
         ),
         const SizedBox(width: 10),
         _buildNotificationActionButton(
           'تشغيل الخادم',
           Icons.power_settings_new,
-          Colors.green.withValues(alpha: 0.8),
+          Colors.green.withValues(alpha: 0.9),
           () => _wakeUpServer(),
         ),
       ],
@@ -7515,12 +7692,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.1),
+            color: color.withValues(alpha: 0.2),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
         ],
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -7529,7 +7706,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -7570,7 +7747,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
+            color: Colors.grey.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -7584,7 +7761,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF6366f1).withValues(alpha: 0.1),
+                  color: const Color(0xFF6366f1).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -7864,7 +8041,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF6366f1).withValues(alpha: 0.1),
+              color: const Color(0xFF6366f1).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -7961,7 +8138,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
+            color: Colors.grey.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -7975,7 +8152,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF10b981).withValues(alpha: 0.1),
+                  color: const Color(0xFF10b981).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -8100,7 +8277,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
+            color: Colors.grey.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -8114,7 +8291,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFf59e0b).withValues(alpha: 0.1),
+                  color: const Color(0xFFf59e0b).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -8187,7 +8364,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
+            color: Colors.grey.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -8201,7 +8378,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.1),
+                  color: const Color(0xFF8b5cf6).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
@@ -8295,7 +8472,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 20),
@@ -8355,7 +8532,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(notification['status']).withValues(alpha: 0.1),
+                  color: _getStatusColor(notification['status']).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(

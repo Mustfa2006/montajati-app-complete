@@ -51,6 +51,12 @@ class OfficialOrdersService extends ChangeNotifier {
       debugPrint('🔍 فحص البيانات المستلمة من ملخص الطلب:');
       debugPrint('   - totals: $totals');
 
+      // 🔍 تشخيص مفصل للربح المستلم
+      debugPrint('🔍 === تشخيص الربح في الخدمة ===');
+      debugPrint('   - totals[profit]: ${totals['profit']}');
+      debugPrint('   - نوع totals[profit]: ${totals['profit'].runtimeType}');
+      debugPrint('   - القيمة الخام: ${totals['profit']}');
+
       int finalProfit = totals['profit'] ?? 0;
 
       debugPrint(

@@ -1714,7 +1714,7 @@ class _CustomerInfoPageState extends State<CustomerInfoPage>
         'items': orderItems,
         'totals': {
           'subtotal': subtotalAmount.toInt(),
-          'profit': totalProfit.toInt(),
+          'profit': widget.orderTotals['profit'] ?? 0, // ✅ استخدام الربح من السلة
         }, // ✅ استخدام المجموع الفرعي الصحيح
         // ✅ إضافة بيانات الجدولة إذا كانت موجودة
         'scheduledDate': widget.scheduledDate,
