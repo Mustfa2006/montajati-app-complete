@@ -45,6 +45,10 @@
   ],
   "author": "منتجاتي",
   "license": "ISC",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.50.4",
     "axios": "^1.6.0",

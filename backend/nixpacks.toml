@@ -1,0 +1,11 @@
+[phases.setup]
+nixPkgs = ['nodejs-20_x', 'npm-10_x']
+
+[phases.install]
+cmds = ['npm ci --only=production']
+
+[phases.build]
+cmds = ['echo "Build completed"']
+
+[start]
+cmd = 'node official_montajati_server.js'
