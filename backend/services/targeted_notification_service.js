@@ -8,12 +8,26 @@ const { firebaseAdminService } = require('./firebase_admin_service');
 
 class TargetedNotificationService {
   constructor() {
+    // تسجيل متغيرات البيئة للتشخيص
+    console.log('🔍 فحص متغيرات Supabase:');
+    console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'موجود' : 'مفقود');
+    console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'موجود' : 'مفقود');
+
+    if (!process.env.SUPABASE_URL) {
+      throw new Error('SUPABASE_URL مفقود من متغيرات البيئة');
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY مفقود من متغيرات البيئة');
+    }
+
     // إعداد Supabase
     this.supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
-    
+
+    console.log('✅ تم إنشاء Supabase client بنجاح');
     this.initialized = false;
   }
 
