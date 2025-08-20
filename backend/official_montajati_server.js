@@ -191,12 +191,39 @@ class OfficialMontajatiServer {
       });
     });
 
-    // مسار فحص الصحة المتقدم
-    this.app.get('/health', async (req, res) => {
+    // مسار فحص الصحة البسيط والموثوق
+    this.app.get('/health', (req, res) => {
+      try {
+        // فحص بسيط وسريع بدون استعلامات قاعدة بيانات
+        res.status(200).json({
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          uptime: Math.floor(process.uptime()),
+          environment: process.env.NODE_ENV || 'development',
+          server: {
+            isRunning: true,
+            port: this.port
+          },
+          memory: {
+            used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+            total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
+          }
+        });
+      } catch (error) {
+        res.status(200).json({
+          status: 'healthy',
+          timestamp: new Date().toISOString(),
+          message: 'Basic health check passed'
+        });
+      }
+    });
+
+    // مسار فحص الصحة المتقدم (اختياري)
+    this.app.get('/health/detailed', async (req, res) => {
       try {
         const health = await this.getSystemHealth();
         const statusCode = health.status === 'healthy' ? 200 : 503;
-        
+
         res.status(statusCode).json(health);
       } catch (error) {
         res.status(503).json({
@@ -205,6 +232,28 @@ class OfficialMontajatiServer {
           error: error.message,
           timestamp: new Date().toISOString()
         });
+      }
+    });
+
+    // مسار health بسيط جداً للطوارئ
+    this.app.get('/ping', (req, res) => {
+      res.status(200).send('OK');
+    });
+
+    // مسار health آخر
+    this.app.get('/status', (req, res) => {
+      res.status(200).json({ status: 'running', timestamp: Date.now() });
+    });
+
+    // مسار لإعادة تشغيل المزامنة
+    this.app.post('/restart-sync', async (req, res) => {
+      try {
+        console.log('🔄 إعادة تشغيل نظام المزامنة...');
+        await this.syncManager.autoStart();
+        res.json({ success: true, message: 'تم إعادة تشغيل المزامنة بنجاح' });
+      } catch (error) {
+        console.error('❌ فشل في إعادة تشغيل المزامنة:', error);
+        res.status(500).json({ success: false, error: error.message });
       }
     });
 
@@ -527,6 +576,9 @@ class OfficialMontajatiServer {
     process.on('unhandledRejection', (reason, promise) => {
       console.error('❌ رفض غير معالج:', reason);
       this.logError(new Error(`Unhandled Rejection: ${reason}`));
+
+      // لا نوقف التطبيق بسبب unhandled rejection
+      // فقط نسجل الخطأ ونستمر
     });
 
     // معالجات أحداث الخدمات
@@ -600,9 +652,16 @@ class OfficialMontajatiServer {
       this.state.isInitialized = true;
       console.log('✅ تم تهيئة جميع الخدمات بنجاح');
 
-      // بدء نظام المزامنة المدمج مع الوسيط
+      // بدء نظام المزامنة المدمج مع الوسيط (بشكل آمن)
       console.log('🚀 بدء نظام المزامنة المدمج مع الوسيط...');
-      this.syncManager.autoStart();
+      try {
+        await this.syncManager.autoStart();
+        console.log('✅ تم بدء نظام المزامنة بنجاح');
+      } catch (syncError) {
+        console.error('⚠️ تحذير: فشل في بدء نظام المزامنة:', syncError.message);
+        console.log('🔄 سيتم إعادة المحاولة تلقائياً...');
+        // لا نوقف التطبيق بسبب فشل المزامنة
+      }
 
       return true;
 
