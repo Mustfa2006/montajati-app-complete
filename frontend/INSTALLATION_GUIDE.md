@@ -35,7 +35,7 @@ cd ios && pod install && cd ..
 ### **في ملف `NotificationService.js`:**
 ```javascript
 // السطر 11 - ضع رابط الخادم الحقيقي
-this.serverUrl = 'https://your-actual-server.com'; // غير هذا
+this.serverUrl = 'https://montajati-official-backend-production.up.railway.app'; // Railway الجديد
 ```
 
 ### **في ملف `App.js`:**

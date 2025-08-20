@@ -1336,7 +1336,7 @@ router.get('/app-version', (req, res) => {
     res.json({
       version: serverVersion,
       buildNumber: serverBuildNumber,
-      downloadUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.7.0.apk',
+      downloadUrl: 'https://montajati-official-backend-production.up.railway.app/downloads/montajati-v3.7.0.apk',
       forceUpdate: forceUpdate,
       changelog: 'تحديث مهم: تحسينات الأداء وإصلاحات الأمان',
       releaseDate: new Date().toISOString(),

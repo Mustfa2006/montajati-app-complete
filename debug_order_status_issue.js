@@ -3,7 +3,7 @@ const axios = require('axios');
 // تشخيص شامل لمشكلة تحديث حالة الطلب
 class OrderStatusDebugger {
   constructor() {
-    this.baseURL = 'https://clownfish-app-krnk9.ondigitalocean.app';
+    this.baseURL = 'https://montajati-official-backend-production.up.railway.app';
     this.testOrderId = 'order_17'; // من الصورة
     this.results = {
       serverHealth: null,

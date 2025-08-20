@@ -40,6 +40,7 @@ const corsOptions = {
       hostname.endsWith('.netlify.app') ||
       hostname.endsWith('.vercel.app') ||
       hostname.endsWith('.ondigitalocean.app') ||
+      hostname.endsWith('.up.railway.app') ||
       hostname === 'localhost' ||
       hostname.startsWith('localhost:') ||
       hostname === '127.0.0.1'

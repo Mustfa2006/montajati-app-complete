@@ -51,7 +51,7 @@ https://your-app-name.onrender.com
 ```dart
 // في ملف config.dart أو constants.dart
 class AppConfig {
-  static const String baseUrl = 'https://your-app-name.onrender.com';
+  static const String baseUrl = 'https://montajati-official-backend-production.up.railway.app';
   static const String apiUrl = '$baseUrl/api';
   
   // نقاط النهاية الجديدة

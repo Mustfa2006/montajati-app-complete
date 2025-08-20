@@ -2,7 +2,7 @@ const axios = require('axios');
 
 // إعدادات الاختبار
 const CONFIG = {
-  baseURL: 'https://clownfish-app-krnk9.ondigitalocean.app',
+  baseURL: 'https://montajati-official-backend-production.up.railway.app',
   timeout: 60000,
   testOrderId: null, // سيتم تحديده أثناء الاختبار
   adminCredentials: {

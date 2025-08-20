@@ -8,19 +8,14 @@ async function testDirectServer() {
   // قائمة الخوادم المحتملة للاختبار
   const servers = [
     {
-      name: 'DigitalOcean (الرابط الرسمي)',
-      url: 'https://clownfish-app-krnk9.ondigitalocean.app',
+      name: 'Railway (الرابط الرسمي الجديد)',
+      url: 'https://montajati-official-backend-production.up.railway.app',
       port: null
     },
     {
-      name: 'DigitalOcean مع المنفذ 3003',
-      url: 'https://clownfish-app-krnk9.ondigitalocean.app:3003',
-      port: 3003
-    },
-    {
-      name: 'DigitalOcean مع المنفذ 3002',
-      url: 'https://clownfish-app-krnk9.ondigitalocean.app:3002',
-      port: 3002
+      name: 'DigitalOcean (القديم - للمقارنة)',
+      url: 'https://clownfish-app-krnk9.ondigitalocean.app',
+      port: null
     }
   ];
   

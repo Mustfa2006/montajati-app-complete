@@ -2,7 +2,7 @@ const axios = require('axios');
 
 // إعدادات الإصلاح السريع
 const CONFIG = {
-  baseURL: 'https://clownfish-app-krnk9.ondigitalocean.app',
+  baseURL: 'https://montajati-official-backend-production.up.railway.app',
   timeout: 30000,
   maxRetries: 5,
   retryDelay: 5000

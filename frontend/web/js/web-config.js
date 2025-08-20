@@ -1,7 +1,7 @@
 // إعدادات خاصة بالموقع - نفس نظام التطبيق بالضبط
 window.webConfig = {
-  // رابط الخادم - نفس النطاق (لا توجد مشاكل CORS)
-  apiBaseUrl: '',
+  // رابط الخادم - Railway الجديد
+  apiBaseUrl: 'https://montajati-official-backend-production.up.railway.app',
   
   // مسارات API - نفس التطبيق بالضبط
   webApiPaths: {

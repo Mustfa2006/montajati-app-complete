@@ -9,7 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 /// خدمة التحديث الإجباري
 class ForceUpdateService {
-  static const String updateCheckUrl = 'https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/app-version';
+  static const String updateCheckUrl = 'https://montajati-official-backend-production.up.railway.app/api/notifications/app-version';
   
   /// فحص وجود تحديث
   static Future<void> checkForUpdate(BuildContext context) async {

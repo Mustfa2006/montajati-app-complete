@@ -1,7 +1,7 @@
 {
   "version": "3.7.0",
   "buildNumber": 15,
-  "downloadUrl": "https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.7.0.apk",
+  "downloadUrl": "https://montajati-official-backend-production.up.railway.app/downloads/montajati-v3.7.0.apk",
   "forceUpdate": true,
   "changelog": "تحديث مهم: تحسينات الأداء وإصلاحات الأمان",
   "releaseDate": "2025-08-06T20:45:00.000Z",
