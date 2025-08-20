@@ -5,6 +5,24 @@
 
 // تحميل متغيرات البيئة (يعمل مع DigitalOcean تلقائياً)
 require('dotenv').config();
+
+// معالجة الأخطاء في البداية
+process.on('uncaughtException', (error) => {
+  console.error('❌ خطأ غير معالج في البداية:', error);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ رفض غير معالج في البداية:', reason);
+  console.error('Promise:', promise);
+  process.exit(1);
+});
+
+console.log('🚀 بدء تحميل التطبيق...');
+console.log('📊 البيئة:', process.env.NODE_ENV || 'development');
+console.log('🌐 المنفذ:', process.env.PORT || 3002);
+
 const express = require('express');
 const cors = require('cors');
 
@@ -35,9 +53,19 @@ const FCMCleanupService = require('./services/fcm_cleanup_service');
 
 class OfficialMontajatiServer {
   constructor() {
-    this.app = express();
-    this.port = process.env.PORT || 3003;
-    this.environment = process.env.NODE_ENV || 'production';
+    console.log('🏗️ إنشاء مثيل الخادم...');
+
+    try {
+      this.app = express();
+      this.port = process.env.PORT || 3002; // تصحيح المنفذ
+      this.environment = process.env.NODE_ENV || 'production';
+
+      console.log(`📊 المنفذ المحدد: ${this.port}`);
+      console.log(`🌍 البيئة: ${this.environment}`);
+    } catch (error) {
+      console.error('❌ خطأ في constructor:', error);
+      throw error;
+    }
     
     // حالة النظام
     this.state = {
@@ -231,7 +259,12 @@ class OfficialMontajatiServer {
 
     // مسار health بسيط جداً للطوارئ
     this.app.get('/ping', (req, res) => {
-      res.status(200).send('OK');
+      res.status(200).send('PONG');
+    });
+
+    // مسار آخر بسيط
+    this.app.get('/alive', (req, res) => {
+      res.status(200).send('ALIVE');
     });
 
     // مسار health آخر بسيط جداً
@@ -242,6 +275,16 @@ class OfficialMontajatiServer {
     // مسار health آخر
     this.app.get('/status', (req, res) => {
       res.status(200).json({ status: 'running', timestamp: Date.now() });
+    });
+
+    // مسار بسيط جداً للاختبار
+    this.app.get('/', (req, res) => {
+      res.status(200).json({
+        message: 'Montajati Backend Server is running',
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        version: '2.2.0'
+      });
     });
 
     // مسار لإعادة تشغيل المزامنة
@@ -651,16 +694,20 @@ class OfficialMontajatiServer {
       this.state.isInitialized = true;
       console.log('✅ تم تهيئة جميع الخدمات بنجاح');
 
-      // بدء نظام المزامنة المدمج مع الوسيط (بشكل آمن)
+      // بدء نظام المزامنة المدمج مع الوسيط (بشكل آمن وغير متزامن)
       console.log('🚀 بدء نظام المزامنة المدمج مع الوسيط...');
-      try {
-        await this.syncManager.autoStart();
-        console.log('✅ تم بدء نظام المزامنة بنجاح');
-      } catch (syncError) {
-        console.error('⚠️ تحذير: فشل في بدء نظام المزامنة:', syncError.message);
-        console.log('🔄 سيتم إعادة المحاولة تلقائياً...');
-        // لا نوقف التطبيق بسبب فشل المزامنة
-      }
+
+      // بدء المزامنة بشكل غير متزامن لتجنب توقف التطبيق
+      setImmediate(async () => {
+        try {
+          await this.syncManager.autoStart();
+          console.log('✅ تم بدء نظام المزامنة بنجاح');
+        } catch (syncError) {
+          console.error('⚠️ تحذير: فشل في بدء نظام المزامنة:', syncError.message);
+          console.log('🔄 سيتم إعادة المحاولة تلقائياً...');
+          // لا نوقف التطبيق بسبب فشل المزامنة
+        }
+      });
 
       return true;
 
@@ -678,7 +725,7 @@ class OfficialMontajatiServer {
       // تهيئة النظام
       await this.initialize();
 
-      // بدء الخادم
+      // بدء الخادم مع معالجة الأخطاء
       const server = this.app.listen(this.port, () => {
         this.state.isRunning = true;
         this.state.startedAt = new Date();
@@ -686,8 +733,20 @@ class OfficialMontajatiServer {
         console.log('🎉 الخادم الرسمي لنظام منتجاتي يعمل بنجاح!');
         console.log(`🌐 الرابط: https://clownfish-app-krnk9.ondigitalocean.app`);
 
-        // بدء المراقبة الدورية للمخزون
-        this.startInventoryMonitoring();
+        // بدء المراقبة الدورية للمخزون (بشكل آمن)
+        try {
+          this.startInventoryMonitoring();
+        } catch (monitorError) {
+          console.error('⚠️ تحذير: فشل في بدء مراقبة المخزون:', monitorError.message);
+        }
+      });
+
+      // معالجة أخطاء الخادم
+      server.on('error', (error) => {
+        console.error('❌ خطأ في الخادم:', error);
+        if (error.code === 'EADDRINUSE') {
+          console.error(`❌ المنفذ ${this.port} مستخدم بالفعل`);
+        }
       });
 
       // إعداد timeout للخادم
@@ -825,10 +884,49 @@ class OfficialMontajatiServer {
   }
 }
 
-// تشغيل الخادم
-if (require.main === module) {
-  const server = new OfficialMontajatiServer();
-  server.start().catch(console.error);
+// ===================================
+// بدء التطبيق مع معالجة الأخطاء
+// ===================================
+
+async function startApplication() {
+  try {
+    console.log('🚀 بدء تطبيق منتجاتي...');
+
+    const server = new OfficialMontajatiServer();
+    await server.start();
+
+    console.log('✅ تم بدء التطبيق بنجاح');
+
+  } catch (error) {
+    console.error('❌ فشل في بدء التطبيق:', error);
+    console.error('📋 تفاصيل الخطأ:', error.stack);
+
+    // محاولة بدء خادم بسيط للطوارئ
+    console.log('🆘 محاولة بدء خادم الطوارئ...');
+
+    const emergencyApp = express();
+    const emergencyPort = process.env.PORT || 3002;
+
+    emergencyApp.get('/health', (req, res) => {
+      res.status(200).json({ status: 'emergency', message: 'Emergency server running' });
+    });
+
+    emergencyApp.get('/', (req, res) => {
+      res.status(200).json({
+        status: 'emergency',
+        message: 'Main server failed to start',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    });
+
+    emergencyApp.listen(emergencyPort, () => {
+      console.log(`🆘 خادم الطوارئ يعمل على المنفذ ${emergencyPort}`);
+    });
+  }
 }
+
+// بدء التطبيق
+startApplication();
 
 module.exports = OfficialMontajatiServer;
