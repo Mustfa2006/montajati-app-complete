@@ -15,6 +15,7 @@ class WaseetStatusManager {
     // الحالات الأساسية المعتمدة (22 حالة)
     this.approvedStatuses = [
       { id: 1, text: "نشط", category: "active", appStatus: "active" },
+      { id: 2, text: "تم الاستلام من قبل المندوب", category: "in_delivery", appStatus: "قيد التوصيل الى الزبون (في عهدة المندوب)" },
       { id: 4, text: "تم التسليم للزبون", category: "delivered", appStatus: "delivered" },
       { id: 24, text: "تم تغيير محافظة الزبون", category: "modified", appStatus: "active" },
       { id: 42, text: "تغيير المندوب", category: "modified", appStatus: "active" },
