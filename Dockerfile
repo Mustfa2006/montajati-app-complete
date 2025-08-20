@@ -1,5 +1,5 @@
-# استخدام Node.js 18 LTS
-FROM node:18-alpine
+# استخدام Node.js 20 LTS لحل مشكلة cheerio
+FROM node:20-alpine
 
 # إعداد مجلد العمل
 WORKDIR /app
@@ -22,11 +22,11 @@ RUN chown -R montajati:nodejs /app
 USER montajati
 
 # كشف المنفذ
-EXPOSE 3003
+EXPOSE 3002
 
 # فحص الصحة
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3003/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+  CMD node -e "require('http').get('http://localhost:3002/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
 # تشغيل التطبيق
 CMD ["npm", "start"]
