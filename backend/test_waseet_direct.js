@@ -9,7 +9,7 @@ async function testWaseetDirect() {
   console.log('🧪 اختبار مباشر لـ API الوسيط من الخادم المنتج...');
   console.log('='.repeat(60));
 
-  const baseUrl = 'https://montajati-backend.onrender.com';
+  const baseUrl = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. اختبار endpoint خاص لاختبار الوسيط

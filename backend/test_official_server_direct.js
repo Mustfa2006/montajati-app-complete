@@ -7,10 +7,10 @@ const https = require('https');
 
 async function testOfficialServerDirect() {
   console.log('🎯 اختبار مباشر للخادم الرسمي');
-  console.log('🔗 الخادم: https://montajati-backend.onrender.com');
+  console.log('🔗 الخادم: https://montajati-official-backend-production.up.railway.app');
   console.log('='.repeat(70));
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
 
   try {
     // المرحلة 1: اختبار endpoint الصحة
@@ -272,7 +272,7 @@ testOfficialServerDirect()
     }
     
     console.log('\n📊 ملخص الاختبار المباشر النهائي:');
-    console.log('🌐 الخادم الرسمي: https://montajati-backend.onrender.com');
+  console.log('🌐 الخادم الرسمي: https://montajati-official-backend-production.up.railway.app');
     console.log('🔗 API الوسيط: https://api.alwaseet-iq.net/v1/merchant/create-order');
     console.log('📱 التطبيق المُصدَّر: montajati-app-final-v3.0.0.apk');
     console.log('🎯 الاختبار: مباشر كامل على الخادم الرسمي');

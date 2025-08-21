@@ -9,7 +9,7 @@ async function testCreateAndUpdateOrder() {
   console.log('🧪 إنشاء طلب تجريبي واختبار تحديثه...');
   console.log('='.repeat(60));
 
-  const baseUrl = 'https://montajati-backend.onrender.com';
+  const baseUrl = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. إنشاء طلب تجريبي

@@ -15,7 +15,7 @@ Write-Host "بيانات الإشعار:" -ForegroundColor Cyan
 Write-Host $jsonData
 
 try {
-    $response = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/api/notifications/send" -Method POST -Headers @{'Content-Type'='application/json'} -Body $jsonData
+    $response = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/api/notifications/send" -Method POST -Headers @{'Content-Type'='application/json'} -Body $jsonData
     
     Write-Host "استجابة الخادم:" -ForegroundColor Green
     Write-Host ($response | ConvertTo-Json -Depth 10)

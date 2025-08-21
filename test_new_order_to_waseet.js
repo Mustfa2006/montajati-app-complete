@@ -3,7 +3,7 @@ const axios = require('axios');
 async function testNewOrderToWaseet() {
   console.log('🧪 === اختبار إرسال طلب جديد للوسيط ===\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. جلب قائمة الطلبات
@@ -52,7 +52,7 @@ async function testNewOrderToWaseet() {
 }
 
 async function createTestOrder() {
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     console.log('📝 إنشاء طلب اختبار جديد...');
@@ -100,7 +100,7 @@ async function createTestOrder() {
 }
 
 async function testOrderToWaseetFlow(order) {
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     console.log('\n2️⃣ تحديث حالة الطلب إلى "قيد التوصيل" (يجب أن يرسل للوسيط)...');
@@ -156,7 +156,7 @@ async function testOrderToWaseetFlow(order) {
 }
 
 async function checkNewOrderAfterUpdate(orderId) {
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     console.log('\n3️⃣ فحص الطلب الجديد بعد التحديث...');

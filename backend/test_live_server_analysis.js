@@ -9,7 +9,7 @@ async function analyzeLiveServer() {
   console.log('🔍 تحليل دقيق للخادم الحي على Render...');
   console.log('='.repeat(70));
 
-  const baseUrl = 'https://montajati-backend.onrender.com';
+  const baseUrl = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. فحص حالة الخادم

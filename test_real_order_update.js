@@ -3,7 +3,7 @@ const axios = require('axios');
 async function testRealOrderUpdate() {
   console.log('🧪 === اختبار تحديث حالة طلب حقيقي ===\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. جلب قائمة الطلبات
@@ -50,7 +50,7 @@ async function testRealOrderUpdate() {
 }
 
 async function testOrderStatusUpdate(order) {
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     console.log('\n2️⃣ تحديث حالة الطلب إلى "قيد التوصيل"...');
@@ -106,7 +106,7 @@ async function testOrderStatusUpdate(order) {
 }
 
 async function checkOrderAfterUpdate(orderId) {
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     console.log('\n3️⃣ فحص الطلب بعد التحديث...');

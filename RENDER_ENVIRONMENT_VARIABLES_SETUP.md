@@ -70,7 +70,7 @@ services:
 ### **1. انتظر إعادة النشر (2-3 دقائق)**
 
 ### **2. تحقق من النجاح:**
-افتح: https://montajati-backend.onrender.com/health
+افتح: https://montajati-official-backend-production.up.railway.app/health
 
 يجب أن ترى:
 ```json

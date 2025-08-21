@@ -1,6 +1,6 @@
 $orderId = "test_order_1753115468"
 $newStatus = "مغلق"
-$url = "https://montajati-backend.onrender.com/api/orders/$orderId/status"
+$url = "https://montajati-official-backend-production.up.railway.app/api/orders/$orderId/status"
 
 $body = @{
     status = $newStatus

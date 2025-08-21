@@ -12,7 +12,7 @@ async function quickTest() {
   try {
     // فحص health check
     console.log('🔍 فحص health check...');
-    const healthResult = await makeRequest('GET', 'https://montajati-backend.onrender.com/health');
+  const healthResult = await makeRequest('GET', 'https://montajati-official-backend-production.up.railway.app/health');
     
     if (healthResult.success) {
       const health = healthResult.data;

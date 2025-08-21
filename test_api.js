@@ -11,7 +11,7 @@ async function testUpdateOrderStatus() {
     console.log(`🔄 الحالة الجديدة: ${newStatus}`);
     
     const response = await axios.put(
-      `https://montajati-backend.onrender.com/api/orders/${orderId}/status`,
+  `https://montajati-official-backend-production.up.railway.app/api/orders/${orderId}/status`,
       {
         status: newStatus,
         notes: 'اختبار تحديث الحالة من سكريبت الاختبار',

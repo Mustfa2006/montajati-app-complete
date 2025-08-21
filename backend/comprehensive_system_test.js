@@ -7,7 +7,7 @@ const https = require('https');
 
 class ComprehensiveSystemTest {
   constructor() {
-    this.baseUrl = 'https://montajati-backend.onrender.com';
+  this.baseUrl = 'https://montajati-official-backend-production.up.railway.app';
     this.testResults = [];
   }
 

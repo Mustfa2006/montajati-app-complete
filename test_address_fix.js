@@ -3,7 +3,7 @@ const axios = require('axios');
 async function testAddressFix() {
   console.log('🧪 === اختبار إصلاح مشكلة العنوان ===\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   // استخدام أحد الطلبات المشكوك فيها
   const problematicOrderId = 'order_1753477070545_6565';
@@ -140,7 +140,7 @@ async function testMultipleOrders() {
     console.log(`\n📦 اختبار الطلب: ${orderId}`);
     
     try {
-      const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
       
       const updateData = {
         status: 'قيد التوصيل الى الزبون (في عهدة المندوب)',
@@ -182,7 +182,7 @@ async function testMultipleOrders() {
 }
 
 async function checkAllResults(orderIds) {
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     const ordersResponse = await axios.get(`${baseURL}/api/orders`, {

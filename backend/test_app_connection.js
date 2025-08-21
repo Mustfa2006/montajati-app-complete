@@ -206,7 +206,7 @@ async function startTestServer() {
     const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`\n🚀 خادم اختبار الاتصال يعمل على المنفذ ${PORT}`);
       console.log(`🌐 الرابط المحلي: http://localhost:${PORT}`);
-      console.log(`🌐 رابط الإنتاج: https://montajati-backend.onrender.com`);
+  console.log(`🌐 رابط الإنتاج: https://montajati-official-backend-production.up.railway.app`);
       console.log('\n📋 نقاط النهاية المتاحة:');
       console.log('   GET  /                           - الصفحة الرئيسية');
       console.log('   GET  /health                     - فحص الصحة');
@@ -215,6 +215,7 @@ async function startTestServer() {
       console.log('   POST /api/inventory/monitor/:id  - مراقبة منتج');
       console.log('   POST /api/inventory/monitor-all  - مراقبة جميع المنتجات');
       console.log('\n⏳ في انتظار طلبات من التطبيق...');
+  console.log(`🌐 رابط الإنتاج: https://montajati-official-backend-production.up.railway.app`);
     });
 
     // معالجة إغلاق الخادم

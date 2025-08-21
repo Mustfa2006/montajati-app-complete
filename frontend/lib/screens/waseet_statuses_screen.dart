@@ -35,7 +35,7 @@ class _WaseetStatusesScreenState extends State<WaseetStatusesScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse('https://montajati-backend.onrender.com/api/waseet-statuses/approved'),
+        Uri.parse('https://montajati-official-backend-production.up.railway.app/api/waseet-statuses/approved'),
         headers: {'Content-Type': 'application/json'},
       );
 

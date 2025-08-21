@@ -15,7 +15,7 @@ function updateOrderWithMonitoring(orderId, newStatus) {
     console.log(`   📦 البيانات المرسلة: ${postData}`);
 
     const options = {
-      hostname: 'montajati-backend.onrender.com',
+  hostname: 'montajati-official-backend-production.up.railway.app',
       port: 443,
       path: `/api/orders/${orderId}/status`,
       method: 'PUT',
@@ -72,7 +72,7 @@ function updateOrderWithMonitoring(orderId, newStatus) {
 function getTestOrder() {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'montajati-backend.onrender.com',
+  hostname: 'montajati-official-backend-production.up.railway.app',
       port: 443,
       path: '/api/orders?limit=1',
       method: 'GET',

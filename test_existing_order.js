@@ -4,7 +4,7 @@ async function testExistingOrder() {
   console.log('🔍 === اختبار طلب موجود فعلاً ===\n');
   console.log('🎯 الهدف: اختبار النظام مع طلب موجود مسبقاً\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. جلب آخر الطلبات

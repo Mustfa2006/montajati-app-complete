@@ -3,7 +3,7 @@ const axios = require('axios');
 async function fixOrdersRoute() {
   console.log('🔧 === إصلاح مسار الطلبات ===\n');
   
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // إنشاء طلب اختبار جديد

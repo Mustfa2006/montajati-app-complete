@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class WaseetStatusService {
-  static const String baseUrl = 'https://montajati-backend.onrender.com/api/waseet-statuses';
+  static const String baseUrl = 'https://montajati-official-backend-production.up.railway.app/api/waseet-statuses';
   
   // الحالات المحلية المخزنة
   static List<WaseetStatus> _cachedStatuses = [];

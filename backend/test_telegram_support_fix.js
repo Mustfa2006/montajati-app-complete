@@ -83,7 +83,7 @@ async function testTelegramSupport() {
     };
 
     const response = await axios.post(
-      'https://montajati-backend.onrender.com/api/support/send-support-request',
+      'https://montajati-official-backend-production.up.railway.app/api/support/send-support-request',
       testData,
       {
         headers: { 'Content-Type': 'application/json' },

@@ -9,7 +9,7 @@ async function testSimpleOrder() {
   console.log('🧪 اختبار مبسط لإنشاء طلب...');
   console.log('='.repeat(50));
 
-  const baseUrl = 'https://montajati-backend.onrender.com';
+  const baseUrl = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. اختبار جلب الطلبات الموجودة

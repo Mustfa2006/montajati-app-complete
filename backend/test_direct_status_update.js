@@ -9,7 +9,7 @@ async function testDirectStatusUpdate() {
   console.log('🔧 اختبار تحديث حالة طلب مباشرة على الخادم الحي...');
   console.log('='.repeat(70));
 
-  const baseUrl = 'https://montajati-backend.onrender.com';
+  const baseUrl = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. جلب طلب للاختبار

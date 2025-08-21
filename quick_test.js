@@ -4,7 +4,7 @@ async function quickTest() {
   console.log('⚡ اختبار سريع للخادم');
   
   try {
-    const response = await axios.get('https://montajati-backend.onrender.com/api/orders', { 
+  const response = await axios.get('https://montajati-official-backend-production.up.railway.app/api/orders', { 
       timeout: 10000 
     });
     

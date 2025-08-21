@@ -9,7 +9,7 @@ require('dotenv').config();
 
 class ComprehensiveSystemAnalyzer {
   constructor() {
-    this.baseUrl = 'https://montajati-backend.onrender.com';
+  this.baseUrl = 'https://montajati-official-backend-production.up.railway.app';
     this.issues = [];
     this.recommendations = [];
     this.supabase = null;

@@ -3,7 +3,7 @@ const axios = require('axios');
 async function fixOrderCreation() {
   console.log('🔧 === إصلاح مشكلة إنشاء الطلبات ===\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   // محاولة إنشاء طلب بالحقول المطلوبة بالضبط
   console.log('1️⃣ محاولة إنشاء طلب بالحقول المطلوبة...');

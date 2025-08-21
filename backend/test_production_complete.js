@@ -7,10 +7,10 @@ const https = require('https');
 
 async function testProductionComplete() {
   console.log('🌐 اختبار رسمي كامل للخادم الحقيقي');
-  console.log('🔗 الخادم: https://montajati-backend.onrender.com');
+  console.log('🔗 الخادم: https://montajati-official-backend-production.up.railway.app');
   console.log('='.repeat(70));
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
 
   try {
     // المرحلة 1: فحص حالة الخادم الرسمي
@@ -38,7 +38,7 @@ async function testProductionComplete() {
       
     } else {
       console.log('❌ الخادم الرسمي لا يستجيب');
-      console.log('تفاصيل الخطأ:', healthResult);
+        console.log('🔗 الخادم: https://montajati-official-backend-production.up.railway.app');
       return false;
     }
 
@@ -272,7 +272,7 @@ testProductionComplete()
     }
     
     console.log('\n📊 ملخص الاختبار الرسمي:');
-    console.log('🌐 الخادم: https://montajati-backend.onrender.com');
+  console.log('🌐 الخادم: https://montajati-official-backend-production.up.railway.app');
     console.log('🔗 API الوسيط: https://api.alwaseet-iq.net/v1/merchant/create-order');
     console.log('📱 التطبيق: montajati-app-final-v3.0.0.apk');
   })

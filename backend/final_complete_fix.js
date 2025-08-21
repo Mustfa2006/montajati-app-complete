@@ -9,7 +9,7 @@ require('dotenv').config();
 
 class FinalCompleteFix {
   constructor() {
-    this.baseUrl = 'https://montajati-backend.onrender.com';
+  this.baseUrl = 'https://montajati-official-backend-production.up.railway.app';
     this.supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY

@@ -3,7 +3,7 @@ const axios = require('axios');
 async function fixUserOrder() {
   console.log('🔧 === إصلاح طلب المستخدم ===\n');
   
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   const problemOrderId = 'order_1753533667583_2222';
   
   try {

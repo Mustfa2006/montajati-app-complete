@@ -4,7 +4,7 @@ async function testUltimateFix() {
   console.log('🎯 === اختبار الإصلاح النهائي المطلق ===\n');
   console.log('🔧 اختبار جميع الحالات مع التحويل الصحيح\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   const allStatuses = [
     // الحالات التي كانت تسبب مشكلة - يجب أن تعمل الآن

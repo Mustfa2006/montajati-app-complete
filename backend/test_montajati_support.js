@@ -85,7 +85,7 @@ async function testMontajatiSupport() {
   try {
     console.log('📤 إرسال طلب دعم عبر API...');
     
-    const serverUrl = 'https://montajati-backend.onrender.com';
+  const serverUrl = 'https://montajati-official-backend-production.up.railway.app';
     const supportResponse = await axios.post(
       `${serverUrl}/api/support/send-support-request`,
       testSupportData,

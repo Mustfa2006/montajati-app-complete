@@ -4,7 +4,7 @@ async function testRenderUpdates() {
   console.log('🚀 === اختبار التحديثات على Render ===\n');
   console.log('🎯 اختبار جميع الحالات بعد رفع التغييرات\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   const allStatuses = [
     // الحالات التي كانت تسبب مشكلة - يجب أن تعمل الآن

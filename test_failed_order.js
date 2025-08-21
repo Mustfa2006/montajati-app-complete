@@ -10,7 +10,7 @@ function updateOrder(orderId, status) {
     const postData = JSON.stringify({ status: status });
 
     const options = {
-      hostname: 'montajati-backend.onrender.com',
+  hostname: 'montajati-official-backend-production.up.railway.app',
       port: 443,
       path: `/api/orders/${orderId}/status`,
       method: 'PUT',

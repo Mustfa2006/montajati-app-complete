@@ -9,7 +9,7 @@ const axios = require('axios');
  * 3. التحقق من تحديث بيانات الوسيط في قاعدة البيانات
  */
 
-const BASE_URL = 'https://montajati-backend.onrender.com';
+const BASE_URL = 'https://montajati-official-backend-production.up.railway.app';
 
 async function testOrderStatusFix() {
   try {

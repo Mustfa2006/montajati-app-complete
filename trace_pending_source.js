@@ -3,7 +3,7 @@ const axios = require('axios');
 async function tracePendingSource() {
   console.log('🔍 === تتبع مصدر مشكلة pending ===\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   // استخدام طلب موجود من التحليل السابق
   const testOrderId = 'order_1753478889109_1111';

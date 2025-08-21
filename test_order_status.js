@@ -6,7 +6,7 @@ console.log('🧪 اختبار تحديث حالة الطلب...');
 function getOrders() {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'montajati-backend.onrender.com',
+  hostname: 'montajati-official-backend-production.up.railway.app',
       port: 443,
       path: '/api/orders?limit=5',
       method: 'GET',
@@ -47,7 +47,7 @@ function updateOrderStatus(orderId, newStatus) {
     });
 
     const options = {
-      hostname: 'montajati-backend.onrender.com',
+  hostname: 'montajati-official-backend-production.up.railway.app',
       port: 443,
       path: `/api/orders/${orderId}/status`,
       method: 'PUT',

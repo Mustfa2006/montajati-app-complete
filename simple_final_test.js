@@ -4,7 +4,7 @@ async function simpleFinalTest() {
   console.log('🎯 === اختبار بسيط نهائي ===\n');
   console.log('🔧 اختبار الحالة الوحيدة المؤهلة للوسيط\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     console.log('⏰ انتظار 30 ثانية للتأكد من تطبيق التغييرات على Render...\n');

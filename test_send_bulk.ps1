@@ -11,7 +11,7 @@ try {
     Write-Host "Request body:" -ForegroundColor Cyan
     Write-Host $body
     
-    $response = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/api/notifications/send-bulk" -Method POST -Headers @{'Content-Type'='application/json'} -Body $body -TimeoutSec 60
+    $response = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/api/notifications/send-bulk" -Method POST -Headers @{'Content-Type'='application/json'} -Body $body -TimeoutSec 60
     
     Write-Host "SUCCESS Response:" -ForegroundColor Green
     Write-Host ($response | ConvertTo-Json -Depth 10)

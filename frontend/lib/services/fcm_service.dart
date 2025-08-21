@@ -475,7 +475,7 @@ class FCMService {
     try {
       // فقط تحديث آخر استخدام في قاعدة البيانات بدون اختبار Firebase
       final response = await http.post(
-        Uri.parse('https://montajati-backend.onrender.com/api/fcm/update-last-used'),
+        Uri.parse('https://montajati-official-backend-production.up.railway.app/api/fcm/update-last-used'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'fcmToken': _currentToken,
@@ -531,7 +531,7 @@ class FCMService {
       if (userPhone == null) return;
 
       final response = await http.post(
-        Uri.parse('https://montajati-backend.onrender.com/api/fcm/update-token'),
+        Uri.parse('https://montajati-official-backend-production.up.railway.app/api/fcm/update-token'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'userPhone': userPhone,

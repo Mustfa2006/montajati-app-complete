@@ -4,7 +4,7 @@ async function testFix() {
   console.log('🔧 === اختبار الإصلاح ===\n');
   console.log('🎯 اختبار جميع الحالات التي كانت تسبب خطأ 500\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   const problematicStatuses = [
     '3',                    // الرقم الذي يسبب مشكلة

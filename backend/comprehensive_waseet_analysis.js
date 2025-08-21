@@ -7,10 +7,10 @@ const https = require('https');
 
 async function comprehensiveWaseetAnalysis() {
   console.log('🔍 تحليل شامل لمشكلة عدم إضافة الطلب للوسيط');
-  console.log('🔗 الخادم: https://montajati-backend.onrender.com');
+  console.log('🔗 الخادم: https://montajati-official-backend-production.up.railway.app');
   console.log('='.repeat(80));
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
 
   try {
     // المرحلة 1: فحص حالة الخادم
@@ -290,7 +290,7 @@ comprehensiveWaseetAnalysis()
     }
     
     console.log('\n📊 ملخص التحليل:');
-    console.log('🌐 الخادم: https://montajati-backend.onrender.com');
+  console.log('🌐 الخادم: https://montajati-official-backend-production.up.railway.app');
     console.log('🔗 API الوسيط: https://api.alwaseet-iq.net/v1/merchant/create-order');
     console.log('🎯 الهدف: تحديد سبب عدم إضافة الطلب للوسيط');
   })

@@ -7,10 +7,10 @@ const https = require('https');
 
 async function checkProductionLogs() {
   console.log('📋 فحص سجلات الخادم الرسمي');
-  console.log('🔗 الخادم: https://montajati-backend.onrender.com');
+  console.log('🔗 الخادم: https://montajati-official-backend-production.up.railway.app');
   console.log('='.repeat(60));
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
 
   try {
     // فحص endpoint خاص لعرض حالة التهيئة

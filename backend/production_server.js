@@ -464,8 +464,8 @@ async function startServer() {
 
       // عرض الرابط الصحيح حسب البيئة
       if (process.env.NODE_ENV === 'production' && process.env.RENDER) {
-        console.log(`🌐 الرابط: https://montajati-backend.onrender.com`);
-        console.log(`🔗 فحص الصحة: https://montajati-backend.onrender.com/health`);
+  console.log(`🌐 الرابط: https://montajati-official-backend-production.up.railway.app`);
+  console.log(`🔗 فحص الصحة: https://montajati-official-backend-production.up.railway.app/health`);
       } else {
         console.log(`🌐 الرابط: http://localhost:${PORT}`);
         console.log(`🔗 فحص الصحة: http://localhost:${PORT}/health`);

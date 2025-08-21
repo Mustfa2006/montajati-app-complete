@@ -48,7 +48,7 @@ node test_app_connection.js
 ### **المرحلة 3: فحص السجلات**
 ```bash
 # فحص سجل الطلبات
-curl https://montajati-backend.onrender.com/api/test/logs
+curl https://montajati-official-backend-production.up.railway.app/api/test/logs
 ```
 
 ---
@@ -60,7 +60,7 @@ curl https://montajati-backend.onrender.com/api/test/logs
 // في التطبيق، تأكد من أن kDebugMode يعمل بشكل صحيح
 final String baseUrl = kDebugMode 
     ? 'http://localhost:3003' 
-    : 'https://montajati-backend.onrender.com';
+  : 'https://montajati-official-backend-production.up.railway.app';
 ```
 
 ### **الحل 2: إضافة مراقبة فورية**

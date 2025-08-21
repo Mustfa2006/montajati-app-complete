@@ -11,7 +11,7 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // رابط الخادم
-const serverUrl = 'https://montajati-backend.onrender.com';
+const serverUrl = 'https://montajati-official-backend-production.up.railway.app';
 
 async function testNotificationSystem() {
   console.log('🧪 === اختبار شامل لنظام الإشعارات ===\n');

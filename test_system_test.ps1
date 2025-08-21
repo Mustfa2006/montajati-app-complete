@@ -1,7 +1,7 @@
 Write-Host "Testing system-test endpoint..." -ForegroundColor Yellow
 
 try {
-    $response = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/api/notifications/system-test" -Method POST -Headers @{'Content-Type'='application/json'} -Body '{}'
+    $response = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/api/notifications/system-test" -Method POST -Headers @{'Content-Type'='application/json'} -Body '{}'
     Write-Host "System test SUCCESS:" -ForegroundColor Green
     Write-Host ($response | ConvertTo-Json -Depth 10)
 } catch {

@@ -9,7 +9,7 @@ async function finalVerificationTest() {
   console.log('🎯 اختبار التحقق النهائي من الإصلاح...');
   console.log('='.repeat(70));
 
-  const baseUrl = 'https://montajati-backend.onrender.com';
+  const baseUrl = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. فحص health check أولاً

@@ -60,7 +60,7 @@
 				<key>NSExceptionMinimumTLSVersion</key>
 				<string>TLSv1.0</string>
 			</dict>
-			<key>montajati-backend.onrender.com</key>
+			<key>montajati-official-backend-production.up.railway.app</key>
 			<dict>
 				<key>NSExceptionRequiresForwardSecrecy</key>
 				<false/>

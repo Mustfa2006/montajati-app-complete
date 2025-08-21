@@ -3,7 +3,7 @@ const axios = require('axios');
 async function testNewOrderComplete() {
   console.log('🎯 === اختبار كامل للطلب الجديد ===\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   const orderId = 'order_1753482020617_pqk70r7ez'; // الطلب الذي تم إنشاؤه
   
   try {

@@ -5,7 +5,7 @@
 const https = require('https');
 
 // بيانات الاختبار
-const serverUrl = 'montajati-backend.onrender.com';
+const serverUrl = 'montajati-official-backend-production.up.railway.app';
 const testOrderId = 'order_1737158415000_test'; // معرف طلب تجريبي
 
 function makeRequest(path, method, data) {

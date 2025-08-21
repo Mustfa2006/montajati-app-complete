@@ -13,7 +13,7 @@ try {
     Write-Host "بيانات الإشعار:" -ForegroundColor Cyan
     Write-Host $notificationData
 
-    $response = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/api/notifications/send" -Method POST -Headers @{'Content-Type'='application/json'} -Body $notificationData
+    $response = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/api/notifications/send" -Method POST -Headers @{'Content-Type'='application/json'} -Body $notificationData
 
     Write-Host "استجابة الخادم:" -ForegroundColor Green
     Write-Host ($response | ConvertTo-Json -Depth 10)

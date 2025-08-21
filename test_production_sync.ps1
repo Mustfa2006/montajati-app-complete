@@ -3,7 +3,7 @@ Write-Host "Testing Production Sync System..." -ForegroundColor Yellow
 # Test health endpoint
 Write-Host "`nTesting health endpoint..." -ForegroundColor Cyan
 try {
-    $health = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/health" -Method GET
+    $health = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/health" -Method GET
     Write-Host "Health Status:" -ForegroundColor Green
     Write-Host ($health | ConvertTo-Json -Depth 5)
     
@@ -20,7 +20,7 @@ try {
 # Test if there's a sync status endpoint
 Write-Host "`nTesting sync status..." -ForegroundColor Cyan
 try {
-    $syncStatus = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/api/sync/status" -Method GET
+    $syncStatus = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/api/sync/status" -Method GET
     Write-Host "Sync Status:" -ForegroundColor Green
     Write-Host ($syncStatus | ConvertTo-Json -Depth 5)
 } catch {
@@ -31,7 +31,7 @@ try {
 # Test orders endpoint to see recent orders
 Write-Host "`nTesting recent orders..." -ForegroundColor Cyan
 try {
-    $orders = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/api/orders?limit=5" -Method GET
+    $orders = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/api/orders?limit=5" -Method GET
     Write-Host "Recent Orders Count: $($orders.data.length)" -ForegroundColor Green
     
     if ($orders.data -and $orders.data.length -gt 0) {

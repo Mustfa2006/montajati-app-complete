@@ -9,7 +9,7 @@ async function testOrderUpdateProduction() {
   console.log('🧪 اختبار تحديث حالة الطلب في الإنتاج...');
   console.log('='.repeat(60));
 
-  const baseUrl = 'https://montajati-backend.onrender.com';
+  const baseUrl = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. جلب طلب للاختبار

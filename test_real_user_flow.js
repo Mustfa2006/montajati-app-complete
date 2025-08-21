@@ -7,7 +7,7 @@ async function testRealUserFlow() {
   console.log('2. تغيير حالته إلى "قيد التوصيل"');
   console.log('3. فحص ما إذا وصل للوسيط\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. إنشاء طلب جديد تماماً كما يفعل المستخدم

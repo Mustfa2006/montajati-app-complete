@@ -12,7 +12,7 @@ async function testOrderUpdate() {
   try {
     // جلب طلب للاختبار
     console.log('📦 جلب طلب للاختبار...');
-    const ordersResult = await makeRequest('GET', 'https://montajati-backend.onrender.com/api/orders?limit=1');
+  const ordersResult = await makeRequest('GET', 'https://montajati-official-backend-production.up.railway.app/api/orders?limit=1');
     
     if (!ordersResult.success || !ordersResult.data?.data?.length) {
       console.log('❌ لا توجد طلبات للاختبار');
@@ -26,7 +26,7 @@ async function testOrderUpdate() {
     // تحديث الحالة إلى "قيد التوصيل"
     console.log('\n🔄 تحديث الحالة إلى "قيد التوصيل الى الزبون (في عهدة المندوب)"...');
     
-    const updateResult = await makeRequest('PUT', `https://montajati-backend.onrender.com/api/orders/${testOrder.id}/status`, {
+  const updateResult = await makeRequest('PUT', `https://montajati-official-backend-production.up.railway.app/api/orders/${testOrder.id}/status`, {
       status: 'قيد التوصيل الى الزبون (في عهدة المندوب)',
       notes: 'اختبار مباشر لإرسال الطلب للوسيط',
       changedBy: 'test_order_update'
@@ -40,7 +40,7 @@ async function testOrderUpdate() {
       console.log('\n⏱️ انتظار 10 ثوان ثم فحص الطلب...');
       await new Promise(resolve => setTimeout(resolve, 10000));
       
-      const checkResult = await makeRequest('GET', `https://montajati-backend.onrender.com/api/orders/${testOrder.id}`);
+  const checkResult = await makeRequest('GET', `https://montajati-official-backend-production.up.railway.app/api/orders/${testOrder.id}`);
       
       if (checkResult.success) {
         const updatedOrder = checkResult.data?.data || checkResult.data;

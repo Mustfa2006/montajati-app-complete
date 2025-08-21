@@ -10,7 +10,7 @@ async function testDigitalOceanConnection() {
 
   // قائمة العناوين المحتملة لخادم DigitalOcean
   const possibleUrls = [
-    'https://montajati-backend.onrender.com', // Render (للمقارنة)
+  'https://montajati-official-backend-production.up.railway.app', // Render (للمقارنة)
     'http://localhost:3002', // محلي
     'http://localhost:3003', // محلي بديل
     // أضف عنوان DigitalOcean هنا - يحتاج تحديث

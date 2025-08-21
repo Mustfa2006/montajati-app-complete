@@ -9,7 +9,7 @@ const path = require('path');
 
 class ComprehensiveSystemFixer {
   constructor() {
-    this.baseUrl = 'https://montajati-backend.onrender.com';
+  this.baseUrl = 'https://montajati-official-backend-production.up.railway.app';
     this.fixes = [];
     this.results = [];
   }

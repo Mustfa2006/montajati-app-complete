@@ -4,7 +4,7 @@ const https = require('https');
 
 // اختبار بسيط للخادم
 const options = {
-  hostname: 'montajati-backend.onrender.com',
+  hostname: 'montajati-official-backend-production.up.railway.app',
   port: 443,
   path: '/health',
   method: 'GET',

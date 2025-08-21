@@ -4,7 +4,7 @@ async function testServerStatus() {
   console.log('🔍 === فحص حالة الخادم ===\n');
   console.log('🎯 التحقق من أن التغييرات وصلت للخادم\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // إنشاء طلب جديد

@@ -5,7 +5,7 @@ async function testCorrectFix() {
   console.log('🔧 فقط الحالة الصحيحة يجب أن ترسل للوسيط\n');
   console.log('✅ الحالة المؤهلة: ID: 3 - "قيد التوصيل الى الزبون (في عهدة المندوب)"\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   const testCases = [
     // الحالة الوحيدة المؤهلة

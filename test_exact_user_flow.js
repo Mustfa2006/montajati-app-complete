@@ -4,7 +4,7 @@ async function testExactUserFlow() {
   console.log('🎯 === اختبار التدفق الدقيق للمستخدم ===\n');
   console.log('📱 محاكاة ما يحدث بالضبط عندما تختار الحالة في التطبيق\n');
 
-  const baseURL = 'https://montajati-backend.onrender.com';
+  const baseURL = 'https://montajati-official-backend-production.up.railway.app';
   
   try {
     // 1. إنشاء طلب جديد (كما تفعل أنت)

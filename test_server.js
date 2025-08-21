@@ -4,7 +4,7 @@ console.log('🧪 اختبار الخادم...');
 
 // اختبار health endpoint
 const healthOptions = {
-  hostname: 'montajati-backend.onrender.com',
+  hostname: 'montajati-official-backend-production.up.railway.app',
   port: 443,
   path: '/health',
   method: 'GET',
@@ -48,7 +48,7 @@ function testOrdersEndpoint() {
   console.log('\n🧪 اختبار orders endpoint...');
   
   const ordersOptions = {
-    hostname: 'montajati-backend.onrender.com',
+  hostname: 'montajati-official-backend-production.up.railway.app',
     port: 443,
     path: '/api/orders',
     method: 'GET',

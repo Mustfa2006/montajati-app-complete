@@ -3,7 +3,7 @@ Write-Host "Testing notification endpoints..." -ForegroundColor Yellow
 # Test system-test endpoint
 Write-Host "Testing system-test endpoint..." -ForegroundColor Cyan
 try {
-    $response = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/api/notifications/system-test" -Method POST -Headers @{'Content-Type'='application/json'} -Body '{}'
+    $response = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/api/notifications/system-test" -Method POST -Headers @{'Content-Type'='application/json'} -Body '{}'
     Write-Host "System test response:" -ForegroundColor Green
     Write-Host ($response | ConvertTo-Json -Depth 5)
 } catch {
@@ -14,7 +14,7 @@ try {
 # Test stats endpoint
 Write-Host "`nTesting stats endpoint..." -ForegroundColor Cyan
 try {
-    $response = Invoke-RestMethod -Uri "https://montajati-backend.onrender.com/api/notifications/stats" -Method GET
+    $response = Invoke-RestMethod -Uri "https://montajati-official-backend-production.up.railway.app/api/notifications/stats" -Method GET
     Write-Host "Stats response:" -ForegroundColor Green
     Write-Host ($response | ConvertTo-Json -Depth 5)
 } catch {
@@ -32,7 +32,7 @@ try {
         isScheduled = $false
     } | ConvertTo-Json
     
-    $response = Invoke-WebRequest -Uri "https://montajati-backend.onrender.com/api/notifications/send" -Method POST -Headers @{'Content-Type'='application/json'} -Body $body
+    $response = Invoke-WebRequest -Uri "https://montajati-official-backend-production.up.railway.app/api/notifications/send" -Method POST -Headers @{'Content-Type'='application/json'} -Body $body
     Write-Host "Send response status:" -ForegroundColor Green
     Write-Host $response.StatusCode
     Write-Host "Send response body:" -ForegroundColor Green
