@@ -731,7 +731,7 @@ class OfficialMontajatiServer {
         this.state.startedAt = new Date();
 
         console.log('🎉 الخادم الرسمي لنظام منتجاتي يعمل بنجاح!');
-        console.log(`🌐 الرابط: https://clownfish-app-krnk9.ondigitalocean.app`);
+  console.log(`🌐 الرابط: https://montajati-official-backend-production.up.railway.app`);
 
         // بدء المراقبة الدورية للمخزون (بشكل آمن)
         try {

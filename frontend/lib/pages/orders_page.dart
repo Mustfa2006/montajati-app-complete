@@ -1776,7 +1776,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
       // إرسال طلب الدعم للخادم (سيرسل تلقائياً للتلغرام)
       final response = await http.post(
-        Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/support/send-support-request'),
+  Uri.parse('https://montajati-official-backend-production.up.railway.app/api/support/send-support-request'),
         headers: {
           'Content-Type': 'application/json',
         },

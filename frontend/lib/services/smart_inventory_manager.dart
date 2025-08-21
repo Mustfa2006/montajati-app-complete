@@ -497,8 +497,8 @@ class SmartInventoryManager {
     // إرسال طلب غير متزامن لمراقبة المنتج
     // استخدام الخادم الصحيح حسب البيئة
     final String baseUrl = kDebugMode
-        ? 'http://localhost:3003'
-        : 'https://clownfish-app-krnk9.ondigitalocean.app';
+      ? 'http://localhost:3003'
+      : 'https://montajati-official-backend-production.up.railway.app';
 
     http
         .post(

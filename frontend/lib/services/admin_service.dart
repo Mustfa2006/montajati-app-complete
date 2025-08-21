@@ -18,7 +18,7 @@ class AdminService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
 
   // رابط الخادم الخلفي - DigitalOcean
-  static const String baseUrl = 'https://clownfish-app-krnk9.ondigitalocean.app';
+  static const String baseUrl = 'https://montajati-official-backend-production.up.railway.app';
 
   /// توليد رقم طلب فريد
   static String generateOrderNumber() {

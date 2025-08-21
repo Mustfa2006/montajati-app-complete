@@ -121,7 +121,7 @@ class NotificationService {
 
       // إرسال الإشعار عبر الخادم الخلفي
       final response = await http.post(
-        Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/withdrawal-status'),
+  Uri.parse('https://montajati-official-backend-production.up.railway.app/api/notifications/withdrawal-status'),
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',

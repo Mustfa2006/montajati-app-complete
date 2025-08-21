@@ -202,7 +202,7 @@ class InventoryService {
     // استخدام الخادم الصحيح حسب البيئة
     const String baseUrl = kDebugMode
         ? 'http://localhost:3003'
-        : 'https://clownfish-app-krnk9.ondigitalocean.app';
+  : 'https://montajati-official-backend-production.up.railway.app';
 
     http
         .post(

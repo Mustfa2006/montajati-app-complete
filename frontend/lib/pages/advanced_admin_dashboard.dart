@@ -1657,10 +1657,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             .eq('id', productId);
 
         // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
-        try {
-          final String baseUrl = kDebugMode
-              ? 'http://localhost:3003'
-              : 'https://clownfish-app-krnk9.ondigitalocean.app';
+      try {
+      final String baseUrl = kDebugMode
+        ? 'http://localhost:3003'
+        : 'https://montajati-official-backend-production.up.railway.app';
 
           final response = await http.post(
             Uri.parse('$baseUrl/api/inventory/monitor/$productId'),
@@ -8736,8 +8736,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     });
 
     try {
-      debugPrint('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
-      debugPrint('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/send-bulk');
+  debugPrint('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
+  debugPrint('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-official-backend-production.up.railway.app/api/notifications/send-bulk');
 
       final requestStartTime = DateTime.now();
 
@@ -8749,7 +8749,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       while (retryCount <= maxRetries) {
         try {
           response = await http.post(
-            Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/send-bulk'),
+            Uri.parse('https://montajati-official-backend-production.up.railway.app/api/notifications/send-bulk'),
             headers: {
               'Content-Type': 'application/json',
             },
@@ -9001,7 +9001,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Future<void> _loadNotificationStats() async {
     try {
       final response = await http.get(
-        Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/stats'),
+        Uri.parse('https://montajati-official-backend-production.up.railway.app/api/notifications/stats'),
       );
 
       if (response.statusCode == 200) {
@@ -9018,7 +9018,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Future<void> _loadSentNotifications() async {
     try {
       final response = await http.get(
-        Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/history'),
+        Uri.parse('https://montajati-official-backend-production.up.railway.app/api/notifications/history'),
       );
 
       if (response.statusCode == 200) {
@@ -9038,7 +9038,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       _showInfoSnackBar('جاري تشغيل الخادم...');
 
       final response = await http.get(
-        Uri.parse('https://clownfish-app-krnk9.ondigitalocean.app/api/health'),
+        Uri.parse('https://montajati-official-backend-production.up.railway.app/api/health'),
       ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
