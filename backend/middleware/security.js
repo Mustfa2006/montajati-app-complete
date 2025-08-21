@@ -39,6 +39,8 @@ const corsOptions = {
       hostname === 'muntgati.netlify.app' ||
       hostname.endsWith('.netlify.app') ||
       hostname.endsWith('.vercel.app') ||
+      hostname.includes('vercel.app') ||
+      hostname.includes('montajati-web') ||
       hostname.endsWith('.ondigitalocean.app') ||
       hostname.endsWith('.up.railway.app') ||
       hostname === 'localhost' ||

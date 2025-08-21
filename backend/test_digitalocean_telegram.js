@@ -5,7 +5,7 @@ async function testDigitalOceanTelegram() {
   console.log('🌊 === اختبار نظام التلغرام في DigitalOcean ===\n');
 
   // تحديد URL الخادم
-  const serverUrl = 'https://montajati-backend-bnxea.ondigitalocean.app';
+  const serverUrl = 'https://montajati-official-backend-production.up.railway.app';
   
   console.log(`🔗 خادم DigitalOcean: ${serverUrl}`);
 

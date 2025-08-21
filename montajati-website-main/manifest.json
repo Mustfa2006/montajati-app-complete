@@ -1,0 +1,39 @@
+{
+    "name": "منتجاتي - منصة الدروب شيبنگ الأولى في العراق",
+    "short_name": "منتجاتي",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#16213e",
+    "theme_color": "#ffd700",
+    "description": "منصة منتجاتي للدروب شيبنگ - اكتشف آلاف المنتجات بأسعار الجملة واربح من التجارة الإلكترونية",
+    "orientation": "any",
+    "prefer_related_applications": false,
+    "categories": ["shopping", "business", "productivity"],
+    "lang": "ar",
+    "dir": "rtl",
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

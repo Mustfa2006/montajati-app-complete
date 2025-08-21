@@ -32,7 +32,7 @@
 
 ### **الطريقة 2: من الخادم (قريباً)**
 ```
-الرابط: https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.7.1.apk
+الرابط: https://montajati-official-backend-production.up.railway.app/downloads/montajati-v3.7.1.apk
 ```
 
 ## 🔄 **اختبار نظام التحديث:**
@@ -45,10 +45,10 @@
 ### **اختبار API التحديث:**
 ```bash
 # اختبار مع الإصدار الحالي (لن يظهر تحديث)
-curl "https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/app-version?build_number=16"
+curl "https://montajati-official-backend-production.up.railway.app/api/notifications/app-version?build_number=16"
 
 # اختبار مع إصدار قديم (سيظهر تحديث)
-curl "https://clownfish-app-krnk9.ondigitalocean.app/api/notifications/app-version?build_number=1"
+curl "https://montajati-official-backend-production.up.railway.app/api/notifications/app-version?build_number=1"
 ```
 
 ## 🚀 **للتحديثات المستقبلية:**

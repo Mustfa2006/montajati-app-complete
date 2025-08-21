@@ -84,10 +84,10 @@ console.log('🌐 الرابط: https://clownfish-app-krnk9.ondigitalocean.app')
 ### **الطريقة 2: اختبار مباشر**
 ```bash
 # اختبار مراقبة منتج محدد
-curl -X POST "https://clownfish-app-krnk9.ondigitalocean.app/api/inventory/monitor/PRODUCT_ID"
+curl -X POST "https://montajati-official-backend-production.up.railway.app/api/inventory/monitor/PRODUCT_ID"
 
 # اختبار مراقبة جميع المنتجات
-curl -X POST "https://clownfish-app-krnk9.ondigitalocean.app/api/inventory/monitor-all"
+curl -X POST "https://montajati-official-backend-production.up.railway.app/api/inventory/monitor-all"
 ```
 
 ---

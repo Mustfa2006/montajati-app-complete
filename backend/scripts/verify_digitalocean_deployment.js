@@ -10,7 +10,7 @@ const axios = require('axios');
 
 class DigitalOceanVerifier {
   constructor() {
-    this.baseUrl = process.env.DIGITALOCEAN_APP_URL || 'https://your-app-name.ondigitalocean.app';
+    this.baseUrl = process.env.RAILWAY_APP_URL || 'https://montajati-official-backend-production.up.railway.app';
     this.tests = [];
     this.results = {
       passed: 0,

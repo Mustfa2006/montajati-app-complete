@@ -132,13 +132,17 @@ class _ProductColorsDisplayState extends State<ProductColorsDisplay>
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return _buildLoadingState();
-    }
+    // إخفاء مربع الألوان نهائياً - سيتم إضافتها في التحديث القادم
+    return const SizedBox.shrink();
 
-    if (_colors.isEmpty) {
-      return _buildEmptyState();
-    }
+    // الكود القديم مخفي
+    // if (_isLoading) {
+    //   return _buildLoadingState();
+    // }
+
+    // if (_colors.isEmpty) {
+    //   return _buildEmptyState();
+    // }
 
     return AnimatedBuilder(
       animation: _mainAnimationController,
