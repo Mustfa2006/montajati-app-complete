@@ -20,6 +20,9 @@ const corsOptions = {
       'http://localhost:3002',
       'http://127.0.0.1:3002',
       'https://muntgati.netlify.app',
+      'https://montajati-web.vercel.app',
+      'https://montajati-web-git-main.vercel.app',
+      'https://montajati-web-mustfa2006s-projects.vercel.app',
       process.env.FRONTEND_URL
     ];
     const envAllowed = (process.env.CORS_ORIGINS || '')
