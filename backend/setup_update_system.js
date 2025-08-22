@@ -33,7 +33,7 @@ class UpdateSystemSetup {
 
       console.log('\n✅ تم إعداد نظام التحديث بنجاح!');
       console.log('📁 مجلد التحميلات:', this.downloadsDir);
-      console.log('🔗 رابط التحميل: https://clownfish-app-krnk9.ondigitalocean.app/downloads/');
+      console.log('🔗 رابط التحميل: https://montajati-official-backend-production.up.railway.app/.apdownloads/');
 
     } catch (error) {
       console.error('❌ خطأ في إعداد النظام:', error.message);
@@ -162,7 +162,7 @@ class UpdateSystemSetup {
     const versionInfo = {
       version: '3.6.1',
       buildNumber: 14,
-      downloadUrl: 'https://clownfish-app-krnk9.ondigitalocean.app/downloads/montajati-v3.6.1.apk',
+      downloadUrl: 'https://montajati-official-backend-production.up.railway.app/downloads/montajati-v3.6.1.apk',
       forceUpdate: true,
       changelog: 'تحسينات عامة وإصلاحات مهمة',
       releaseDate: new Date().toISOString(),

@@ -3237,7 +3237,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       try {
         final String baseUrl = kDebugMode
             ? 'http://localhost:3003'
-            : 'https://clownfish-app-krnk9.ondigitalocean.app';
+            : 'https://montajati-official-backend-production.up.railway.app';
 
         final response = await http.post(
           Uri.parse('$baseUrl/api/inventory/monitor/$productId'),
