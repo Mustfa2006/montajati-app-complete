@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 import 'fcm_service.dart';
+import 'user_service.dart';
 
 
 class AuthService {
@@ -132,6 +133,18 @@ class AuthService {
         }
       }
 
+      // 🔄 تحديث بيانات المستخدم في UserService
+      try {
+        await UserService.loadAndSaveUserData();
+        if (kDebugMode) {
+          debugPrint('✅ تم تحديث بيانات المستخدم في UserService');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('⚠️ خطأ في تحديث بيانات المستخدم: $e');
+        }
+      }
+
       return AuthResult(
         success: true,
         message: 'تم تسجيل الدخول بنجاح',
@@ -247,6 +260,18 @@ class AuthService {
     await prefs.remove('current_user_name');
     await prefs.remove('current_user_phone');
     await prefs.remove('current_user_is_admin');
+
+    // 🗑️ مسح بيانات المستخدم من UserService
+    try {
+      await UserService.clearUserData();
+      if (kDebugMode) {
+        debugPrint('✅ تم مسح بيانات المستخدم من UserService');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('⚠️ خطأ في مسح بيانات المستخدم: $e');
+      }
+    }
 
     await removeToken();
   }

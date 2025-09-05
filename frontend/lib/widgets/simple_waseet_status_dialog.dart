@@ -92,8 +92,8 @@ class _SimpleWaseetStatusDialogState extends State<SimpleWaseetStatusDialog> {
                   return Card(
                     margin: const EdgeInsets.only(bottom: 8),
                     elevation: isSelected ? 4 : 1,
-                    color: isSelected 
-                      ? status['color'].withOpacity(0.1)
+                    color: isSelected
+                      ? status['color'].withValues(alpha: 0.1)
                       : null,
                     child: ListTile(
                       leading: CircleAvatar(

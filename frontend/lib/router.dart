@@ -16,7 +16,7 @@ import 'pages/cart_page.dart';
 import 'pages/advanced_admin_dashboard.dart';
 import 'pages/simple_add_product_page.dart';
 import 'pages/orders_page.dart';
-import 'pages/product_details_page.dart';
+import 'pages/modern_product_details_page.dart';
 import 'pages/user_order_details_page.dart';
 import 'pages/edit_order_page.dart';
 
@@ -101,7 +101,7 @@ class AppRouter {
             name: 'product-details',
             builder: (context, state) {
               final productId = state.pathParameters['productId']!;
-              return ProductDetailsPage(productId: productId);
+              return ModernProductDetailsPage(productId: productId);
             },
           ),
         ],

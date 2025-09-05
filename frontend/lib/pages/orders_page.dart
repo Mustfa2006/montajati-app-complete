@@ -14,9 +14,10 @@ import '../widgets/pull_to_refresh_wrapper.dart';
 import '../utils/error_handler.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
-import '../widgets/bottom_navigation_bar.dart';
+import '../widgets/curved_navigation_bar.dart';
 import '../widgets/common_header.dart';
 import '../utils/order_status_helper.dart';
+import '../core/design_system.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -647,7 +648,7 @@ class _OrdersPageState extends State<OrdersPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
+      backgroundColor: AppDesignSystem.primaryBackground,
       extendBody: true, // السماح للمحتوى بالظهور خلف الشريط السفلي
       body: _isLoading
         ? const Center(child: CircularProgressIndicator())
@@ -685,9 +686,37 @@ class _OrdersPageState extends State<OrdersPage> {
               Expanded(child: _buildScrollableContent()),
             ],
           ),
-      // الشريط السفلي
-      bottomNavigationBar: const CustomBottomNavigationBar(
-        currentRoute: '/orders',
+      // الشريط السفلي المنحني
+      bottomNavigationBar: CurvedNavigationBar(
+        index: 1, // الطلبات
+        items: <Widget>[
+          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
+        ],
+        color: AppDesignSystem.bottomNavColor, // لون الشريط موحد
+        buttonBackgroundColor: AppDesignSystem.activeButtonColor, // لون الكرة موحد
+        backgroundColor: Colors.transparent, // خلفية شفافة
+        animationCurve: Curves.elasticOut, // منحنى مبهر
+        animationDuration: Duration(milliseconds: 1200), // انتقال مبهر
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              context.go('/products');
+              break;
+            case 1:
+              // الصفحة الحالية
+              break;
+            case 2:
+              context.go('/profits');
+              break;
+            case 3:
+              context.go('/account');
+              break;
+          }
+        },
+        letIndexChange: (index) => true,
       ),
     );
   }

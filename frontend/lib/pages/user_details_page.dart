@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/admin_user.dart';
 import '../services/user_management_service.dart';
 
@@ -1243,32 +1244,338 @@ class _UserDetailsPageState extends State<UserDetailsPage>
   }
 
   Widget _buildOrdersTab() {
-    return const Center(
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadUserOrders(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(color: Color(0xFFffc107)),
+                SizedBox(height: 16),
+                Text(
+                  'جاري تحميل طلبات المستخدم...',
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const FaIcon(
+                  FontAwesomeIcons.exclamationTriangle,
+                  color: Colors.red,
+                  size: 64,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'خطأ في تحميل الطلبات',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'حدث خطأ: ${snapshot.error}',
+                  style: const TextStyle(color: Colors.red, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        final orders = snapshot.data ?? [];
+
+        if (orders.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                FaIcon(
+                  FontAwesomeIcons.cartShopping,
+                  color: Colors.white30,
+                  size: 64,
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'لا توجد طلبات',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'لم يقم هذا المستخدم بإنشاء أي طلبات بعد',
+                  style: TextStyle(color: Colors.white54, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: orders.length,
+          itemBuilder: (context, index) {
+            final order = orders[index];
+            return _buildOrderCard(order);
+          },
+        );
+      },
+    );
+  }
+
+  // 📋 جلب طلبات المستخدم
+  Future<List<Map<String, dynamic>>> _loadUserOrders() async {
+    try {
+      debugPrint('📋 جلب طلبات المستخدم: ${_currentUser!.phone}');
+
+      // جلب الطلبات من جدول orders باستخدام user_phone
+      final ordersResponse = await Supabase.instance.client
+          .from('orders')
+          .select('''
+            *,
+            order_items (
+              id,
+              product_id,
+              product_name,
+              product_image,
+              wholesale_price,
+              customer_price,
+              quantity,
+              total_price,
+              profit_per_item
+            )
+          ''')
+          .eq('user_phone', _currentUser!.phone)
+          .order('created_at', ascending: false);
+
+      debugPrint('✅ تم جلب ${ordersResponse.length} طلب للمستخدم');
+      return List<Map<String, dynamic>>.from(ordersResponse);
+    } catch (e) {
+      debugPrint('❌ خطأ في جلب طلبات المستخدم: $e');
+      rethrow;
+    }
+  }
+
+  // 🎴 بناء كارت الطلب
+  Widget _buildOrderCard(Map<String, dynamic> order) {
+    final orderItems = order['order_items'] as List<dynamic>? ?? [];
+    final totalItems = orderItems.length;
+    final createdAt = DateTime.parse(order['created_at']);
+    final status = order['status'] ?? 'pending';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1a1f2e),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FaIcon(
-            FontAwesomeIcons.cartShopping,
-            color: Colors.white30,
-            size: 64,
-          ),
-          SizedBox(height: 16),
-          Text(
-            'طلبات المستخدم',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          // رأس الطلب
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF252b3a),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFffc107).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const FaIcon(
+                    FontAwesomeIcons.receipt,
+                    color: Color(0xFFffc107),
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'طلب #${order['id']}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        _formatDate(createdAt),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildOrderStatusBadge(status),
+              ],
             ),
           ),
-          SizedBox(height: 8),
-          Text(
-            'قيد التطوير - سيتم عرض طلبات المستخدم هنا',
-            style: TextStyle(color: Colors.white54, fontSize: 14),
-            textAlign: TextAlign.center,
+
+          // تفاصيل الطلب
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                _buildOrderDetailRow(
+                  'اسم الزبون',
+                  order['customer_name'] ?? 'غير محدد',
+                  FontAwesomeIcons.user,
+                ),
+                const SizedBox(height: 8),
+                _buildOrderDetailRow(
+                  'رقم الهاتف',
+                  order['customer_phone'] ?? 'غير محدد',
+                  FontAwesomeIcons.phone,
+                ),
+                const SizedBox(height: 8),
+                _buildOrderDetailRow(
+                  'عدد المنتجات',
+                  '$totalItems منتج',
+                  FontAwesomeIcons.cubes,
+                ),
+                const SizedBox(height: 8),
+                _buildOrderDetailRow(
+                  'إجمالي السعر',
+                  '${order['total_price'] ?? 0} د.ع',
+                  FontAwesomeIcons.dollarSign,
+                ),
+                if (order['total_profit'] != null) ...[
+                  const SizedBox(height: 8),
+                  _buildOrderDetailRow(
+                    'إجمالي الربح',
+                    '${order['total_profit']} د.ع',
+                    FontAwesomeIcons.chartLine,
+                    valueColor: Colors.green,
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  // 🏷️ بناء شارة حالة الطلب
+  Widget _buildOrderStatusBadge(String status) {
+    Color backgroundColor;
+    Color textColor;
+    String statusText;
+
+    switch (status.toLowerCase()) {
+      case 'pending':
+        backgroundColor = Colors.orange.withValues(alpha: 0.2);
+        textColor = Colors.orange;
+        statusText = 'قيد الانتظار';
+        break;
+      case 'confirmed':
+        backgroundColor = Colors.blue.withValues(alpha: 0.2);
+        textColor = Colors.blue;
+        statusText = 'مؤكد';
+        break;
+      case 'shipped':
+        backgroundColor = Colors.purple.withValues(alpha: 0.2);
+        textColor = Colors.purple;
+        statusText = 'تم الشحن';
+        break;
+      case 'delivered':
+        backgroundColor = Colors.green.withValues(alpha: 0.2);
+        textColor = Colors.green;
+        statusText = 'تم التسليم';
+        break;
+      case 'cancelled':
+        backgroundColor = Colors.red.withValues(alpha: 0.2);
+        textColor = Colors.red;
+        statusText = 'ملغي';
+        break;
+      default:
+        backgroundColor = Colors.grey.withValues(alpha: 0.2);
+        textColor = Colors.grey;
+        statusText = status;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        statusText,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  // 📝 بناء صف تفاصيل الطلب
+  Widget _buildOrderDetailRow(
+    String label,
+    String value,
+    IconData icon, {
+    Color? valueColor,
+  }) {
+    return Row(
+      children: [
+        FaIcon(
+          icon,
+          color: const Color(0xFFffc107),
+          size: 14,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '$label:',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.7),
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: valueColor ?? Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.end,
+          ),
+        ),
+      ],
     );
   }
 

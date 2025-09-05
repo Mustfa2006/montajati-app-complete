@@ -8960,10 +8960,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     border: OutlineInputBorder(),
                   ),
                   items: const [
-                    DropdownMenuItem(value: 'general', child: Text('عام')),
-                    DropdownMenuItem(value: 'promotion', child: Text('عرض خاص')),
-                    DropdownMenuItem(value: 'update', child: Text('تحديث')),
-                    DropdownMenuItem(value: 'urgent', child: Text('عاجل')),
+                    DropdownMenuItem<String>(value: 'general', child: Text('عام')),
+                    DropdownMenuItem<String>(value: 'promotion', child: Text('عرض خاص')),
+                    DropdownMenuItem<String>(value: 'update', child: Text('تحديث')),
+                    DropdownMenuItem<String>(value: 'urgent', child: Text('عاجل')),
                   ],
                   onChanged: (value) {
                     setState(() {

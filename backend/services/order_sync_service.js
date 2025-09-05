@@ -108,14 +108,15 @@ class OrderSyncService {
       let location = '';
 
       // محاولة بناء العنوان من البيانات المتاحة
-      if (order.customer_address && order.customer_address.trim() !== '') {
-        location = order.customer_address.trim();
-      } else if (order.delivery_address && order.delivery_address.trim() !== '') {
-        location = order.delivery_address.trim();
-      } else if (order.customer_notes && order.customer_notes.trim() !== '') {
+      // ✅ إعطاء أولوية للملاحظات لتظهر في "أقرب نقطة دالة"
+      if (order.customer_notes && order.customer_notes.trim() !== '') {
         location = order.customer_notes.trim();
       } else if (order.notes && order.notes.trim() !== '') {
         location = order.notes.trim();
+      } else if (order.customer_address && order.customer_address.trim() !== '') {
+        location = order.customer_address.trim();
+      } else if (order.delivery_address && order.delivery_address.trim() !== '') {
+        location = order.delivery_address.trim();
       } else if ((order.province || order.customer_province) && (order.city || order.customer_city)) {
         const province = order.province || order.customer_province;
         const city = order.city || order.customer_city;
@@ -127,7 +128,7 @@ class OrderSyncService {
         location = 'بغداد - الكرخ - شارع الرئيسي';
       }
 
-      console.log(`📍 العنوان المستخدم للوسيط: "${location}"`);
+      console.log(`📍 أقرب نقطة دالة (الملاحظات) المرسلةط: "${location}"`);
 
       // التحقق من صحة العنوان
       if (location.length < 5) {
@@ -144,7 +145,7 @@ class OrderSyncService {
         location = `${province} - ${city} - شارع الرئيسي`;
       }
 
-      console.log(`✅ العنوان النهائي للوسيط: "${location}"`);
+      console.log(`✅أقرب نقطة دالة النهائيةط: "${location}"`);
 
       // تحضير ملاحظات التاجر
       const merchantNotes = order.notes || order.customer_notes || '';
@@ -170,7 +171,7 @@ class OrderSyncService {
       console.log(`   - رقم الهاتف: ${orderDataForWaseet.client_mobile}`);
       console.log(`   - معرف المحافظة: ${orderDataForWaseet.city_id}`);
       console.log(`   - معرف المنطقة: ${orderDataForWaseet.region_id}`);
-      console.log(`   - العنوان: ${orderDataForWaseet.location}`);
+      console.log(`   - أقرب نقطة دالة: ${orderDataForWaseet.location}`);
       console.log(`   - السعر: ${orderDataForWaseet.price}`);
       console.log(`📋 البيانات الكاملة:`, orderDataForWaseet);
 

@@ -9,6 +9,7 @@ class OrderSummary {
   final String customerPhone;
   final String province;
   final String city;
+  final String? notes; // إضافة حقل الملاحظات
   final double totalAmount;
   final String status;
   final DateTime createdAt;
@@ -24,6 +25,7 @@ class OrderSummary {
     required this.customerPhone,
     required this.province,
     required this.city,
+    this.notes, // إضافة حقل الملاحظات
     required this.totalAmount,
     required this.status,
     required this.createdAt,
@@ -41,6 +43,7 @@ class OrderSummary {
       customerPhone: json['primary_phone'] ?? 'غير محدد',
       province: json['province'] ?? '',
       city: json['city'] ?? '',
+      notes: json['notes'], // إضافة الملاحظات
       totalAmount: (json['total'] as num?)?.toDouble() ?? 0.0,
       status: status,
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),

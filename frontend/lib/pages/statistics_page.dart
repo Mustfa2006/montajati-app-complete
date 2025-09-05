@@ -4,8 +4,9 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
-import '../widgets/bottom_navigation_bar.dart';
+import '../widgets/curved_navigation_bar.dart';
 import '../widgets/common_header.dart';
+import '../core/design_system.dart';
 import 'dart:math' as math;
 
 class StatisticsPage extends StatefulWidget {
@@ -464,7 +465,7 @@ class _StatisticsPageState extends State<StatisticsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
+      backgroundColor: AppDesignSystem.primaryBackground,
       extendBody: true,
       body: Column(
         children: [
@@ -534,9 +535,37 @@ class _StatisticsPageState extends State<StatisticsPage>
         ],
       ),
 
-      // مؤشر التحميل مع التضبيب
-      bottomNavigationBar: const CustomBottomNavigationBar(
-        currentRoute: '/statistics',
+      // الشريط السفلي المنحني
+      bottomNavigationBar: CurvedNavigationBar(
+        index: 2, // الإحصائيات
+        items: <Widget>[
+          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
+        ],
+        color: AppDesignSystem.bottomNavColor, // لون الشريط موحد
+        buttonBackgroundColor: AppDesignSystem.activeButtonColor, // لون الكرة موحد
+        backgroundColor: Colors.transparent, // خلفية شفافة
+        animationCurve: Curves.elasticOut, // منحنى مبهر
+        animationDuration: Duration(milliseconds: 1200), // انتقال مبهر
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              context.go('/products');
+              break;
+            case 1:
+              context.go('/orders');
+              break;
+            case 2:
+              // الصفحة الحالية
+              break;
+            case 3:
+              context.go('/account');
+              break;
+          }
+        },
+        letIndexChange: (index) => true,
       ),
     );
   }

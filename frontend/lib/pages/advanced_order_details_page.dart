@@ -349,7 +349,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 style: GoogleFonts.cairo(color: Colors.white),
                 items: _getStatusOptions().map((status) {
                   debugPrint('🔍 DROPDOWN ITEM: ${status['id']} -> ${status['text']}');
-                  return DropdownMenuItem(
+                  return DropdownMenuItem<String>(
                     value: status['id'], // إرسال الرقم بدلاً من النص
                     child: Text(
                       status['text']!,

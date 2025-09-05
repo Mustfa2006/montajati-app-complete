@@ -373,8 +373,18 @@ class _AdminSettingsSectionState extends State<AdminSettingsSection> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF28a745),
-            activeTrackColor: const Color(0xFF28a745).withValues(alpha: 0.3),
+            thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return const Color(0xFF28a745);
+              }
+              return Colors.grey;
+            }),
+            trackColor: WidgetStateProperty.resolveWith<Color>((states) {
+              if (states.contains(WidgetState.selected)) {
+                return const Color(0xFF28a745).withValues(alpha: 0.3);
+              }
+              return Colors.grey.withValues(alpha: 0.3);
+            }),
           ),
         ],
       ),

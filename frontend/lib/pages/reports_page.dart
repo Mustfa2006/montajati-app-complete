@@ -178,14 +178,14 @@ class _ReportsPageState extends State<ReportsPage> {
                       border: OutlineInputBorder(),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'week', child: Text('أسبوع')),
-                      DropdownMenuItem(value: 'month', child: Text('شهر')),
-                      DropdownMenuItem(
+                      DropdownMenuItem<String>(value: 'week', child: Text('أسبوع')),
+                      DropdownMenuItem<String>(value: 'month', child: Text('شهر')),
+                      DropdownMenuItem<String>(
                         value: 'quarter',
                         child: Text('ربع سنة'),
                       ),
-                      DropdownMenuItem(value: 'year', child: Text('سنة')),
-                      DropdownMenuItem(
+                      DropdownMenuItem<String>(value: 'year', child: Text('سنة')),
+                      DropdownMenuItem<String>(
                         value: 'custom',
                         child: Text('فترة مخصصة'),
                       ),

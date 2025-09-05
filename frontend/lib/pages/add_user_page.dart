@@ -328,7 +328,12 @@ class _AddUserPageState extends State<AddUserPage> {
         ),
         value: _isAdmin,
         onChanged: (value) => setState(() => _isAdmin = value),
-        activeColor: const Color(0xFFffc107),
+        thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const Color(0xFFffc107);
+          }
+          return Colors.grey;
+        }),
         secondary: FaIcon(
           _isAdmin ? FontAwesomeIcons.userTie : FontAwesomeIcons.user,
           color: _isAdmin ? const Color(0xFFffc107) : Colors.white54,

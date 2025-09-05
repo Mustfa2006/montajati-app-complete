@@ -7,8 +7,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import '../widgets/bottom_navigation_bar.dart';
+import '../widgets/curved_navigation_bar.dart';
 import '../widgets/common_header.dart';
+import '../core/design_system.dart';
 import '../services/real_auth_service.dart';
 
 class NewAccountPage extends StatefulWidget {
@@ -228,7 +229,7 @@ class _NewAccountPageState extends State<NewAccountPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e), // خلفية ليلية دائماً
+      backgroundColor: AppDesignSystem.primaryBackground, // خلفية موحدة
       extendBody: true, // إزالة الخلفية السوداء خلف الشريط السفلي
       body: Stack(
         children: [
@@ -330,9 +331,37 @@ class _NewAccountPageState extends State<NewAccountPage>
         ],
       ),
 
-      // شريط التنقل السفلي
-      bottomNavigationBar: const CustomBottomNavigationBar(
-        currentRoute: '/account',
+      // شريط التنقل السفلي المنحني
+      bottomNavigationBar: CurvedNavigationBar(
+        index: 3, // الحساب
+        items: <Widget>[
+          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
+        ],
+        color: AppDesignSystem.bottomNavColor, // لون الشريط موحد
+        buttonBackgroundColor: AppDesignSystem.activeButtonColor, // لون الكرة موحد
+        backgroundColor: Colors.transparent, // خلفية شفافة
+        animationCurve: Curves.elasticOut, // منحنى مبهر
+        animationDuration: Duration(milliseconds: 1200), // انتقال مبهر
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              context.go('/products');
+              break;
+            case 1:
+              context.go('/orders');
+              break;
+            case 2:
+              context.go('/profits');
+              break;
+            case 3:
+              // الصفحة الحالية
+              break;
+          }
+        },
+        letIndexChange: (index) => true,
       ),
     );
   }
@@ -920,8 +949,12 @@ class _NewAccountPageState extends State<NewAccountPage>
                   }
                 });
               },
-              activeColor: const Color(0xFF28a745),
-              inactiveThumbColor: const Color(0xFF6c757d),
+              thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return const Color(0xFF28a745);
+                }
+                return const Color(0xFF6c757d);
+              }),
               materialTapTargetSize:
                   MaterialTapTargetSize.shrinkWrap, // تقليل منطقة اللمس
             ),

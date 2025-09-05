@@ -252,6 +252,7 @@ class AdminService {
             primary_phone,
             province,
             city,
+            notes,
             total,
             status,
             created_at,

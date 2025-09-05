@@ -51,7 +51,7 @@ android {
 
     defaultConfig {
         applicationId = "com.montajati.app"
-        minSdk = 21 // Android 5.0 كحد أدنى للإنتاج
+        minSdk = flutter.minSdkVersion // Android 5.0 كحد أدنى للإنتاج
         targetSdk = 35 // Android 15 - مطلوب للمكونات الإضافية
         versionCode = 8
         versionName = "2.2.0"

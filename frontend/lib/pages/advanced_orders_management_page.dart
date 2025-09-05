@@ -1842,6 +1842,16 @@ class _AdvancedOrdersManagementPageState
           ),
           const Expanded(
             child: Text(
+              'أقرب نقطة دالة',
+              style: TextStyle(
+                color: Color(0xFFffd700),
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const Expanded(
+            child: Text(
               'المبلغ',
               style: TextStyle(
                 color: Color(0xFFffd700),
@@ -2024,15 +2034,19 @@ class _AdvancedOrdersManagementPageState
                     ),
                   ),
                 ),
-                // المحافظة والمدينة
+                // أقرب نقطة دالة (الملاحظات)
                 Expanded(
                   flex: 3,
                   child: Text(
-                    '${summary.province} - ${summary.city}',
+                    summary.notes?.isNotEmpty == true
+                        ? summary.notes!
+                        : 'لا توجد ملاحظات',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 // المبلغ
@@ -2225,7 +2239,12 @@ class _AdvancedOrdersManagementPageState
                       Checkbox(
                         value: isSelected,
                         onChanged: (_) => _toggleOrderSelection(order),
-                        activeColor: const Color(0xFFffd700),
+                        fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return const Color(0xFFffd700);
+                          }
+                          return Colors.transparent;
+                        }),
                       ),
                   ],
                 ),
@@ -2447,7 +2466,12 @@ class _AdvancedOrdersManagementPageState
                           Checkbox(
                             value: isSelected,
                             onChanged: (_) => _toggleOrderSelection(order),
-                            activeColor: const Color(0xFFffd700),
+                            fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+                              if (states.contains(WidgetState.selected)) {
+                                return const Color(0xFFffd700);
+                              }
+                              return Colors.transparent;
+                            }),
                           ),
                       ],
                     ),

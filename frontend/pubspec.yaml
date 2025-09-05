@@ -50,6 +50,7 @@ dependencies:
 
   # الإشعارات والأذونات
   permission_handler: ^12.0.1
+  image_gallery_saver: ^2.0.3
 
   # JSON والتشفير
   json_annotation: ^4.9.0

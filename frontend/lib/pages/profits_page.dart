@@ -8,7 +8,7 @@ import 'dart:async';
 // تم إزالة استيراد dart:math غير المستخدم
 import '../services/simple_orders_service.dart';
 import '../utils/number_formatter.dart';
-import '../widgets/bottom_navigation_bar.dart';
+import '../widgets/curved_navigation_bar.dart';
 import '../widgets/common_header.dart';
 // تم إزالة استيراد smart_profits_manager غير المستخدم
 import '../services/lazy_loading_service.dart';
@@ -499,9 +499,37 @@ class _ProfitsPageState extends State<ProfitsPage>
         ],
       ),
 
-      // شريط التنقل السفلي
-      bottomNavigationBar: const CustomBottomNavigationBar(
-        currentRoute: '/profits',
+      // شريط التنقل السفلي المنحني
+      bottomNavigationBar: CurvedNavigationBar(
+        index: 2, // الأرباح
+        items: <Widget>[
+          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
+        ],
+        color: const Color(0xFF2D3748), // لون الشريط أغمق أكثر
+        buttonBackgroundColor: const Color(0xFF1A202C), // لون الكرة أغمق جداً
+        backgroundColor: Colors.transparent, // خلفية شفافة
+        animationCurve: Curves.easeInOut,
+        animationDuration: Duration(milliseconds: 600),
+        onTap: (index) {
+          switch (index) {
+            case 0:
+              context.go('/products');
+              break;
+            case 1:
+              context.go('/orders');
+              break;
+            case 2:
+              // الصفحة الحالية
+              break;
+            case 3:
+              context.go('/account');
+              break;
+          }
+        },
+        letIndexChange: (index) => true,
       ),
     );
   }

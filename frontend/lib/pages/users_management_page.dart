@@ -988,11 +988,11 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                 dropdownColor: const Color(0xFF0f1419),
                 style: const TextStyle(color: Colors.white),
                 items: const [
-                  DropdownMenuItem(value: 'all', child: Text('الكل')),
-                  DropdownMenuItem(value: 'active', child: Text('نشط')),
-                  DropdownMenuItem(value: 'inactive', child: Text('غير نشط')),
-                  DropdownMenuItem(value: 'admin', child: Text('مدير')),
-                  DropdownMenuItem(value: 'user', child: Text('مستخدم عادي')),
+                  DropdownMenuItem<String>(value: 'all', child: Text('الكل')),
+                  DropdownMenuItem<String>(value: 'active', child: Text('نشط')),
+                  DropdownMenuItem<String>(value: 'inactive', child: Text('غير نشط')),
+                  DropdownMenuItem<String>(value: 'admin', child: Text('مدير')),
+                  DropdownMenuItem<String>(value: 'user', child: Text('مستخدم عادي')),
                 ],
                 onChanged: (value) => setState(() => _statusFilter = value!),
               ),
@@ -1008,20 +1008,20 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                 dropdownColor: const Color(0xFF0f1419),
                 style: const TextStyle(color: Colors.white),
                 items: const [
-                  DropdownMenuItem(
+                  DropdownMenuItem<String>(
                     value: 'created_at',
                     child: Text('تاريخ التسجيل'),
                   ),
-                  DropdownMenuItem(value: 'name', child: Text('الاسم')),
-                  DropdownMenuItem(
+                  DropdownMenuItem<String>(value: 'name', child: Text('الاسم')),
+                  DropdownMenuItem<String>(
                     value: 'last_login',
                     child: Text('آخر دخول'),
                   ),
-                  DropdownMenuItem(
+                  DropdownMenuItem<String>(
                     value: 'total_orders',
                     child: Text('عدد الطلبات'),
                   ),
-                  DropdownMenuItem(
+                  DropdownMenuItem<String>(
                     value: 'total_sales',
                     child: Text('إجمالي المبيعات'),
                   ),
@@ -1038,7 +1038,12 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                 ),
                 value: _ascending,
                 onChanged: (value) => setState(() => _ascending = value),
-                activeColor: const Color(0xFFffc107),
+                thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return const Color(0xFFffc107);
+                  }
+                  return Colors.grey;
+                }),
               ),
             ],
           ),
