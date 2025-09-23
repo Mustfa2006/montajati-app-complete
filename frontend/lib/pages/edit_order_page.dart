@@ -1,22 +1,19 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/order.dart';
 import '../models/order_item.dart';
-import '../widgets/common_header.dart';
-
+import '../widgets/app_background.dart';
 
 class EditOrderPage extends StatefulWidget {
   final String orderId;
   final bool isScheduled;
 
-  const EditOrderPage({
-    super.key,
-    required this.orderId,
-    this.isScheduled = false,
-  });
+  const EditOrderPage({super.key, required this.orderId, this.isScheduled = false});
 
   @override
   State<EditOrderPage> createState() => _EditOrderPageState();
@@ -53,8 +50,21 @@ class _EditOrderPageState extends State<EditOrderPage> {
   @override
   void initState() {
     super.initState();
-    _loadProvinces();
-    _loadOrderDetails();
+    _initializeData();
+
+    // إضافة listeners لتحديث الواجهة عند تغيير النص
+    _customerNameController.addListener(() => setState(() {}));
+    _primaryPhoneController.addListener(() => setState(() {}));
+    _secondaryPhoneController.addListener(() => setState(() {}));
+    _notesController.addListener(() => setState(() {}));
+  }
+
+  // ✅ تهيئة البيانات بالترتيب الصحيح
+  Future<void> _initializeData() async {
+    // تحميل المحافظات أولاً
+    await _loadProvinces();
+    // ثم تحميل بيانات الطلب
+    await _loadOrderDetails();
   }
 
   @override
@@ -73,10 +83,7 @@ class _EditOrderPageState extends State<EditOrderPage> {
     try {
       debugPrint('🏛️ جلب المحافظات من قاعدة البيانات...');
 
-      final response = await Supabase.instance.client
-          .from('provinces')
-          .select('id, name, name_en')
-          .order('name');
+      final response = await Supabase.instance.client.from('provinces').select('id, name, name_en').order('name');
 
       if (response.isNotEmpty) {
         setState(() {
@@ -122,16 +129,13 @@ class _EditOrderPageState extends State<EditOrderPage> {
     if (_selectedProvince != null && _provinces.isNotEmpty) {
       // البحث عن المحافظة في القائمة
       final province = _provinces.firstWhere(
-        (p) =>
-            p['name'] == _selectedProvince || p['name_en'] == _selectedProvince,
+        (p) => p['name'] == _selectedProvince || p['name_en'] == _selectedProvince,
         orElse: () => <String, dynamic>{},
       );
 
       if (province.isNotEmpty) {
         _selectedProvinceId = province['id'];
-        debugPrint(
-          '✅ تم العثور على المحافظة: $_selectedProvince (ID: $_selectedProvinceId)',
-        );
+        debugPrint('✅ تم العثور على المحافظة: $_selectedProvince (ID: $_selectedProvinceId)');
 
         // تحميل المدن للمحافظة
         await _loadCities(_selectedProvinceId!);
@@ -154,20 +158,14 @@ class _EditOrderPageState extends State<EditOrderPage> {
       // جلب تفاصيل الطلب من قاعدة البيانات
       final orderResponse = await Supabase.instance.client
           .from(widget.isScheduled ? 'scheduled_orders' : 'orders')
-          .select(
-            widget.isScheduled
-                ? '*, scheduled_order_items(*)'
-                : '*, order_items(*)',
-          )
+          .select(widget.isScheduled ? '*, scheduled_order_items(*)' : '*, order_items(*)')
           .eq('id', widget.orderId)
           .single();
 
       debugPrint('✅ تم جلب تفاصيل الطلب: ${orderResponse['id']}');
 
       // تحويل عناصر الطلب
-      final itemsKey = widget.isScheduled
-          ? 'scheduled_order_items'
-          : 'order_items';
+      final itemsKey = widget.isScheduled ? 'scheduled_order_items' : 'order_items';
       final orderItems =
           (orderResponse[itemsKey] as List?)?.map((item) {
             return OrderItem(
@@ -192,29 +190,17 @@ class _EditOrderPageState extends State<EditOrderPage> {
         secondaryPhone: widget.isScheduled
             ? (orderResponse['customer_alternate_phone'])
             : (orderResponse['secondary_phone']),
-        province:
-            orderResponse['province'] ??
-            orderResponse['customer_province'] ??
-            '',
+        province: orderResponse['province'] ?? orderResponse['customer_province'] ?? '',
         city: orderResponse['city'] ?? orderResponse['customer_city'] ?? '',
-        notes: widget.isScheduled
-            ? (orderResponse['customer_notes'])
-            : (orderResponse['notes']),
+        notes: widget.isScheduled ? (orderResponse['customer_notes']) : (orderResponse['notes']),
         items: orderItems,
-        totalCost:
-            (orderResponse['total_amount'] ?? orderResponse['total'] ?? 0).toInt(),
-        totalProfit:
-            (orderResponse['profit_amount'] ?? orderResponse['profit'] ?? 0).toInt(),
-        subtotal:
-            (orderResponse['total_amount'] ?? orderResponse['subtotal'] ?? 0).toInt(),
+        totalCost: (orderResponse['total_amount'] ?? orderResponse['total'] ?? 0).toInt(),
+        totalProfit: (orderResponse['profit_amount'] ?? orderResponse['profit'] ?? 0).toInt(),
+        subtotal: (orderResponse['total_amount'] ?? orderResponse['subtotal'] ?? 0).toInt(),
         total: (orderResponse['total_amount'] ?? orderResponse['total'] ?? 0).toInt(),
-        status: widget.isScheduled
-            ? OrderStatus.pending
-            : _parseOrderStatus(orderResponse['status']),
+        status: widget.isScheduled ? OrderStatus.pending : _parseOrderStatus(orderResponse['status']),
         createdAt: DateTime.parse(orderResponse['created_at']),
-        scheduledDate: widget.isScheduled
-            ? DateTime.parse(orderResponse['scheduled_date'])
-            : null,
+        scheduledDate: widget.isScheduled ? DateTime.parse(orderResponse['scheduled_date']) : null,
       );
 
       // ملء الحقول بالبيانات الحالية
@@ -271,379 +257,714 @@ class _EditOrderPageState extends State<EditOrderPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
-      body: Column(
-        children: [
-          // الشريط العلوي الموحد
-          CommonHeader(
-            title: 'تعديل الطلب',
-            rightActions: [
-              // زر الرجوع على اليمين
-              GestureDetector(
-                onTap: () async {
-                  // حفظ BuildContext قبل العملية غير المتزامنة
-                  final navigator = GoRouter.of(context);
+      backgroundColor: Colors.transparent,
+      body: AppBackground(
+        child: SafeArea(
+          child: _isLoading
+              ? _buildEnhancedLoadingState()
+              : _error != null
+              ? _buildEnhancedErrorState()
+              : _buildEnhancedEditForm(),
+        ),
+      ),
+    );
+  }
 
-                  // العودة دائماً لصفحة طلبات المستخدم
-                  // بغض النظر عن نوع الطلب أو نوع المستخدم
-                  navigator.go('/orders');
-                },
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: 1,
+  // 🎨 الشريط العلوي المحسن
+  Widget _buildEnhancedHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.2), width: 1),
+            ),
+            child: Row(
+              children: [
+                // زر الرجوع على اليمين
+                GestureDetector(
+                  onTap: () => GoRouter.of(context).go('/orders'),
+                  child: Container(
+                    width: 45,
+                    height: 45,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
                     ),
-                  ),
-                  child: Icon(
-                    Icons.arrow_back,
-                    color: Color(0xFFffd700),
-                    size: 16,
+                    child: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
                   ),
                 ),
-              ),
-            ],
+
+                // العنوان في الوسط
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'تعديل الطلب',
+                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+
+                // مساحة فارغة للتوازن
+                const SizedBox(width: 45),
+              ],
+            ),
           ),
-          Expanded(
-            child: _isLoading
-                ? _buildLoadingState()
-                : _error != null
-                ? _buildErrorState()
-                : _buildEditForm(),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-
-
-  Widget _buildLoadingState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: Color(0xFFffd700)),
-          SizedBox(height: 20),
-          Text(
-            'جاري تحميل تفاصيل الطلب...',
-            style: TextStyle(color: Colors.white),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
+  // ⏳ حالة التحميل المحسنة
+  Widget _buildEnhancedLoadingState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.error_outline, color: Colors.red, size: 60),
+          // مؤشر التحميل البسيط
+          const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)), strokeWidth: 3),
           const SizedBox(height: 20),
           Text(
-            'خطأ في تحميل الطلب',
-            style: GoogleFonts.cairo(
-              color: Colors.red,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            _error ?? 'حدث خطأ غير متوقع',
-            style: GoogleFonts.cairo(color: Colors.white70, fontSize: 14),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 30),
-          ElevatedButton(
-            onPressed: _loadOrderDetails,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-              foregroundColor: const Color(0xFF1a1a2e),
-            ),
-            child: Text(
-              'إعادة المحاولة',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-            ),
+            'جاري التحميل...',
+            style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEditForm() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(
-        top: 20,
-        left: 20,
-        right: 20,
-        bottom: 100, // مساحة للشريط السفلي
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // عنوان القسم
-          Container(
-            padding: const EdgeInsets.all(16),
+  // ❌ حالة الخطأ المحسنة
+  Widget _buildEnhancedErrorState() {
+    return Center(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+          child: Container(
+            padding: const EdgeInsets.all(40),
             decoration: BoxDecoration(
-              color: const Color(0xFF16213e),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFffd700), width: 1),
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(color: Colors.red.withValues(alpha: 0.2), width: 1),
             ),
-            child: Row(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.edit, color: Color(0xFFffd700), size: 24),
-                const SizedBox(width: 12),
+                // أيقونة الخطأ
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.red.withValues(alpha: 0.2),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 2),
+                  ),
+                  child: const Icon(Icons.error_outline, color: Colors.red, size: 40),
+                ),
+                const SizedBox(height: 25),
                 Text(
-                  widget.isScheduled
-                      ? 'تعديل الطلب المجدول'
-                      : 'تعديل معلومات العميل',
-                  style: GoogleFonts.cairo(
-                    color: const Color(0xFFffd700),
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  'خطأ في تحميل الطلب',
+                  style: GoogleFonts.cairo(color: Colors.red, fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 15),
+                Text(
+                  _error ?? 'حدث خطأ غير متوقع',
+                  style: GoogleFonts.cairo(color: Colors.white70, fontSize: 14, height: 1.5),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 30),
+                // زر إعادة المحاولة
+                GestureDetector(
+                  onTap: _loadOrderDetails,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [const Color(0xFFffd700), const Color(0xFFffed4e)]),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      'إعادة المحاولة',
+                      style: GoogleFonts.cairo(
+                        color: const Color(0xFF1a1a2e),
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // 🎨 النموذج المحسن للتعديل
+  Widget _buildEnhancedEditForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // الشريط العلوي المحسن
+          _buildEnhancedHeader(),
           const SizedBox(height: 20),
 
-          // حقول التعديل
-          _buildTextField(
-            controller: _customerNameController,
-            label: 'اسم العميل',
-            icon: Icons.person,
-            isRequired: true,
-          ),
-          const SizedBox(height: 16),
+          // بطاقة معلومات العميل
+          _buildCustomerInfoCard(),
+          const SizedBox(height: 20),
 
-          _buildTextField(
-            controller: _primaryPhoneController,
-            label: 'رقم الهاتف الأساسي',
-            icon: Icons.phone,
-            isRequired: true,
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: 16),
+          // بطاقة الموقع
+          _buildLocationCard(),
+          const SizedBox(height: 20),
 
-          _buildTextField(
-            controller: _secondaryPhoneController,
-            label: 'رقم الهاتف الثانوي (اختياري)',
-            icon: Icons.phone_android,
-            keyboardType: TextInputType.phone,
-          ),
-          const SizedBox(height: 16),
+          // بطاقة الملاحظات
+          _buildNotesCard(),
 
-          // ✅ حقل المحافظة الجديد
-          _buildProvinceField(),
-          const SizedBox(height: 16),
-
-          // ✅ حقل المدينة الجديد
-          _buildCityField(),
-          const SizedBox(height: 16),
-
-          _buildTextField(
-            controller: _notesController,
-            label: 'ملاحظات إضافية (اختياري)',
-            icon: Icons.note,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 16),
-
-          // حقل تاريخ الجدولة (للطلبات المجدولة فقط)
-          if (widget.isScheduled) ...[
-            _buildScheduledDateField(),
-            const SizedBox(height: 16),
-          ],
+          // بطاقة تاريخ الجدولة (للطلبات المجدولة فقط)
+          if (widget.isScheduled) ...[const SizedBox(height: 20), _buildScheduleCard()],
 
           const SizedBox(height: 30),
 
-          // زر الحفظ
-          SizedBox(
-            width: double.infinity,
-            height: 55,
-            child: ElevatedButton(
-              onPressed: _isSaving ? null : _saveChanges,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFffd700),
-                foregroundColor: const Color(0xFF1a1a2e),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 5,
-              ),
-              child: _isSaving
-                  ? const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF1a1a2e),
-                            strokeWidth: 2,
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        Text('جاري الحفظ...'),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.save, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'حفظ التغييرات',
-                          style: GoogleFonts.cairo(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ),
+          // زر الحفظ المحسن
+          _buildEnhancedSaveButton(),
+
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  Widget _buildTextField({
+  // 👤 بطاقة معلومات العميل
+  Widget _buildCustomerInfoCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        child: Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.2), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // حقل اسم العميل
+              _buildEnhancedTextField(
+                controller: _customerNameController,
+                label: 'اسم العميل',
+                icon: Icons.person_outline,
+                isRequired: true,
+              ),
+              const SizedBox(height: 20),
+
+              // حقل الهاتف الأساسي
+              _buildEnhancedTextField(
+                controller: _primaryPhoneController,
+                label: 'رقم الهاتف الأساسي',
+                icon: Icons.phone,
+                isRequired: true,
+                keyboardType: TextInputType.phone,
+                maxLength: 11,
+              ),
+              const SizedBox(height: 20),
+
+              // حقل الهاتف الثانوي
+              _buildEnhancedTextField(
+                controller: _secondaryPhoneController,
+                label: 'رقم الهاتف الثانوي (اختياري)',
+                icon: Icons.phone_android,
+                keyboardType: TextInputType.phone,
+                maxLength: 11,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ✨ حقل نصي محسن مع تأثيرات بصرية
+  Widget _buildEnhancedTextField({
     required TextEditingController controller,
     required String label,
     required IconData icon,
     bool isRequired = false,
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
+    bool showIcon = true,
+    int? maxLength,
   }) {
-    // ✅ تحديد حالة التحقق من صحة الحقل
-    bool isValid = false;
-    if (controller == _customerNameController) {
-      isValid = controller.text.trim().isNotEmpty;
-    } else if (controller == _primaryPhoneController) {
-      isValid = controller.text.trim().length == 11;
-    } else if (controller == _secondaryPhoneController) {
-      isValid =
-          controller.text.trim().isEmpty || controller.text.trim().length == 11;
+    // التحقق من صحة البيانات
+    bool isValid = true;
+    if (isRequired && controller.text.trim().isEmpty) {
+      isValid = false;
     }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: const Color(0xFFffd700), size: 20),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+    if (keyboardType == TextInputType.phone && controller.text.isNotEmpty) {
+      isValid = controller.text.length >= 10 && controller.text.length <= 11;
+    }
+    if (controller.text.trim().isNotEmpty && keyboardType != TextInputType.phone) {
+      isValid = true;
+    }
+    return Container(
+      height: maxLines > 1 ? null : 75, // ارتفاع محسن للحقول العادية
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFffd700).withValues(alpha: 0.05), blurRadius: 5, spreadRadius: 0.5),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: isValid
+                    ? const Color(0xFF28a745).withValues(alpha: 0.6) // أخضر للبيانات الصحيحة
+                    : const Color(0xFFffd700).withValues(alpha: 0.3), // ذهبي للبيانات غير المكتملة
+                width: 1,
               ),
             ),
-            if (isRequired)
-              const Text(
-                ' *',
-                style: TextStyle(color: Colors.red, fontSize: 16),
-              ),
-            // ✅ علامة الصح للحقول الصحيحة
-            if (isValid && controller.text.trim().isNotEmpty) ...[
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.check_circle,
-                color: Color(0xFF28a745),
-                size: 18,
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          maxLines: maxLines,
-          style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
-          onChanged: (value) {
-            // ✅ تحويل الأرقام العربية إلى إنجليزية للهاتف
-            if (keyboardType == TextInputType.phone) {
-              final englishNumbers = _convertArabicToEnglish(value);
-              if (englishNumbers != value) {
-                controller.value = controller.value.copyWith(
-                  text: englishNumbers,
-                  selection: TextSelection.collapsed(
-                    offset: englishNumbers.length,
-                  ),
-                );
-              }
-            }
-            setState(() {}); // ✅ إعادة بناء الواجهة لتحديث الإطار
-          },
-          inputFormatters: keyboardType == TextInputType.phone
-              ? [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(11), // ✅ حد أقصى 11 رقم
-                ]
-              : null,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: const Color(0xFF16213e),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: isValid && controller.text.trim().isNotEmpty
-                    ? const Color(0xFF28a745) // ✅ إطار أخضر للحقول الصحيحة
-                    : const Color(0xFF2a3f5f),
-                width: isValid && controller.text.trim().isNotEmpty ? 2 : 1,
+            child: TextFormField(
+              controller: controller,
+              keyboardType: keyboardType,
+              maxLines: maxLines,
+              maxLength: maxLength,
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, height: 1.2),
+              textAlignVertical: TextAlignVertical.center,
+              decoration: InputDecoration(
+                labelText: isRequired ? '$label *' : label,
+                labelStyle: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 14),
+                counterText: '', // إخفاء عداد الأحرف
+                prefixIcon: showIcon
+                    ? Container(
+                        margin: const EdgeInsets.all(12),
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFFffd700).withValues(alpha: 0.3),
+                              const Color(0xFFffed4e).withValues(alpha: 0.2),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(icon, color: const Color(0xFFffd700), size: 20),
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: showIcon ? 20 : 20, vertical: 14),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(color: const Color(0xFFffd700), width: 2),
+                ),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
               ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: isValid && controller.text.trim().isNotEmpty
-                    ? const Color(0xFF28a745) // ✅ إطار أخضر للحقول الصحيحة
-                    : const Color(0xFF2a3f5f),
-                width: isValid && controller.text.trim().isNotEmpty ? 2 : 1,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: isValid && controller.text.trim().isNotEmpty
-                    ? const Color(0xFF28a745) // ✅ إطار أخضر للحقول الصحيحة
-                    : const Color(0xFFffd700),
-                width: 2,
-              ),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            hintText: 'أدخل $label',
-            hintStyle: GoogleFonts.cairo(color: Colors.white54, fontSize: 14),
           ),
         ),
-      ],
+      ),
     );
   }
 
-  // ✅ تحويل الأرقام العربية إلى إنجليزية
-  String _convertArabicToEnglish(String input) {
-    const arabicNumbers = '٠١٢٣٤٥٦٧٨٩';
-    const englishNumbers = '0123456789';
+  // 📍 بطاقة الموقع
+  Widget _buildLocationCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        child: Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF00d4ff).withValues(alpha: 0.2), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // حقل المحافظة
+              _buildEnhancedProvinceField(),
+              const SizedBox(height: 20),
 
-    String result = input;
-    for (int i = 0; i < arabicNumbers.length; i++) {
-      result = result.replaceAll(arabicNumbers[i], englishNumbers[i]);
-    }
-    return result;
+              // حقل المدينة
+              _buildEnhancedCityField(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 📝 بطاقة الملاحظات
+  Widget _buildNotesCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        child: Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFff6b6b).withValues(alpha: 0.2), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // حقل الملاحظات
+              _buildEnhancedTextField(
+                controller: _notesController,
+                label: 'ملاحظات (اختياري)',
+                icon: Icons.note_outlined,
+                maxLines: 3,
+                showIcon: false,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 💾 زر الحفظ المحسن
+  Widget _buildEnhancedSaveButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        width: double.infinity,
+        height: 55,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [BoxShadow(color: const Color(0xFFffd700).withValues(alpha: 0.1), blurRadius: 5, spreadRadius: 1)],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+            child: Container(
+              decoration: BoxDecoration(color: const Color(0xFFffd700), borderRadius: BorderRadius.circular(15)),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(15),
+                  onTap: _isLoading ? null : _saveChanges,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isLoading) ...[
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1a1a2e)),
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                        ] else ...[
+                          const Icon(Icons.save, color: Color(0xFF1a1a2e), size: 24),
+                          const SizedBox(width: 15),
+                        ],
+                        Text(
+                          _isLoading ? 'جاري الحفظ...' : 'حفظ التعديلات',
+                          style: GoogleFonts.cairo(
+                            color: const Color(0xFF1a1a2e),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🏛️ حقل المحافظة المحسن
+  Widget _buildEnhancedProvinceField() {
+    return GestureDetector(
+      onTap: _showProvinceSelector,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(color: const Color(0xFF00d4ff).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(left: 15),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF00d4ff).withValues(alpha: 0.3),
+                          const Color(0xFF00a8cc).withValues(alpha: 0.2),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.location_city, color: Color(0xFF00d4ff), size: 20),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('المحافظة *', style: GoogleFonts.cairo(color: const Color(0xFF00d4ff), fontSize: 12)),
+                        const SizedBox(height: 5),
+                        Text(
+                          _selectedProvince ?? 'اختر المحافظة',
+                          style: GoogleFonts.cairo(
+                            color: _selectedProvince != null ? Colors.white : Colors.white54,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.keyboard_arrow_down, color: const Color(0xFF00d4ff), size: 24),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🏘️ حقل المدينة المحسن
+  Widget _buildEnhancedCityField() {
+    return GestureDetector(
+      onTap: _selectedProvince != null ? _showCitySelector : null,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(color: const Color(0xFF00d4ff).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(left: 15),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF00d4ff).withValues(alpha: 0.3),
+                          const Color(0xFF00a8cc).withValues(alpha: 0.2),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.location_on, color: Color(0xFF00d4ff), size: 20),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('المدينة *', style: GoogleFonts.cairo(color: const Color(0xFF00d4ff), fontSize: 12)),
+                        const SizedBox(height: 5),
+                        Text(
+                          _selectedCity ?? (_selectedProvince != null ? 'اختر المدينة' : 'اختر المحافظة أولاً'),
+                          style: GoogleFonts.cairo(
+                            color: _selectedCity != null ? Colors.white : Colors.white54,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    color: _selectedProvince != null ? const Color(0xFF00d4ff) : Colors.white38,
+                    size: 24,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 📅 بطاقة تاريخ الجدولة
+  Widget _buildScheduleCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+        child: Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF4ecdc4).withValues(alpha: 0.3), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // عنوان القسم
+              Row(
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: [const Color(0xFF4ecdc4), const Color(0xFF44a08d)]),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Icon(Icons.schedule, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'تاريخ الجدولة',
+                          style: GoogleFonts.cairo(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'موعد تسليم الطلب',
+                          style: GoogleFonts.cairo(color: const Color(0xFF4ecdc4), fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 25),
+
+              // حقل التاريخ
+              _buildEnhancedDateField(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 📅 حقل التاريخ المحسن
+  Widget _buildEnhancedDateField() {
+    return GestureDetector(
+      onTap: _selectScheduledDate,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(15),
+          boxShadow: [
+            BoxShadow(color: const Color(0xFF4ecdc4).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(left: 15),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF4ecdc4).withValues(alpha: 0.3),
+                          const Color(0xFF44a08d).withValues(alpha: 0.2),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.calendar_today, color: Color(0xFF4ecdc4), size: 20),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('تاريخ التسليم *', style: GoogleFonts.cairo(color: const Color(0xFF4ecdc4), fontSize: 12)),
+                        const SizedBox(height: 5),
+                        Text(
+                          _selectedScheduledDate != null
+                              ? '${_selectedScheduledDate!.day}/${_selectedScheduledDate!.month}/${_selectedScheduledDate!.year}'
+                              : 'اختر تاريخ التسليم',
+                          style: GoogleFonts.cairo(
+                            color: _selectedScheduledDate != null ? Colors.white : Colors.white54,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(Icons.date_range, color: const Color(0xFF4ecdc4), size: 24),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   // حفظ التغييرات
@@ -681,6 +1002,8 @@ class _EditOrderPageState extends State<EditOrderPage> {
       });
 
       debugPrint('💾 بدء حفظ تعديلات الطلب: ${widget.orderId}');
+      debugPrint('📍 المحافظة المختارة: $_selectedProvince');
+      debugPrint('🏙️ المدينة المختارة: $_selectedCity');
 
       // تحديث البيانات في قاعدة البيانات
       if (widget.isScheduled) {
@@ -690,20 +1013,15 @@ class _EditOrderPageState extends State<EditOrderPage> {
             .update({
               'customer_name': _customerNameController.text.trim(),
               'customer_phone': _primaryPhoneController.text.trim(),
-              'customer_alternate_phone':
-                  _secondaryPhoneController.text.trim().isEmpty
+              'customer_alternate_phone': _secondaryPhoneController.text.trim().isEmpty
                   ? null
                   : _secondaryPhoneController.text.trim(),
               'province': _selectedProvince!,
               'city': _selectedCity!,
               'customer_province': _selectedProvince!,
               'customer_city': _selectedCity!,
-              'customer_notes': _notesController.text.trim().isEmpty
-                  ? null
-                  : _notesController.text.trim(),
-              'scheduled_date': _selectedScheduledDate?.toIso8601String().split(
-                'T',
-              )[0],
+              'customer_notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+              'scheduled_date': _selectedScheduledDate?.toIso8601String().split('T')[0],
             })
             .eq('id', widget.orderId);
       } else {
@@ -718,9 +1036,7 @@ class _EditOrderPageState extends State<EditOrderPage> {
                   : _secondaryPhoneController.text.trim(),
               'province': _selectedProvince!,
               'city': _selectedCity!,
-              'notes': _notesController.text.trim().isEmpty
-                  ? null
-                  : _notesController.text.trim(),
+              'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
             })
             .eq('id', widget.orderId);
       }
@@ -764,149 +1080,6 @@ class _EditOrderPageState extends State<EditOrderPage> {
     }
   }
 
-  // ✅ بناء حقل المحافظة
-  Widget _buildProvinceField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFFffd700),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'المحافظة',
-              style: GoogleFonts.cairo(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFFffd700),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        GestureDetector(
-          onTap: _showProvinceSelector,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            decoration: BoxDecoration(
-              color: const Color(0xFF16213e),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _selectedProvince != null
-                    ? const Color(0xFF28a745)
-                    : const Color(0xFFffd700).withValues(alpha: 0.3),
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _selectedProvince ?? 'اختر المحافظة',
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _selectedProvince != null
-                          ? const Color(0xFFf0f0f0)
-                          : Colors.white.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.keyboard_arrow_down,
-                  color: const Color(0xFFffd700),
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ✅ بناء حقل المدينة
-  Widget _buildCityField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFFffd700),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'المدينة',
-              style: GoogleFonts.cairo(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFFffd700),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        GestureDetector(
-          onTap: _selectedProvince != null ? _showCitySelector : null,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-            decoration: BoxDecoration(
-              color: const Color(0xFF16213e),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: _selectedCity != null
-                    ? const Color(0xFF28a745)
-                    : _selectedProvince != null
-                    ? const Color(0xFFffd700).withValues(alpha: 0.3)
-                    : Colors.white.withValues(alpha: 0.2),
-                width: 1.5,
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _selectedCity ??
-                        (_selectedProvince != null
-                            ? 'اختر المدينة'
-                            : 'اختر المحافظة أولاً'),
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _selectedCity != null
-                          ? const Color(0xFFf0f0f0)
-                          : Colors.white.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ),
-                Icon(
-                  Icons.keyboard_arrow_down,
-                  color: _selectedProvince != null
-                      ? const Color(0xFFffd700)
-                      : Colors.white.withValues(alpha: 0.3),
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   // ✅ عرض قائمة المحافظات
   void _showProvinceSelector() {
     _filteredProvinces = List.from(_provinces);
@@ -917,92 +1090,93 @@ class _EditOrderPageState extends State<EditOrderPage> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          height: MediaQuery.of(context).size.height * 0.8,
-          decoration: const BoxDecoration(
-            color: Color(0xFF1a1a2e),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF16213e),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.location_on, color: Color(0xFFffd700)),
-                    const SizedBox(width: 10),
-                    Text(
-                      'اختر المحافظة',
-                      style: GoogleFonts.cairo(
-                        color: const Color(0xFFffd700),
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white70),
-                    ),
-                  ],
-                ),
+        builder: (context, setModalState) => ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+                border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
               ),
-              // Search
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: TextField(
-                  controller: _provinceSearchController,
-                  onChanged: (value) => _filterProvinces(value, setModalState),
-                  style: GoogleFonts.cairo(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: 'ابحث عن المحافظة...',
-                    hintStyle: GoogleFonts.cairo(color: Colors.white54),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      color: Color(0xFFffd700),
+              child: Column(
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF16213e),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
                     ),
-                    filled: true,
-                    fillColor: const Color(0xFF16213e),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on, color: Color(0xFFffd700)),
+                        const SizedBox(width: 10),
+                        Text(
+                          'اختر المحافظة',
+                          style: GoogleFonts.cairo(
+                            color: const Color(0xFFffd700),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close, color: Colors.white70),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ),
-              // List
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _filteredProvinces.length,
-                  itemBuilder: (context, index) {
-                    final province = _filteredProvinces[index];
-                    final provinceName =
-                        province['name'] ?? province['name_en'] ?? '';
-
-                    return ListTile(
-                      title: Text(
-                        provinceName,
-                        style: GoogleFonts.cairo(color: Colors.white),
+                  // Search
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: TextField(
+                      controller: _provinceSearchController,
+                      onChanged: (value) => _filterProvinces(value, setModalState),
+                      style: GoogleFonts.cairo(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'ابحث عن المحافظة...',
+                        hintStyle: GoogleFonts.cairo(color: Colors.white54),
+                        prefixIcon: const Icon(Icons.search, color: Color(0xFFffd700)),
+                        filled: true,
+                        fillColor: const Color(0xFF16213e),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
-                      onTap: () {
-                        setState(() {
-                          _selectedProvince = provinceName;
-                          _selectedProvinceId = province['id'];
-                          _selectedCity = null;
-                        });
-                        _loadCities(province['id']);
-                        Navigator.pop(context);
+                    ),
+                  ),
+                  // List
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _filteredProvinces.length,
+                      itemBuilder: (context, index) {
+                        final province = _filteredProvinces[index];
+                        final provinceName = province['name'] ?? province['name_en'] ?? '';
+
+                        return ListTile(
+                          title: Text(provinceName, style: GoogleFonts.cairo(color: Colors.white)),
+                          onTap: () {
+                            setState(() {
+                              _selectedProvince = provinceName;
+                              _selectedProvinceId = province['id'];
+                              _selectedCity = null; // إعادة تعيين المدينة عند تغيير المحافظة
+                            });
+                            debugPrint('✅ تم اختيار المحافظة: $provinceName (ID: ${province['id']})');
+                            _loadCities(province['id']);
+                            Navigator.pop(context);
+                          },
+                        );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1064,16 +1238,10 @@ class _EditOrderPageState extends State<EditOrderPage> {
                   decoration: InputDecoration(
                     hintText: 'ابحث عن المدينة...',
                     hintStyle: GoogleFonts.cairo(color: Colors.white54),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      color: Color(0xFFffd700),
-                    ),
+                    prefixIcon: const Icon(Icons.search, color: Color(0xFFffd700)),
                     filled: true,
                     fillColor: const Color(0xFF16213e),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   ),
                 ),
               ),
@@ -1086,14 +1254,12 @@ class _EditOrderPageState extends State<EditOrderPage> {
                     final cityName = city['name'] ?? city['name_en'] ?? '';
 
                     return ListTile(
-                      title: Text(
-                        cityName,
-                        style: GoogleFonts.cairo(color: Colors.white),
-                      ),
+                      title: Text(cityName, style: GoogleFonts.cairo(color: Colors.white)),
                       onTap: () {
                         setState(() {
                           _selectedCity = cityName;
                         });
+                        debugPrint('✅ تم اختيار المدينة: $cityName');
                         Navigator.pop(context);
                       },
                     );
@@ -1115,8 +1281,7 @@ class _EditOrderPageState extends State<EditOrderPage> {
         _filteredProvinces = List.from(_provinces);
       } else {
         _filteredProvinces = _provinces.where((province) {
-          final provinceName = (province['name'] ?? province['name_en'] ?? '')
-              .toLowerCase();
+          final provinceName = (province['name'] ?? province['name_en'] ?? '').toLowerCase();
           return provinceName.startsWith(query.toLowerCase());
         }).toList();
       }
@@ -1131,59 +1296,18 @@ class _EditOrderPageState extends State<EditOrderPage> {
         _filteredCities = List.from(_cities);
       } else {
         _filteredCities = _cities.where((city) {
-          final cityName = (city['name'] ?? city['name_en'] ?? '')
-              .toLowerCase();
+          final cityName = (city['name'] ?? city['name_en'] ?? '').toLowerCase();
           return cityName.startsWith(query.toLowerCase());
         }).toList();
       }
     });
   }
 
-  // بناء حقل تاريخ الجدولة
-  Widget _buildScheduledDateField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF16213e),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFffd700), width: 1),
-      ),
-      child: ListTile(
-        leading: const Icon(Icons.calendar_today, color: Color(0xFFffd700)),
-        title: Text(
-          'تاريخ الجدولة',
-          style: GoogleFonts.cairo(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Text(
-          _selectedScheduledDate != null
-              ? _formatDate(_selectedScheduledDate!)
-              : 'اختر تاريخ الجدولة',
-          style: GoogleFonts.cairo(
-            color: _selectedScheduledDate != null
-                ? const Color(0xFFffd700)
-                : Colors.grey,
-            fontSize: 14,
-          ),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          color: Color(0xFFffd700),
-          size: 16,
-        ),
-        onTap: _selectScheduledDate,
-      ),
-    );
-  }
-
   // اختيار تاريخ الجدولة
   Future<void> _selectScheduledDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate:
-          _selectedScheduledDate ?? DateTime.now().add(const Duration(days: 1)),
+      initialDate: _selectedScheduledDate ?? DateTime.now().add(const Duration(days: 1)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
@@ -1206,11 +1330,6 @@ class _EditOrderPageState extends State<EditOrderPage> {
         _selectedScheduledDate = picked;
       });
     }
-  }
-
-  // تنسيق التاريخ
-  String _formatDate(DateTime date) {
-    return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
   }
 
   // إظهار رسالة خطأ

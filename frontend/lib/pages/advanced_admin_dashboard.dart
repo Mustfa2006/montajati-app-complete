@@ -1,30 +1,31 @@
+import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
+
 import 'package:fl_chart/fl_chart.dart';
-import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
-import '../services/admin_service.dart';
-import '../services/withdrawal_service.dart';
-import '../services/smart_inventory_manager.dart';
-import '../services/smart_colors_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/product.dart';
 import '../models/product_color.dart';
+import '../services/admin_service.dart';
+import '../services/smart_colors_service.dart';
+import '../services/smart_inventory_manager.dart';
+import '../services/withdrawal_service.dart';
 import '../widgets/colors_management_dialog.dart';
+import 'admin_settings_page.dart';
 import 'advanced_orders_management_page.dart';
+import 'reports_page.dart';
 import 'scheduled_orders_main_page.dart';
 import 'scheduled_orders_test_page.dart';
-import 'users_management_page.dart';
-import 'reports_page.dart';
 import 'settings_page.dart';
-import 'admin_settings_page.dart';
-import 'dart:convert';
+import 'users_management_page.dart';
 
 class AdvancedAdminDashboard extends StatefulWidget {
   const AdvancedAdminDashboard({super.key});
@@ -33,8 +34,7 @@ class AdvancedAdminDashboard extends StatefulWidget {
   State<AdvancedAdminDashboard> createState() => _AdvancedAdminDashboardState();
 }
 
-class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
-    with TickerProviderStateMixin {
+class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with TickerProviderStateMixin {
   // Controllers للرسوم المتحركة
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -80,12 +80,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   DateTime? _scheduledDateTime;
   bool _isSendingNotification = false;
   List<Map<String, dynamic>> _sentNotifications = [];
-  Map<String, int> _notificationStats = {
-    'total_sent': 0,
-    'total_delivered': 0,
-    'total_opened': 0,
-    'total_clicked': 0,
-  };
+  Map<String, int> _notificationStats = {'total_sent': 0, 'total_delivered': 0, 'total_opened': 0, 'total_clicked': 0};
 
   @override
   void initState() {
@@ -99,24 +94,19 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   void _initializeAnimations() {
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
+    _fadeController = AnimationController(duration: const Duration(milliseconds: 1000), vsync: this);
 
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
+    _slideController = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut));
 
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
 
     _fadeController.forward();
     _slideController.forward();
@@ -174,13 +164,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
   }
 
   void _setDefaultData() {
@@ -221,10 +207,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         for (final order in response) {
           await Supabase.instance.client
               .from('orders')
-              .update({
-                'status': 'active',
-                'updated_at': DateTime.now().toIso8601String(),
-              })
+              .update({'status': 'active', 'updated_at': DateTime.now().toIso8601String()})
               .eq('id', order['id']);
         }
 
@@ -234,9 +217,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'تم تحويل ${response.length} طلبات من مجدولة إلى نشطة',
-              ),
+              content: Text('تم تحويل ${response.length} طلبات من مجدولة إلى نشطة'),
               backgroundColor: Colors.green,
             ),
           );
@@ -287,18 +268,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
-              strokeWidth: 3,
-            ),
+            CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)), strokeWidth: 3),
             SizedBox(height: 20),
             Text(
               'جاري تحميل لوحة التحكم...',
-              style: TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -352,43 +326,22 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           end: Alignment.bottomCenter,
           colors: [Color(0xFF16213e), Color(0xFF1a1a2e)],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            offset: Offset(2, 0),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(2, 0))],
       ),
-      child: Column(
-        children: [
-          _buildSidebarHeader(),
-          _buildSidebarMenu(),
-          const Spacer(),
-          _buildSidebarFooter(),
-        ],
-      ),
+      child: Column(children: [_buildSidebarHeader(), _buildSidebarMenu(), const Spacer(), _buildSidebarFooter()]),
     );
   }
 
   Widget _buildSidebarHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)])),
       child: const Row(
         children: [
           CircleAvatar(
             radius: 25,
             backgroundColor: Colors.white,
-            child: Icon(
-              Icons.admin_panel_settings,
-              color: Color(0xFF1a1a2e),
-              size: 30,
-            ),
+            child: Icon(Icons.admin_panel_settings, color: Color(0xFF1a1a2e), size: 30),
           ),
           SizedBox(width: 15),
           Expanded(
@@ -397,16 +350,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               children: [
                 Text(
                   'لوحة التحكم',
-                  style: TextStyle(
-                    color: Color(0xFF1a1a2e),
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  'نظام إدارة متقدم',
-                  style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 12),
-                ),
+                Text('نظام إدارة متقدم', style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 12)),
               ],
             ),
           ),
@@ -440,18 +386,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              gradient: isSelected
-                  ? const LinearGradient(
-                      colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-                    )
-                  : null,
+              gradient: isSelected ? const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]) : null,
             ),
             child: ListTile(
               leading: Icon(
                 item['icon'] as IconData,
-                color: isSelected
-                    ? const Color(0xFF1a1a2e)
-                    : const Color(0xFFffd700),
+                color: isSelected ? const Color(0xFF1a1a2e) : const Color(0xFFffd700),
                 size: 22,
               ),
               title: Text(
@@ -485,20 +425,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             children: [
               const Icon(Icons.logout, color: Color(0xFFffd700), size: 20),
               const SizedBox(width: 10),
-              const Text(
-                'تسجيل الخروج',
-                style: TextStyle(color: Colors.white, fontSize: 14),
-              ),
+              const Text('تسجيل الخروج', style: TextStyle(color: Colors.white, fontSize: 14)),
               const Spacer(),
               IconButton(
                 onPressed: () {
                   // تسجيل الخروج
                 },
-                icon: const Icon(
-                  Icons.arrow_forward_ios,
-                  color: Color(0xFFffd700),
-                  size: 16,
-                ),
+                icon: const Icon(Icons.arrow_forward_ios, color: Color(0xFFffd700), size: 16),
               ),
             ],
           ),
@@ -555,11 +488,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       Expanded(
                         flex: 1,
                         child: Column(
-                          children: [
-                            _buildTopUsersCard(),
-                            const SizedBox(height: 20),
-                            _buildQuickActionsCard(),
-                          ],
+                          children: [_buildTopUsersCard(), const SizedBox(height: 20), _buildQuickActionsCard()],
                         ),
                       ),
                     ],
@@ -579,16 +508,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-        ),
+        gradient: const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFffd700).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: const Color(0xFFffd700).withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 5)),
         ],
       ),
       child: Row(
@@ -601,16 +524,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               children: [
                 Text(
                   'لوحة التحكم الرئيسية',
-                  style: TextStyle(
-                    color: Color(0xFF1a1a2e),
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  'نظام إدارة شامل ومتطور',
-                  style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 14),
-                ),
+                Text('نظام إدارة شامل ومتطور', style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 14)),
               ],
             ),
           ),
@@ -625,10 +541,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.circular(25),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(25)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: periods.map((period) {
@@ -643,17 +556,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFFffd700)
-                    : Colors.transparent,
+                color: isSelected ? const Color(0xFFffd700) : Colors.transparent,
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
                 period,
                 style: TextStyle(
-                  color: isSelected
-                      ? const Color(0xFF1a1a2e)
-                      : const Color(0xFFffd700),
+                  color: isSelected ? const Color(0xFF1a1a2e) : const Color(0xFFffd700),
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                 ),
@@ -708,10 +617,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             decoration: BoxDecoration(
               color: const Color(0xFF16213e),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: (stat['color'] as Color).withValues(alpha: 0.3),
-                width: 1,
-              ),
+              border: Border.all(color: (stat['color'] as Color).withValues(alpha: 0.3), width: 1),
               boxShadow: [
                 BoxShadow(
                   color: (stat['color'] as Color).withValues(alpha: 0.2),
@@ -726,27 +632,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Icon(
-                      stat['icon'] as IconData,
-                      color: stat['color'] as Color,
-                      size: 30,
-                    ),
+                    Icon(stat['icon'] as IconData, color: stat['color'] as Color, size: 30),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         stat['change'] as String,
-                        style: const TextStyle(
-                          color: Color(0xFF4CAF50),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(color: Color(0xFF4CAF50), fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -754,19 +649,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 const SizedBox(height: 15),
                 Text(
                   stat['value'] as String,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 5),
                 Text(
                   stat['title'] as String,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
                 ),
               ],
             ),
@@ -782,10 +670,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -799,11 +684,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   SizedBox(width: 10),
                   Text(
                     'الطلبات الأخيرة',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -813,10 +694,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     _selectedTabIndex = 1; // الانتقال إلى تبويب الطلبات
                   });
                 },
-                child: const Text(
-                  'عرض الكل',
-                  style: TextStyle(color: Color(0xFFffd700), fontSize: 14),
-                ),
+                child: const Text('عرض الكل', style: TextStyle(color: Color(0xFFffd700), fontSize: 14)),
               ),
             ],
           ),
@@ -833,10 +711,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   decoration: BoxDecoration(
                     color: const Color(0xFF1a1a2e),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: 1,
-                    ),
+                    border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
                   ),
                   child: Row(
                     children: [
@@ -847,11 +722,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                           color: const Color(0xFFffd700).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(
-                          Icons.shopping_cart,
-                          color: Color(0xFFffd700),
-                          size: 20,
-                        ),
+                        child: const Icon(Icons.shopping_cart, color: Color(0xFFffd700), size: 20),
                       ),
                       const SizedBox(width: 15),
                       Expanded(
@@ -860,19 +731,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                           children: [
                             Text(
                               'طلب #${order.orderNumber}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 5),
                             Text(
                               order.customerName,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: 12,
-                              ),
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
                             ),
                           ],
                         ),
@@ -882,31 +746,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         children: [
                           Text(
                             '${order.totalAmount.toStringAsFixed(0)} د.ع',
-                            style: const TextStyle(
-                              color: Color(0xFFffd700),
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 5),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF2196F3,
-                              ).withValues(alpha: 0.2),
+                              color: const Color(0xFF2196F3).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Text(
                               'طلب جديد',
-                              style: TextStyle(
-                                color: Color(0xFF2196F3),
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: TextStyle(color: Color(0xFF2196F3), fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
@@ -928,10 +779,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -942,11 +790,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               SizedBox(width: 10),
               Text(
                 'أفضل العملاء',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -960,10 +804,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 return Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1a1a2e),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(10)),
                   child: Row(
                     children: [
                       CircleAvatar(
@@ -971,10 +812,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         backgroundColor: const Color(0xFFffd700),
                         child: Text(
                           user.name.isNotEmpty ? user.name[0] : 'U',
-                          style: const TextStyle(
-                            color: Color(0xFF1a1a2e),
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Color(0xFF1a1a2e), fontWeight: FontWeight.bold),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -984,29 +822,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                           children: [
                             Text(
                               user.name,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                             Text(
                               '${user.totalOrders} طلب',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: 12,
-                              ),
+                              style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
                             ),
                           ],
                         ),
                       ),
                       Text(
                         '${user.totalProfits.toStringAsFixed(0)} د.ع',
-                        style: const TextStyle(
-                          color: Color(0xFFffd700),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -1025,10 +852,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1039,81 +863,42 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               SizedBox(width: 10),
               Text(
                 'إجراءات سريعة',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 15),
-          _buildQuickActionButton(
-            'إدارة الطلبات',
-            Icons.shopping_cart,
-            const Color(0xFF2196F3),
-            () {
-              setState(() {
-                _selectedTabIndex = 1; // الطلبات
-              });
-            },
-          ),
+          _buildQuickActionButton('إدارة الطلبات', Icons.shopping_cart, const Color(0xFF2196F3), () {
+            setState(() {
+              _selectedTabIndex = 1; // الطلبات
+            });
+          }),
           const SizedBox(height: 10),
-          _buildQuickActionButton(
-            'الطلبات المجدولة',
-            Icons.schedule,
-            const Color(0xFF9C27B0),
-            () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ScheduledOrdersMainPage(),
-                ),
-              );
-            },
-          ),
+          _buildQuickActionButton('الطلبات المجدولة', Icons.schedule, const Color(0xFF9C27B0), () {
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const ScheduledOrdersMainPage()));
+          }),
           const SizedBox(height: 10),
-          _buildQuickActionButton(
-            'انتقال للتطبيق',
-            Icons.mobile_friendly,
-            const Color(0xFF4CAF50),
-            () {
-              context.go('/products');
-            },
-          ),
+          _buildQuickActionButton('انتقال للتطبيق', Icons.mobile_friendly, const Color(0xFF4CAF50), () {
+            context.go('/products');
+          }),
           const SizedBox(height: 10),
-          _buildQuickActionButton(
-            'إضافة منتج جديد',
-            Icons.add_box,
-            const Color(0xFF4CAF50),
-            () {
-              setState(() {
-                _selectedTabIndex = 3; // المنتجات
-              });
-            },
-          ),
+          _buildQuickActionButton('إضافة منتج جديد', Icons.add_box, const Color(0xFF4CAF50), () {
+            setState(() {
+              _selectedTabIndex = 3; // المنتجات
+            });
+          }),
           const SizedBox(height: 10),
-          _buildQuickActionButton(
-            'تقارير المبيعات',
-            Icons.analytics,
-            const Color(0xFFFF9800),
-            () {
-              setState(() {
-                _selectedTabIndex = 5; // التقارير
-              });
-            },
-          ),
+          _buildQuickActionButton('تقارير المبيعات', Icons.analytics, const Color(0xFFFF9800), () {
+            setState(() {
+              _selectedTabIndex = 5; // التقارير
+            });
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildQuickActionButton(
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  Widget _buildQuickActionButton(String title, IconData icon, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1128,18 +913,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             Container(
               width: 35,
               height: 35,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
               child: Icon(icon, color: color, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-              ),
+              child: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
             ),
             Icon(Icons.arrow_forward_ios, color: color, size: 16),
           ],
@@ -1165,10 +944,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1179,11 +955,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               SizedBox(width: 10),
               Text(
                 'مبيعات الأسبوع',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1209,10 +981,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     color: const Color(0xFFffd700),
                     barWidth: 3,
                     dotData: FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                    ),
+                    belowBarData: BarAreaData(show: true, color: const Color(0xFFffd700).withValues(alpha: 0.2)),
                   ),
                 ],
               ),
@@ -1230,10 +999,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1244,11 +1010,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               SizedBox(width: 10),
               Text(
                 'توزيع الطلبات',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1262,44 +1024,28 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     value: 40,
                     title: 'مكتمل',
                     radius: 60,
-                    titleStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                    titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   PieChartSectionData(
                     color: const Color(0xFF2196F3),
                     value: 30,
                     title: 'نشط',
                     radius: 60,
-                    titleStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                    titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   PieChartSectionData(
                     color: const Color(0xFFFF9800),
                     value: 20,
                     title: 'قيد التوصيل',
                     radius: 60,
-                    titleStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                    titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   PieChartSectionData(
                     color: const Color(0xFFF44336),
                     value: 10,
                     title: 'ملغي',
                     radius: 60,
-                    titleStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                    titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ],
                 centerSpaceRadius: 40,
@@ -1331,9 +1077,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             _buildProductsFixedHeader(isSmallScreen),
 
             // المحتوى القابل للتمرير
-            Expanded(
-              child: _buildProductsScrollableContent(isSmallScreen),
-            ),
+            Expanded(child: _buildProductsScrollableContent(isSmallScreen)),
           ],
         );
       },
@@ -1346,19 +1090,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       padding: EdgeInsets.all(isSmallScreen ? 12 : 20),
       decoration: const BoxDecoration(
         color: Color(0xFF1a1a2e),
-        border: Border(
-          bottom: BorderSide(
-            color: Color(0xFFffc107),
-            width: 1,
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
+        border: Border(bottom: BorderSide(color: Color(0xFFffc107), width: 1)),
+        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1366,20 +1099,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           // عنوان القسم
           Row(
             children: [
-              Icon(
-                Icons.inventory,
-                color: const Color(0xFFffc107),
-                size: isSmallScreen ? 24 : 28,
-              ),
+              Icon(Icons.inventory, color: const Color(0xFFffc107), size: isSmallScreen ? 24 : 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'إدارة المنتجات',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isSmallScreen ? 20 : 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: isSmallScreen ? 20 : 24, fontWeight: FontWeight.bold),
                 ),
               ),
               // مؤشر إحصائيات سريعة
@@ -1402,10 +1127,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
   // المحتوى القابل للتمرير
   Widget _buildProductsScrollableContent(bool isSmallScreen) {
-    return Container(
-      padding: EdgeInsets.all(isSmallScreen ? 8 : 20),
-      child: _buildProductsTabContent(),
-    );
+    return Container(padding: EdgeInsets.all(isSmallScreen ? 8 : 20), child: _buildProductsTabContent());
   }
 
   // أزرار الإجراءات المتجاوبة
@@ -1464,11 +1186,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       );
     } else {
       // للشاشات الكبيرة: عرض الأزرار في صف واحد
-      return Wrap(
-        spacing: 15,
-        runSpacing: 10,
-        children: buttons,
-      );
+      return Wrap(spacing: 15, runSpacing: 10, children: buttons);
     }
   }
 
@@ -1477,28 +1195,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     String title,
     IconData icon,
     Color color,
-    VoidCallback onPressed,
-    [bool isSmallScreen = false]
-  ) {
+    VoidCallback onPressed, [
+    bool isSmallScreen = false,
+  ]) {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: isSmallScreen ? 16 : 18),
-      label: Text(
-        title,
-        style: TextStyle(
-          fontSize: isSmallScreen ? 12 : 14,
-        ),
-      ),
+      label: Text(title, style: TextStyle(fontSize: isSmallScreen ? 12 : 14)),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        padding: EdgeInsets.symmetric(
-          horizontal: isSmallScreen ? 8 : 16,
-          vertical: isSmallScreen ? 8 : 12,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        padding: EdgeInsets.symmetric(horizontal: isSmallScreen ? 8 : 16, vertical: isSmallScreen ? 8 : 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -1508,10 +1216,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   void _updateInventory() {
-    showDialog(
-      context: context,
-      builder: (context) => _buildInventoryUpdateDialog(),
-    );
+    showDialog(context: context, builder: (context) => _buildInventoryUpdateDialog());
   }
 
   Widget _buildInventoryUpdateDialog() {
@@ -1528,10 +1233,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   children: [
                     CircularProgressIndicator(color: Color(0xFFffc107)),
                     SizedBox(height: 16),
-                    Text(
-                      'جاري تحميل المنتجات...',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    Text('جاري تحميل المنتجات...', style: TextStyle(color: Colors.white)),
                   ],
                 ),
               )
@@ -1544,18 +1246,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('إغلاق'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
         ElevatedButton(
           onPressed: () {
             Navigator.pop(context);
             _saveInventoryUpdates();
           },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF4CAF50),
-          ),
+          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4CAF50)),
           child: const Text('حفظ التحديثات'),
         ),
       ],
@@ -1563,12 +1260,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   Widget _buildInventoryItem(Product product) {
-    final minController = TextEditingController(
-      text: product.minQuantity.toString(),
-    );
-    final maxController = TextEditingController(
-      text: product.maxQuantity.toString(),
-    );
+    final minController = TextEditingController(text: product.minQuantity.toString());
+    final maxController = TextEditingController(text: product.maxQuantity.toString());
 
     return Card(
       color: const Color(0xFF3A3A3A),
@@ -1580,10 +1273,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           children: [
             Text(
               product.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Row(
@@ -1600,11 +1290,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     keyboardType: TextInputType.number,
                     onChanged: (value) {
                       _inventoryUpdates[product.id] = {
-                        'minQuantity':
-                            int.tryParse(value) ?? product.minQuantity,
-                        'maxQuantity':
-                            _inventoryUpdates[product.id]?['maxQuantity'] ??
-                            product.maxQuantity,
+                        'minQuantity': int.tryParse(value) ?? product.minQuantity,
+                        'maxQuantity': _inventoryUpdates[product.id]?['maxQuantity'] ?? product.maxQuantity,
                       };
                     },
                   ),
@@ -1622,11 +1309,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     keyboardType: TextInputType.number,
                     onChanged: (value) {
                       _inventoryUpdates[product.id] = {
-                        'minQuantity':
-                            _inventoryUpdates[product.id]?['minQuantity'] ??
-                            product.minQuantity,
-                        'maxQuantity':
-                            int.tryParse(value) ?? product.maxQuantity,
+                        'minQuantity': _inventoryUpdates[product.id]?['minQuantity'] ?? product.minQuantity,
+                        'maxQuantity': int.tryParse(value) ?? product.maxQuantity,
                       };
                     },
                   ),
@@ -1657,10 +1341,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             .eq('id', productId);
 
         // 🔔 إرسال طلب مراقبة المنتج للتحقق من نفاد المخزون
-      try {
-      final String baseUrl = kDebugMode
-        ? 'http://localhost:3003'
-        : 'https://montajati-official-backend-production.up.railway.app';
+        try {
+          final String baseUrl = kDebugMode
+              ? 'http://localhost:3003'
+              : 'https://montajati-official-backend-production.up.railway.app';
 
           final response = await http.post(
             Uri.parse('$baseUrl/api/inventory/monitor/$productId'),
@@ -1681,30 +1365,21 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       setState(() {}); // إعادة تحميل القائمة
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم تحديث المخزون بنجاح'),
-            backgroundColor: Color(0xFF4CAF50),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('تم تحديث المخزون بنجاح'), backgroundColor: Color(0xFF4CAF50)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في تحديث المخزون: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في تحديث المخزون: $e'), backgroundColor: Colors.red));
       }
     }
   }
 
   void _manageCategories() {
-    showDialog(
-      context: context,
-      builder: (context) => _buildCategoriesDialog(),
-    );
+    showDialog(context: context, builder: (context) => _buildCategoriesDialog());
   }
 
   Widget _buildCategoriesDialog() {
@@ -1735,9 +1410,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: () => _addCategory(categoryController.text),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4CAF50)),
                   child: const Text('إضافة'),
                 ),
               ],
@@ -1750,11 +1423,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 future: _loadCategories(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: Color(0xFFffc107),
-                      ),
-                    );
+                    return const Center(child: CircularProgressIndicator(color: Color(0xFFffc107)));
                   }
 
                   if (snapshot.hasError) {
@@ -1770,10 +1439,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
                   if (categories.isEmpty) {
                     return const Center(
-                      child: Text(
-                        'لا توجد فئات',
-                        style: TextStyle(color: Colors.white),
-                      ),
+                      child: Text('لا توجد فئات', style: TextStyle(color: Colors.white)),
                     );
                   }
 
@@ -1790,12 +1456,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('إغلاق'),
-        ),
-      ],
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
     );
   }
 
@@ -1826,10 +1487,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
   Future<List<String>> _loadCategories() async {
     try {
-      final response = await Supabase.instance.client
-          .from('products')
-          .select('category')
-          .neq('category', '');
+      final response = await Supabase.instance.client.from('products').select('category').neq('category', '');
 
       final categories = <String>{};
       for (final item in response) {
@@ -1848,12 +1506,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
   Future<void> _addCategory(String categoryName) async {
     if (categoryName.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى إدخال اسم الفئة'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('يرجى إدخال اسم الفئة'), backgroundColor: Colors.red));
       return;
     }
 
@@ -1862,20 +1517,15 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       // لأن الفئات تأتي من المنتجات الموجودة
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'تم إضافة الفئة "$categoryName" - يمكنك استخدامها عند إضافة منتجات جديدة',
-          ),
+          content: Text('تم إضافة الفئة "$categoryName" - يمكنك استخدامها عند إضافة منتجات جديدة'),
           backgroundColor: const Color(0xFF4CAF50),
         ),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في إضافة الفئة: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في إضافة الفئة: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -1898,18 +1548,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _updateCategory(category, controller.text);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffc107),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffc107)),
             child: const Text('حفظ'),
           ),
         ],
@@ -1919,12 +1564,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
   Future<void> _updateCategory(String oldCategory, String newCategory) async {
     if (newCategory.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى إدخال اسم الفئة'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('يرجى إدخال اسم الفئة'), backgroundColor: Colors.red));
       return;
     }
 
@@ -1940,21 +1582,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'تم تحديث الفئة من "$oldCategory" إلى "$newCategory"',
-            ),
+            content: Text('تم تحديث الفئة من "$oldCategory" إلى "$newCategory"'),
             backgroundColor: const Color(0xFF4CAF50),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في تحديث الفئة: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في تحديث الفئة: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -1970,10 +1607,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           style: const TextStyle(color: Colors.white),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -1989,29 +1623,20 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Future<void> _performDeleteCategory(String category) async {
     try {
       // تحديث جميع المنتجات في هذه الفئة إلى "غير مصنف"
-      await Supabase.instance.client
-          .from('products')
-          .update({'category': 'غير مصنف'})
-          .eq('category', category);
+      await Supabase.instance.client.from('products').update({'category': 'غير مصنف'}).eq('category', category);
 
       setState(() {}); // إعادة تحميل القائمة
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('تم حذف الفئة "$category" وتحديث المنتجات'),
-            backgroundColor: const Color(0xFF4CAF50),
-          ),
+          SnackBar(content: Text('تم حذف الفئة "$category" وتحديث المنتجات'), backgroundColor: const Color(0xFF4CAF50)),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في حذف الفئة: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في حذف الفئة: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -2059,11 +1684,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 children: [
                   Text(
                     product.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -2077,43 +1698,24 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     children: [
                       Text(
                         '${product.wholesalePrice.toInt()} د.ع',
-                        style: const TextStyle(
-                          color: Color(0xFFffc107),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(color: Color(0xFFffc107), fontSize: 14, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(width: 16),
                       Text(
                         'الكمية: ${product.minQuantity > 0 ? product.minQuantity : 1}-${product.maxQuantity > 0 ? product.maxQuantity : 100}',
-                        style: const TextStyle(
-                          color: Colors.green,
-                          fontSize: 12,
-                        ),
+                        style: const TextStyle(color: Colors.green, fontSize: 12),
                       ),
                       const SizedBox(width: 16),
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF4CAF50),
-                            width: 1,
-                          ),
+                          border: Border.all(color: const Color(0xFF4CAF50), width: 1),
                         ),
                         child: Text(
-                          product.category.isNotEmpty
-                              ? product.category
-                              : 'غير مصنف',
-                          style: const TextStyle(
-                            color: Color(0xFF4CAF50),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          product.category.isNotEmpty ? product.category : 'غير مصنف',
+                          style: const TextStyle(color: Color(0xFF4CAF50), fontSize: 10, fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -2151,10 +1753,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     if (!mounted) return;
 
     // فتح نافذة التعديل مع الصور المحملة
-    showDialog(
-      context: context,
-      builder: (context) => _buildEditProductDialog(product, images),
-    );
+    showDialog(context: context, builder: (context) => _buildEditProductDialog(product, images));
   }
 
   // دالة تحميل صور المنتج من قاعدة البيانات
@@ -2164,9 +1763,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     // أولاً: إضافة الصور من حقل images (للمنتجات الجديدة)
     if (product.images.isNotEmpty) {
       for (String imageUrl in product.images) {
-        if (imageUrl.isNotEmpty &&
-            !imageUrl.contains('placeholder') &&
-            !currentImages.contains(imageUrl)) {
+        if (imageUrl.isNotEmpty && !imageUrl.contains('placeholder') && !currentImages.contains(imageUrl)) {
           currentImages.add(imageUrl);
         }
       }
@@ -2192,9 +1789,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         if (productData['images'] != null && productData['images'] is List) {
           final imagesList = List<String>.from(productData['images']);
           for (String imageUrl in imagesList) {
-            if (imageUrl.isNotEmpty &&
-                !imageUrl.contains('placeholder') &&
-                !currentImages.contains(imageUrl)) {
+            if (imageUrl.isNotEmpty && !imageUrl.contains('placeholder') && !currentImages.contains(imageUrl)) {
               currentImages.add(imageUrl);
             }
           }
@@ -2219,23 +1814,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
   Widget _buildEditProductDialog(Product product, List<String> preloadedImages) {
     final nameController = TextEditingController(text: product.name);
-    final descriptionController = TextEditingController(
-      text: product.description,
-    );
-    final wholesalePriceController = TextEditingController(
-      text: product.wholesalePrice.toString(),
-    );
-    final minPriceController = TextEditingController(
-      text: product.minPrice.toString(),
-    );
-    final maxPriceController = TextEditingController(
-      text: product.maxPrice.toString(),
-    );
+    final descriptionController = TextEditingController(text: product.description);
+    final wholesalePriceController = TextEditingController(text: product.wholesalePrice.toString());
+    final minPriceController = TextEditingController(text: product.minPrice.toString());
+    final maxPriceController = TextEditingController(text: product.maxPrice.toString());
 
     // استخدام القيم الصحيحة من قاعدة البيانات
     final stockQuantityController = TextEditingController(
-      text: (product.availableQuantity > 0 ? product.availableQuantity : 100)
-          .toString(),
+      text: (product.availableQuantity > 0 ? product.availableQuantity : 100).toString(),
     );
     final availableFromController = TextEditingController(
       text: (product.availableFrom > 0 ? product.availableFrom : 90).toString(),
@@ -2243,13 +1829,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     final availableToController = TextEditingController(
       text: (product.availableTo > 0 ? product.availableTo : 80).toString(),
     );
-    final displayOrderController = TextEditingController(
-      text: product.displayOrder.toString(),
-    );
+    final displayOrderController = TextEditingController(text: product.displayOrder.toString());
 
-    String selectedCategory = product.category.isNotEmpty
-        ? product.category
-        : 'عام';
+    String selectedCategory = product.category.isNotEmpty ? product.category : 'عام';
 
     // استخدام الصور المحملة مسبقاً
     List<String> currentImages = List.from(preloadedImages);
@@ -2280,10 +1862,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           backgroundColor: const Color(0xFF1a1a2e),
           title: Text(
             'تعديل المنتج',
-            style: GoogleFonts.cairo(
-              color: const Color(0xFFffd700),
-              fontWeight: FontWeight.bold,
-            ),
+            style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontWeight: FontWeight.bold),
           ),
           content: SizedBox(
             width: 600,
@@ -2293,11 +1872,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // اسم المنتج
-                  _buildEditTextField(
-                    nameController,
-                    'اسم المنتج',
-                    Icons.shopping_bag,
-                  ),
+                  _buildEditTextField(nameController, 'اسم المنتج', Icons.shopping_bag),
                   const SizedBox(height: 15),
 
                   // وصف المنتج
@@ -2313,29 +1888,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   // الأسعار
                   Row(
                     children: [
-                      Expanded(
-                        child: _buildEditTextField(
-                          wholesalePriceController,
-                          'سعر الجملة',
-                          Icons.attach_money,
-                        ),
-                      ),
+                      Expanded(child: _buildEditTextField(wholesalePriceController, 'سعر الجملة', Icons.attach_money)),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildEditTextField(
-                          minPriceController,
-                          'الحد الأدنى',
-                          Icons.trending_down,
-                        ),
-                      ),
+                      Expanded(child: _buildEditTextField(minPriceController, 'الحد الأدنى', Icons.trending_down)),
                       const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildEditTextField(
-                          maxPriceController,
-                          'الحد الأعلى',
-                          Icons.trending_up,
-                        ),
-                      ),
+                      Expanded(child: _buildEditTextField(maxPriceController, 'الحد الأعلى', Icons.trending_up)),
                     ],
                   ),
                   const SizedBox(height: 15),
@@ -2347,29 +1904,20 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: DropdownButtonFormField<String>(
-                      value: selectedCategory,
+                      initialValue: selectedCategory,
                       style: const TextStyle(color: Colors.white),
                       dropdownColor: const Color(0xFF2A2A2A),
                       decoration: InputDecoration(
                         labelText: 'الفئة',
                         labelStyle: const TextStyle(color: Colors.grey),
-                        prefixIcon: const Icon(
-                          Icons.category,
-                          color: Color(0xFFffd700),
-                        ),
+                        prefixIcon: const Icon(Icons.category, color: Color(0xFFffd700)),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
                       items: categories.map((category) {
                         return DropdownMenuItem(
                           value: category,
-                          child: Text(
-                            category,
-                            style: const TextStyle(color: Colors.white),
-                          ),
+                          child: Text(category, style: const TextStyle(color: Colors.white)),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -2382,11 +1930,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   const SizedBox(height: 15),
 
                   // الكمية المخزونة (إجمالي)
-                  _buildEditTextField(
-                    stockQuantityController,
-                    'الكمية المخزونة (إجمالي)',
-                    Icons.inventory,
-                  ),
+                  _buildEditTextField(stockQuantityController, 'الكمية المخزونة (إجمالي)', Icons.inventory),
                   const SizedBox(height: 15),
 
                   // الكمية المتاحة للعرض
@@ -2401,38 +1945,20 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       children: [
                         Text(
                           'الكمية المتاحة للعرض',
-                          style: GoogleFonts.cairo(
-                            color: const Color(0xFFffd700),
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 10),
                         Row(
                           children: [
-                            Expanded(
-                              child: _buildEditTextField(
-                                availableToController,
-                                'إلى',
-                                Icons.arrow_upward,
-                              ),
-                            ),
+                            Expanded(child: _buildEditTextField(availableToController, 'إلى', Icons.arrow_upward)),
                             const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildEditTextField(
-                                availableFromController,
-                                'من',
-                                Icons.arrow_downward,
-                              ),
-                            ),
+                            Expanded(child: _buildEditTextField(availableFromController, 'من', Icons.arrow_downward)),
                           ],
                         ),
                         const SizedBox(height: 10),
                         Text(
                           'ملاحظة: "من" يجب أن يكون أقل من "إلى" - سيتم التحكم تلقائياً في عدد المخزون',
-                          style: GoogleFonts.cairo(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
+                          style: GoogleFonts.cairo(color: Colors.grey, fontSize: 12),
                         ),
                       ],
                     ),
@@ -2445,21 +1971,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     decoration: BoxDecoration(
                       color: const Color(0xFF2a2a2e),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                        width: 1,
-                      ),
+                      border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            const Icon(
-                              Icons.sort,
-                              color: Color(0xFFffd700),
-                              size: 20,
-                            ),
+                            const Icon(Icons.sort, color: Color(0xFFffd700), size: 20),
                             const SizedBox(width: 8),
                             Text(
                               'ترتيب العرض في صفحة المنتجات',
@@ -2481,10 +2000,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         const SizedBox(height: 8),
                         Text(
                           'ملاحظة: رقم 1 يعني أول منتج في الصفحة، رقم 5 يعني خامس منتج، وهكذا',
-                          style: GoogleFonts.cairo(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
+                          style: GoogleFonts.cairo(color: Colors.grey, fontSize: 12),
                         ),
                       ],
                     ),
@@ -2494,11 +2010,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   // إدارة الصور
                   Text(
                     'صور المنتج',
-                    style: GoogleFonts.cairo(
-                      color: const Color(0xFFffd700),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                    style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const SizedBox(height: 10),
 
@@ -2514,17 +2026,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       icon: const Icon(FontAwesomeIcons.images),
                       label: Text(
                         currentImages.isEmpty ? 'اختيار صور المنتج' : 'إضافة المزيد من الصور',
-                        style: GoogleFonts.cairo(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFffd700),
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ),
@@ -2534,18 +2042,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   if (currentImages.isNotEmpty) ...[
                     Row(
                       children: [
-                        Icon(
-                          FontAwesomeIcons.images,
-                          color: const Color(0xFFffd700),
-                          size: 16,
-                        ),
+                        Icon(FontAwesomeIcons.images, color: const Color(0xFFffd700), size: 16),
                         const SizedBox(width: 8),
                         Text(
                           'الصور الحالية (${currentImages.length})',
-                          style: GoogleFonts.cairo(
-                            color: const Color(0xFFffd700),
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -2555,25 +2056,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       decoration: BoxDecoration(
                         color: const Color(0xFFffd700).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                        ),
+                        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            FontAwesomeIcons.lightbulb,
-                            color: const Color(0xFFffd700),
-                            size: 12,
-                          ),
+                          Icon(FontAwesomeIcons.lightbulb, color: const Color(0xFFffd700), size: 12),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'اضغط على أي صورة لتحديدها كصورة رئيسية • اضغط على ✕ لحذف الصورة',
-                              style: GoogleFonts.cairo(
-                                color: Colors.white,
-                                fontSize: 11,
-                              ),
+                              style: GoogleFonts.cairo(color: Colors.white, fontSize: 11),
                             ),
                           ),
                         ],
@@ -2604,10 +2096,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(
-                                      '✅ تم تحديد الصورة كصورة رئيسية',
-                                      style: GoogleFonts.cairo(),
-                                    ),
+                                    content: Text('✅ تم تحديد الصورة كصورة رئيسية', style: GoogleFonts.cairo()),
                                     backgroundColor: Colors.green,
                                     duration: const Duration(seconds: 2),
                                   ),
@@ -2625,13 +2114,15 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                         color: isMainImage ? const Color(0xFFffd700) : Colors.grey[600]!,
                                         width: isMainImage ? 3 : 1,
                                       ),
-                                      boxShadow: isMainImage ? [
-                                        BoxShadow(
-                                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                                          blurRadius: 8,
-                                          spreadRadius: 2,
-                                        ),
-                                      ] : null,
+                                      boxShadow: isMainImage
+                                          ? [
+                                              BoxShadow(
+                                                color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                                                blurRadius: 8,
+                                                spreadRadius: 2,
+                                              ),
+                                            ]
+                                          : null,
                                     ),
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(10),
@@ -2655,19 +2146,19 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                                     height: 20,
                                                     child: CircularProgressIndicator(
                                                       strokeWidth: 2,
-                                                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                                                      valueColor: const AlwaysStoppedAnimation<Color>(
+                                                        Color(0xFFffd700),
+                                                      ),
                                                       value: loadingProgress.expectedTotalBytes != null
-                                                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                                          ? loadingProgress.cumulativeBytesLoaded /
+                                                                loadingProgress.expectedTotalBytes!
                                                           : null,
                                                     ),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   Text(
                                                     'تحميل...',
-                                                    style: GoogleFonts.cairo(
-                                                      fontSize: 8,
-                                                      color: Colors.grey[600],
-                                                    ),
+                                                    style: GoogleFonts.cairo(fontSize: 8, color: Colors.grey[600]),
                                                   ),
                                                 ],
                                               ),
@@ -2682,17 +2173,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                             child: Column(
                                               mainAxisAlignment: MainAxisAlignment.center,
                                               children: [
-                                                const Icon(
-                                                  Icons.image_not_supported,
-                                                  color: Colors.grey,
-                                                ),
+                                                const Icon(Icons.image_not_supported, color: Colors.grey),
                                                 const SizedBox(height: 4),
                                                 Text(
                                                   'خطأ في التحميل',
-                                                  style: GoogleFonts.cairo(
-                                                    fontSize: 8,
-                                                    color: Colors.grey[600],
-                                                  ),
+                                                  style: GoogleFonts.cairo(fontSize: 8, color: Colors.grey[600]),
                                                 ),
                                               ],
                                             ),
@@ -2723,11 +2208,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            const Icon(
-                                              FontAwesomeIcons.star,
-                                              size: 8,
-                                              color: Colors.black,
-                                            ),
+                                            const Icon(FontAwesomeIcons.star, size: 8, color: Colors.black),
                                             const SizedBox(width: 3),
                                             Text(
                                               'رئيسية',
@@ -2778,10 +2259,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                           decoration: BoxDecoration(
                                             color: Colors.white.withValues(alpha: 0.9),
                                             shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: const Color(0xFFffd700),
-                                              width: 2,
-                                            ),
+                                            border: Border.all(color: const Color(0xFFffd700), width: 2),
                                             boxShadow: [
                                               BoxShadow(
                                                 color: Colors.black.withValues(alpha: 0.3),
@@ -2790,11 +2268,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                               ),
                                             ],
                                           ),
-                                          child: const Icon(
-                                            FontAwesomeIcons.star,
-                                            color: Color(0xFFffd700),
-                                            size: 10,
-                                          ),
+                                          child: const Icon(FontAwesomeIcons.star, color: Color(0xFFffd700), size: 10),
                                         ),
                                       ),
                                     ),
@@ -2810,10 +2284,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                         });
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
-                                            content: Text(
-                                              'تم حذف الصورة',
-                                              style: GoogleFonts.cairo(),
-                                            ),
+                                            content: Text('تم حذف الصورة', style: GoogleFonts.cairo()),
                                             backgroundColor: Colors.red,
                                             duration: const Duration(seconds: 2),
                                           ),
@@ -2833,11 +2304,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                             ),
                                           ],
                                         ),
-                                        child: const Icon(
-                                          FontAwesomeIcons.xmark,
-                                          color: Colors.white,
-                                          size: 10,
-                                        ),
+                                        child: const Icon(FontAwesomeIcons.xmark, color: Colors.white, size: 10),
                                       ),
                                     ),
                                   ),
@@ -2875,18 +2342,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       decoration: BoxDecoration(
                         color: Colors.grey[800],
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.grey[600]!,
-                        ),
+                        border: Border.all(color: Colors.grey[600]!),
                       ),
                       child: Center(
                         child: Column(
                           children: [
-                            Icon(
-                              FontAwesomeIcons.images,
-                              size: 30,
-                              color: Colors.grey[400],
-                            ),
+                            Icon(FontAwesomeIcons.images, size: 30, color: Colors.grey[400]),
                             const SizedBox(height: 8),
                             Text(
                               'لا توجد صور للمنتج',
@@ -2899,10 +2360,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             const SizedBox(height: 4),
                             Text(
                               'اضغط على "اختيار الصور" أعلاه لإضافة صور',
-                              style: GoogleFonts.cairo(
-                                color: Colors.grey[500],
-                                fontSize: 12,
-                              ),
+                              style: GoogleFonts.cairo(color: Colors.grey[500], fontSize: 12),
                             ),
                           ],
                         ),
@@ -2918,20 +2376,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     decoration: BoxDecoration(
                       color: const Color(0xFF16213e),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      ),
+                      border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Icon(
-                              FontAwesomeIcons.palette,
-                              color: const Color(0xFFffd700),
-                              size: 18,
-                            ),
+                            Icon(FontAwesomeIcons.palette, color: const Color(0xFFffd700), size: 18),
                             const SizedBox(width: 10),
                             Text(
                               'ألوان المنتج',
@@ -2947,17 +2399,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
                         // عرض الألوان الحالية
                         FutureBuilder<List<ProductColor>>(
-                          future: SmartColorsService.getProductColors(
-                            productId: product.id,
-                            includeUnavailable: true,
-                          ),
+                          future: SmartColorsService.getProductColors(productId: product.id, includeUnavailable: true),
                           builder: (context, snapshot) {
                             if (snapshot.connectionState == ConnectionState.waiting) {
-                              return const Center(
-                                child: CircularProgressIndicator(
-                                  color: Color(0xFFffd700),
-                                ),
-                              );
+                              return const Center(child: CircularProgressIndicator(color: Color(0xFFffd700)));
                             }
 
                             if (snapshot.hasError) {
@@ -2980,18 +2425,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                 child: Center(
                                   child: Column(
                                     children: [
-                                      Icon(
-                                        FontAwesomeIcons.palette,
-                                        color: Colors.grey[400],
-                                        size: 30,
-                                      ),
+                                      Icon(FontAwesomeIcons.palette, color: Colors.grey[400], size: 30),
                                       const SizedBox(height: 8),
                                       Text(
                                         'لا توجد ألوان للمنتج',
-                                        style: GoogleFonts.cairo(
-                                          color: Colors.grey[400],
-                                          fontSize: 14,
-                                        ),
+                                        style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 14),
                                       ),
                                     ],
                                   ),
@@ -3008,9 +2446,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                   decoration: BoxDecoration(
                                     color: color.flutterColor,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.3),
-                                    ),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                                   ),
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
@@ -3050,10 +2486,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                               _showColorsManagementDialog(product, currentColors, setState);
                             },
                             icon: const Icon(FontAwesomeIcons.gear, size: 14),
-                            label: Text(
-                              'إدارة الألوان',
-                              style: GoogleFonts.cairo(fontSize: 12),
-                            ),
+                            label: Text('إدارة الألوان', style: GoogleFonts.cairo(fontSize: 12)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFffd700),
                               foregroundColor: const Color(0xFF1a1a2e),
@@ -3071,10 +2504,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
-                'إلغاء',
-                style: GoogleFonts.cairo(color: Colors.grey),
-              ),
+              child: Text('إلغاء', style: GoogleFonts.cairo(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -3091,24 +2521,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   product.id,
                   nameController.text,
                   descriptionController.text,
-                  double.tryParse(wholesalePriceController.text) ??
-                      product.wholesalePrice,
+                  double.tryParse(wholesalePriceController.text) ?? product.wholesalePrice,
                   double.tryParse(minPriceController.text) ?? product.minPrice,
                   double.tryParse(maxPriceController.text) ?? product.maxPrice,
-                  int.tryParse(availableFromController.text) ??
-                      product.availableFrom,
-                  int.tryParse(availableToController.text) ??
-                      product.availableTo,
-                  int.tryParse(stockQuantityController.text) ??
-                      product.availableQuantity,
+                  int.tryParse(availableFromController.text) ?? product.availableFrom,
+                  int.tryParse(availableToController.text) ?? product.availableTo,
+                  int.tryParse(stockQuantityController.text) ?? product.availableQuantity,
                   selectedCategory,
                   currentImages,
                   int.tryParse(displayOrderController.text) ?? product.displayOrder,
                 );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4CAF50),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4CAF50)),
               child: Text('حفظ', style: GoogleFonts.cairo(color: Colors.white)),
             ),
           ],
@@ -3156,19 +2580,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           labelStyle: const TextStyle(color: Colors.grey),
           prefixIcon: Icon(icon, color: const Color(0xFFffc107)),
           border: const OutlineInputBorder(),
-          enabledBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey),
-          ),
+          enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(
-              color: const Color(0xFFffc107),
-              width: expandable ? 2 : 1,
-            ),
+            borderSide: BorderSide(color: const Color(0xFFffc107), width: expandable ? 2 : 1),
           ),
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: expandable ? 16 : 12,
-          ),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: expandable ? 16 : 12),
         ),
       ),
     );
@@ -3259,10 +2675,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '✅ تم تحديث المنتج وجميع الصور بنجاح!',
-              style: GoogleFonts.cairo(),
-            ),
+            content: Text('✅ تم تحديث المنتج وجميع الصور بنجاح!', style: GoogleFonts.cairo()),
             backgroundColor: const Color(0xFF4CAF50),
           ),
         );
@@ -3286,11 +2699,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red, duration: const Duration(seconds: 4)),
         );
       }
     }
@@ -3302,15 +2711,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2A2A2A),
         title: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
-        content: Text(
-          'هل أنت متأكد من حذف المنتج "${product.name}"؟',
-          style: const TextStyle(color: Colors.white),
-        ),
+        content: Text('هل أنت متأكد من حذف المنتج "${product.name}"؟', style: const TextStyle(color: Colors.white)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -3325,48 +2728,33 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
   Future<void> performDeleteProduct(Product product) async {
     try {
-      await Supabase.instance.client
-          .from('products')
-          .delete()
-          .eq('id', product.id);
+      await Supabase.instance.client.from('products').delete().eq('id', product.id);
 
       setState(() {}); // إعادة تحميل القائمة
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('تم حذف المنتج "${product.name}" بنجاح'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('تم حذف المنتج "${product.name}" بنجاح'), backgroundColor: Colors.green));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في حذف المنتج: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في حذف المنتج: $e'), backgroundColor: Colors.red));
       }
     }
   }
 
   Widget buildFinancialManagement() {
     return const Center(
-      child: Text(
-        'الإدارة المالية - قيد التطوير',
-        style: TextStyle(color: Colors.white, fontSize: 18),
-      ),
+      child: Text('الإدارة المالية - قيد التطوير', style: TextStyle(color: Colors.white, fontSize: 18)),
     );
   }
 
   Widget buildReportsSection() {
     return const Center(
-      child: Text(
-        'التقارير - قيد التطوير',
-        style: TextStyle(color: Colors.white, fontSize: 18),
-      ),
+      child: Text('التقارير - قيد التطوير', style: TextStyle(color: Colors.white, fontSize: 18)),
     );
   }
 
@@ -3378,11 +2766,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         children: [
           const Text(
             'إعدادات النظام',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
 
@@ -3392,21 +2776,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             decoration: BoxDecoration(
               color: const Color(0xFF16213e),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                width: 1,
-              ),
+              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'اختبار النظام',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 15),
                 const Text(
@@ -3437,10 +2814,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const ScheduledOrdersTestPage(),
-                                ),
+                                MaterialPageRoute(builder: (context) => const ScheduledOrdersTestPage()),
                               );
                             },
                             icon: const Icon(Icons.schedule_send),
@@ -3522,26 +2896,15 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFffd700), width: 2),
         boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFffd700).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: const Color(0xFFffd700).withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 5)),
         ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              color: const Color(0xFFffd700),
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: const FaIcon(
-              FontAwesomeIcons.chartLine,
-              color: Color(0xFF1a1a2e),
-              size: 30,
-            ),
+            decoration: BoxDecoration(color: const Color(0xFFffd700), borderRadius: BorderRadius.circular(15)),
+            child: const FaIcon(FontAwesomeIcons.chartLine, color: Color(0xFF1a1a2e), size: 30),
           ),
           const SizedBox(width: 20),
           Expanded(
@@ -3550,19 +2913,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               children: [
                 Text(
                   '🏦 الإدارة المالية',
-                  style: GoogleFonts.cairo(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFFffd700),
-                  ),
+                  style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFFffd700)),
                 ),
                 const SizedBox(height: 5),
                 Text(
                   'إدارة شاملة وآمنة لجميع العمليات المالية والسحوبات',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
+                  style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.8)),
                 ),
               ],
             ),
@@ -3581,11 +2937,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 const SizedBox(width: 5),
                 Text(
                   'آمن 100%',
-                  style: GoogleFonts.cairo(
-                    color: Colors.green,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
+                  style: GoogleFonts.cairo(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ],
             ),
@@ -3603,20 +2955,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 _refreshData();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                      'تم تحديث البيانات المالية ✅',
-                      style: GoogleFonts.cairo(),
-                    ),
+                    content: Text('تم تحديث البيانات المالية ✅', style: GoogleFonts.cairo()),
                     backgroundColor: Colors.blue,
                     duration: const Duration(seconds: 2),
                   ),
                 );
               },
-              icon: const Icon(
-                FontAwesomeIcons.arrowsRotate,
-                color: Colors.blue,
-                size: 18,
-              ),
+              icon: const Icon(FontAwesomeIcons.arrowsRotate, color: Colors.blue, size: 18),
               tooltip: 'تحديث البيانات',
             ),
           ),
@@ -3645,16 +2990,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               children: [
                 _buildFinancialStatCard(
                   title: 'إجمالي المطلوب',
-                  value:
-                      '${(stats['totalRequested'] ?? 0.0).toStringAsFixed(0)} د.ع',
+                  value: '${(stats['totalRequested'] ?? 0.0).toStringAsFixed(0)} د.ع',
                   icon: FontAwesomeIcons.moneyBillWave,
                   color: Colors.blue,
                   trend: '${stats['countTotal'] ?? 0} طلب',
                 ),
                 _buildFinancialStatCard(
                   title: 'تم التحويل',
-                  value:
-                      '${(stats['totalCompleted'] ?? 0.0).toStringAsFixed(0)} د.ع',
+                  value: '${(stats['totalCompleted'] ?? 0.0).toStringAsFixed(0)} د.ع',
                   icon: FontAwesomeIcons.circleCheck,
                   color: Colors.green,
                   trend: '${stats['countCompleted'] ?? 0} طلب',
@@ -3664,16 +3007,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   value: '${stats['countPending'] ?? 0}',
                   icon: FontAwesomeIcons.clock,
                   color: Colors.orange,
-                  trend:
-                      '${(stats['totalPending'] ?? 0.0).toStringAsFixed(0)} د.ع',
+                  trend: '${(stats['totalPending'] ?? 0.0).toStringAsFixed(0)} د.ع',
                 ),
                 _buildFinancialStatCard(
                   title: 'تم الموافقة',
                   value: '${stats['countApproved'] ?? 0}',
                   icon: FontAwesomeIcons.thumbsUp,
                   color: Colors.teal,
-                  trend:
-                      '${(stats['totalApproved'] ?? 0.0).toStringAsFixed(0)} د.ع',
+                  trend: '${(stats['totalApproved'] ?? 0.0).toStringAsFixed(0)} د.ع',
                 ),
                 _buildFinancialStatCard(
                   title: 'معدل النجاح',
@@ -3704,13 +3045,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3720,10 +3055,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
                 child: FaIcon(icon, color: color, size: 20),
               ),
               Container(
@@ -3734,11 +3066,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 ),
                 child: Text(
                   trend,
-                  style: GoogleFonts.cairo(
-                    color: Colors.green,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: GoogleFonts.cairo(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -3746,20 +3074,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           const SizedBox(height: 15),
           Text(
             value,
-            style: GoogleFonts.cairo(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: GoogleFonts.cairo(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 5),
-          Text(
-            title,
-            style: GoogleFonts.cairo(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
-            ),
-          ),
+          Text(title, style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
         ],
       ),
     );
@@ -3772,29 +3090,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: Colors.orange.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const FaIcon(
-                FontAwesomeIcons.clock,
-                color: Colors.orange,
-                size: 20,
-              ),
+              const FaIcon(FontAwesomeIcons.clock, color: Colors.orange, size: 20),
               const SizedBox(width: 10),
               Text(
                 'طلبات السحب المعلقة',
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const Spacer(),
               // زر التحديث للطلبات المعلقة
@@ -3809,40 +3116,26 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     _refreshData();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          'تم تحديث الطلبات المعلقة ✅',
-                          style: GoogleFonts.cairo(),
-                        ),
+                        content: Text('تم تحديث الطلبات المعلقة ✅', style: GoogleFonts.cairo()),
                         backgroundColor: Colors.blue,
                         duration: const Duration(seconds: 2),
                       ),
                     );
                   },
-                  icon: const Icon(
-                    FontAwesomeIcons.arrowsRotate,
-                    color: Colors.blue,
-                    size: 16,
-                  ),
+                  icon: const Icon(FontAwesomeIcons.arrowsRotate, color: Colors.blue, size: 16),
                   tooltip: 'تحديث الطلبات المعلقة',
                 ),
               ),
               const SizedBox(width: 10),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: Text(
                   'يتطلب مراجعة',
-                  style: GoogleFonts.cairo(
-                    color: Colors.orange,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: GoogleFonts.cairo(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -3861,16 +3154,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
               decoration: InputDecoration(
                 hintText: 'البحث في الطلبات المعلقة...',
-                hintStyle: GoogleFonts.cairo(
-                  color: Colors.grey.withValues(alpha: 0.6),
-                  fontSize: 12,
-                ),
+                hintStyle: GoogleFonts.cairo(color: Colors.grey.withValues(alpha: 0.6), fontSize: 12),
                 border: InputBorder.none,
-                prefixIcon: const Icon(
-                  FontAwesomeIcons.magnifyingGlass,
-                  color: Colors.orange,
-                  size: 16,
-                ),
+                prefixIcon: const Icon(FontAwesomeIcons.magnifyingGlass, color: Colors.orange, size: 16),
               ),
               onChanged: (value) {
                 setState(() {
@@ -3885,10 +3171,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             valueListenable: _refreshNotifier,
             builder: (context, refreshValue, child) {
               return FutureBuilder<List<Map<String, dynamic>>>(
-                future: WithdrawalService.getAllWithdrawalRequests(
-                  status: 'pending',
-                  limit: 10,
-                ),
+                future: WithdrawalService.getAllWithdrawalRequests(status: 'pending', limit: 10),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -3904,19 +3187,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       padding: const EdgeInsets.all(30),
                       child: Column(
                         children: [
-                          const FaIcon(
-                            FontAwesomeIcons.circleCheck,
-                            color: Colors.green,
-                            size: 40,
-                          ),
+                          const FaIcon(FontAwesomeIcons.circleCheck, color: Colors.green, size: 40),
                           const SizedBox(height: 10),
-                          Text(
-                            'لا توجد طلبات سحب معلقة',
-                            style: GoogleFonts.cairo(
-                              color: Colors.green,
-                              fontSize: 16,
-                            ),
-                          ),
+                          Text('لا توجد طلبات سحب معلقة', style: GoogleFonts.cairo(color: Colors.green, fontSize: 16)),
                         ],
                       ),
                     );
@@ -3927,19 +3200,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                       padding: const EdgeInsets.all(30),
                       child: Column(
                         children: [
-                          const FaIcon(
-                            FontAwesomeIcons.magnifyingGlass,
-                            color: Colors.orange,
-                            size: 40,
-                          ),
+                          const FaIcon(FontAwesomeIcons.magnifyingGlass, color: Colors.orange, size: 40),
                           const SizedBox(height: 10),
-                          Text(
-                            'لا توجد نتائج للبحث',
-                            style: GoogleFonts.cairo(
-                              color: Colors.orange,
-                              fontSize: 16,
-                            ),
-                          ),
+                          Text('لا توجد نتائج للبحث', style: GoogleFonts.cairo(color: Colors.orange, fontSize: 16)),
                         ],
                       ),
                     );
@@ -3953,25 +3216,15 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         decoration: BoxDecoration(
                           color: const Color(0xFF1a1a2e),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.orange.withValues(alpha: 0.3),
-                          ),
+                          border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
                             CircleAvatar(
-                              backgroundColor: Colors.orange.withValues(
-                                alpha: 0.2,
-                              ),
+                              backgroundColor: Colors.orange.withValues(alpha: 0.2),
                               child: Text(
-                                (request['users']['name'] as String).substring(
-                                  0,
-                                  1,
-                                ),
-                                style: const TextStyle(
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                (request['users']['name'] as String).substring(0, 1),
+                                style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
                               ),
                             ),
                             const SizedBox(width: 15),
@@ -3981,10 +3234,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                 children: [
                                   Text(
                                     request['users']['name'],
-                                    style: GoogleFonts.cairo(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 4),
                                   Row(
@@ -4001,9 +3251,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                       Text(
                                         '• ${_getMethodText(request['withdrawal_method'])}',
                                         style: GoogleFonts.cairo(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.7,
-                                          ),
+                                          color: Colors.white.withValues(alpha: 0.7),
                                           fontSize: 12,
                                         ),
                                       ),
@@ -4012,21 +3260,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                   const SizedBox(height: 2),
                                   Text(
                                     'البطاقة: ${request['account_details'] ?? 'غير محدد'}',
-                                    style: GoogleFonts.cairo(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                      fontSize: 11,
-                                    ),
+                                    style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
                                   ),
                                   Text(
                                     'التاريخ: ${_formatWithdrawalDate(request['request_date'])}',
-                                    style: GoogleFonts.cairo(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.6,
-                                      ),
-                                      fontSize: 11,
-                                    ),
+                                    style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
                                   ),
                                 ],
                               ),
@@ -4036,15 +3274,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.orange,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 15,
-                                  vertical: 8,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
                               ),
-                              child: Text(
-                                'مراجعة',
-                                style: GoogleFonts.cairo(fontSize: 12),
-                              ),
+                              child: Text('مراجعة', style: GoogleFonts.cairo(fontSize: 12)),
                             ),
                           ],
                         ),
@@ -4067,29 +3299,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const FaIcon(
-                FontAwesomeIcons.gears,
-                color: Color(0xFFffd700),
-                size: 20,
-              ),
+              const FaIcon(FontAwesomeIcons.gears, color: Color(0xFFffd700), size: 20),
               const SizedBox(width: 10),
               Text(
                 'إدارة طلبات السحب',
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               const Spacer(),
               // زر التحديث لإدارة طلبات السحب
@@ -4097,29 +3318,20 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 decoration: BoxDecoration(
                   color: const Color(0xFFffd700).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                  ),
+                  border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                 ),
                 child: IconButton(
                   onPressed: () {
                     _refreshData();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          'تم تحديث إدارة طلبات السحب ✅',
-                          style: GoogleFonts.cairo(),
-                        ),
+                        content: Text('تم تحديث إدارة طلبات السحب ✅', style: GoogleFonts.cairo()),
                         backgroundColor: const Color(0xFFffd700),
                         duration: const Duration(seconds: 2),
                       ),
                     );
                   },
-                  icon: const Icon(
-                    FontAwesomeIcons.arrowsRotate,
-                    color: Color(0xFFffd700),
-                    size: 16,
-                  ),
+                  icon: const Icon(FontAwesomeIcons.arrowsRotate, color: Color(0xFFffd700), size: 16),
                   tooltip: 'تحديث إدارة طلبات السحب',
                 ),
               ),
@@ -4188,20 +3400,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             const SizedBox(height: 10),
             Text(
               title,
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 5),
             Text(
               subtitle,
-              style: GoogleFonts.cairo(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 11,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.8), fontSize: 11),
               textAlign: TextAlign.center,
             ),
           ],
@@ -4217,29 +3422,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: Colors.purple.withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.purple.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const FaIcon(
-                FontAwesomeIcons.chartBar,
-                color: Colors.purple,
-                size: 20,
-              ),
+              const FaIcon(FontAwesomeIcons.chartBar, color: Colors.purple, size: 20),
               const SizedBox(width: 10),
               Text(
                 'التقارير المالية',
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
               ),
             ],
           ),
@@ -4311,11 +3505,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             const SizedBox(height: 8),
             Text(
               title,
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center,
             ),
           ],
@@ -4332,11 +3522,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         children: [
           Text(
             'التقارير والإحصائيات',
-            style: GoogleFonts.cairo(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+            style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const SizedBox(height: 20),
           Card(
@@ -4347,50 +3533,29 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 children: [
                   ListTile(
                     leading: const Icon(Icons.analytics, color: Colors.blue),
-                    title: const Text(
-                      'التقارير التفصيلية',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    title: const Text('التقارير التفصيلية', style: TextStyle(color: Colors.white)),
                     subtitle: const Text(
                       'عرض التقارير المالية والإحصائيات التفصيلية',
                       style: TextStyle(color: Colors.grey),
                     ),
-                    trailing: const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white),
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ReportsPage(),
-                        ),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const ReportsPage()));
                     },
                   ),
                   const Divider(color: Colors.grey),
                   ListTile(
                     leading: const Icon(Icons.bar_chart, color: Colors.green),
-                    title: const Text(
-                      'إحصائيات سريعة',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    title: const Text('إحصائيات سريعة', style: TextStyle(color: Colors.white)),
                     subtitle: const Text(
                       'عرض الإحصائيات السريعة والمؤشرات الرئيسية',
                       style: TextStyle(color: Colors.grey),
                     ),
-                    trailing: const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white),
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'الإحصائيات السريعة متاحة في الصفحة الرئيسية',
-                          ),
-                        ),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('الإحصائيات السريعة متاحة في الصفحة الرئيسية')));
                     },
                   ),
                 ],
@@ -4410,11 +3575,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         children: [
           Text(
             'الإعدادات والتحكم',
-            style: GoogleFonts.cairo(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+            style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const SizedBox(height: 20),
           Card(
@@ -4425,92 +3586,44 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 children: [
                   ListTile(
                     leading: const Icon(Icons.settings, color: Colors.blue),
-                    title: const Text(
-                      'الإعدادات العامة',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    subtitle: const Text(
-                      'إدارة إعدادات التطبيق والحساب والأمان',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    trailing: const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                    ),
+                    title: const Text('الإعدادات العامة', style: TextStyle(color: Colors.white)),
+                    subtitle: const Text('إدارة إعدادات التطبيق والحساب والأمان', style: TextStyle(color: Colors.grey)),
+                    trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white),
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SettingsPage(),
-                        ),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
                     },
                   ),
                   const Divider(color: Colors.grey),
                   ListTile(
-                    leading: const Icon(
-                      Icons.admin_panel_settings,
-                      color: Colors.orange,
-                    ),
-                    title: const Text(
-                      'إعدادات الإدارة',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    subtitle: const Text(
-                      'إعدادات خاصة بالمدير والصلاحيات',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    trailing: const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                    ),
+                    leading: const Icon(Icons.admin_panel_settings, color: Colors.orange),
+                    title: const Text('إعدادات الإدارة', style: TextStyle(color: Colors.white)),
+                    subtitle: const Text('إعدادات خاصة بالمدير والصلاحيات', style: TextStyle(color: Colors.grey)),
+                    trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white),
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AdminSettingsPage(),
-                        ),
-                      );
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminSettingsPage()));
                     },
                   ),
                   const Divider(color: Colors.grey),
                   ListTile(
                     leading: const Icon(Icons.backup, color: Colors.green),
-                    title: const Text(
-                      'النسخ الاحتياطي',
-                      style: TextStyle(color: Colors.white),
-                    ),
+                    title: const Text('النسخ الاحتياطي', style: TextStyle(color: Colors.white)),
                     subtitle: const Text(
                       'إدارة النسخ الاحتياطي واستعادة البيانات',
                       style: TextStyle(color: Colors.grey),
                     ),
-                    trailing: const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white),
                     onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('النسخ الاحتياطي قيد التطوير'),
-                        ),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(const SnackBar(content: Text('النسخ الاحتياطي قيد التطوير')));
                     },
                   ),
                   const Divider(color: Colors.grey),
                   ListTile(
                     leading: const Icon(Icons.info, color: Colors.purple),
-                    title: const Text(
-                      'معلومات النظام',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    subtitle: const Text(
-                      'معلومات التطبيق والإصدار والدعم',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                    trailing: const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                    ),
+                    title: const Text('معلومات النظام', style: TextStyle(color: Colors.white)),
+                    subtitle: const Text('معلومات التطبيق والإصدار والدعم', style: TextStyle(color: Colors.grey)),
+                    trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white),
                     onTap: () {
                       showDialog(
                         context: context,
@@ -4527,12 +3640,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                               Text('نوع النسخة: إدارية متقدمة'),
                             ],
                           ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('موافق'),
-                            ),
-                          ],
+                          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('موافق'))],
                         ),
                       );
                     },
@@ -4547,19 +3655,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   // دالة اختيار الصور
-  Future<void> _pickImages(
-    StateSetter setState,
-    List<String> currentImages,
-  ) async {
+  Future<void> _pickImages(StateSetter setState, List<String> currentImages) async {
     try {
       final ImagePicker picker = ImagePicker();
 
       // اختيار صور متعددة
-      final List<XFile> pickedFiles = await picker.pickMultiImage(
-        imageQuality: 80,
-        maxWidth: 1024,
-        maxHeight: 1024,
-      );
+      final List<XFile> pickedFiles = await picker.pickMultiImage(imageQuality: 80, maxWidth: 1024, maxHeight: 1024);
 
       if (pickedFiles.isNotEmpty) {
         // إظهار مؤشر التحميل
@@ -4568,11 +3669,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             SnackBar(
               content: Row(
                 children: [
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
+                  const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                   const SizedBox(width: 10),
                   Text('جاري رفع ${pickedFiles.length} صورة...'),
                 ],
@@ -4613,33 +3710,24 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           if (mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('تم رفع ${newImageUrls.length} صورة بنجاح'),
-                backgroundColor: Colors.green,
-              ),
+              SnackBar(content: Text('تم رفع ${newImageUrls.length} صورة بنجاح'), backgroundColor: Colors.green),
             );
           }
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('فشل في رفع الصور'),
-                backgroundColor: Colors.red,
-              ),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('فشل في رفع الصور'), backgroundColor: Colors.red));
           }
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في اختيار الصور: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في اختيار الصور: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -4654,18 +3742,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       final imageBytes = await imageFile.readAsBytes();
 
       // إنشاء اسم فريد للصورة
-      final fileName =
-          'product_${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+      final fileName = 'product_${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
 
       // رفع الصورة
-      await Supabase.instance.client.storage
-          .from('product-images')
-          .uploadBinary(fileName, imageBytes);
+      await Supabase.instance.client.storage.from('product-images').uploadBinary(fileName, imageBytes);
 
       // الحصول على الرابط العام
-      final publicUrl = Supabase.instance.client.storage
-          .from('product-images')
-          .getPublicUrl(fileName);
+      final publicUrl = Supabase.instance.client.storage.from('product-images').getPublicUrl(fileName);
 
       return publicUrl;
     } catch (e) {
@@ -4682,10 +3765,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     } catch (e) {
       // إذا لم يكن موجود، إنشاؤه
       try {
-        await Supabase.instance.client.storage.createBucket(
-          'product-images',
-          const BucketOptions(public: true),
-        );
+        await Supabase.instance.client.storage.createBucket('product-images', const BucketOptions(public: true));
       } catch (createError) {
         debugPrint('خطأ في إنشاء bucket: $createError');
       }
@@ -4702,10 +3782,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        title: Text(
-          'تفاصيل طلب السحب رقم $requestNumber',
-          style: GoogleFonts.cairo(color: const Color(0xFFffd700)),
-        ),
+        title: Text('تفاصيل طلب السحب رقم $requestNumber', style: GoogleFonts.cairo(color: const Color(0xFFffd700))),
         content: SizedBox(
           width: 400,
           child: Column(
@@ -4714,16 +3791,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             children: [
               _buildDetailRow('اسم المستخدم:', request['users']['name']),
               _buildDetailRow('رقم الهاتف:', request['users']['phone']),
-              _buildDetailRow(
-                'المبلغ:',
-                '${(request['amount'] as num).toStringAsFixed(0)} د.ع',
-              ),
+              _buildDetailRow('المبلغ:', '${(request['amount'] as num).toStringAsFixed(0)} د.ع'),
               _buildDetailRow('طريقة السحب:', request['withdrawal_method']),
               _buildDetailRow('تفاصيل الحساب:', request['account_details']),
               _buildDetailRow('الحالة:', request['status']),
               _buildDetailRow('تاريخ الطلب:', request['request_date']),
-              if (request['note'] != null)
-                _buildDetailRow('ملاحظات:', request['note']),
+              if (request['note'] != null) _buildDetailRow('ملاحظات:', request['note']),
               const SizedBox(height: 15),
               // قسم تعديل الحالة
               Container(
@@ -4731,20 +3804,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 decoration: BoxDecoration(
                   color: const Color(0xFF16213e),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.3),
-                  ),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'تعديل حالة الطلب',
-                      style: GoogleFonts.cairo(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                      style: GoogleFonts.cairo(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     const SizedBox(height: 10),
                     _buildStatusSelector(request),
@@ -4772,16 +3839,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         children: [
           SizedBox(
             width: 100,
-            child: Text(
-              label,
-              style: GoogleFonts.cairo(color: Colors.grey, fontSize: 12),
-            ),
+            child: Text(label, style: GoogleFonts.cairo(color: Colors.grey, fontSize: 12)),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 12),
-            ),
+            child: Text(value, style: GoogleFonts.cairo(color: Colors.white, fontSize: 12)),
           ),
         ],
       ),
@@ -4802,22 +3863,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       children: statuses.map((status) {
         final isSelected = status['value'] == currentStatus;
         return GestureDetector(
-          onTap: () => _changeWithdrawalStatus(
-            request['id'],
-            status['value'] as String,
-            currentStatus,
-            request,
-          ),
+          onTap: () => _changeWithdrawalStatus(request['id'], status['value'] as String, currentStatus, request),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected
-                  ? (status['color'] as Color).withValues(alpha: 0.2)
-                  : Colors.transparent,
-              border: Border.all(
-                color: status['color'] as Color,
-                width: isSelected ? 2 : 1,
-              ),
+              color: isSelected ? (status['color'] as Color).withValues(alpha: 0.2) : Colors.transparent,
+              border: Border.all(color: status['color'] as Color, width: isSelected ? 2 : 1),
               borderRadius: BorderRadius.circular(15),
             ),
             child: Text(
@@ -4848,10 +3899,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        title: Text(
-          'تأكيد تغيير الحالة',
-          style: GoogleFonts.cairo(color: const Color(0xFFffd700)),
-        ),
+        title: Text('تأكيد تغيير الحالة', style: GoogleFonts.cairo(color: const Color(0xFFffd700))),
         content: Text(
           'هل أنت متأكد من تغيير حالة الطلب من "$oldStatus" إلى "$newStatus"؟\n\n'
           '⚠️ تنبيه: إذا كانت الحالة الجديدة "ملغي"، سيتم إرجاع المبلغ إلى الأرباح المحققة.',
@@ -4909,10 +3957,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'تم تغيير حالة الطلب بنجاح ✅\nتم إرسال إشعار للمستخدم 📱',
-              style: GoogleFonts.cairo(),
-            ),
+            content: Text('تم تغيير حالة الطلب بنجاح ✅\nتم إرسال إشعار للمستخدم 📱', style: GoogleFonts.cairo()),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
           ),
@@ -4920,10 +3965,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'خطأ: ${result['message']}',
-              style: GoogleFonts.cairo(),
-            ),
+            content: Text('خطأ: ${result['message']}', style: GoogleFonts.cairo()),
             backgroundColor: Colors.red,
           ),
         );
@@ -4955,41 +3997,29 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   }
 
   // دالة البحث الشاملة في طلبات السحب
-  List<Map<String, dynamic>> _filterRequests(
-    List<Map<String, dynamic>> requests,
-  ) {
+  List<Map<String, dynamic>> _filterRequests(List<Map<String, dynamic>> requests) {
     if (_searchQuery.isEmpty) {
       return requests;
     }
 
     return requests.where((request) {
       // البحث في رقم الطلب التسلسلي (الأولوية)
-      final requestNumber = (request['request_number'] ?? '')
-          .toString()
-          .toLowerCase();
+      final requestNumber = (request['request_number'] ?? '').toString().toLowerCase();
 
       // البحث في رقم الطلب الأصلي
       final requestId = (request['id'] ?? '').toString().toLowerCase();
 
       // البحث في اسم المستخدم
-      final userName = (request['users']?['name'] ?? '')
-          .toString()
-          .toLowerCase();
+      final userName = (request['users']?['name'] ?? '').toString().toLowerCase();
 
       // البحث في رقم الهاتف
-      final userPhone = (request['users']?['phone'] ?? '')
-          .toString()
-          .toLowerCase();
+      final userPhone = (request['users']?['phone'] ?? '').toString().toLowerCase();
 
       // البحث في تفاصيل الحساب (رقم البطاقة)
-      final accountDetails = (request['account_details'] ?? '')
-          .toString()
-          .toLowerCase();
+      final accountDetails = (request['account_details'] ?? '').toString().toLowerCase();
 
       // البحث في طريقة السحب
-      final withdrawalMethod = _getMethodText(
-        request['withdrawal_method'],
-      ).toLowerCase();
+      final withdrawalMethod = _getMethodText(request['withdrawal_method']).toLowerCase();
 
       // البحث في المبلغ
       final amount = (request['amount'] ?? 0).toString();
@@ -5039,10 +4069,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'خطأ: ${result['message']}',
-              style: GoogleFonts.cairo(),
-            ),
+            content: Text('خطأ: ${result['message']}', style: GoogleFonts.cairo()),
             backgroundColor: Colors.red,
           ),
         );
@@ -5078,10 +4105,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '😢💔 تم رفض طلب السحب\nتم إرسال إشعار الإلغاء للمستخدم 📱',
-              style: GoogleFonts.cairo(),
-            ),
+            content: Text('😢💔 تم رفض طلب السحب\nتم إرسال إشعار الإلغاء للمستخدم 📱', style: GoogleFonts.cairo()),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 3),
           ),
@@ -5089,10 +4113,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'خطأ: ${result['message']}',
-              style: GoogleFonts.cairo(),
-            ),
+            content: Text('خطأ: ${result['message']}', style: GoogleFonts.cairo()),
             backgroundColor: Colors.red,
           ),
         );
@@ -5140,11 +4161,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               // العنوان مع زر التحديث
               Row(
                 children: [
-                  Icon(
-                    _getFilterIcon(filterType),
-                    color: const Color(0xFFffd700),
-                    size: 24,
-                  ),
+                  Icon(_getFilterIcon(filterType), color: const Color(0xFFffd700), size: 24),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -5161,29 +4178,20 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.green.withValues(alpha: 0.3),
-                      ),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                     ),
                     child: IconButton(
                       onPressed: () {
                         _refreshData();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(
-                              'تم تحديث قائمة الطلبات ✅',
-                              style: GoogleFonts.cairo(),
-                            ),
+                            content: Text('تم تحديث قائمة الطلبات ✅', style: GoogleFonts.cairo()),
                             backgroundColor: Colors.green,
                             duration: const Duration(seconds: 2),
                           ),
                         );
                       },
-                      icon: const Icon(
-                        FontAwesomeIcons.arrowsRotate,
-                        color: Colors.green,
-                        size: 18,
-                      ),
+                      icon: const Icon(FontAwesomeIcons.arrowsRotate, color: Colors.green, size: 18),
                       tooltip: 'تحديث القائمة',
                     ),
                   ),
@@ -5210,16 +4218,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   style: GoogleFonts.cairo(color: Colors.white),
                   decoration: InputDecoration(
                     hintText: 'البحث في رقم الطلب، اسم المستخدم، رقم الهاتف...',
-                    hintStyle: GoogleFonts.cairo(
-                      color: Colors.grey.withValues(alpha: 0.6),
-                      fontSize: 14,
-                    ),
+                    hintStyle: GoogleFonts.cairo(color: Colors.grey.withValues(alpha: 0.6), fontSize: 14),
                     border: InputBorder.none,
-                    prefixIcon: const Icon(
-                      FontAwesomeIcons.magnifyingGlass,
-                      color: Colors.grey,
-                      size: 18,
-                    ),
+                    prefixIcon: const Icon(FontAwesomeIcons.magnifyingGlass, color: Colors.grey, size: 18),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
                             onPressed: () {
@@ -5228,11 +4229,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                                 _searchQuery = '';
                               });
                             },
-                            icon: const Icon(
-                              FontAwesomeIcons.xmark,
-                              color: Colors.grey,
-                              size: 16,
-                            ),
+                            icon: const Icon(FontAwesomeIcons.xmark, color: Colors.grey, size: 16),
                           )
                         : null,
                   ),
@@ -5261,18 +4258,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              FontAwesomeIcons.inbox,
-                              size: 64,
-                              color: Colors.white.withValues(alpha: 0.6),
-                            ),
+                            Icon(FontAwesomeIcons.inbox, size: 64, color: Colors.white.withValues(alpha: 0.6)),
                             const SizedBox(height: 16),
                             Text(
                               'لا توجد طلبات سحب',
-                              style: GoogleFonts.cairo(
-                                fontSize: 18,
-                                color: Colors.white.withValues(alpha: 0.8),
-                              ),
+                              style: GoogleFonts.cairo(fontSize: 18, color: Colors.white.withValues(alpha: 0.8)),
                             ),
                           ],
                         ),
@@ -5287,26 +4277,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              FontAwesomeIcons.magnifyingGlass,
-                              size: 64,
-                              color: Colors.grey.withValues(alpha: 0.6),
-                            ),
+                            Icon(FontAwesomeIcons.magnifyingGlass, size: 64, color: Colors.grey.withValues(alpha: 0.6)),
                             const SizedBox(height: 16),
                             Text(
                               'لا توجد نتائج للبحث "$_searchQuery"',
-                              style: GoogleFonts.cairo(
-                                fontSize: 16,
-                                color: Colors.grey.withValues(alpha: 0.8),
-                              ),
+                              style: GoogleFonts.cairo(fontSize: 16, color: Colors.grey.withValues(alpha: 0.8)),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'جرب البحث برقم الطلب، اسم المستخدم، أو رقم الهاتف',
-                              style: GoogleFonts.cairo(
-                                fontSize: 12,
-                                color: Colors.grey.withValues(alpha: 0.6),
-                              ),
+                              style: GoogleFonts.cairo(fontSize: 12, color: Colors.grey.withValues(alpha: 0.6)),
                             ),
                           ],
                         ),
@@ -5316,9 +4296,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     return ListView.builder(
                       itemCount: filteredRequests.length,
                       itemBuilder: (context, index) {
-                        return _buildAdminWithdrawalCard(
-                          filteredRequests[index],
-                        );
+                        return _buildAdminWithdrawalCard(filteredRequests[index]);
                       },
                     );
                   },
@@ -5358,16 +4336,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     }
   }
 
-  Future<List<Map<String, dynamic>>> _getFilteredWithdrawals(
-    String filterType,
-  ) async {
+  Future<List<Map<String, dynamic>>> _getFilteredWithdrawals(String filterType) async {
     try {
       if (filterType == 'all') {
         return await WithdrawalService.getAllWithdrawalRequests();
       } else {
-        return await WithdrawalService.getAllWithdrawalRequests(
-          status: filterType,
-        );
+        return await WithdrawalService.getAllWithdrawalRequests(status: filterType);
       }
     } catch (e) {
       debugPrint('خطأ في جلب طلبات السحب: $e');
@@ -5395,13 +4369,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: statusColor.withValues(alpha: 0.3), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: statusColor.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -5412,28 +4380,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Expanded(
                 child: Row(
                   children: [
-                    const Icon(
-                      FontAwesomeIcons.hashtag,
-                      color: Colors.cyan,
-                      size: 16,
-                    ),
+                    const Icon(FontAwesomeIcons.hashtag, color: Colors.cyan, size: 16),
                     const SizedBox(width: 8),
-                    Text(
-                      'طلب رقم:',
-                      style: GoogleFonts.cairo(
-                        fontSize: 12,
-                        color: Colors.cyan,
-                      ),
-                    ),
+                    Text('طلب رقم:', style: GoogleFonts.cairo(fontSize: 12, color: Colors.cyan)),
                     const SizedBox(width: 5),
                     Flexible(
                       child: Text(
                         requestNumber,
-                        style: GoogleFonts.robotoMono(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.cyan,
-                        ),
+                        style: GoogleFonts.robotoMono(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.cyan),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -5443,21 +4397,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 15,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(25),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(25)),
                 child: Text(
                   statusText,
-                  style: GoogleFonts.cairo(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
             ],
@@ -5467,20 +4411,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           // الصف الثاني: اسم المستخدم
           Row(
             children: [
-              const Icon(
-                FontAwesomeIcons.user,
-                color: Color(0xFFffd700),
-                size: 18,
-              ),
+              const Icon(FontAwesomeIcons.user, color: Color(0xFFffd700), size: 18),
               const SizedBox(width: 10),
               Flexible(
                 child: Text(
                   userName,
-                  style: GoogleFonts.cairo(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -5496,19 +4432,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Expanded(
                 child: Row(
                   children: [
-                    const Icon(
-                      FontAwesomeIcons.dollarSign,
-                      color: Colors.green,
-                      size: 16,
-                    ),
+                    const Icon(FontAwesomeIcons.dollarSign, color: Colors.green, size: 16),
                     const SizedBox(width: 8),
                     Text(
                       '$amount د.ع',
-                      style: GoogleFonts.cairo(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
+                      style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.green),
                     ),
                     const SizedBox(width: 8),
                     _buildCopyButton(amount, 'المبلغ'),
@@ -5517,16 +4445,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               ),
               Row(
                 children: [
-                  const Icon(
-                    FontAwesomeIcons.creditCard,
-                    color: Colors.blue,
-                    size: 16,
-                  ),
+                  const Icon(FontAwesomeIcons.creditCard, color: Colors.blue, size: 16),
                   const SizedBox(width: 8),
-                  Text(
-                    method,
-                    style: GoogleFonts.cairo(fontSize: 14, color: Colors.blue),
-                  ),
+                  Text(method, style: GoogleFonts.cairo(fontSize: 14, color: Colors.blue)),
                   const SizedBox(width: 8),
                   _buildCopyButton(method, 'طريقة السحب'),
                 ],
@@ -5545,23 +4466,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             ),
             child: Row(
               children: [
-                const Icon(
-                  FontAwesomeIcons.creditCard,
-                  color: Colors.orange,
-                  size: 20,
-                ),
+                const Icon(FontAwesomeIcons.creditCard, color: Colors.orange, size: 20),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'رقم البطاقة',
-                        style: GoogleFonts.cairo(
-                          fontSize: 12,
-                          color: Colors.orange,
-                        ),
-                      ),
+                      Text('رقم البطاقة', style: GoogleFonts.cairo(fontSize: 12, color: Colors.orange)),
                       const SizedBox(height: 4),
                       Text(
                         cardNumber,
@@ -5587,19 +4498,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               Expanded(
                 child: Row(
                   children: [
-                    const Icon(
-                      FontAwesomeIcons.phone,
-                      color: Colors.purple,
-                      size: 16,
-                    ),
+                    const Icon(FontAwesomeIcons.phone, color: Colors.purple, size: 16),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
                         userPhone,
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          color: Colors.purple,
-                        ),
+                        style: GoogleFonts.cairo(fontSize: 14, color: Colors.purple),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -5610,16 +4514,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               ),
               Row(
                 children: [
-                  const Icon(
-                    FontAwesomeIcons.calendar,
-                    color: Colors.grey,
-                    size: 16,
-                  ),
+                  const Icon(FontAwesomeIcons.calendar, color: Colors.grey, size: 16),
                   const SizedBox(width: 8),
-                  Text(
-                    formattedDate,
-                    style: GoogleFonts.cairo(fontSize: 12, color: Colors.grey),
-                  ),
+                  Text(formattedDate, style: GoogleFonts.cairo(fontSize: 12, color: Colors.grey)),
                   const SizedBox(width: 8),
                   _buildCopyButton(formattedDate, 'التاريخ'),
                 ],
@@ -5651,10 +4548,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 20,
-                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                 ),
               ),
             ],
@@ -5670,10 +4564,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       onTap: () => _copyToClipboard(text, label),
       child: Container(
         padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(6),
-        ),
+        decoration: BoxDecoration(color: Colors.grey.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(6)),
         child: const Icon(FontAwesomeIcons.copy, size: 12, color: Colors.grey),
       ),
     );
@@ -5798,10 +4689,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   void _generateWeeklyReport() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'سيتم إنشاء التقرير الأسبوعي',
-          style: GoogleFonts.cairo(),
-        ),
+        content: Text('سيتم إنشاء التقرير الأسبوعي', style: GoogleFonts.cairo()),
         backgroundColor: Colors.green,
       ),
     );
@@ -5819,10 +4707,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   void _generateCustomReport() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'سيتم فتح نافذة التقرير المخصص',
-          style: GoogleFonts.cairo(),
-        ),
+        content: Text('سيتم فتح نافذة التقرير المخصص', style: GoogleFonts.cairo()),
         backgroundColor: Colors.purple,
       ),
     );
@@ -5839,25 +4724,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           return const SizedBox(
             width: 20,
             height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Color(0xFFffc107),
-            ),
+            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFffc107)),
           );
         }
 
         final stats = snapshot.data!;
         return Row(
           children: [
-            _buildStatChip(
-              'المتاحة: ${stats['available'] ?? 0}',
-              const Color(0xFF4CAF50),
-            ),
+            _buildStatChip('المتاحة: ${stats['available'] ?? 0}', const Color(0xFF4CAF50)),
             const SizedBox(width: 10),
-            _buildStatChip(
-              'نفذت: ${stats['outOfStock'] ?? 0}',
-              const Color(0xFFF44336),
-            ),
+            _buildStatChip('نفذت: ${stats['outOfStock'] ?? 0}', const Color(0xFFF44336)),
           ],
         );
       },
@@ -5874,11 +4750,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -5886,9 +4758,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   // جلب إحصائيات المنتجات
   Future<Map<String, int>> _getProductsStats() async {
     try {
-      final response = await Supabase.instance.client
-          .from('products')
-          .select('available_quantity');
+      final response = await Supabase.instance.client.from('products').select('available_quantity');
 
       int available = 0;
       int outOfStock = 0;
@@ -5902,11 +4772,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         }
       }
 
-      return {
-        'available': available,
-        'outOfStock': outOfStock,
-        'total': available + outOfStock,
-      };
+      return {'available': available, 'outOfStock': outOfStock, 'total': available + outOfStock};
     } catch (e) {
       debugPrint('خطأ في جلب إحصائيات المنتجات: $e');
       return {'available': 0, 'outOfStock': 0, 'total': 0};
@@ -5998,10 +4864,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             availableTo: json['available_to'] ?? 80,
             availableQuantity: json['available_quantity'] ?? 100,
             displayOrder: json['display_order'] ?? 999, // قيمة افتراضية عالية
-            createdAt:
-                DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
-            updatedAt:
-                DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+            createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+            updatedAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
           );
           products.add(product);
         } catch (e) {
@@ -6011,16 +4875,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
       // تحديث البيانات بدون setState لتجنب الحلقة اللانهائية
       _allProducts = products;
-      _availableProducts = products
-          .where((p) => p.availableQuantity > 0)
-          .toList();
-      _outOfStockProducts = products
-          .where((p) => p.availableQuantity <= 0)
-          .toList();
+      _availableProducts = products.where((p) => p.availableQuantity > 0).toList();
+      _outOfStockProducts = products.where((p) => p.availableQuantity <= 0).toList();
 
-      debugPrint(
-        '✅ تم تصنيف المنتجات: ${_availableProducts.length} متاح، ${_outOfStockProducts.length} نفذ',
-      );
+      debugPrint('✅ تم تصنيف المنتجات: ${_availableProducts.length} متاح، ${_outOfStockProducts.length} نفذ');
     } catch (e) {
       debugPrint('❌ خطأ في تحميل المنتجات: $e');
       // لا نرمي الخطأ لتجنب توقف التطبيق
@@ -6034,29 +4892,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   // بناء تبويبات المنتجات
   Widget _buildProductsTabs([bool isSmallScreen = false]) {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(15),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF2A2A2A), borderRadius: BorderRadius.circular(15)),
       child: Row(
         children: [
+          Expanded(child: _buildTabButton('جميع المنتجات', Icons.inventory_2, 0, _allProducts.length, isSmallScreen)),
           Expanded(
-            child: _buildTabButton(
-              'جميع المنتجات',
-              Icons.inventory_2,
-              0,
-              _allProducts.length,
-              isSmallScreen,
-            ),
-          ),
-          Expanded(
-            child: _buildTabButton(
-              'نفذ من المخزون',
-              Icons.warning_amber,
-              1,
-              _outOfStockProducts.length,
-              isSmallScreen,
-            ),
+            child: _buildTabButton('نفذ من المخزون', Icons.warning_amber, 1, _outOfStockProducts.length, isSmallScreen),
           ),
         ],
       ),
@@ -6072,98 +4913,79 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         });
       },
       child: Container(
-        padding: EdgeInsets.symmetric(
-          vertical: isSmallScreen ? 12 : 15,
-          horizontal: isSmallScreen ? 12 : 20,
-        ),
+        padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 12 : 15, horizontal: isSmallScreen ? 12 : 20),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFffc107) : Colors.transparent,
           borderRadius: BorderRadius.circular(15),
         ),
         child: isSmallScreen
-          ? Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
-                  size: 18,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                if (count > 0) ...[
-                  const SizedBox(height: 2),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF1a1a2e)
-                          : const Color(0xFFffc107),
-                      borderRadius: BorderRadius.circular(8),
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: isSelected ? const Color(0xFF1a1a2e) : Colors.white, size: 18),
+                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
                     ),
-                    child: Text(
-                      count.toString(),
-                      style: TextStyle(
-                        color: isSelected
-                            ? const Color(0xFFffc107)
-                            : const Color(0xFF1a1a2e),
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (count > 0) ...[
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF1a1a2e) : const Color(0xFFffc107),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        count.toString(),
+                        style: TextStyle(
+                          color: isSelected ? const Color(0xFFffc107) : const Color(0xFF1a1a2e),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  icon,
-                  color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                if (count > 0) ...[
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: isSelected ? const Color(0xFF1a1a2e) : Colors.white, size: 20),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF1a1a2e)
-                          : const Color(0xFFffc107),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      count.toString(),
-                      style: TextStyle(
-                        color: isSelected
-                            ? const Color(0xFFffc107)
-                            : const Color(0xFF1a1a2e),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: isSelected ? const Color(0xFF1a1a2e) : Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
                   ),
+                  if (count > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF1a1a2e) : const Color(0xFFffc107),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        count.toString(),
+                        style: TextStyle(
+                          color: isSelected ? const Color(0xFFffc107) : const Color(0xFF1a1a2e),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
-            ),
+              ),
       ),
     );
   }
@@ -6177,10 +4999,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           children: [
             CircularProgressIndicator(color: Color(0xFFffc107)),
             SizedBox(height: 16),
-            Text(
-              'جاري تحميل المنتجات...',
-              style: TextStyle(color: Colors.white),
-            ),
+            Text('جاري تحميل المنتجات...', style: TextStyle(color: Colors.white)),
           ],
         ),
       );
@@ -6200,10 +5019,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _refreshProductsData,
-              child: const Text('تحديث'),
-            ),
+            ElevatedButton(onPressed: _refreshProductsData, child: const Text('تحديث')),
           ],
         ),
       );
@@ -6232,10 +5048,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           children: [
             Icon(emptyIcon, color: Colors.grey, size: 64),
             const SizedBox(height: 16),
-            Text(
-              emptyMessage,
-              style: const TextStyle(color: Colors.white, fontSize: 18),
-            ),
+            Text(emptyMessage, style: const TextStyle(color: Colors.white, fontSize: 18)),
             if (_selectedProductsTab == 0) ...[
               const SizedBox(height: 16),
               ElevatedButton.icon(
@@ -6261,10 +5074,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             itemCount: productsToShow.length,
             itemBuilder: (context, index) {
               final product = productsToShow[index];
-              return _buildEnhancedProductCard(
-                product,
-                MediaQuery.of(context).size.width < 768,
-              );
+              return _buildEnhancedProductCard(product, MediaQuery.of(context).size.width < 768);
             },
           ),
         ),
@@ -6276,33 +5086,17 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Widget _buildProductsSearchBar([bool isSmallScreen = false]) {
     return Container(
       padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(15),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF2A2A2A), borderRadius: BorderRadius.circular(15)),
       child: Row(
         children: [
           Expanded(
             child: TextField(
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: isSmallScreen ? 14 : 16,
-              ),
+              style: TextStyle(color: Colors.white, fontSize: isSmallScreen ? 14 : 16),
               decoration: InputDecoration(
                 hintText: 'البحث في المنتجات...',
-                hintStyle: TextStyle(
-                  color: Colors.grey[400],
-                  fontSize: isSmallScreen ? 14 : 16,
-                ),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: const Color(0xFFffc107),
-                  size: isSmallScreen ? 20 : 24,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
-                ),
+                hintStyle: TextStyle(color: Colors.grey[400], fontSize: isSmallScreen ? 14 : 16),
+                prefixIcon: Icon(Icons.search, color: const Color(0xFFffc107), size: isSmallScreen ? 20 : 24),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 filled: true,
                 fillColor: const Color(0xFF1a1a2e),
                 contentPadding: EdgeInsets.symmetric(
@@ -6318,20 +5112,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ),
           SizedBox(width: isSmallScreen ? 8 : 12),
           Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFffc107),
-              borderRadius: BorderRadius.circular(10),
-            ),
+            decoration: BoxDecoration(color: const Color(0xFFffc107), borderRadius: BorderRadius.circular(10)),
             child: IconButton(
               onPressed: () {
                 // ignore: todo
                 // TODO: فتح خيارات الفلترة
               },
-              icon: Icon(
-                Icons.filter_list,
-                color: const Color(0xFF1a1a2e),
-                size: isSmallScreen ? 18 : 20,
-              ),
+              icon: Icon(Icons.filter_list, color: const Color(0xFF1a1a2e), size: isSmallScreen ? 18 : 20),
               padding: EdgeInsets.all(isSmallScreen ? 8 : 12),
             ),
           ),
@@ -6349,14 +5136,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF2A2A2A),
         borderRadius: BorderRadius.circular(15),
-        border: isOutOfStock
-            ? Border.all(color: const Color(0xFFF44336), width: 2)
-            : null,
+        border: isOutOfStock ? Border.all(color: const Color(0xFFF44336), width: 2) : null,
         boxShadow: [
           BoxShadow(
-            color: isOutOfStock
-                ? const Color(0xFFF44336).withValues(alpha: 0.2)
-                : Colors.black.withValues(alpha: 0.3),
+            color: isOutOfStock ? const Color(0xFFF44336).withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.3),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -6371,227 +5154,188 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               color: isOutOfStock
                   ? const Color(0xFFF44336).withValues(alpha: 0.2)
                   : const Color(0xFF4CAF50).withValues(alpha: 0.2),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(15),
-                topRight: Radius.circular(15),
-              ),
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
             ),
             child: isSmallScreen
-              ? Column(
-                  children: [
-                    // صورة المنتج للشاشات الصغيرة
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        product.images.isNotEmpty
-                            ? product.images.first
-                            : 'https://via.placeholder.com/60x60/1a1a2e/ffd700?text=منتج',
-                        width: 60,
-                        height: 60,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1a1a2e),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.image_not_supported,
-                              color: Color(0xFFffc107),
-                              size: 30,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // معلومات المنتج للشاشات الصغيرة
-                    _buildProductInfoSmall(product, isOutOfStock),
-                  ],
-                )
-              : Row(
-                  children: [
-                    // صورة المنتج للشاشات الكبيرة
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.network(
-                        product.images.isNotEmpty
-                            ? product.images.first
-                            : 'https://via.placeholder.com/80x80/1a1a2e/ffd700?text=منتج',
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1a1a2e),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.image_not_supported,
-                              color: Color(0xFFffc107),
-                              size: 40,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-
-                // معلومات المنتج
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ? Column(
                     children: [
-                      // اسم المنتج
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 8),
-
-                      // الفئة
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFffc107).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          product.category.isEmpty ? 'عام' : product.category,
-                          style: const TextStyle(
-                            color: Color(0xFFffc107),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      // صورة المنتج للشاشات الصغيرة
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          product.images.isNotEmpty
+                              ? product.images.first
+                              : 'https://via.placeholder.com/60x60/1a1a2e/ffd700?text=منتج',
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1a1a2e),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.image_not_supported, color: Color(0xFFffc107), size: 30),
+                            );
+                          },
                         ),
                       ),
-                      const SizedBox(height: 8),
-
-                      // حالة المخزون
-                      Row(
-                        children: [
-                          Icon(
-                            isOutOfStock ? Icons.warning : Icons.check_circle,
-                            color: isOutOfStock
-                                ? const Color(0xFFF44336)
-                                : const Color(0xFF4CAF50),
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isOutOfStock
-                                ? 'نفذ من المخزون'
-                                : 'متاح (${product.availableQuantity})',
-                            style: TextStyle(
-                              color: isOutOfStock
-                                  ? const Color(0xFFF44336)
-                                  : const Color(0xFF4CAF50),
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                      const SizedBox(height: 12),
+                      // معلومات المنتج للشاشات الصغيرة
+                      _buildProductInfoSmall(product, isOutOfStock),
                     ],
-                  ),
-                ),
-
-                    // معلومات المنتج للشاشات الكبيرة
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // اسم المنتج
-                          Text(
-                            product.name,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 8),
-
-                          // الفئة
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFffc107).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              product.category.isEmpty ? 'عام' : product.category,
-                              style: const TextStyle(
-                                color: Color(0xFFffc107),
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
+                  )
+                : Row(
+                    children: [
+                      // صورة المنتج للشاشات الكبيرة
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          product.images.isNotEmpty
+                              ? product.images.first
+                              : 'https://via.placeholder.com/80x80/1a1a2e/ffd700?text=منتج',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1a1a2e),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
+                              child: const Icon(Icons.image_not_supported, color: Color(0xFFffc107), size: 40),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 16),
 
-                          // حالة المخزون
-                          Row(
-                            children: [
-                              Icon(
-                                isOutOfStock ? Icons.warning : Icons.check_circle,
-                                color: isOutOfStock
-                                    ? const Color(0xFFF44336)
-                                    : const Color(0xFF4CAF50),
-                                size: 16,
+                      // معلومات المنتج
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // اسم المنتج
+                            Text(
+                              product.name,
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+
+                            // الفئة
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFffc107).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              const SizedBox(width: 4),
-                              Text(
-                                isOutOfStock
-                                    ? 'نفذ من المخزون'
-                                    : 'متاح (${product.availableQuantity})',
-                                style: TextStyle(
-                                  color: isOutOfStock
-                                      ? const Color(0xFFF44336)
-                                      : const Color(0xFF4CAF50),
-                                  fontSize: 14,
+                              child: Text(
+                                product.category.isEmpty ? 'عام' : product.category,
+                                style: const TextStyle(
+                                  color: Color(0xFFffc107),
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                            ),
+                            const SizedBox(height: 8),
 
-                    // حالة المخزون البصرية (فقط للشاشات الكبيرة)
-                    if (!isSmallScreen)
-                      Container(
-                        width: 12,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: isOutOfStock
-                              ? const Color(0xFFF44336)
-                              : const Color(0xFF4CAF50),
-                          borderRadius: BorderRadius.circular(6),
+                            // حالة المخزون
+                            Row(
+                              children: [
+                                Icon(
+                                  isOutOfStock ? Icons.warning : Icons.check_circle,
+                                  color: isOutOfStock ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isOutOfStock ? 'نفذ من المخزون' : 'متاح (${product.availableQuantity})',
+                                  style: TextStyle(
+                                    color: isOutOfStock ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                  ],
-                ),
+
+                      // معلومات المنتج للشاشات الكبيرة
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // اسم المنتج
+                            Text(
+                              product.name,
+                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 8),
+
+                            // الفئة
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFffc107).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                product.category.isEmpty ? 'عام' : product.category,
+                                style: const TextStyle(
+                                  color: Color(0xFFffc107),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // حالة المخزون
+                            Row(
+                              children: [
+                                Icon(
+                                  isOutOfStock ? Icons.warning : Icons.check_circle,
+                                  color: isOutOfStock ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isOutOfStock ? 'نفذ من المخزون' : 'متاح (${product.availableQuantity})',
+                                  style: TextStyle(
+                                    color: isOutOfStock ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // حالة المخزون البصرية (فقط للشاشات الكبيرة)
+                      if (!isSmallScreen)
+                        Container(
+                          width: 12,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: isOutOfStock ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                    ],
+                  ),
           ),
 
           // تفاصيل المنتج
@@ -6602,115 +5346,105 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 // الأسعار
                 Row(
                   children: [
-                    Expanded(
-                      child: _buildPriceInfo(
-                        'سعر الجملة',
-                        product.wholesalePrice,
-                        isSmallScreen,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildPriceInfo('الحد الأدنى', product.minPrice, isSmallScreen),
-                    ),
-                    Expanded(
-                      child: _buildPriceInfo('الحد الأقصى', product.maxPrice, isSmallScreen),
-                    ),
+                    Expanded(child: _buildPriceInfo('سعر الجملة', product.wholesalePrice, isSmallScreen)),
+                    Expanded(child: _buildPriceInfo('الحد الأدنى', product.minPrice, isSmallScreen)),
+                    Expanded(child: _buildPriceInfo('الحد الأقصى', product.maxPrice, isSmallScreen)),
                   ],
                 ),
                 SizedBox(height: isSmallScreen ? 12 : 16),
 
                 // أزرار الإجراءات
                 isSmallScreen
-                  ? Column(
-                      children: [
-                        if (isOutOfStock) ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: () => _restockProduct(product),
-                              icon: const Icon(Icons.add_shopping_cart, size: 16),
-                              label: const Text('إعادة التخزين', style: TextStyle(fontSize: 12)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4CAF50),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                    ? Column(
+                        children: [
+                          if (isOutOfStock) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _restockProduct(product),
+                                icon: const Icon(Icons.add_shopping_cart, size: 16),
+                                label: const Text('إعادة التخزين', style: TextStyle(fontSize: 12)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4CAF50),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                ),
                               ),
                             ),
+                            const SizedBox(height: 8),
+                          ],
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _editProduct(product),
+                                  icon: const Icon(Icons.edit, size: 16),
+                                  label: const Text('تعديل', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFFffc107),
+                                    side: const BorderSide(color: Color(0xFFffc107)),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _deleteProduct(product),
+                                  icon: const Icon(Icons.delete, size: 16),
+                                  label: const Text('حذف', style: TextStyle(fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFFF44336),
+                                    side: const BorderSide(color: Color(0xFFF44336)),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
                         ],
-                        Row(
-                          children: [
+                      )
+                    : Row(
+                        children: [
+                          if (isOutOfStock) ...[
                             Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => _editProduct(product),
-                                icon: const Icon(Icons.edit, size: 16),
-                                label: const Text('تعديل', style: TextStyle(fontSize: 12)),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFFffc107),
-                                  side: const BorderSide(color: Color(0xFFffc107)),
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: ElevatedButton.icon(
+                                onPressed: () => _restockProduct(product),
+                                icon: const Icon(Icons.add_shopping_cart),
+                                label: const Text('إعادة التخزين'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4CAF50),
+                                  foregroundColor: Colors.white,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => _deleteProduct(product),
-                                icon: const Icon(Icons.delete, size: 16),
-                                label: const Text('حذف', style: TextStyle(fontSize: 12)),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFFF44336),
-                                  side: const BorderSide(color: Color(0xFFF44336)),
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                ),
-                              ),
-                            ),
                           ],
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        if (isOutOfStock) ...[
                           Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _restockProduct(product),
-                              icon: const Icon(Icons.add_shopping_cart),
-                              label: const Text('إعادة التخزين'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4CAF50),
-                                foregroundColor: Colors.white,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _editProduct(product),
+                              icon: const Icon(Icons.edit),
+                              label: const Text('تعديل'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFffc107),
+                                side: const BorderSide(color: Color(0xFFffc107)),
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => _deleteProduct(product),
+                              icon: const Icon(Icons.delete),
+                              label: const Text('حذف'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFF44336),
+                                side: const BorderSide(color: Color(0xFFF44336)),
+                              ),
+                            ),
+                          ),
                         ],
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _editProduct(product),
-                            icon: const Icon(Icons.edit),
-                            label: const Text('تعديل'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFffc107),
-                              side: const BorderSide(color: Color(0xFFffc107)),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _deleteProduct(product),
-                            icon: const Icon(Icons.delete),
-                            label: const Text('حذف'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFF44336),
-                              side: const BorderSide(color: Color(0xFFF44336)),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
               ],
             ),
           ),
@@ -6725,10 +5459,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: Colors.grey[400],
-            fontSize: isSmallScreen ? 10 : 12,
-          ),
+          style: TextStyle(color: Colors.grey[400], fontSize: isSmallScreen ? 10 : 12),
         ),
         const SizedBox(height: 4),
         Text(
@@ -6749,26 +5480,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF2A2A2A),
-        title: const Text(
-          'إعادة تخزين المنتج',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('إعادة تخزين المنتج', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'إعادة تخزين: ${product.name}',
-              style: const TextStyle(color: Colors.white),
-            ),
+            Text('إعادة تخزين: ${product.name}', style: const TextStyle(color: Colors.white)),
             const SizedBox(height: 16),
             TextField(
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 labelText: 'الكمية الجديدة',
                 labelStyle: const TextStyle(color: Color(0xFFffc107)),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: Color(0xFFffc107)),
@@ -6783,10 +5506,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () {
               // ignore: todo
@@ -6804,22 +5524,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   // دالة عرض رسالة النجاح
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF4CAF50),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), backgroundColor: const Color(0xFF4CAF50), behavior: SnackBarBehavior.floating),
     );
   }
 
   // دالة عرض رسالة معلومات
   void _showInfoSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: const Color(0xFF2196F3),
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), backgroundColor: const Color(0xFF2196F3), behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -6879,11 +5591,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               const SizedBox(width: 12),
               const Text(
                 'إدارة الصور الإعلانية',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               // زر إضافة صورة جديدة
@@ -6906,9 +5614,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           Expanded(
             child: _isLoadingBanners
                 ? const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
-                    ),
+                    child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700))),
                   )
                 : _buildBannersGrid(),
           ),
@@ -6924,26 +5630,16 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.image_not_supported,
-              size: 80,
-              color: Colors.grey.withValues(alpha: 0.6),
-            ),
+            Icon(Icons.image_not_supported, size: 80, color: Colors.grey.withValues(alpha: 0.6)),
             const SizedBox(height: 16),
             Text(
               'لا توجد صور إعلانية',
-              style: GoogleFonts.cairo(
-                fontSize: 18,
-                color: Colors.grey.withValues(alpha: 0.8),
-              ),
+              style: GoogleFonts.cairo(fontSize: 18, color: Colors.grey.withValues(alpha: 0.8)),
             ),
             const SizedBox(height: 8),
             Text(
               'اضغط على "إضافة صورة إعلانية" لإضافة أول صورة',
-              style: GoogleFonts.cairo(
-                fontSize: 14,
-                color: Colors.grey.withValues(alpha: 0.6),
-              ),
+              style: GoogleFonts.cairo(fontSize: 14, color: Colors.grey.withValues(alpha: 0.6)),
             ),
           ],
         ),
@@ -6971,17 +5667,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -7003,13 +5690,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   ),
                 ),
                 child: banner['image_url'] == null || banner['image_url'].isEmpty
-                    ? const Center(
-                        child: Icon(
-                          Icons.broken_image,
-                          size: 50,
-                          color: Colors.grey,
-                        ),
-                      )
+                    ? const Center(child: Icon(Icons.broken_image, size: 50, color: Colors.grey))
                     : null,
               ),
             ),
@@ -7044,11 +5725,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   Flexible(
                     child: Text(
                       banner['subtitle'] ?? 'بدون وصف',
-                      style: GoogleFonts.cairo(
-                        color: Colors.grey.withValues(alpha: 0.6),
-                        fontSize: 10,
-                        height: 1.1,
-                      ),
+                      style: GoogleFonts.cairo(color: Colors.grey.withValues(alpha: 0.6), fontSize: 10, height: 1.1),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -7069,10 +5746,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             minimumSize: const Size(0, 20),
                           ),
-                          child: Text(
-                            'تعديل',
-                            style: GoogleFonts.cairo(fontSize: 9),
-                          ),
+                          child: Text('تعديل', style: GoogleFonts.cairo(fontSize: 9)),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -7089,14 +5763,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             minimumSize: const Size(0, 20),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                           ),
-                          child: Text(
-                            'حذف',
-                            style: GoogleFonts.cairo(fontSize: 9),
-                          ),
+                          child: Text('حذف', style: GoogleFonts.cairo(fontSize: 9)),
                         ),
                       ),
                     ],
@@ -7120,10 +5789,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           children: [
             const Icon(Icons.add_photo_alternate, color: Color(0xFFffd700)),
             const SizedBox(width: 8),
-            const Text(
-              'إضافة صورة إعلانية جديدة',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
+            const Text('إضافة صورة إعلانية جديدة', style: TextStyle(color: Colors.white, fontSize: 18)),
           ],
         ),
         content: const SizedBox(
@@ -7146,10 +5812,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             },
             icon: const Icon(Icons.image),
             label: const Text('اختيار صورة'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4CAF50),
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF4CAF50), foregroundColor: Colors.white),
           ),
         ],
       ),
@@ -7160,10 +5823,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
   Future<void> _pickAndAddBanner() async {
     try {
       final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
 
       if (pickedFile != null) {
         debugPrint('📸 تم اختيار الصورة: ${pickedFile.path}');
@@ -7191,10 +5851,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           children: [
             const Icon(Icons.edit, color: Color(0xFFffd700)),
             const SizedBox(width: 8),
-            const Text(
-              'تعديل الصورة الإعلانية',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
+            const Text('تعديل الصورة الإعلانية', style: TextStyle(color: Colors.white, fontSize: 18)),
           ],
         ),
         content: SizedBox(
@@ -7210,12 +5867,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   labelText: 'العنوان',
                   labelStyle: TextStyle(color: Colors.grey),
                   border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFffd700)),
-                  ),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffd700))),
                 ),
               ),
               const SizedBox(height: 16),
@@ -7228,12 +5881,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   labelText: 'العنوان الفرعي',
                   labelStyle: TextStyle(color: Colors.grey),
                   border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFffd700)),
-                  ),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffd700))),
                 ),
               ),
               const SizedBox(height: 16),
@@ -7246,12 +5895,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   labelText: 'رابط الصورة',
                   labelStyle: TextStyle(color: Colors.grey),
                   border: OutlineInputBorder(),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFffd700)),
-                  ),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffd700))),
                 ),
               ),
             ],
@@ -7264,8 +5909,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ),
           ElevatedButton(
             onPressed: () async {
-              if (titleController.text.trim().isNotEmpty &&
-                  imageUrlController.text.trim().isNotEmpty) {
+              if (titleController.text.trim().isNotEmpty && imageUrlController.text.trim().isNotEmpty) {
                 final navigator = Navigator.of(context);
                 await _updateBanner(
                   banner['id'],
@@ -7280,9 +5924,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 _showErrorSnackBar('يرجى ملء العنوان ورابط الصورة على الأقل');
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2196F3),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2196F3)),
             child: const Text('تحديث', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -7302,10 +5944,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           children: [
             const Icon(Icons.warning, color: Colors.red),
             const SizedBox(width: 8),
-            const Text(
-              'تأكيد الحذف',
-              style: TextStyle(color: Colors.white, fontSize: 18),
-            ),
+            const Text('تأكيد الحذف', style: TextStyle(color: Colors.white, fontSize: 18)),
           ],
         ),
         content: Text(
@@ -7333,17 +5972,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 _showErrorSnackBar('خطأ: معرف الصورة غير صحيح');
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('حذف', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
-
-
 
   // إضافة صورة إعلانية جديدة من ملف محلي
   Future<void> _addBanner(String imagePath) async {
@@ -7372,16 +6007,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       await _ensureStorageBucketExists();
 
       // رفع الصورة إلى Supabase Storage
-      await Supabase.instance.client.storage
-          .from('advertisement-banners')
-          .uploadBinary(fileName, bytes);
+      await Supabase.instance.client.storage.from('advertisement-banners').uploadBinary(fileName, bytes);
 
       debugPrint('✅ تم رفع الصورة بنجاح');
 
       // الحصول على رابط الصورة
-      final imageUrl = Supabase.instance.client.storage
-          .from('advertisement-banners')
-          .getPublicUrl(fileName);
+      final imageUrl = Supabase.instance.client.storage.from('advertisement-banners').getPublicUrl(fileName);
 
       debugPrint('🔗 رابط الصورة: $imageUrl');
 
@@ -7461,10 +6092,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     try {
       debugPrint('🗑️ محاولة حذف الصورة الإعلانية بالمعرف: $id');
 
-      await Supabase.instance.client
-          .from('advertisement_banners')
-          .delete()
-          .eq('id', id);
+      await Supabase.instance.client.from('advertisement_banners').delete().eq('id', id);
 
       debugPrint('✅ تم حذف الصورة الإعلانية بنجاح');
       _showSuccessSnackBar('تم حذف الصورة الإعلانية بنجاح');
@@ -7493,10 +6121,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 2,
-                        child: _buildNotificationComposer(),
-                      ),
+                      Expanded(flex: 2, child: _buildNotificationComposer()),
                       const SizedBox(width: 20),
                       Expanded(
                         flex: 1,
@@ -7532,11 +6157,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         ),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6366f1).withValues(alpha: 0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: const Color(0xFF6366f1).withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 5)),
         ],
       ),
       child: Row(
@@ -7547,11 +6168,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               color: Colors.white.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(
-              Icons.notifications_active,
-              color: Colors.white,
-              size: 30,
-            ),
+            child: const Icon(Icons.notifications_active, color: Colors.white, size: 30),
           ),
           const SizedBox(width: 15),
           const Expanded(
@@ -7560,19 +6177,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               children: [
                 Text(
                   'إدارة الإشعارات',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  'إرسال إشعارات مخصصة لجميع المستخدمين',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
+                Text('إرسال إشعارات مخصصة لجميع المستخدمين', style: TextStyle(color: Colors.white70, fontSize: 14)),
               ],
             ),
           ),
@@ -7609,20 +6216,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     );
   }
 
-  Widget _buildNotificationActionButton(
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  Widget _buildNotificationActionButton(String title, IconData icon, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -7630,11 +6229,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             const SizedBox(width: 6),
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -7690,13 +6285,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 5))],
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -7705,20 +6294,13 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
                 child: Icon(icon, color: color, size: 24),
               ),
               const Spacer(),
               Text(
                 value,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
               ),
             ],
           ),
@@ -7727,11 +6309,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             alignment: Alignment.centerLeft,
             child: Text(
               title,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -7745,13 +6323,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -7764,20 +6336,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   color: const Color(0xFF6366f1).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.edit_notifications,
-                  color: Color(0xFF6366f1),
-                  size: 20,
-                ),
+                child: const Icon(Icons.edit_notifications, color: Color(0xFF6366f1), size: 20),
               ),
               const SizedBox(width: 10),
               const Text(
                 'إنشاء إشعار جديد',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1f2937),
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1f2937)),
               ),
             ],
           ),
@@ -7832,11 +6396,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       children: [
         const Text(
           'نوع الإشعار',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF374151),
-          ),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
         ),
         const SizedBox(height: 10),
         Wrap(
@@ -7854,18 +6414,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 decoration: BoxDecoration(
                   color: isSelected ? (type['color'] as Color) : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(25),
-                  border: Border.all(
-                    color: isSelected ? (type['color'] as Color) : Colors.grey.shade300,
-                  ),
+                  border: Border.all(color: isSelected ? (type['color'] as Color) : Colors.grey.shade300),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      type['icon'] as IconData,
-                      size: 16,
-                      color: isSelected ? Colors.white : Colors.grey.shade600,
-                    ),
+                    Icon(type['icon'] as IconData, size: 16, color: isSelected ? Colors.white : Colors.grey.shade600),
                     const SizedBox(width: 5),
                     Text(
                       type['label'] as String,
@@ -7898,11 +6452,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       children: [
         Text(
           label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF374151),
-          ),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -7916,10 +6466,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(
-              color: Colors.grey.shade500,
-              fontSize: 14,
-            ),
+            hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
             prefixIcon: Icon(icon, color: const Color(0xFF6366f1)),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -7931,10 +6478,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             ),
             filled: true,
             fillColor: Colors.white, // خلفية بيضاء لتباين أفضل
-            counterStyle: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF6B7280),
-            ),
+            counterStyle: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
           ),
           onChanged: (value) {
             setState(() {}); // لتحديث المعاينة
@@ -7950,11 +6494,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       children: [
         const Text(
           'خيارات الإرسال',
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF374151),
-          ),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
         ),
         const SizedBox(height: 10),
         Row(
@@ -7972,17 +6512,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   decoration: BoxDecoration(
                     color: !_isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: !_isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade300,
-                    ),
+                    border: Border.all(color: !_isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade300),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.send,
-                        color: !_isScheduled ? Colors.white : Colors.grey.shade600,
-                        size: 20,
-                      ),
+                      Icon(Icons.send, color: !_isScheduled ? Colors.white : Colors.grey.shade600, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         'إرسال فوري',
@@ -8010,17 +6544,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   decoration: BoxDecoration(
                     color: _isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: _isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade300,
-                    ),
+                    border: Border.all(color: _isScheduled ? const Color(0xFF6366f1) : Colors.grey.shade300),
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.schedule,
-                        color: _isScheduled ? Colors.white : Colors.grey.shade600,
-                        size: 20,
-                      ),
+                      Icon(Icons.schedule, color: _isScheduled ? Colors.white : Colors.grey.shade600, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         'إرسال مجدول',
@@ -8050,11 +6578,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                 const SizedBox(width: 8),
                 Text(
                   'موعد الإرسال: ${_formatDateTime(_scheduledDateTime!)}',
-                  style: const TextStyle(
-                    color: Color(0xFF6366f1),
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Color(0xFF6366f1), fontWeight: FontWeight.w500, fontSize: 12),
                 ),
               ],
             ),
@@ -8074,9 +6598,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               backgroundColor: const Color(0xFF6366f1),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 15),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               elevation: 0,
             ),
             child: _isSendingNotification
@@ -8112,18 +6634,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             backgroundColor: Colors.grey.shade100,
             foregroundColor: Colors.grey.shade700,
             padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             elevation: 0,
           ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.clear, size: 18),
-              SizedBox(width: 5),
-              Text('مسح'),
-            ],
+            children: [Icon(Icons.clear, size: 18), SizedBox(width: 5), Text('مسح')],
           ),
         ),
       ],
@@ -8136,13 +6652,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -8155,20 +6665,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   color: const Color(0xFF10b981).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.preview,
-                  color: Color(0xFF10b981),
-                  size: 20,
-                ),
+                child: const Icon(Icons.preview, color: Color(0xFF10b981), size: 20),
               ),
               const SizedBox(width: 10),
               const Text(
                 'معاينة الإشعار',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1f2937),
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1f2937)),
               ),
             ],
           ),
@@ -8193,11 +6695,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                         color: _getNotificationTypeColor(),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
-                        _getNotificationTypeIcon(),
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                      child: Icon(_getNotificationTypeIcon(), color: Colors.white, size: 20),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -8211,9 +6709,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: _notificationTitleController.text.isEmpty
-                                  ? Colors.grey.shade400
-                                  : Colors.black87,
+                              color: _notificationTitleController.text.isEmpty ? Colors.grey.shade400 : Colors.black87,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -8236,13 +6732,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   ],
                 ),
                 const SizedBox(height: 10),
-                Text(
-                  'الآن',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
+                Text('الآن', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
               ],
             ),
           ),
@@ -8253,21 +6743,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
   Widget _buildQuickNotificationTemplates() {
     final templates = [
-      {
-        'title': 'عرض خاص',
-        'body': 'خصم 50% على جميع المنتجات! لفترة محدودة فقط',
-        'type': 'promotion',
-      },
-      {
-        'title': 'تحديث التطبيق',
-        'body': 'تحديث جديد متاح الآن مع مميزات رائعة',
-        'type': 'update',
-      },
-      {
-        'title': 'إشعار عاجل',
-        'body': 'إشعار مهم يتطلب انتباهكم الفوري',
-        'type': 'urgent',
-      },
+      {'title': 'عرض خاص', 'body': 'خصم 50% على جميع المنتجات! لفترة محدودة فقط', 'type': 'promotion'},
+      {'title': 'تحديث التطبيق', 'body': 'تحديث جديد متاح الآن مع مميزات رائعة', 'type': 'update'},
+      {'title': 'إشعار عاجل', 'body': 'إشعار مهم يتطلب انتباهكم الفوري', 'type': 'urgent'},
     ];
 
     return Container(
@@ -8275,13 +6753,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -8294,20 +6766,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   color: const Color(0xFFf59e0b).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.text_snippet,
-                  color: Color(0xFFf59e0b),
-                  size: 20,
-                ),
+                child: const Icon(Icons.text_snippet, color: Color(0xFFf59e0b), size: 20),
               ),
               const SizedBox(width: 10),
               const Text(
                 'قوالب سريعة',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1f2937),
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1f2937)),
               ),
             ],
           ),
@@ -8329,19 +6793,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     children: [
                       Text(
                         template['title'] as String,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF1f2937),
-                        ),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1f2937)),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         template['body'] as String,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade600,
-                        ),
+                        style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -8362,13 +6819,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -8381,29 +6832,19 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                   color: const Color(0xFF8b5cf6).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.history,
-                  color: Color(0xFF8b5cf6),
-                  size: 20,
-                ),
+                child: const Icon(Icons.history, color: Color(0xFF8b5cf6), size: 20),
               ),
               const SizedBox(width: 10),
               const Text(
                 'الإشعارات المرسلة',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1f2937),
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1f2937)),
               ),
               const Spacer(),
               TextButton.icon(
                 onPressed: _loadSentNotifications,
                 icon: const Icon(Icons.refresh, size: 16),
                 label: const Text('تحديث'),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF8b5cf6),
-                ),
+                style: TextButton.styleFrom(foregroundColor: const Color(0xFF8b5cf6)),
               ),
             ],
           ),
@@ -8414,28 +6855,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               padding: const EdgeInsets.all(40),
               child: Column(
                 children: [
-                  Icon(
-                    Icons.notifications_off,
-                    size: 64,
-                    color: Colors.grey.shade300,
-                  ),
+                  Icon(Icons.notifications_off, size: 64, color: Colors.grey.shade300),
                   const SizedBox(height: 16),
                   Text(
                     'لا توجد إشعارات مرسلة بعد',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade500,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'ابدأ بإرسال أول إشعار لك',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade400,
-                    ),
-                  ),
+                  Text('ابدأ بإرسال أول إشعار لك', style: TextStyle(fontSize: 14, color: Colors.grey.shade400)),
                 ],
               ),
             )
@@ -8471,10 +6898,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(width: 12),
@@ -8484,19 +6908,12 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               children: [
                 Text(
                   notification['title'] ?? 'بدون عنوان',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1f2937),
-                  ),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1f2937)),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   notification['body'] ?? 'بدون محتوى',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -8507,20 +6924,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
                     const SizedBox(width: 4),
                     Text(
                       _formatDateTime(DateTime.parse(notification['sent_at'] ?? DateTime.now().toIso8601String())),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade400,
-                      ),
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
                     ),
                     const SizedBox(width: 16),
                     Icon(Icons.people, size: 12, color: Colors.grey.shade400),
                     const SizedBox(width: 4),
                     Text(
                       '${notification['recipients_count'] ?? 0} مستخدم',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade400,
-                      ),
+                      style: TextStyle(fontSize: 10, color: Colors.grey.shade400),
                     ),
                   ],
                 ),
@@ -8547,11 +6958,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               const SizedBox(height: 8),
               Text(
                 '${notification['delivery_rate'] ?? 0}%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
               ),
             ],
           ),
@@ -8670,20 +7077,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     );
 
     if (date != null && mounted) {
-      final time = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.now(),
-      );
+      final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
 
       if (time != null) {
         setState(() {
-          _scheduledDateTime = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
-          );
+          _scheduledDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
         });
       }
     }
@@ -8736,8 +7134,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     });
 
     try {
-  debugPrint('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
-  debugPrint('🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-official-backend-production.up.railway.app/api/notifications/send-bulk');
+      debugPrint('🌐 [DIAGNOSTIC-$diagnosticId] الخطوة 4: إرسال الطلب إلى الخادم');
+      debugPrint(
+        '🔗 [DIAGNOSTIC-$diagnosticId] URL: https://montajati-official-backend-production.up.railway.app/api/notifications/send-bulk',
+      );
 
       final requestStartTime = DateTime.now();
 
@@ -8748,17 +7148,19 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
       while (retryCount <= maxRetries) {
         try {
-          response = await http.post(
-            Uri.parse('https://montajati-official-backend-production.up.railway.app/api/notifications/send-bulk'),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: json.encode(requestData),
-          ).timeout(const Duration(seconds: 30));
+          response = await http
+              .post(
+                Uri.parse('https://montajati-official-backend-production.up.railway.app/api/notifications/send-bulk'),
+                headers: {'Content-Type': 'application/json'},
+                body: json.encode(requestData),
+              )
+              .timeout(const Duration(seconds: 30));
 
           // إذا كان الرد 503 (خادم غير متاح) وما زال لدينا محاولات
           if (response.statusCode == 503 && retryCount < maxRetries) {
-            debugPrint('⚠️ [DIAGNOSTIC-$diagnosticId] خادم غير متاح (503) - محاولة ${retryCount + 1}/${maxRetries + 1}');
+            debugPrint(
+              '⚠️ [DIAGNOSTIC-$diagnosticId] خادم غير متاح (503) - محاولة ${retryCount + 1}/${maxRetries + 1}',
+            );
             debugPrint('⏳ [DIAGNOSTIC-$diagnosticId] انتظار 10 ثوانٍ قبل إعادة المحاولة...');
 
             // إظهار رسالة للمستخدم
@@ -8779,7 +7181,6 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
 
           // إذا نجح الطلب أو فشل بخطأ غير 503، اخرج من الحلقة
           break;
-
         } catch (e) {
           if (retryCount < maxRetries) {
             debugPrint('❌ [DIAGNOSTIC-$diagnosticId] خطأ في المحاولة ${retryCount + 1}: $e');
@@ -8824,11 +7225,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               debugPrint('📊 [DIAGNOSTIC-$diagnosticId] بيانات النتيجة: ${json.encode(responseData['data'])}');
             }
 
-            _showSuccessSnackBar(
-              _isScheduled
-                  ? 'تم جدولة الإشعار بنجاح'
-                  : 'تم إرسال الإشعار بنجاح لجميع المستخدمين'
-            );
+            _showSuccessSnackBar(_isScheduled ? 'تم جدولة الإشعار بنجاح' : 'تم إرسال الإشعار بنجاح لجميع المستخدمين');
 
             debugPrint('🧹 [DIAGNOSTIC-$diagnosticId] الخطوة 8: تنظيف النموذج وتحديث البيانات');
             _clearNotificationForm();
@@ -8938,27 +7335,18 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               children: [
                 TextField(
                   controller: titleController,
-                  decoration: const InputDecoration(
-                    labelText: 'العنوان',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'العنوان', border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 15),
                 TextField(
                   controller: bodyController,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'المحتوى',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'المحتوى', border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 15),
                 DropdownButtonFormField<String>(
-                  value: selectedType,
-                  decoration: const InputDecoration(
-                    labelText: 'النوع',
-                    border: OutlineInputBorder(),
-                  ),
+                  initialValue: selectedType,
+                  decoration: const InputDecoration(labelText: 'النوع', border: OutlineInputBorder()),
                   items: const [
                     DropdownMenuItem<String>(value: 'general', child: Text('عام')),
                     DropdownMenuItem<String>(value: 'promotion', child: Text('عرض خاص')),
@@ -8975,14 +7363,10 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('إلغاء'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('إلغاء')),
             ElevatedButton(
               onPressed: () {
-                if (titleController.text.trim().isNotEmpty &&
-                    bodyController.text.trim().isNotEmpty) {
+                if (titleController.text.trim().isNotEmpty && bodyController.text.trim().isNotEmpty) {
                   Navigator.of(context).pop({
                     'title': titleController.text.trim(),
                     'body': bodyController.text.trim(),
@@ -9037,9 +7421,9 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
     try {
       _showInfoSnackBar('جاري تشغيل الخادم...');
 
-      final response = await http.get(
-        Uri.parse('https://montajati-official-backend-production.up.railway.app/api/health'),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .get(Uri.parse('https://montajati-official-backend-production.up.railway.app/api/health'))
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         _showSuccessSnackBar('تم تشغيل الخادم بنجاح!');
@@ -9060,11 +7444,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
         // اسم المنتج
         Text(
           product.name,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
@@ -9080,11 +7460,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           ),
           child: Text(
             product.category.isEmpty ? 'عام' : product.category,
-            style: const TextStyle(
-              color: Color(0xFFffc107),
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Color(0xFFffc107), fontSize: 11, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(height: 8),
@@ -9095,20 +7471,14 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           children: [
             Icon(
               isOutOfStock ? Icons.warning : Icons.check_circle,
-              color: isOutOfStock
-                  ? const Color(0xFFF44336)
-                  : const Color(0xFF4CAF50),
+              color: isOutOfStock ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
               size: 14,
             ),
             const SizedBox(width: 4),
             Text(
-              isOutOfStock
-                  ? 'نفذ من المخزون'
-                  : 'متاح (${product.availableQuantity})',
+              isOutOfStock ? 'نفذ من المخزون' : 'متاح (${product.availableQuantity})',
               style: TextStyle(
-                color: isOutOfStock
-                    ? const Color(0xFFF44336)
-                    : const Color(0xFF4CAF50),
+                color: isOutOfStock ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -9137,13 +7507,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
           end: Alignment.bottomCenter,
           colors: [Color(0xFF16213e), Color(0xFF1a1a2e)],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            offset: Offset(0, -2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, -2))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -9159,27 +7523,21 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard>
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: isSelected
-                  ? const Color(0xFFffd700).withValues(alpha: 0.2)
-                  : Colors.transparent,
+                color: isSelected ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     item['icon'] as IconData,
-                    color: isSelected
-                        ? const Color(0xFFffd700)
-                        : Colors.white70,
+                    color: isSelected ? const Color(0xFFffd700) : Colors.white70,
                     size: 20,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     item['title'] as String,
                     style: TextStyle(
-                      color: isSelected
-                        ? const Color(0xFFffd700)
-                        : Colors.white70,
+                      color: isSelected ? const Color(0xFFffd700) : Colors.white70,
                       fontSize: 10,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                     ),

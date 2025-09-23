@@ -1,22 +1,26 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/design_system.dart';
 import '../models/product.dart';
 import '../services/cart_service.dart';
-import '../services/user_service.dart';
 import '../services/favorites_service.dart';
+import '../services/user_service.dart';
+import '../utils/font_helper.dart';
+import '../widgets/app_background.dart';
 import '../widgets/curved_navigation_bar.dart';
-import '../core/design_system.dart';
 
 // 🧠 حالات شريط البحث الذكي
 enum SearchBarState {
-  hidden,        // مخفي تماماً
-  buttonOnly,    // زر البحث فقط
-  expanded,      // شريط البحث مفتوح
+  hidden, // مخفي تماماً
+  buttonOnly, // زر البحث فقط
+  expanded, // شريط البحث مفتوح
 }
 
 // كلاس مساعد لترتيب نتائج البحث
@@ -26,8 +30,6 @@ class ProductMatch {
 
   ProductMatch(this.product, this.score);
 }
-
-
 
 class NewProductsPage extends StatefulWidget {
   const NewProductsPage({super.key});
@@ -50,19 +52,18 @@ class _NewProductsPageState extends State<NewProductsPage> {
   // بيانات البانرات الإعلانية
   List<Map<String, dynamic>> _banners = [];
   bool _isLoadingBanners = false;
-  PageController _bannerPageController = PageController();
+  final PageController _bannerPageController = PageController();
   Timer? _bannerTimer;
   int _currentBannerIndex = 0;
 
   // شريط البحث
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _isSearchBarSticky = false;
 
   // 🧠 نظام ذكي موحد لإدارة شريط البحث
   SearchBarState _searchBarState = SearchBarState.hidden;
-  bool _isUserScrolling = false; // لتتبع تمرير المستخدم
   final FocusNode _originalSearchFocus = FocusNode(); // للشريط الأصلي
+  final FocusNode _expandedSearchFocus = FocusNode(); // للشريط المفتوح - منفصل
 
   // البحث والـ hints
   List<Product> _filteredProducts = [];
@@ -72,8 +73,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
   List<String> _productHints = [];
   int _currentNavIndex = 0; // للشريط السفلي المنحني
 
-
-
   @override
   void initState() {
     super.initState();
@@ -82,19 +81,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
     _loadBanners();
     _setupScrollListener();
     _setupProductHints();
-    _setupGreetingTimer(); // تحديث التحية كل دقيقة
     _loadFavorites(); // تحميل المفضلة
-  }
-
-  // إعداد مؤقت لتحديث التحية
-  void _setupGreetingTimer() {
-    Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          // سيتم تحديث التحية تلقائياً عند إعادة البناء
-        });
-      }
-    });
   }
 
   // 🧠 نظام ذكي لإدارة شريط البحث حسب التمرير مع حماية من الـ crash
@@ -105,9 +92,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
       try {
         const double threshold = 150.0;
         final currentOffset = _scrollController.offset;
-
-        // تحديد حالة التمرير
-        _isUserScrolling = true;
 
         // منطق ذكي لإدارة حالات الشريط
         if (currentOffset >= threshold) {
@@ -121,13 +105,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
             _smartTransitionToOriginal();
           }
         }
-
-        // إعادة تعيين حالة التمرير بعد فترة
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            _isUserScrolling = false;
-          }
-        });
       } catch (e) {
         debugPrint('❌ خطأ في scroll listener: $e');
       }
@@ -163,9 +140,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
           if (mounted) {
             try {
               // وضع المؤشر في النهاية بدون تحديد النص
-              _searchController.selection = TextSelection.collapsed(
-                offset: currentText.length,
-              );
+              _searchController.selection = TextSelection.collapsed(offset: currentText.length);
 
               // تحديث الواجهة لضمان ظهور التغييرات
               setState(() {});
@@ -216,9 +191,22 @@ class _NewProductsPageState extends State<NewProductsPage> {
 
     if (_searchBarState != newState) {
       try {
+        // إزالة التركيز من أي FocusNode نشط قبل التغيير
+        _originalSearchFocus.unfocus();
+        _expandedSearchFocus.unfocus();
+
         setState(() {
           _searchBarState = newState;
         });
+
+        // إضافة تأخير صغير قبل التركيز الجديد
+        if (newState == SearchBarState.expanded) {
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted && _expandedSearchFocus.canRequestFocus) {
+              _expandedSearchFocus.requestFocus();
+            }
+          });
+        }
       } catch (e) {
         debugPrint('❌ خطأ في تحديث حالة شريط البحث: $e');
       }
@@ -237,7 +225,8 @@ class _NewProductsPageState extends State<NewProductsPage> {
       _bannerPageController.dispose();
       _searchController.dispose();
       _scrollController.dispose();
-      _originalSearchFocus.dispose(); // تنظيف FocusNode
+      _originalSearchFocus.dispose(); // تنظيف FocusNode الأصلي
+      _expandedSearchFocus.dispose(); // تنظيف FocusNode المفتوح
     } catch (e) {
       debugPrint('❌ خطأ في تنظيف الموارد: $e');
     }
@@ -263,17 +252,16 @@ class _NewProductsPageState extends State<NewProductsPage> {
       final isDataSaved = await UserService.isUserDataSaved();
 
       if (!isDataSaved) {
-        print('🔄 تحميل بيانات المستخدم من قاعدة البيانات...');
+        debugPrint('🔄 تحميل بيانات المستخدم من قاعدة البيانات...');
         await UserService.loadAndSaveUserData();
       } else {
-        print('✅ استخدام البيانات المحفوظة محلياً');
+        debugPrint('✅ استخدام البيانات المحفوظة محلياً');
       }
 
       // جلب البيانات من التخزين المحلي
       await _loadLocalUserData();
-
     } catch (e) {
-      print('❌ خطأ في تهيئة بيانات المستخدم: $e');
+      debugPrint('❌ خطأ في تهيئة بيانات المستخدم: $e');
     }
   }
 
@@ -290,7 +278,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
         });
       }
     } catch (e) {
-      print('❌ خطأ في جلب البيانات المحلية: $e');
+      debugPrint('❌ خطأ في جلب البيانات المحلية: $e');
     }
   }
 
@@ -321,9 +309,9 @@ class _NewProductsPageState extends State<NewProductsPage> {
         }
       }
 
-      print('✅ تم تحميل ${_banners.length} بانر إعلاني');
+      debugPrint('✅ تم تحميل ${_banners.length} بانر إعلاني');
     } catch (e) {
-      print('❌ خطأ في تحميل البانرات: $e');
+      debugPrint('❌ خطأ في تحميل البانرات: $e');
       if (mounted) {
         setState(() {
           _isLoadingBanners = false;
@@ -341,9 +329,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
         return;
       }
 
-      final currentPage = _bannerPageController.hasClients
-          ? (_bannerPageController.page?.round() ?? 0)
-          : 0;
+      final currentPage = _bannerPageController.hasClients ? (_bannerPageController.page?.round() ?? 0) : 0;
       final nextPage = (currentPage + 1) % _banners.length;
 
       _bannerPageController.animateToPage(
@@ -380,16 +366,18 @@ class _NewProductsPageState extends State<NewProductsPage> {
       final response = await _supabase
           .from('products')
           .select()
+          .eq('is_active', true) // فقط المنتجات النشطة
           .order('created_at', ascending: false);
 
-      final products = (response as List)
-          .map((json) => Product.fromJson(json))
-          .toList();
+      final allProducts = (response as List).map((json) => Product.fromJson(json)).toList();
+
+      // 🎯 فلترة المنتجات المتاحة فقط (عدد القطع > 0)
+      final availableProducts = allProducts.where((product) => product.availableQuantity > 0).toList();
 
       if (mounted) {
         // تحديث تدريجي لتجنب التقطيع
         setState(() {
-          _products = products;
+          _products = availableProducts; // فقط المنتجات المتاحة
           _isLoadingProducts = false;
         });
 
@@ -397,7 +385,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
         Future.delayed(const Duration(milliseconds: 100), () {
           if (mounted) {
             setState(() {
-              _filteredProducts = List.from(products); // نسخة منفصلة
+              _filteredProducts = List.from(availableProducts); // نسخة منفصلة
             });
             _updateProductHints(); // تحديث hints البحث
           }
@@ -443,12 +431,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
         _currentHintIndex = (_currentHintIndex + 1) % _productHints.length;
       });
     });
-  }
-
-  // الحصول على hint عشوائي
-  String _getRandomProductHint() {
-    if (_productHints.isEmpty) return 'ابحث عن المنتجات...';
-    return _productHints[_currentHintIndex];
   }
 
   // البحث في المنتجات مع debouncing وحماية من الـ crash
@@ -599,47 +581,47 @@ class _NewProductsPageState extends State<NewProductsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppDesignSystem.primaryBackground,
-      extendBody: true, // السماح للمحتوى بالظهور خلف الشريط السفلي - مثل باقي الصفحات
-      body: Stack(
-        children: [
-          // المحتوى الرئيسي
-          SingleChildScrollView(
-            controller: _scrollController,
-            child: Column(
-              children: [
-                // مساحة للشريط العلوي (تقليل الفراغ)
-                const SizedBox(height: 25),
-                // الشريط العلوي
-                _buildHeader(),
-                // البانر الرئيسي
-                _buildMainBanner(),
-                // شريط البحث
-                _buildSearchBar(),
-                // شبكة المنتجات
-                _buildProductsGrid(),
-                // مساحة إضافية للشريط السفلي
-                const SizedBox(height: 160),
-              ],
-            ),
-          ),
-
-          // 🧠 شريط البحث الذكي - يظهر حسب الحالة
-          if (_searchBarState != SearchBarState.hidden)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 40, 12, 10),
-                color: Colors.transparent, // بدون خلفية
-                child: _buildAnimatedSearchBar(),
+      backgroundColor: Colors.transparent,
+      extendBody: true,
+      body: AppBackground(
+        child: Stack(
+          children: [
+            // المحتوى الرئيسي
+            SingleChildScrollView(
+              controller: _scrollController,
+              child: Column(
+                children: [
+                  // مساحة للشريط العلوي (تقليل الفراغ)
+                  const SizedBox(height: 25),
+                  // الشريط العلوي
+                  _buildHeader(),
+                  // البانر الرئيسي
+                  _buildMainBanner(),
+                  // شريط البحث
+                  _buildSearchBar(),
+                  // شبكة المنتجات
+                  _buildProductsGrid(),
+                  // مساحة إضافية للشريط السفلي
+                  const SizedBox(height: 160),
+                ],
               ),
             ),
-        ],
-      ),
 
-      // 🎯 الشريط السفلي المنحني التفاعلي - مطابق 100% للتصميم الأصلي
+            // 🧠 شريط البحث الذكي - يظهر حسب الحالة
+            if (_searchBarState != SearchBarState.hidden)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(12, 40, 12, 10),
+                  color: Colors.transparent, // بدون خلفية
+                  child: _buildAnimatedSearchBar(),
+                ),
+              ),
+          ],
+        ),
+      ),
       bottomNavigationBar: CurvedNavigationBar(
         index: _currentNavIndex,
         items: <Widget>[
@@ -749,7 +731,8 @@ class _NewProductsPageState extends State<NewProductsPage> {
                           fontWeight: FontWeight.bold,
                           foreground: Paint()
                             ..style = PaintingStyle.stroke
-                            ..strokeWidth = 1.2 // تصغير من 1.5 إلى 1.2
+                            ..strokeWidth =
+                                1.2 // تصغير من 1.5 إلى 1.2
                             ..color = Colors.black.withValues(alpha: 0.3),
                         ),
                       ),
@@ -806,21 +789,18 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         context.go('/favorites');
                       },
                       child: Container(
-                        width: 32, // تصغير من 40 إلى 32
-                        height: 32, // تصغير من 40 إلى 32
-                        margin: const EdgeInsets.only(left: 6), // تصغير من 8 إلى 6
+                        width: 36, // تكبير قليلاً من 32 إلى 36
+                        height: 36, // تكبير قليلاً من 32 إلى 36
+                        margin: const EdgeInsets.only(left: 6),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFF6B6B).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFFF6B6B).withValues(alpha: 0.3),
-                            width: 1,
-                          ),
+                          border: Border.all(color: const Color(0xFFFF6B6B).withValues(alpha: 0.3), width: 1),
                         ),
                         child: const Icon(
                           Icons.favorite_outline,
                           color: Color(0xFFFF6B6B),
-                          size: 16, // تصغير من 20 إلى 16
+                          size: 18, // تكبير قليلاً من 16 إلى 18
                         ),
                       ),
                     ),
@@ -830,8 +810,8 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         context.go('/cart');
                       },
                       child: Container(
-                        width: 32, // تصغير من 40 إلى 32
-                        height: 32, // تصغير من 40 إلى 32
+                        width: 36, // تكبير قليلاً من 32 إلى 36
+                        height: 36, // تكبير قليلاً من 32 إلى 36
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
@@ -843,10 +823,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                             ],
                           ),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFFffd700).withValues(alpha: 0.6),
-                            width: 1.5,
-                          ),
+                          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.6), width: 1.5),
                           boxShadow: [
                             BoxShadow(
                               color: const Color(0xFFffd700).withValues(alpha: 0.3),
@@ -864,7 +841,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         child: const Icon(
                           Icons.shopping_cart_outlined,
                           color: Colors.white,
-                          size: 16, // تصغير من 20 إلى 16
+                          size: 18, // تكبير قليلاً من 16 إلى 18
                         ),
                       ),
                     ),
@@ -877,8 +854,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
       ),
     );
   }
-
-
 
   // بناء البانر الرئيسي
   Widget _buildMainBanner() {
@@ -897,16 +872,9 @@ class _NewProductsPageState extends State<NewProductsPage> {
             ],
           ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFFffd700).withValues(alpha: 0.4),
-            width: 1.5,
-          ),
+          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1.5),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8)),
           ],
         ),
         child: Center(
@@ -923,9 +891,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                     height: 60,
                     child: CircularProgressIndicator(
                       strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        const Color(0xFFffd700).withValues(alpha: 0.3),
-                      ),
+                      valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFffd700).withValues(alpha: 0.3)),
                     ),
                   ),
                   // الدائرة الداخلية
@@ -934,9 +900,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                     height: 40,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFFffd700),
-                      ),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
                     ),
                   ),
                   // أيقونة في المنتصف
@@ -954,11 +918,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.image,
-                      color: Colors.white,
-                      size: 12,
-                    ),
+                    child: const Icon(Icons.image, color: Colors.white, size: 12),
                   ),
                 ],
               ),
@@ -993,16 +953,9 @@ class _NewProductsPageState extends State<NewProductsPage> {
             ],
           ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFFffd700).withValues(alpha: 0.4),
-            width: 1.5,
-          ),
+          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1.5),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8)),
           ],
         ),
         child: Center(
@@ -1014,16 +967,9 @@ class _NewProductsPageState extends State<NewProductsPage> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFffd700).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                    width: 2,
-                  ),
+                  border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 2),
                 ),
-                child: const Icon(
-                  Icons.image_outlined,
-                  color: Color(0xFFffd700),
-                  size: 40,
-                ),
+                child: const Icon(Icons.image_outlined, color: Color(0xFFffd700), size: 40),
               ),
               const SizedBox(height: 16),
               Text(
@@ -1059,156 +1005,135 @@ class _NewProductsPageState extends State<NewProductsPage> {
               _pauseAutoSlide();
             },
             itemBuilder: (context, index) {
-          final banner = _banners[index];
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: const Color(0xFFffd700).withValues(alpha: 0.4),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
+              final banner = _banners[index];
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8)),
+                  ],
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Stack(
-                children: [
-                  // صورة البانر بأفضل جودة
-                  Positioned.fill(
-                    child: Image.network(
-                      banner['image_url'] ?? '',
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppDesignSystem.primaryBackground,
-                                const Color(0xFF2D3748).withValues(alpha: 0.8),
-                                const Color(0xFF1A202C).withValues(alpha: 0.9),
-                              ],
-                            ),
-                          ),
-                          child: Center(
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 50,
-                                  height: 50,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
-                                      Color(0xFFffd700),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Stack(
+                    children: [
+                      // صورة البانر بأفضل جودة
+                      Positioned.fill(
+                        child: Image.network(
+                          banner['image_url'] ?? '',
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppDesignSystem.primaryBackground,
+                                    const Color(0xFF2D3748).withValues(alpha: 0.8),
+                                    const Color(0xFF1A202C).withValues(alpha: 0.9),
+                                  ],
+                                ),
+                              ),
+                              child: Center(
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    SizedBox(
+                                      width: 50,
+                                      height: 50,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
+                                        value: loadingProgress.expectedTotalBytes != null
+                                            ? loadingProgress.cumulativeBytesLoaded /
+                                                  loadingProgress.expectedTotalBytes!
+                                            : null,
+                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                                        backgroundColor: const Color(0xFFffd700).withValues(alpha: 0.2),
+                                      ),
                                     ),
-                                    backgroundColor: const Color(0xFFffd700).withValues(alpha: 0.2),
-                                  ),
+                                    const Icon(Icons.image, color: Color(0xFFffd700), size: 20),
+                                  ],
                                 ),
-                                const Icon(
-                                  Icons.image,
-                                  color: Color(0xFFffd700),
-                                  size: 20,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppDesignSystem.primaryBackground,
+                                    const Color(0xFF2D3748).withValues(alpha: 0.8),
+                                    const Color(0xFF1A202C).withValues(alpha: 0.9),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                AppDesignSystem.primaryBackground,
-                                const Color(0xFF2D3748).withValues(alpha: 0.8),
-                                const Color(0xFF1A202C).withValues(alpha: 0.9),
-                              ],
-                            ),
-                          ),
-                          child: Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.red.withValues(alpha: 0.3),
-                                      width: 2,
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red.withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 2),
+                                      ),
+                                      child: const Icon(Icons.error_outline, color: Colors.red, size: 30),
                                     ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.error_outline,
-                                    color: Colors.red,
-                                    size: 30,
-                                  ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'خطأ في تحميل الصورة',
+                                      style: GoogleFonts.cairo(
+                                        color: Colors.red.withValues(alpha: 0.8),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'خطأ في تحميل الصورة',
-                                  style: GoogleFonts.cairo(
-                                    color: Colors.red.withValues(alpha: 0.8),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    ),
-    // مؤشرات النقاط إذا كان هناك أكثر من بانر واحد
-    if (_banners.length > 1)
-      Container(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            _banners.length,
-            (index) => AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: _currentBannerIndex == index ? 12 : 8,
-              height: 8,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(4),
-                color: _currentBannerIndex == index
-                    ? const Color(0xFFffd700)
-                    : const Color(0xFFffd700).withValues(alpha: 0.4),
+                ),
+              );
+            },
+          ),
+        ),
+        // مؤشرات النقاط إذا كان هناك أكثر من بانر واحد
+        if (_banners.length > 1)
+          Container(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _banners.length,
+                (index) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: _currentBannerIndex == index ? 12 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    color: _currentBannerIndex == index
+                        ? const Color(0xFFffd700)
+                        : const Color(0xFFffd700).withValues(alpha: 0.4),
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
-    ],
+      ],
     );
   }
 
@@ -1236,10 +1161,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
           stops: const [0.0, 0.5, 1.0],
         ),
         borderRadius: BorderRadius.circular(50),
-        border: Border.all(
-          color: AppDesignSystem.goldColor.withValues(alpha: 0.4),
-          width: 1.2,
-        ),
+        border: Border.all(color: AppDesignSystem.goldColor.withValues(alpha: 0.4), width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.25),
@@ -1260,18 +1182,12 @@ class _NewProductsPageState extends State<NewProductsPage> {
         child: TextField(
           controller: _searchController,
           focusNode: _originalSearchFocus, // ربط FocusNode
-          style: GoogleFonts.cairo(
-            color: AppDesignSystem.primaryTextColor,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: GoogleFonts.cairo(color: AppDesignSystem.primaryTextColor, fontSize: 16, fontWeight: FontWeight.w500),
           textAlign: TextAlign.right,
           onTap: () {
             // وضع المؤشر في النهاية عند النقر لتجنب تحديد النص
             final text = _searchController.text;
-            _searchController.selection = TextSelection.collapsed(
-              offset: text.length,
-            );
+            _searchController.selection = TextSelection.collapsed(offset: text.length);
           },
           onChanged: (value) {
             if (mounted) {
@@ -1284,10 +1200,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
           },
           decoration: InputDecoration(
             hintText: 'ابحث عن المنتجات...',
-            hintStyle: GoogleFonts.cairo(
-              color: AppDesignSystem.primaryTextColor.withValues(alpha: 0.6),
-              fontSize: 14,
-            ),
+            hintStyle: GoogleFonts.cairo(color: AppDesignSystem.primaryTextColor.withValues(alpha: 0.6), fontSize: 14),
             prefixIcon: Container(
               padding: const EdgeInsets.all(14),
               child: Icon(
@@ -1315,28 +1228,19 @@ class _NewProductsPageState extends State<NewProductsPage> {
             border: InputBorder.none,
             focusedBorder: InputBorder.none,
             enabledBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 16,
-            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           ),
         ),
       ),
     );
   }
 
-
-
   // بناء شبكة المنتجات
   Widget _buildProductsGrid() {
     if (_isLoadingProducts) {
       return const SizedBox(
         height: 200,
-        child: Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF6B7180),
-          ),
-        ),
+        child: Center(child: CircularProgressIndicator(color: Color(0xFF6B7180))),
       );
     }
 
@@ -1348,35 +1252,45 @@ class _NewProductsPageState extends State<NewProductsPage> {
             _searchController.text.isNotEmpty
                 ? 'لا توجد نتائج للبحث "${_searchController.text}"'
                 : 'لا توجد منتجات متاحة',
-            style: GoogleFonts.cairo(
-              color: Colors.white70,
-              fontSize: 16,
-            ),
+            style: GoogleFonts.cairo(color: Colors.white70, fontSize: 16),
             textAlign: TextAlign.center,
           ),
         ),
       );
     }
 
+    // 🎯 حساب المسافات والأعمدة الذكية بناءً على حجم الشاشة
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
+    final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
+    final mainAxisSpacing = screenWidth > 400 ? 20.0 : (screenWidth > 350 ? 18.0 : 16.0);
+
+    // 🧠 تحديد عدد الأعمدة بناءً على عرض الشاشة
+    int crossAxisCount;
+    if (screenWidth > 600) {
+      crossAxisCount = 3; // تابلت أو شاشات كبيرة
+    } else if (screenWidth > 480) {
+      crossAxisCount = 3; // شاشات كبيرة
+    } else {
+      crossAxisCount = 2; // هواتف عادية
+    }
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12),
+      margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: child,
-          );
+          return FadeTransition(opacity: animation, child: child);
         },
         child: GridView.builder(
           key: ValueKey(_filteredProducts.length), // مفتاح للتحكم في الانيميشن
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.63, // تقليل ارتفاع البطاقة
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount, // 🧠 عدد أعمدة ذكي
+            crossAxisSpacing: crossAxisSpacing, // 🎯 مسافة ذكية أفقية
+            mainAxisSpacing: mainAxisSpacing, // 🎯 مسافة ذكية عمودية
+            childAspectRatio: _calculateOptimalAspectRatio(context, crossAxisCount), // 🧠 نسبة ذكية متكيفة
           ),
           itemCount: _filteredProducts.length,
           itemBuilder: (context, index) {
@@ -1392,310 +1306,401 @@ class _NewProductsPageState extends State<NewProductsPage> {
     );
   }
 
+  // 🧠 حساب النسبة المثلى للبطاقات بناءً على حجم الشاشة - نظام ذكي جداً
+  double _calculateOptimalAspectRatio(BuildContext context, [int? columns]) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final screenHeight = mediaQuery.size.height;
+    final devicePixelRatio = mediaQuery.devicePixelRatio;
+
+    // حساب النسبة الأساسية للشاشة
+    final screenAspectRatio = screenWidth / screenHeight;
+
+    // تصنيف الشاشات بناءً على العرض والكثافة
+    double baseRatio;
+
+    if (screenWidth <= 320) {
+      // شاشات صغيرة جداً (iPhone SE القديم) - نسبة أطول لإظهار كامل البطاقة
+      baseRatio = 0.55;
+    } else if (screenWidth <= 375) {
+      // شاشات صغيرة (iPhone 8, iPhone SE الجديد)
+      baseRatio = 0.58;
+    } else if (screenWidth <= 414) {
+      // شاشات متوسطة (iPhone 8 Plus, iPhone 11 Pro)
+      baseRatio = 0.60;
+    } else if (screenWidth <= 428) {
+      // شاشات كبيرة (iPhone 12 Pro Max, iPhone 13 Pro Max)
+      baseRatio = 0.62;
+    } else if (screenWidth <= 480) {
+      // شاشات كبيرة جداً أو تابلت صغير
+      baseRatio = 0.65;
+    } else {
+      // تابلت أو شاشات عريضة
+      baseRatio = 0.68;
+    }
+
+    // تعديل النسبة بناءً على نسبة العرض إلى الارتفاع للشاشة
+    if (screenAspectRatio > 0.6) {
+      // شاشات عريضة (مناظر طبيعية أو تابلت) - نحتاج بطاقات أطول
+      baseRatio -= 0.05;
+    } else if (screenAspectRatio < 0.45) {
+      // شاشات طويلة جداً (هواتف حديثة) - نحتاج بطاقات أطول
+      baseRatio -= 0.08;
+    }
+
+    // تعديل بناءً على كثافة البكسل
+    if (devicePixelRatio > 3.0) {
+      // شاشات عالية الدقة - نحتاج بطاقات أطول قليلاً
+      baseRatio -= 0.05;
+    } else if (devicePixelRatio < 2.0) {
+      // شاشات منخفضة الدقة
+      baseRatio -= 0.02;
+    }
+
+    // تعديل بناءً على عدد الأعمدة
+    if (columns != null && columns > 2) {
+      // إذا كان لدينا 3 أعمدة أو أكثر، نحتاج بطاقات أطول
+      baseRatio -= 0.08;
+    }
+
+    // ضمان أن النسبة ضمن حدود معقولة لإظهار كامل البطاقة - أقصر للهواتف
+    return baseRatio.clamp(0.64, 0.64); // تقليل الارتفاع لجميع الهواتف
+  }
+
+  // 🎯 بناء شريط التبليغات الذكي مع تأثير التقليب
+  Widget _buildSmartNotificationBar(Product product) {
+    // حماية إضافية من القيم الفارغة
+    if (product.notificationTags.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return _NotificationBarWidget(product: product);
+  }
+
   // بناء بطاقة المنتج - تصميم ملفت ومبهر 🎨✨
   Widget _buildProductCard(Product product) {
-    return GestureDetector(
-      onTap: () {
-        context.go('/products/details/${product.id}');
-      },
-      child: Container(
-      width: MediaQuery.of(context).size.width * 0.47, // تكبير العرض
-      height: 320, // ارتفاع كافي لجميع العناصر
-      margin: const EdgeInsets.only(right: 8, bottom: 16), // تقليل المسافة الجانبية
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF363940),
-            Color(0xFF2D3748),
-            Color(0x003D414B),
-          ],
-          stops: [0.0, 0.7, 1.0],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-          BoxShadow(
-            color: const Color(0xFF6B7180).withValues(alpha: 0.1),
-            blurRadius: 40,
-            offset: const Offset(0, 16),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          // تأثير الإضاءة المتحركة
-          Positioned(
-            right: -40,
-            top: -40,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  colors: [
-                    const Color(0xFF6B7180).withValues(alpha: 0.2),
-                    const Color(0xFF4A5568).withValues(alpha: 0.1),
-                    Colors.transparent,
-                  ],
-                ),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-
-          // تأثير إضاءة من الأسفل
-          Positioned(
-            left: -20,
-            bottom: -20,
-            child: Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  colors: [
-                    Colors.blue.withValues(alpha: 0.15),
-                    Colors.transparent,
-                  ],
-                ),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-
-
-
-          // شريط عدد القطع - تصميم بسيط وجميل في الزاوية
-          Positioned(
-            left: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4), // طول أكثر
-              decoration: BoxDecoration(
-                color: AppDesignSystem.goldColor.withValues(alpha: 0.9),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24), // يتبع زاوية البطاقة
-                  bottomRight: Radius.circular(16),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.inventory_2_rounded,
-                    color: Colors.black,
-                    size: 15,
-                  ),
-                  const SizedBox(width: 6), // مسافة أكبر من الأيقونة
-                  Text(
-                    '${product.availableFrom}-${product.availableTo}',
-                    style: GoogleFonts.cairo(
-                      color: Colors.black,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // منطقة الصورة - بدون فراغ مع الشريط
-          Positioned(
-            left: 12,
-            top: 28, // بدون فراغ مع شريط عدد القطع
-            right: 12,
-            child: Container(
-              height: 210, // ارتفاع محسن للصورة
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Stack(
-                  children: [
-                    // خلفية متدرجة خفيفة للصورة
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.white.withValues(alpha: 0.05),
-                            Colors.transparent,
-                          ],
-                        ),
+    return TweenAnimationBuilder<double>(
+      duration: Duration(milliseconds: 800),
+      tween: Tween(begin: 0.0, end: 1.0),
+      builder: (context, animationValue, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - animationValue)), // 🌊 تأثير الانزلاق من الأسفل
+          child: Transform.scale(
+            scale: 0.8 + (0.2 * animationValue), // 🎭 تأثير التكبير التدريجي
+            child: Opacity(
+              opacity: animationValue, // ✨ تأثير الظهور التدريجي
+              child: GestureDetector(
+                onTap: () {
+                  context.go('/products/details/${product.id}');
+                },
+                // 🎭 تأثير الطفو عند اللمس
+                onTapDown: (_) => setState(() {}),
+                onTapUp: (_) => setState(() {}),
+                onTapCancel: () => setState(() {}),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    // إزالة الأبعاد الثابتة لتتكيف مع النسبة الذكية
+                    margin: const EdgeInsets.only(right: 8, bottom: 16), // تقليل المسافة الجانبية
+                    clipBehavior: Clip.antiAlias, // قطع التضبيب داخل الحدود
+                    decoration: BoxDecoration(
+                      // 🔮 خلفية متناسقة مع الخلفية الخرافية
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.06), // شفاف أكثر
+                          Colors.white.withValues(alpha: 0.03), // شفاف جداً
+                          const Color(0xFF1A1F2E).withValues(alpha: 0.2), // يتناسق مع الخلفية
+                        ],
+                        stops: [0.0, 0.5, 1.0],
                       ),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.12), // حدود أخف
+                        width: 1.2,
+                      ),
+                      // بدون ظل
                     ),
-                    // الصورة
-                    product.images.isNotEmpty
-                        ? Image.network(
-                            product.images.first,
-                            fit: BoxFit.contain,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (context, error, stackTrace) {
-                              return Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.05),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt_outlined,
-                                  color: Colors.white60,
-                                  size: 50,
-                                ),
-                              );
-                            },
-                          )
-                        : Container(
+                    child: Stack(
+                      children: [
+                        // تأثير الإضاءة المتحركة
+                        Positioned(
+                          right: -40,
+                          top: -40,
+                          child: Container(
+                            width: 140,
+                            height: 140,
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt_outlined,
-                              color: Colors.white60,
-                              size: 50,
+                              gradient: RadialGradient(
+                                colors: [
+                                  const Color(0xFF6B7180).withValues(alpha: 0.2),
+                                  const Color(0xFF4A5568).withValues(alpha: 0.1),
+                                  Colors.transparent,
+                                ],
+                              ),
+                              shape: BoxShape.circle,
                             ),
                           ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+                        ),
 
-          // اسم المنتج بدون مسافة مع الصورة
-          Positioned(
-            left: 12,
-            right: 12,
-            top: 245, // بدون مسافة مع الصورة (28 + 210 + 7)
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withValues(alpha: 0.6),
-                    Colors.black.withValues(alpha: 0.3),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                product.name,
-                style: GoogleFonts.cairo(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
-                maxLines: 1, // سطر واحد فقط
-                overflow: TextOverflow.ellipsis, // تحويل إلى ...
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
+                        // تأثير إضاءة من الأسفل
+                        Positioned(
+                          left: -20,
+                          bottom: -20,
+                          child: Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              gradient: RadialGradient(
+                                colors: [Colors.blue.withValues(alpha: 0.15), Colors.transparent],
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
 
-          // السعر وزر القلب وزر الإضافة - قريب من اسم المنتج
-          Positioned(
-            left: 12,
-            right: 12,
-            top: 280, // قريب من اسم المنتج مباشرة
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withValues(alpha: 0.4),
-                    Colors.black.withValues(alpha: 0.2),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // السعر أكبر
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.amber.withValues(alpha: 0.6),
-                          Colors.orange.withValues(alpha: 0.4),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.amber.withValues(alpha: 0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
+                        // شريط عدد القطع - تصميم بسيط وجميل في الزاوية
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // أصغر قليلاً
+                            decoration: BoxDecoration(
+                              color: AppDesignSystem.goldColor.withValues(alpha: 0.9), // إرجاع الأصفر لعدد القطع
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(24), // يتبع زاوية البطاقة
+                                bottomRight: Radius.circular(16),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.inventory_2_rounded,
+                                  color: Colors.black,
+                                  size: 12, // أصغر قليلاً
+                                ),
+                                const SizedBox(width: 4), // مسافة أصغر
+                                Text(
+                                  '${product.availableFrom}-${product.availableTo}',
+                                  style: GoogleFonts.cairo(
+                                    color: Colors.black,
+                                    fontSize: 10, // أصغر قليلاً
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // 🎯 شريط التبليغات الذكي - يظهر فقط إذا كان هناك تبليغات
+                        if (product.notificationTags.isNotEmpty)
+                          Positioned(right: 0, top: 0, child: _buildSmartNotificationBar(product)),
+
+                        // منطقة الصورة - موسعة لحد البطاقة مع رفع قليل
+                        Positioned(
+                          left: 6, // توسيع للحد
+                          top: 22, // رفع قليل للوصول لشريط عدد القطع بمسافة بسيطة
+                          right: 6, // توسيع للحد
+                          child: Container(
+                            height: 160, // تقليل الارتفاع لتقليل طول البطاقة
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: Stack(
+                                children: [
+                                  // 🖼️ خلفية شفافة تماماً لإظهار الخلفية الخرافية
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.transparent, // شفاف تماماً
+                                          Colors.transparent, // شفاف تماماً
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  // منطقة الصورة موسعة لحد البطاقة
+                                  Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    height: 160, // نفس الارتفاع الجديد
+                                    child: product.images.isNotEmpty
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(16),
+                                            child: Image.network(
+                                              product.images.first,
+                                              fit: BoxFit.cover,
+                                              width: double.infinity,
+                                              height: 140,
+                                              errorBuilder: (context, error, stackTrace) {
+                                                return Container(
+                                                  height: 140,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white.withValues(alpha: 0.05),
+                                                    borderRadius: BorderRadius.circular(16),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.camera_alt_outlined,
+                                                    color: Colors.white60,
+                                                    size: 50,
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          )
+                                        : Container(
+                                            height: 140,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(alpha: 0.05),
+                                              borderRadius: BorderRadius.circular(16),
+                                            ),
+                                            child: const Icon(
+                                              Icons.camera_alt_outlined,
+                                              color: Colors.white60,
+                                              size: 50,
+                                            ),
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // اسم المنتج أسفل الصورة مباشرة مع مسافة قليلة جداً
+                        Positioned(
+                          left: 6,
+                          right: 6,
+                          top: 186, // أسفل الصورة مباشرة (22 + 160 + 4)
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // تقليل padding العمودي
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF1A1F2E).withValues(alpha: 0.7), // متناسق مع الخلفية
+                                  const Color(0xFF0F1419).withValues(alpha: 0.4), // متناسق مع الخلفية
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.08), // أخف
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              product.name,
+                              style: FontHelper.cairo(
+                                color: Colors.white,
+                                fontSize: 12, // إرجاع الحجم الأصلي
+                                fontWeight: FontWeight.w700,
+                                height: 1.2, // إرجاع الارتفاع الأصلي
+                              ),
+                              maxLines: 1, // سطر واحد فقط مع النقاط
+                              overflow: TextOverflow.ellipsis, // تحويل إلى ...
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+
+                        // السعر وزر القلب وزر الإضافة - أسفل اسم المنتج مباشرة
+                        Positioned(
+                          left: 5,
+                          right: 5,
+                          top: 213, // تقليل المسافة لمنع القطع (186 + 24)
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.black.withValues(alpha: 0.4), Colors.black.withValues(alpha: 0.2)],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                            ),
+                            child: Row(
+                              children: [
+                                // السعر على اليسار - عرض محدد لمنع الدفع
+                                Container(
+                                  constraints: const BoxConstraints(maxWidth: 80), // عرض محدد
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.amber.withValues(alpha: 0.6),
+                                        Colors.orange.withValues(alpha: 0.4),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.amber.withValues(alpha: 0.2),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 1),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Text(
+                                    _formatPrice(product.wholesalePrice),
+                                    style: FontHelper.cairo(
+                                      color: Colors.white,
+                                      fontSize: 12, // أصغر قليلاً
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+
+                                // مساحة مرنة لدفع الأزرار لليمين
+                                const Spacer(),
+
+                                // الأزرار في أقصى اليمين ملاصقين تماماً
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // زر القلب - أكبر قليلاً
+                                    Transform.scale(scale: 0.85, child: _buildHeartButton(product)),
+
+                                    // زر الإضافة ملاصق للقلب تماماً - أكبر قليلاً
+                                    Transform.scale(scale: 0.75, child: _buildAnimatedAddButton(product)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
-                    ),
-                    child: Text(
-                      '${_formatPrice(product.wholesalePrice)} د.ع',
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-
-                  // زر القلب بسيط وصغير
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    child: _buildHeartButton(product),
-                  ),
-
-                  // زر الإضافة مصغر قليلاً
-                  Transform.scale(
-                    scale: 0.9,
-                    child: _buildAnimatedAddButton(product),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-      ),
-    );
+                    ), // إغلاق Stack
+                  ), // إغلاق AnimatedContainer
+                ), // إغلاق ClipRRect
+              ), // إغلاق GestureDetector
+            ), // إغلاق Opacity
+          ), // إغلاق Transform.scale
+        ); // إغلاق Transform.translate
+      }, // إغلاق builder
+    ); // إغلاق TweenAnimationBuilder
   }
 
   // زر الإضافة المتحرك المحسن 🛒✨
@@ -1731,33 +1736,21 @@ class _NewProductsPageState extends State<NewProductsPage> {
               ? const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF4CAF50),
-                    Color(0xFF45A049),
-                    Color(0xFF388E3C),
-                  ],
+                  colors: [Color(0xFF4CAF50), Color(0xFF45A049), Color(0xFF388E3C)],
                 )
               : const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF6F757F),
-                    Color(0xFF4A5568),
-                    Color(0xFF2D3748),
-                  ],
+                  colors: [Color(0xFF6F757F), Color(0xFF4A5568), Color(0xFF2D3748)],
                 ),
           borderRadius: BorderRadius.circular(isInCart ? 18 : 12),
           border: Border.all(
-            color: isInCart
-                ? Colors.white.withValues(alpha: 0.3)
-                : Colors.white.withValues(alpha: 0.2),
+            color: isInCart ? Colors.white.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.2),
             width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: isInCart
-                  ? Colors.green.withValues(alpha: 0.3)
-                  : Colors.black.withValues(alpha: 0.3),
+              color: isInCart ? Colors.green.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3),
               blurRadius: isInCart ? 12 : 8,
               offset: const Offset(0, 4),
             ),
@@ -1793,10 +1786,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                 transitionBuilder: (Widget child, Animation<double> animation) {
                   return ScaleTransition(
                     scale: animation,
-                    child: FadeTransition(
-                      opacity: animation,
-                      child: child,
-                    ),
+                    child: FadeTransition(opacity: animation, child: child),
                   );
                 },
                 child: isInCart
@@ -1808,20 +1798,11 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         builder: (context, value, child) {
                           return Transform.scale(
                             scale: value,
-                            child: const Icon(
-                              Icons.check_rounded,
-                              color: Colors.white,
-                              size: 22,
-                            ),
+                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 22),
                           );
                         },
                       )
-                    : const Icon(
-                        key: ValueKey('add'),
-                        Icons.add_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                    : const Icon(key: ValueKey('add'), Icons.add_rounded, color: Colors.white, size: 20),
               ),
             ),
           ],
@@ -1848,19 +1829,13 @@ class _NewProductsPageState extends State<NewProductsPage> {
             setState(() {}); // تحديث الواجهة
 
             // إظهار رسالة تأكيد
-            final message = isLiked
-                ? 'تم إزالة ${product.name} من المفضلة'
-                : 'تم إضافة ${product.name} للمفضلة';
+            final message = isLiked ? 'تم إزالة ${product.name} من المفضلة' : 'تم إضافة ${product.name} للمفضلة';
 
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
                   message,
-                  style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
                 ),
                 backgroundColor: isLiked ? Colors.red : Colors.green,
                 duration: const Duration(seconds: 2),
@@ -1879,40 +1854,21 @@ class _NewProductsPageState extends State<NewProductsPage> {
         height: 32,
         decoration: BoxDecoration(
           gradient: isLiked
-              ? const LinearGradient(
-                  colors: [
-                    Color(0xFFFF6B6B),
-                    Color(0xFFFF5252),
-                    Color(0xFFE91E63),
-                  ],
-                )
-              : LinearGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: 0.1),
-                    Colors.white.withValues(alpha: 0.05),
-                  ],
-                ),
+              ? const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFF5252), Color(0xFFE91E63)])
+              : LinearGradient(colors: [Colors.white.withValues(alpha: 0.1), Colors.white.withValues(alpha: 0.05)]),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isLiked
-                ? Colors.white.withValues(alpha: 0.3)
-                : Colors.white.withValues(alpha: 0.2),
+            color: isLiked ? Colors.white.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.2),
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: isLiked
-                  ? Colors.red.withValues(alpha: 0.4)
-                  : Colors.black.withValues(alpha: 0.2),
+              color: isLiked ? Colors.red.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.2),
               blurRadius: isLiked ? 15 : 8,
               offset: const Offset(0, 4),
             ),
             if (isLiked)
-              BoxShadow(
-                color: Colors.red.withValues(alpha: 0.2),
-                blurRadius: 25,
-                offset: const Offset(0, 8),
-              ),
+              BoxShadow(color: Colors.red.withValues(alpha: 0.2), blurRadius: 25, offset: const Offset(0, 8)),
           ],
         ),
         child: AnimatedScale(
@@ -1927,10 +1883,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
       ),
     );
   }
-
-
-
-
 
   // إضافة منتج إلى السلة
   Future<void> _addToCart(Product product) async {
@@ -1950,11 +1902,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
           SnackBar(
             content: Text(
               'تم إضافة ${product.name} إلى السلة',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
             ),
             backgroundColor: const Color(0xFF28a745),
             duration: const Duration(seconds: 2),
@@ -1970,11 +1918,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
           SnackBar(
             content: Text(
               'خطأ في إضافة المنتج: $e',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
             ),
             backgroundColor: const Color(0xFFdc3545),
             duration: const Duration(seconds: 3),
@@ -1987,7 +1931,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
     }
   }
 
-  // 🔥 أقوى أنيميشن لف مثل الجريدة في العالم! �
   // 🧠 شريط البحث الذكي - يتكيف مع جميع الحالات
   Widget _buildAnimatedSearchBar() {
     return AnimatedSwitcher(
@@ -1999,14 +1942,8 @@ class _NewProductsPageState extends State<NewProductsPage> {
           position: Tween<Offset>(
             begin: const Offset(-1.0, 0.0),
             end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack,
-          )),
-          child: FadeTransition(
-            opacity: animation,
-            child: child,
-          ),
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutBack)),
+          child: FadeTransition(opacity: animation, child: child),
         );
       },
       child: _buildSearchBarContent(),
@@ -2044,35 +1981,32 @@ class _NewProductsPageState extends State<NewProductsPage> {
               height: 50,
               margin: const EdgeInsets.only(left: 0),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFD4AF37), Color(0xFFB8941F)],
-                ),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(25),
-                  bottomRight: Radius.circular(25),
-                ),
+                gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFB8941F)]),
+                borderRadius: const BorderRadius.only(topRight: Radius.circular(25), bottomRight: Radius.circular(25)),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(2, 4),
-                  ),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(2, 4)),
                 ],
               ),
               child: IconButton(
-                icon: const Icon(
-                  Icons.search_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
+                icon: const Icon(Icons.search_rounded, color: Colors.white, size: 22),
                 onPressed: () {
-                  // حماية من النقرات المتعددة السريعة
-                  if (!mounted || _searchBarState == SearchBarState.expanded) return;
+                  // حماية شاملة من النقرات المتعددة والحالات الخاطئة
+                  if (!mounted || _searchBarState == SearchBarState.expanded || !context.mounted) return;
 
                   try {
+                    // إزالة أي تركيز نشط
+                    FocusScope.of(context).unfocus();
+
+                    // تحديث الحالة مباشرة بدون async
                     _updateSearchBarState(SearchBarState.expanded);
                   } catch (e) {
                     debugPrint('❌ خطأ في فتح شريط البحث: $e');
+                    // في حالة الخطأ، إعادة تعيين الحالة
+                    if (mounted) {
+                      setState(() {
+                        _searchBarState = SearchBarState.buttonOnly;
+                      });
+                    }
                   }
                 },
               ),
@@ -2091,13 +2025,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
       decoration: BoxDecoration(
         color: AppDesignSystem.primaryBackground.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 2))],
       ),
       child: Row(
         children: [
@@ -2207,11 +2135,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
               color: Colors.red.withValues(alpha: 0.8),
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
-                BoxShadow(
-                  color: Colors.red.withValues(alpha: 0.3),
-                  blurRadius: 6,
-                  offset: const Offset(0, 3),
-                ),
+                BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3)),
               ],
             ),
             child: IconButton(
@@ -2229,14 +2153,93 @@ class _NewProductsPageState extends State<NewProductsPage> {
                   debugPrint('❌ خطأ في إغلاق شريط البحث: $e');
                 }
               },
-              icon: const Icon(
-                Icons.close_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
+              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _NotificationBarWidget extends StatefulWidget {
+  final Product product;
+
+  const _NotificationBarWidget({required this.product});
+
+  @override
+  State<_NotificationBarWidget> createState() => _NotificationBarWidgetState();
+}
+
+class _NotificationBarWidgetState extends State<_NotificationBarWidget> {
+  int currentIndex = 0;
+  Timer? notificationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // بدء التقليب التلقائي إذا كان هناك أكثر من تبليغ واحد
+    final tags = widget.product.notificationTags;
+    if (tags.length > 1) {
+      notificationTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+        if (mounted && tags.isNotEmpty) {
+          setState(() {
+            currentIndex = (currentIndex + 1) % tags.length;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    notificationTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 🎯 حماية مضاعفة من القيم الفارغة
+    final tags = widget.product.notificationTags;
+    if (tags.isEmpty || currentIndex >= tags.length) {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
+      child: Container(
+        key: ValueKey(tags[currentIndex]), // مفتاح فريد لكل تبليغ
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF6B73FF).withValues(alpha: 0.9), // بنفسجي متناسق
+              const Color(0xFF9D4EDD).withValues(alpha: 0.8), // بنفسجي فاتح
+            ],
+          ),
+          borderRadius: const BorderRadius.only(
+            topRight: Radius.circular(24), // يتبع زاوية البطاقة
+            bottomLeft: Radius.circular(16),
+          ),
+          boxShadow: [
+            BoxShadow(color: const Color(0xFF6B73FF).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.campaign_rounded, // أيقونة التبليغ
+              color: Colors.white,
+              size: 12,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              tags[currentIndex],
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
       ),
     );
   }

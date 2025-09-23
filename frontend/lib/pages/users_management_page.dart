@@ -1,11 +1,13 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 import '../models/admin_user.dart';
 import '../models/user_statistics.dart';
 import '../services/user_management_service.dart';
-import 'user_details_page.dart';
 import 'add_user_page.dart';
+import 'user_details_page.dart';
 
 class UsersManagementPage extends StatefulWidget {
   const UsersManagementPage({super.key});
@@ -46,8 +48,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       _loadMoreUsers();
     }
   }
@@ -140,22 +141,14 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
   }
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -175,11 +168,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
       elevation: 0,
       title: const Text(
         'إدارة المستخدمين',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -187,27 +176,15 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
       ),
       actions: [
         IconButton(
-          icon: const FaIcon(
-            FontAwesomeIcons.chartLine,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: const FaIcon(FontAwesomeIcons.chartLine, color: Colors.white, size: 20),
           onPressed: _showStatisticsDialog,
         ),
         IconButton(
-          icon: const FaIcon(
-            FontAwesomeIcons.filter,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: const FaIcon(FontAwesomeIcons.filter, color: Colors.white, size: 20),
           onPressed: _showFilterDialog,
         ),
         IconButton(
-          icon: const FaIcon(
-            FontAwesomeIcons.arrowsRotate,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: const FaIcon(FontAwesomeIcons.arrowsRotate, color: Colors.white, size: 20),
           onPressed: _loadInitialData,
         ),
       ],
@@ -233,27 +210,15 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                 ),
               ],
             ),
-            child: const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFFffc107),
-                strokeWidth: 3,
-              ),
-            ),
+            child: const Center(child: CircularProgressIndicator(color: Color(0xFFffc107), strokeWidth: 3)),
           ),
           const SizedBox(height: 24),
           const Text(
             'جاري تحميل بيانات المستخدمين...',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'قد يستغرق هذا بضع ثوانٍ',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
-          ),
+          const Text('قد يستغرق هذا بضع ثوانٍ', style: TextStyle(color: Colors.white54, fontSize: 12)),
         ],
       ),
     );
@@ -263,9 +228,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
     return Column(
       children: [
         _buildSearchAndStats(),
-        Expanded(
-          child: _users.isEmpty ? _buildEmptyState() : _buildUsersList(),
-        ),
+        Expanded(child: _users.isEmpty ? _buildEmptyState() : _buildUsersList()),
       ],
     );
   }
@@ -275,10 +238,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
       ),
       child: Column(
         children: [
@@ -298,18 +258,12 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                 hintStyle: TextStyle(color: Colors.white54),
                 prefixIcon: Icon(Icons.search, color: Color(0xFFffc107)),
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
           ),
 
-          if (_statistics != null) ...[
-            const SizedBox(height: 16),
-            _buildQuickStats(),
-          ],
+          if (_statistics != null) ...[const SizedBox(height: 16), _buildQuickStats()],
         ],
       ),
     );
@@ -357,12 +311,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
     );
   }
 
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -376,11 +325,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(
-              color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: color, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Text(
@@ -398,19 +343,11 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const FaIcon(
-            FontAwesomeIcons.userSlash,
-            color: Colors.white30,
-            size: 64,
-          ),
+          const FaIcon(FontAwesomeIcons.userSlash, color: Colors.white30, size: 64),
           const SizedBox(height: 16),
           const Text(
             'لا توجد مستخدمين',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -430,9 +367,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
               backgroundColor: const Color(0xFFffc107),
               foregroundColor: Colors.black,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ],
@@ -458,9 +393,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       alignment: Alignment.center,
-      child: _isLoadingMore
-          ? const CircularProgressIndicator(color: Color(0xFFffc107))
-          : const SizedBox.shrink(),
+      child: _isLoadingMore ? const CircularProgressIndicator(color: Color(0xFFffc107)) : const SizedBox.shrink(),
     );
   }
 
@@ -470,10 +403,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
       decoration: BoxDecoration(
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: user.isOnline ? const Color(0xFF4CAF50) : Colors.transparent,
-          width: 2,
-        ),
+        border: Border.all(color: user.isOnline ? const Color(0xFF4CAF50) : Colors.transparent, width: 2),
       ),
       child: InkWell(
         onTap: () => _navigateToUserDetails(user),
@@ -490,19 +420,11 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                       CircleAvatar(
                         radius: 30,
                         backgroundColor: const Color(0xFFffc107),
-                        backgroundImage: user.avatarUrl != null
-                            ? NetworkImage(user.avatarUrl!)
-                            : null,
+                        backgroundImage: user.avatarUrl != null ? NetworkImage(user.avatarUrl!) : null,
                         child: user.avatarUrl == null
                             ? Text(
-                                user.name.isNotEmpty
-                                    ? user.name[0].toUpperCase()
-                                    : 'U',
-                                style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                                style: const TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
                               )
                             : null,
                       ),
@@ -516,10 +438,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF4CAF50),
                               shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFF1a1a2e),
-                                width: 2,
-                              ),
+                              border: Border.all(color: const Color(0xFF1a1a2e), width: 2),
                             ),
                           ),
                         ),
@@ -537,61 +456,38 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                             Expanded(
                               child: Text(
                                 user.name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                             ),
                             _buildUserStatusBadge(user),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          user.phone,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
+                        Text(user.phone, style: const TextStyle(color: Colors.white70, fontSize: 14)),
                         const SizedBox(height: 4),
                         Row(
                           children: [
                             FaIcon(
-                              user.isAdmin
-                                  ? FontAwesomeIcons.userTie
-                                  : FontAwesomeIcons.user,
-                              color: user.isAdmin
-                                  ? const Color(0xFFFF9800)
-                                  : const Color(0xFF2196F3),
+                              user.isAdmin ? FontAwesomeIcons.userTie : FontAwesomeIcons.user,
+                              color: user.isAdmin ? const Color(0xFFFF9800) : const Color(0xFF2196F3),
                               size: 12,
                             ),
                             const SizedBox(width: 6),
                             Text(
                               user.roleDisplay,
                               style: TextStyle(
-                                color: user.isAdmin
-                                    ? const Color(0xFFFF9800)
-                                    : const Color(0xFF2196F3),
+                                color: user.isAdmin ? const Color(0xFFFF9800) : const Color(0xFF2196F3),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                             const SizedBox(width: 16),
                             if (user.lastLogin != null) ...[
-                              const FaIcon(
-                                FontAwesomeIcons.clock,
-                                color: Colors.white54,
-                                size: 12,
-                              ),
+                              const FaIcon(FontAwesomeIcons.clock, color: Colors.white54, size: 12),
                               const SizedBox(width: 6),
                               Text(
                                 _formatLastLogin(user.lastLogin!),
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                ),
+                                style: const TextStyle(color: Colors.white54, fontSize: 12),
                               ),
                             ],
                           ],
@@ -602,11 +498,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
 
                   // أزرار الإجراءات
                   PopupMenuButton<String>(
-                    icon: const FaIcon(
-                      FontAwesomeIcons.ellipsisVertical,
-                      color: Colors.white70,
-                      size: 16,
-                    ),
+                    icon: const FaIcon(FontAwesomeIcons.ellipsisVertical, color: Colors.white70, size: 16),
                     color: const Color(0xFF0f1419),
                     onSelected: (value) => _handleUserAction(user, value),
                     itemBuilder: (context) => [
@@ -614,16 +506,9 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                         value: 'view',
                         child: Row(
                           children: [
-                            FaIcon(
-                              FontAwesomeIcons.eye,
-                              color: Color(0xFF2196F3),
-                              size: 16,
-                            ),
+                            FaIcon(FontAwesomeIcons.eye, color: Color(0xFF2196F3), size: 16),
                             SizedBox(width: 12),
-                            Text(
-                              'عرض التفاصيل',
-                              style: TextStyle(color: Colors.white),
-                            ),
+                            Text('عرض التفاصيل', style: TextStyle(color: Colors.white)),
                           ],
                         ),
                       ),
@@ -631,16 +516,9 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                         value: 'edit',
                         child: Row(
                           children: [
-                            FaIcon(
-                              FontAwesomeIcons.penToSquare,
-                              color: Color(0xFFFF9800),
-                              size: 16,
-                            ),
+                            FaIcon(FontAwesomeIcons.penToSquare, color: Color(0xFFFF9800), size: 16),
                             SizedBox(width: 12),
-                            Text(
-                              'تعديل',
-                              style: TextStyle(color: Colors.white),
-                            ),
+                            Text('تعديل', style: TextStyle(color: Colors.white)),
                           ],
                         ),
                       ),
@@ -649,19 +527,12 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                         child: Row(
                           children: [
                             FaIcon(
-                              user.isActive
-                                  ? FontAwesomeIcons.userSlash
-                                  : FontAwesomeIcons.userCheck,
-                              color: user.isActive
-                                  ? const Color(0xFFF44336)
-                                  : const Color(0xFF4CAF50),
+                              user.isActive ? FontAwesomeIcons.userSlash : FontAwesomeIcons.userCheck,
+                              color: user.isActive ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
                               size: 16,
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              user.isActive ? 'تعطيل' : 'تفعيل',
-                              style: const TextStyle(color: Colors.white),
-                            ),
+                            Text(user.isActive ? 'تعطيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
                           ],
                         ),
                       ),
@@ -669,11 +540,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                         value: 'delete',
                         child: Row(
                           children: [
-                            FaIcon(
-                              FontAwesomeIcons.trash,
-                              color: Color(0xFFF44336),
-                              size: 16,
-                            ),
+                            FaIcon(FontAwesomeIcons.trash, color: Color(0xFFF44336), size: 16),
                             SizedBox(width: 12),
                             Text('حذف', style: TextStyle(color: Colors.white)),
                           ],
@@ -725,11 +592,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
           const SizedBox(width: 4),
           Text(
             text,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -764,10 +627,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
   }
 
   void _navigateToUserDetails(AdminUser user) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => UserDetailsPage(user: user)),
-    ).then((result) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => UserDetailsPage(user: user))).then((result) {
       if (result == true) {
         _loadInitialData();
       }
@@ -775,10 +635,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
   }
 
   void _navigateToAddUser() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AddUserPage()),
-    ).then((result) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const AddUserPage())).then((result) {
       if (result == true) {
         _loadInitialData();
       }
@@ -811,15 +668,10 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
 
   Future<void> _toggleUserStatus(AdminUser user) async {
     try {
-      final success = await UserManagementService.toggleUserStatus(
-        user.id,
-        !user.isActive,
-      );
+      final success = await UserManagementService.toggleUserStatus(user.id, !user.isActive);
 
       if (success) {
-        _showSuccessSnackBar(
-          user.isActive ? 'تم تعطيل المستخدم بنجاح' : 'تم تفعيل المستخدم بنجاح',
-        );
+        _showSuccessSnackBar(user.isActive ? 'تم تعطيل المستخدم بنجاح' : 'تم تفعيل المستخدم بنجاح');
         _loadInitialData();
       } else {
         _showErrorSnackBar('فشل في تغيير حالة المستخدم');
@@ -840,15 +692,10 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF44336),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF44336)),
             child: const Text('حذف'),
           ),
         ],
@@ -878,70 +725,29 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        title: const Text(
-          'إحصائيات المستخدمين',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('إحصائيات المستخدمين', style: TextStyle(color: Colors.white)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildStatRow(
-                'إجمالي المستخدمين',
-                _statistics!.totalUsers.toString(),
-              ),
-              _buildStatRow(
-                'المستخدمين النشطين',
-                _statistics!.activeUsers.toString(),
-              ),
-              _buildStatRow(
-                'المستخدمين غير النشطين',
-                _statistics!.inactiveUsers.toString(),
-              ),
+              _buildStatRow('إجمالي المستخدمين', _statistics!.totalUsers.toString()),
+              _buildStatRow('المستخدمين النشطين', _statistics!.activeUsers.toString()),
+              _buildStatRow('المستخدمين غير النشطين', _statistics!.inactiveUsers.toString()),
               _buildStatRow('المديرين', _statistics!.adminUsers.toString()),
-              _buildStatRow(
-                'المستخدمين العاديين',
-                _statistics!.regularUsers.toString(),
-              ),
-              _buildStatRow(
-                'المتصلين الآن',
-                _statistics!.onlineUsers.toString(),
-              ),
+              _buildStatRow('المستخدمين العاديين', _statistics!.regularUsers.toString()),
+              _buildStatRow('المتصلين الآن', _statistics!.onlineUsers.toString()),
               const Divider(color: Colors.white30),
-              _buildStatRow(
-                'تسجيلات اليوم',
-                _statistics!.todayRegistrations.toString(),
-              ),
-              _buildStatRow(
-                'تسجيلات الأسبوع',
-                _statistics!.weekRegistrations.toString(),
-              ),
-              _buildStatRow(
-                'تسجيلات الشهر',
-                _statistics!.monthRegistrations.toString(),
-              ),
+              _buildStatRow('تسجيلات اليوم', _statistics!.todayRegistrations.toString()),
+              _buildStatRow('تسجيلات الأسبوع', _statistics!.weekRegistrations.toString()),
+              _buildStatRow('تسجيلات الشهر', _statistics!.monthRegistrations.toString()),
               const Divider(color: Colors.white30),
-              _buildStatRow(
-                'إجمالي المبيعات',
-                '${_statistics!.totalSales.toStringAsFixed(0)} د.ع',
-              ),
-              _buildStatRow(
-                'متوسط قيمة الطلب',
-                '${_statistics!.averageOrderValue.toStringAsFixed(0)} د.ع',
-              ),
-              _buildStatRow(
-                'إجمالي الطلبات',
-                _statistics!.totalOrders.toString(),
-              ),
+              _buildStatRow('إجمالي المبيعات', '${_statistics!.totalSales.toStringAsFixed(0)} د.ع'),
+              _buildStatRow('متوسط قيمة الطلب', '${_statistics!.averageOrderValue.toStringAsFixed(0)} د.ع'),
+              _buildStatRow('إجمالي الطلبات', _statistics!.totalOrders.toString()),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إغلاق'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق'))],
       ),
     );
   }
@@ -955,10 +761,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
           Text(label, style: const TextStyle(color: Colors.white70)),
           Text(
             value,
-            style: const TextStyle(
-              color: Color(0xFFffc107),
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Color(0xFFffc107), fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -970,17 +773,14 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        title: const Text(
-          'فلترة المستخدمين',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('فلترة المستخدمين', style: TextStyle(color: Colors.white)),
         content: StatefulBuilder(
           builder: (context, setState) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // فلتر الحالة
               DropdownButtonFormField<String>(
-                value: _statusFilter,
+                initialValue: _statusFilter,
                 decoration: const InputDecoration(
                   labelText: 'الحالة',
                   labelStyle: TextStyle(color: Colors.white70),
@@ -1000,7 +800,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
 
               // فلتر الترتيب
               DropdownButtonFormField<String>(
-                value: _sortBy,
+                initialValue: _sortBy,
                 decoration: const InputDecoration(
                   labelText: 'ترتيب حسب',
                   labelStyle: TextStyle(color: Colors.white70),
@@ -1008,23 +808,11 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
                 dropdownColor: const Color(0xFF0f1419),
                 style: const TextStyle(color: Colors.white),
                 items: const [
-                  DropdownMenuItem<String>(
-                    value: 'created_at',
-                    child: Text('تاريخ التسجيل'),
-                  ),
+                  DropdownMenuItem<String>(value: 'created_at', child: Text('تاريخ التسجيل')),
                   DropdownMenuItem<String>(value: 'name', child: Text('الاسم')),
-                  DropdownMenuItem<String>(
-                    value: 'last_login',
-                    child: Text('آخر دخول'),
-                  ),
-                  DropdownMenuItem<String>(
-                    value: 'total_orders',
-                    child: Text('عدد الطلبات'),
-                  ),
-                  DropdownMenuItem<String>(
-                    value: 'total_sales',
-                    child: Text('إجمالي المبيعات'),
-                  ),
+                  DropdownMenuItem<String>(value: 'last_login', child: Text('آخر دخول')),
+                  DropdownMenuItem<String>(value: 'total_orders', child: Text('عدد الطلبات')),
+                  DropdownMenuItem<String>(value: 'total_sales', child: Text('إجمالي المبيعات')),
                 ],
                 onChanged: (value) => setState(() => _sortBy = value!),
               ),
@@ -1032,10 +820,7 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
 
               // اتجاه الترتيب
               SwitchListTile(
-                title: const Text(
-                  'ترتيب تصاعدي',
-                  style: TextStyle(color: Colors.white),
-                ),
+                title: const Text('ترتيب تصاعدي', style: TextStyle(color: Colors.white)),
                 value: _ascending,
                 onChanged: (value) => setState(() => _ascending = value),
                 thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
@@ -1049,19 +834,13 @@ class _UsersManagementPageState extends State<UsersManagementPage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _onFilterChanged();
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffc107),
-              foregroundColor: Colors.black,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffc107), foregroundColor: Colors.black),
             child: const Text('تطبيق'),
           ),
         ],

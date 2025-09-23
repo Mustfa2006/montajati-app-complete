@@ -19,6 +19,20 @@ subprojects {
 }
 
 
+// Fix: Ensure third-party library 'image_gallery_saver' has a namespace and compiles with SDK 36
+subprojects {
+    if (project.name == "image_gallery_saver") {
+        plugins.withId("com.android.library") {
+            extensions.configure(com.android.build.gradle.LibraryExtension::class.java) {
+                // Provide a deterministic namespace to satisfy AGP 8+
+                namespace = "com.image_gallery_saver.generated"
+                // Satisfy plugins requiring Android SDK 36
+                compileSdk = 36
+            }
+        }
+    }
+}
+
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }

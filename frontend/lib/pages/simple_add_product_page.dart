@@ -33,6 +33,10 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
   bool _isLoading = false;
   List<ProductColorInput> _selectedColors = []; // الألوان المختارة
 
+  // 🎯 نظام التبليغات الذكي
+  List<String> _notificationTags = []; // قائمة التبليغات
+  final TextEditingController _notificationController = TextEditingController();
+
   final List<String> _categories = [
     'عام',
     'إلكترونيات',
@@ -58,6 +62,24 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
   void dispose() {
     _stockQuantityController.removeListener(_calculateSmartRange);
     super.dispose();
+  }
+
+  // 🎯 إضافة تبليغ جديد
+  void _addNotificationTag() {
+    final tag = _notificationController.text.trim();
+    if (tag.isNotEmpty && !_notificationTags.contains(tag) && _notificationTags.length < 5) {
+      setState(() {
+        _notificationTags.add(tag);
+        _notificationController.clear();
+      });
+    }
+  }
+
+  // 🎯 حذف تبليغ
+  void _removeNotificationTag(int index) {
+    setState(() {
+      _notificationTags.removeAt(index);
+    });
   }
 
   /// حساب النطاق الذكي تلقائياً عند تغيير الكمية الإجمالية
@@ -247,6 +269,10 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                 },
                 initialColors: _selectedColors,
               ),
+              const SizedBox(height: 20),
+
+              // 🎯 قسم التبليغات الذكي
+              _buildNotificationSection(),
               const SizedBox(height: 30),
 
               // زر الحفظ
@@ -349,6 +375,176 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
             });
           },
         ),
+      ),
+    );
+  }
+
+  // 🎯 بناء قسم التبليغات الذكي
+  Widget _buildNotificationSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16213e),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: const Color(0xFF6B73FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.campaign_rounded,
+                color: const Color(0xFF6B73FF),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'التبليغات الذكية',
+                style: GoogleFonts.cairo(
+                  color: const Color(0xFF6B73FF),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'أضف تبليغات تظهر على بطاقة المنتج (مثل: قابل للتجديد، عليها طلب، جديد)',
+            style: GoogleFonts.cairo(
+              color: Colors.grey[400],
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 15),
+
+          // حقل إضافة تبليغ جديد
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _notificationController,
+                  style: GoogleFonts.cairo(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'اكتب التبليغ هنا...',
+                    hintStyle: GoogleFonts.cairo(color: Colors.grey[500]),
+                    filled: true,
+                    fillColor: const Color(0xFF1a1a2e),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey[600]!),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: Colors.grey[600]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0xFF6B73FF)),
+                    ),
+                  ),
+                  maxLength: 20, // حد أقصى للطول
+                ),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton(
+                onPressed: _addNotificationTag,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6B73FF),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Icon(Icons.add),
+              ),
+            ],
+          ),
+          const SizedBox(height: 15),
+
+          // عرض التبليغات المضافة
+          if (_notificationTags.isNotEmpty) ...[
+            Text(
+              'التبليغات المضافة:',
+              style: GoogleFonts.cairo(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _notificationTags.asMap().entries.map((entry) {
+                final index = entry.key;
+                final tag = entry.value;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        const Color(0xFF6B73FF).withValues(alpha: 0.8),
+                        const Color(0xFF9D4EDD).withValues(alpha: 0.6),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        tag,
+                        style: GoogleFonts.cairo(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () => _removeNotificationTag(index),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ] else ...[
+            Container(
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.grey[800]?.withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey[600]!),
+              ),
+              child: Center(
+                child: Text(
+                  'لم يتم إضافة تبليغات بعد',
+                  style: GoogleFonts.cairo(
+                    color: Colors.grey[400],
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            '💡 ملاحظة: إذا أضفت أكثر من تبليغ، ستتقلب كل 4 ثواني على بطاقة المنتج',
+            style: GoogleFonts.cairo(
+              color: Colors.orange,
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -860,6 +1056,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
           stockQuantity: stockQuantity,
           availableFrom: availableFrom,
           availableTo: availableTo,
+          notificationTags: _notificationTags.isNotEmpty ? _notificationTags : null, // 🎯 إضافة التبليغات
         );
       } catch (e) {
         // إذا فشلت الخدمة الجديدة، استخدم الخدمة الأساسية

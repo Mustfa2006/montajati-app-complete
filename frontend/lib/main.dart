@@ -5,26 +5,29 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'config/supabase_config.dart';
+
 import 'config/api_config.dart';
+import 'config/supabase_config.dart';
 import 'providers/order_status_provider.dart';
-
 import 'router.dart';
-
-
 import 'services/database_migration_service.dart';
+import 'services/fcm_service.dart';
+import 'services/global_orders_cache.dart';
+import 'services/lazy_loading_service.dart';
 import 'services/location_cache_service.dart';
 import 'services/order_monitoring_service.dart';
-import 'services/fcm_service.dart';
 import 'services/order_status_monitor.dart';
 import 'services/smart_profit_transfer.dart';
-import 'services/lazy_loading_service.dart';
-import 'services/global_orders_cache.dart';
-
-
+import 'widgets/immersive_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🔥 إعداد النمط الغامر - Status Bar ثابت + Navigation Bar مخفي
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.manual,
+    overlays: [SystemUiOverlay.top], // Status Bar ثابت فقط
+  );
 
   // إعداد معالج الأخطاء العام
   FlutterError.onError = (FlutterErrorDetails details) {
@@ -44,17 +47,10 @@ void main() async {
             children: [
               const Icon(Icons.error, size: 64, color: Colors.red),
               const SizedBox(height: 16),
-              const Text(
-                'حدث خطأ في التطبيق',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text('حدث خطأ في التطبيق', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               if (kDebugMode)
-                Text(
-                  'الخطأ: ${details.exception}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                Text('الخطأ: ${details.exception}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
@@ -105,15 +101,9 @@ void main() async {
               children: [
                 Icon(Icons.warning, size: 64, color: Colors.orange),
                 SizedBox(height: 16),
-                Text(
-                  'التطبيق يعمل في الوضع الآمن',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                Text('التطبيق يعمل في الوضع الآمن', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 SizedBox(height: 8),
-                Text(
-                  'يرجى إعادة تشغيل التطبيق',
-                  style: TextStyle(fontSize: 14),
-                ),
+                Text('يرجى إعادة تشغيل التطبيق', style: TextStyle(fontSize: 14)),
               ],
             ),
           ),
@@ -131,10 +121,7 @@ void _initializeAllServicesInBackground() {
       debugPrint('🔄 بدء تحميل جميع الخدمات في الخلفية...');
 
       // تحميل الخدمات بالتوازي لتوفير الوقت
-      await Future.wait([
-        _initializeSupabase(),
-        _initializeOtherServices(),
-      ], eagerError: false);
+      await Future.wait([_initializeSupabase(), _initializeOtherServices()], eagerError: false);
 
       debugPrint('✅ تم تحميل جميع الخدمات في الخلفية بنجاح');
     } catch (e) {
@@ -186,7 +173,6 @@ Future<void> _initializeOtherServices() async {
 
     // تحميل باقي الخدمات
     await _initializeAllServices();
-
   } catch (e) {
     debugPrint('❌ خطأ في تهيئة الخدمات الأخرى: $e');
   }
@@ -204,8 +190,6 @@ Future<void> _initializeAllServices() async {
     }
 
     // Supabase تم تهيئته بالفعل في الخدمات الأساسية
-
-
 
     // 🚀 التحميل الذكي: فقط الأساسيات عند البدء
     debugPrint('🚀 بدء التحميل الذكي - الأساسيات فقط...');
@@ -225,8 +209,6 @@ Future<void> _initializeAllServices() async {
     LazyLoadingService.preloadImportantPages();
 
     debugPrint('✅ تم بدء التطبيق بسرعة - الخدمات تُحمل في الخلفية');
-
-
 
     // تم تعطيل المراقبة التلقائية لتسريع بدء التشغيل
     // يمكن تفعيلها من إعدادات التطبيق عند الحاجة
@@ -278,10 +260,7 @@ class MontajatiApp extends StatelessWidget {
         fontFamily: GoogleFonts.cairo().fontFamily,
 
         // إعدادات النصوص
-        textTheme: GoogleFonts.cairoTextTheme().apply(
-          bodyColor: Colors.white,
-          displayColor: Colors.white,
-        ),
+        textTheme: GoogleFonts.cairoTextTheme().apply(bodyColor: Colors.white, displayColor: Colors.white),
 
         // إعدادات الألوان العامة
         colorScheme: ColorScheme.fromSeed(
@@ -300,11 +279,7 @@ class MontajatiApp extends StatelessWidget {
           backgroundColor: const Color(0xFF16213e),
           foregroundColor: Colors.white,
           elevation: 0,
-          titleTextStyle: GoogleFonts.cairo(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+          titleTextStyle: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
         ),
 
         // إعدادات الأزرار
@@ -312,13 +287,8 @@ class MontajatiApp extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFffd700),
             foregroundColor: const Color(0xFF1a1a2e),
-            textStyle: GoogleFonts.cairo(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            textStyle: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
 
@@ -326,17 +296,12 @@ class MontajatiApp extends StatelessWidget {
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white.withValues(alpha: 0.1),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Color(0xFFffd700), width: 2),
           ),
-          labelStyle: GoogleFonts.cairo(
-            color: Colors.white.withValues(alpha: 0.7),
-          ),
+          labelStyle: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7)),
         ),
       ),
 
@@ -354,9 +319,11 @@ class MontajatiApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
 
-      // اتجاه النص من اليمين لليسار
+      // اتجاه النص من اليمين لليسار + النمط الغامر
       builder: (context, child) {
-        return Directionality(textDirection: TextDirection.rtl, child: child!);
+        return ImmersiveWrapper(
+          child: Directionality(textDirection: TextDirection.rtl, child: child!),
+        );
       },
     );
   }

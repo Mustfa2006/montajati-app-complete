@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+
 import '../services/admin_service.dart';
 import '../utils/order_status_helper.dart';
 
@@ -11,12 +13,10 @@ class AdvancedOrderDetailsPage extends StatefulWidget {
   const AdvancedOrderDetailsPage({super.key, required this.orderId});
 
   @override
-  State<AdvancedOrderDetailsPage> createState() =>
-      _AdvancedOrderDetailsPageState();
+  State<AdvancedOrderDetailsPage> createState() => _AdvancedOrderDetailsPageState();
 }
 
-class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
-    with TickerProviderStateMixin {
+class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage> with TickerProviderStateMixin {
   // بيانات الطلب
   AdminOrder? _order;
   bool _isLoading = true;
@@ -45,29 +45,19 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   }
 
   void _initializeAnimations() {
-    _statusAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
+    _statusAnimationController = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
 
-    _cardAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
+    _cardAnimationController = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
 
-    _statusAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _statusAnimationController,
-        curve: Curves.elasticOut,
-      ),
-    );
+    _statusAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _statusAnimationController, curve: Curves.elasticOut));
 
-    _cardAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _cardAnimationController,
-        curve: Curves.easeOutBack,
-      ),
-    );
+    _cardAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _cardAnimationController, curve: Curves.easeOutBack));
   }
 
   Future<void> _loadOrderDetails() async {
@@ -75,9 +65,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       setState(() => _isLoading = true);
 
       final order = await AdminService.getOrderDetails(widget.orderId);
-      final statusHistory = await AdminService.getOrderStatusHistory(
-        widget.orderId,
-      );
+      final statusHistory = await AdminService.getOrderStatusHistory(widget.orderId);
 
       setState(() {
         _order = order;
@@ -118,11 +106,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       elevation: 0,
       title: Text(
         _order != null ? 'طلب #${_order!.orderNumber}' : 'تفاصيل الطلب',
-        style: const TextStyle(
-          color: Color(0xFFffd700),
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+        style: const TextStyle(color: Color(0xFFffd700), fontSize: 20, fontWeight: FontWeight.bold),
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Color(0xFFffd700)),
@@ -148,14 +132,9 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
-          ),
+          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700))),
           SizedBox(height: 20),
-          Text(
-            'جاري تحميل تفاصيل الطلب...',
-            style: TextStyle(color: Colors.white, fontSize: 16),
-          ),
+          Text('جاري تحميل تفاصيل الطلب...', style: TextStyle(color: Colors.white, fontSize: 16)),
         ],
       ),
     );
@@ -164,10 +143,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   Widget _buildContent() {
     if (_order == null) {
       return const Center(
-        child: Text(
-          'لم يتم العثور على الطلب',
-          style: TextStyle(color: Colors.white, fontSize: 18),
-        ),
+        child: Text('لم يتم العثور على الطلب', style: TextStyle(color: Colors.white, fontSize: 18)),
       );
     }
 
@@ -183,12 +159,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [
-              _buildOverviewTab(),
-              _buildItemsTab(),
-              _buildStatusHistoryTab(),
-              _buildActionsTab(),
-            ],
+            children: [_buildOverviewTab(), _buildItemsTab(), _buildStatusHistoryTab(), _buildActionsTab()],
           ),
         ),
       ],
@@ -252,15 +223,10 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           const SizedBox(height: 16),
           if (_statusHistory.isEmpty)
             const Center(
-              child: Text(
-                'لا يوجد سجل للحالات حتى الآن',
-                style: TextStyle(color: Colors.white70, fontSize: 16),
-              ),
+              child: Text('لا يوجد سجل للحالات حتى الآن', style: TextStyle(color: Colors.white70, fontSize: 16)),
             )
           else
-            ..._statusHistory.map(
-              (history) => _buildStatusHistoryItem(history),
-            ),
+            ..._statusHistory.map((history) => _buildStatusHistoryItem(history)),
         ],
       ),
     );
@@ -283,17 +249,13 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
 
   void _showErrorSnackBar(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red));
     }
   }
 
   void _showSuccessSnackBar(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.green),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.green));
     }
   }
 
@@ -322,28 +284,22 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           backgroundColor: const Color(0xFF1a1a2e),
           title: Text(
             'تحديث حالة الطلب',
-            style: GoogleFonts.cairo(
-              color: const Color(0xFFffd700),
-              fontWeight: FontWeight.bold,
-            ),
+            style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontWeight: FontWeight.bold),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'الحالة الحالية: $currentStatus',
-                style: GoogleFonts.cairo(color: Colors.white70),
-              ),
+              Text('الحالة الحالية: $currentStatus', style: GoogleFonts.cairo(color: Colors.white70)),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
-                value: selectedStatus,
-                hint: selectedStatus.isEmpty ? Text('اختر الحالة', style: GoogleFonts.cairo(color: Colors.white70)) : null,
+                initialValue: selectedStatus,
+                hint: selectedStatus.isEmpty
+                    ? Text('اختر الحالة', style: GoogleFonts.cairo(color: Colors.white70))
+                    : null,
                 decoration: InputDecoration(
                   labelText: 'الحالة الجديدة',
                   labelStyle: GoogleFonts.cairo(color: Colors.white70),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 dropdownColor: const Color(0xFF1a1a2e),
                 style: GoogleFonts.cairo(color: Colors.white),
@@ -351,10 +307,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                   debugPrint('🔍 DROPDOWN ITEM: ${status['id']} -> ${status['text']}');
                   return DropdownMenuItem<String>(
                     value: status['id'], // إرسال الرقم بدلاً من النص
-                    child: Text(
-                      status['text']!,
-                      style: GoogleFonts.cairo(color: Colors.white),
-                    ),
+                    child: Text(status['text']!, style: GoogleFonts.cairo(color: Colors.white)),
                   );
                 }).toList(),
                 onChanged: (value) {
@@ -368,10 +321,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(
-                'إلغاء',
-                style: GoogleFonts.cairo(color: Colors.grey),
-              ),
+              child: Text('إلغاء', style: GoogleFonts.cairo(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: selectedStatus == _order!.status
@@ -384,10 +334,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 backgroundColor: const Color(0xFFffd700),
                 foregroundColor: const Color(0xFF1a1a2e),
               ),
-              child: Text(
-                'تحديث',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-              ),
+              child: Text('تحديث', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -438,10 +385,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   String _getCurrentStatusId(String currentStatus) {
     // إذا كانت الحالة رقم بالفعل وموجودة في القائمة، أرجعها
     final statusOptions = _getStatusOptions();
-    final existingOption = statusOptions.firstWhere(
-      (option) => option['id'] == currentStatus,
-      orElse: () => {},
-    );
+    final existingOption = statusOptions.firstWhere((option) => option['id'] == currentStatus, orElse: () => {});
 
     if (existingOption.isNotEmpty) {
       return currentStatus;
@@ -499,8 +443,6 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     ];
   }
 
-
-
   // بطاقة حالة الطلب المتحركة
   Widget _buildStatusCard() {
     final statusColor = OrderStatusHelper.getStatusColor(_order!.status);
@@ -516,22 +458,13 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  statusColor.withValues(alpha: 0.2),
-                  statusColor.withValues(alpha: 0.1),
-                ],
+                colors: [statusColor.withValues(alpha: 0.2), statusColor.withValues(alpha: 0.1)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(15),
               border: Border.all(color: statusColor, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: statusColor.withValues(alpha: 0.3),
-                  blurRadius: 15,
-                  spreadRadius: 2,
-                ),
-              ],
+              boxShadow: [BoxShadow(color: statusColor.withValues(alpha: 0.3), blurRadius: 15, spreadRadius: 2)],
             ),
             child: Column(
               children: [
@@ -539,10 +472,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: statusColor,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(12)),
                       child: Icon(statusIcon, color: Colors.white, size: 24),
                     ),
                     const SizedBox(width: 15),
@@ -552,19 +482,12 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                         children: [
                           Text(
                             'حالة الطلب',
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              fontSize: 14,
-                            ),
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
                           ),
                           const SizedBox(height: 5),
                           Text(
                             statusText,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -582,18 +505,14 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                     Expanded(
                       child: _buildStatusInfoItem(
                         'آخر تحديث',
-                        DateFormat(
-                          'yyyy/MM/dd HH:mm',
-                        ).format(_order!.createdAt),
+                        DateFormat('yyyy/MM/dd HH:mm').format(_order!.createdAt),
                         Icons.access_time,
                       ),
                     ),
                     Expanded(
                       child: _buildStatusInfoItem(
                         'تاريخ الإنشاء',
-                        DateFormat(
-                          'yyyy/MM/dd HH:mm',
-                        ).format(_order!.createdAt),
+                        DateFormat('yyyy/MM/dd HH:mm').format(_order!.createdAt),
                         Icons.calendar_today,
                       ),
                     ),
@@ -611,29 +530,16 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     return Container(
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(10),
-      ),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
       child: Column(
         children: [
           Icon(icon, color: const Color(0xFFffd700), size: 20),
           const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
-            ),
-          ),
+          Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
           ),
         ],
@@ -655,9 +561,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               decoration: BoxDecoration(
                 color: const Color(0xFF16213e),
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                ),
+                border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -667,19 +571,11 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                     children: [
                       Row(
                         children: [
-                          const Icon(
-                            Icons.person,
-                            color: Color(0xFFffd700),
-                            size: 24,
-                          ),
+                          const Icon(Icons.person, color: Color(0xFFffd700), size: 24),
                           const SizedBox(width: 10),
                           const Text(
                             'معلومات العميل',
-                            style: TextStyle(
-                              color: Color(0xFFffd700),
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: TextStyle(color: Color(0xFFffd700), fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -690,43 +586,22 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFffd700),
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           textStyle: const TextStyle(fontSize: 12),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 15),
-                  _buildInfoRow(
-                    'الاسم',
-                    _order!.customerName,
-                    Icons.person_outline,
-                  ),
+                  _buildInfoRow('الاسم', _order!.customerName, Icons.person_outline),
                   _buildInfoRow(
                     'الهاتف',
-                    _order!.customerPhone.isNotEmpty
-                        ? _order!.customerPhone
-                        : 'غير محدد',
+                    _order!.customerPhone.isNotEmpty ? _order!.customerPhone : 'غير محدد',
                     Icons.phone,
                   ),
-                  _buildInfoRow(
-                    'الرقم البديل',
-                    _order!.customerAlternatePhone ?? 'غير محدد',
-                    Icons.phone_android,
-                  ),
-                  _buildInfoRow(
-                    'المحافظة',
-                    _order!.customerProvince ?? 'غير محدد',
-                    Icons.location_on,
-                  ),
-                  _buildInfoRow(
-                    'المدينة',
-                    _order!.customerCity ?? 'غير محدد',
-                    Icons.location_city,
-                  ),
+                  _buildInfoRow('الرقم البديل', _order!.customerAlternatePhone ?? 'غير محدد', Icons.phone_android),
+                  _buildInfoRow('المحافظة', _order!.customerProvince ?? 'غير محدد', Icons.location_on),
+                  _buildInfoRow('المدينة', _order!.customerCity ?? 'غير محدد', Icons.location_city),
                   _buildInfoRow(
                     'الملاحظات',
                     _order!.customerNotes != null && _order!.customerNotes!.isNotEmpty
@@ -743,12 +618,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     );
   }
 
-  Widget _buildInfoRow(
-    String label,
-    String value,
-    IconData icon, {
-    Color? color,
-  }) {
+  Widget _buildInfoRow(String label, String value, IconData icon, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -759,11 +629,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
             width: 110, // ✅ زيادة العرض لمنع الكسرة
             child: Text(
               '$label:',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w500),
               softWrap: false, // ✅ منع الكسرة
               overflow: TextOverflow.visible, // ✅ إظهار النص كاملاً
             ),
@@ -771,11 +637,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                color: color ?? Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: color ?? Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -808,9 +670,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -821,11 +681,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               const SizedBox(width: 10),
               const Text(
                 'ملخص الطلب',
-                style: TextStyle(
-                  color: Color(0xFFffd700),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Color(0xFFffd700), fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -846,17 +702,10 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-          ),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -888,11 +737,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                   const SizedBox(width: 10),
                   const Text(
                     'المعلومات المالية',
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: Colors.green, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -903,10 +748,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   textStyle: const TextStyle(fontSize: 12),
                 ),
               ),
@@ -947,12 +789,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _buildEditableFinancialItem(
-                  'الربح المستهدف',
-                  _order!.profitAmount,
-                  Colors.purple,
-                  Icons.star,
-                ),
+                child: _buildEditableFinancialItem('الربح المستهدف', _order!.profitAmount, Colors.purple, Icons.star),
               ),
             ],
           ),
@@ -961,12 +798,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     );
   }
 
-  Widget _buildFinancialItem(
-    String label,
-    String value,
-    Color color,
-    IconData icon,
-  ) {
+  Widget _buildFinancialItem(String label, String value, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -980,20 +812,13 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
-              color: color,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1001,12 +826,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     );
   }
 
-  Widget _buildEditableFinancialItem(
-    String label,
-    double value,
-    Color color,
-    IconData icon,
-  ) {
+  Widget _buildEditableFinancialItem(String label, double value, Color color, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -1020,10 +840,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           const SizedBox(height: 8),
           Text(
             label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 4),
@@ -1041,18 +858,10 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 children: [
                   Text(
                     '${value.toStringAsFixed(0)} د.ع',
-                    style: TextStyle(
-                      color: color,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 4),
-                  Icon(
-                    Icons.edit,
-                    color: color,
-                    size: 14,
-                  ),
+                  Icon(Icons.edit, color: color, size: 14),
                 ],
               ),
             ),
@@ -1069,9 +878,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -1079,11 +886,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           const SizedBox(width: 10),
           Text(
             'منتجات الطلب (${_order!.items.length})',
-            style: const TextStyle(
-              color: Color(0xFFffd700),
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Color(0xFFffd700), fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const Spacer(),
           Container(
@@ -1094,11 +897,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
             ),
             child: Text(
               'إجمالي: ${_order!.totalAmount.toStringAsFixed(0)} د.ع',
-              style: const TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -1124,17 +923,11 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
             decoration: BoxDecoration(
               color: const Color(0xFF16213e),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: const Color(0xFFffd700).withValues(alpha: 0.3),
-              ),
+              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: const Icon(
-                Icons.shopping_bag,
-                color: Color(0xFFffd700),
-                size: 30,
-              ),
+              child: const Icon(Icons.shopping_bag, color: Color(0xFFffd700), size: 30),
             ),
           ),
           const SizedBox(width: 12),
@@ -1146,11 +939,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               children: [
                 Text(
                   item.productName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -1166,19 +955,11 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                         children: [
                           Text(
                             'الكمية: ${item.quantity}',
-                            style: const TextStyle(
-                              color: Color(0xFFffd700),
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                           Text(
                             'سعر الوحدة: ${item.productPrice.toStringAsFixed(0)} د.ع',
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: const TextStyle(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -1188,18 +969,11 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                         children: [
                           Text(
                             'سعر الجملة: ${(item.wholesalePrice ?? 0).toStringAsFixed(0)} د.ع',
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                           Text(
                             'الربح: ${((item.profitPerItem ?? 0) * item.quantity).toStringAsFixed(0)} د.ع',
-                            style: const TextStyle(
-                              color: Colors.green,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -1215,31 +989,20 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFffd700).withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   '${item.totalPrice.toStringAsFixed(0)} د.ع',
-                  style: const TextStyle(
-                    color: Color(0xFFffd700),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 8),
               IconButton(
                 onPressed: () => _showEditProductPriceDialog(item),
-                icon: const Icon(
-                  Icons.edit,
-                  color: Color(0xFFffd700),
-                  size: 20,
-                ),
+                icon: const Icon(Icons.edit, color: Color(0xFFffd700), size: 20),
                 tooltip: 'تعديل السعر',
               ),
             ],
@@ -1256,9 +1019,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -1266,11 +1027,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           const SizedBox(width: 10),
           Text(
             'سجل تحديثات الحالة (${_statusHistory.length})',
-            style: const TextStyle(
-              color: Color(0xFFffd700),
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Color(0xFFffd700), fontSize: 18, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -1284,9 +1041,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1297,56 +1052,24 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               const SizedBox(width: 10),
               const Text(
                 'الإجراءات السريعة',
-                style: TextStyle(
-                  color: Color(0xFFffd700),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Color(0xFFffd700), fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 15),
           Row(
             children: [
-              Expanded(
-                child: _buildActionButton(
-                  'طباعة الطلب',
-                  Icons.print,
-                  Colors.blue,
-                  () => _printOrder(),
-                ),
-              ),
+              Expanded(child: _buildActionButton('طباعة الطلب', Icons.print, Colors.blue, () => _printOrder())),
               const SizedBox(width: 10),
-              Expanded(
-                child: _buildActionButton(
-                  'إرسال رسالة',
-                  Icons.message,
-                  Colors.green,
-                  () => _sendMessage(),
-                ),
-              ),
+              Expanded(child: _buildActionButton('إرسال رسالة', Icons.message, Colors.green, () => _sendMessage())),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                child: _buildActionButton(
-                  'تصدير PDF',
-                  Icons.picture_as_pdf,
-                  Colors.red,
-                  () => _exportToPDF(),
-                ),
-              ),
+              Expanded(child: _buildActionButton('تصدير PDF', Icons.picture_as_pdf, Colors.red, () => _exportToPDF())),
               const SizedBox(width: 10),
-              Expanded(
-                child: _buildActionButton(
-                  'مشاركة الطلب',
-                  Icons.share,
-                  Colors.purple,
-                  () => _shareOrder(),
-                ),
-              ),
+              Expanded(child: _buildActionButton('مشاركة الطلب', Icons.share, Colors.purple, () => _shareOrder())),
             ],
           ),
         ],
@@ -1371,11 +1094,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               const SizedBox(width: 10),
               const Text(
                 'الإجراءات المتقدمة',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.orange, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1423,11 +1142,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               const SizedBox(width: 10),
               const Text(
                 'المنطقة الخطرة',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.red, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1449,12 +1164,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     );
   }
 
-  Widget _buildActionButton(
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-  ) {
+  Widget _buildActionButton(String title, IconData icon, Color color, VoidCallback onPressed) {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 20),
@@ -1480,29 +1190,15 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       child: ListTile(
         leading: Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
           child: Icon(icon, color: color, size: 24),
         ),
         title: Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
         ),
-        subtitle: Text(
-          description,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          color: Colors.white54,
-          size: 16,
-        ),
+        subtitle: Text(description, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 16),
         onTap: onPressed,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: Colors.black.withValues(alpha: 0.2),
@@ -1510,40 +1206,21 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     );
   }
 
-  Widget _buildDangerActionItem(
-    String title,
-    String description,
-    IconData icon,
-    VoidCallback onPressed,
-  ) {
+  Widget _buildDangerActionItem(String title, String description, IconData icon, VoidCallback onPressed) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(8),
-          ),
+          decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
           child: Icon(icon, color: Colors.red, size: 24),
         ),
         title: Text(
           title,
-          style: const TextStyle(
-            color: Colors.red,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          style: const TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.w600),
         ),
-        subtitle: Text(
-          description,
-          style: const TextStyle(color: Colors.white70, fontSize: 14),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          color: Colors.red,
-          size: 16,
-        ),
+        subtitle: Text(description, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.red, size: 16),
         onTap: onPressed,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         tileColor: Colors.red.withValues(alpha: 0.1),
@@ -1585,10 +1262,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF16213e),
-        title: const Text(
-          'تأكيد إلغاء الطلب',
-          style: TextStyle(color: Colors.red),
-        ),
+        title: const Text('تأكيد إلغاء الطلب', style: TextStyle(color: Colors.red)),
         content: const Text(
           'هل أنت متأكد من إلغاء هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.',
           style: TextStyle(color: Colors.white),
@@ -1616,10 +1290,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF16213e),
-        title: const Text(
-          'تأكيد حذف الطلب',
-          style: TextStyle(color: Colors.red),
-        ),
+        title: const Text('تأكيد حذف الطلب', style: TextStyle(color: Colors.red)),
         content: const Text(
           'هل أنت متأكد من حذف هذا الطلب نهائياً؟ لا يمكن التراجع عن هذا الإجراء.',
           style: TextStyle(color: Colors.white),
@@ -1655,9 +1326,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
 
   void _showInfoSnackBar(String message) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.blue),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.blue));
     }
   }
 
@@ -1665,30 +1334,17 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   void _showEditCustomerDialog() {
     final nameController = TextEditingController(text: _order!.customerName);
     final phoneController = TextEditingController(text: _order!.customerPhone);
-    final alternatePhoneController = TextEditingController(
-      text: _order!.customerAlternatePhone ?? '',
-    );
-    final provinceController = TextEditingController(
-      text: _order!.customerProvince ?? '',
-    );
-    final cityController = TextEditingController(
-      text: _order!.customerCity ?? '',
-    );
-    final addressController = TextEditingController(
-      text: _order!.customerAddress,
-    );
-    final notesController = TextEditingController(
-      text: _order!.customerNotes ?? '',
-    );
+    final alternatePhoneController = TextEditingController(text: _order!.customerAlternatePhone ?? '');
+    final provinceController = TextEditingController(text: _order!.customerProvince ?? '');
+    final cityController = TextEditingController(text: _order!.customerCity ?? '');
+    final addressController = TextEditingController(text: _order!.customerAddress);
+    final notesController = TextEditingController(text: _order!.customerNotes ?? '');
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF16213e),
-        title: const Text(
-          'تعديل معلومات العميل',
-          style: TextStyle(color: Color(0xFFffd700)),
-        ),
+        title: const Text('تعديل معلومات العميل', style: TextStyle(color: Color(0xFFffd700))),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1697,28 +1353,15 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               const SizedBox(height: 12),
               _buildEditField('رقم الهاتف', phoneController, Icons.phone),
               const SizedBox(height: 12),
-              _buildEditField(
-                'الرقم البديل',
-                alternatePhoneController,
-                Icons.phone_android,
-              ),
+              _buildEditField('الرقم البديل', alternatePhoneController, Icons.phone_android),
               const SizedBox(height: 12),
-              _buildEditField(
-                'المحافظة',
-                provinceController,
-                Icons.location_on,
-              ),
+              _buildEditField('المحافظة', provinceController, Icons.location_on),
               const SizedBox(height: 12),
               _buildEditField('المدينة', cityController, Icons.location_city),
               const SizedBox(height: 12),
               _buildEditField('العنوان', addressController, Icons.home),
               const SizedBox(height: 12),
-              _buildEditField(
-                'الملاحظات',
-                notesController,
-                Icons.note,
-                maxLines: 3,
-              ),
+              _buildEditField('الملاحظات', notesController, Icons.note, maxLines: 3),
             ],
           ),
         ),
@@ -1740,9 +1383,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 notesController.text,
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffd700)),
             child: const Text('حفظ', style: TextStyle(color: Colors.black)),
           ),
         ],
@@ -1750,12 +1391,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     );
   }
 
-  Widget _buildEditField(
-    String label,
-    TextEditingController controller,
-    IconData icon, {
-    int maxLines = 1,
-  }) {
+  Widget _buildEditField(String label, TextEditingController controller, IconData icon, {int maxLines = 1}) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
@@ -1803,26 +1439,17 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   }
 
   void _showEditProfitDialog() {
-    final profitController = TextEditingController(
-      text: _order!.profitAmount.toStringAsFixed(0),
-    );
+    final profitController = TextEditingController(text: _order!.profitAmount.toStringAsFixed(0));
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF16213e),
-        title: const Text(
-          'تعديل الربح المستهدف',
-          style: TextStyle(color: Color(0xFFffd700)),
-        ),
+        title: const Text('تعديل الربح المستهدف', style: TextStyle(color: Color(0xFFffd700))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildEditField(
-              'الربح المستهدف',
-              profitController,
-              Icons.star,
-            ),
+            _buildEditField('الربح المستهدف', profitController, Icons.star),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -1835,19 +1462,12 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 children: [
                   Text(
                     'الربح المحقق حالياً: ${_order!.expectedProfit.toStringAsFixed(0)} د.ع',
-                    style: const TextStyle(
-                      color: Colors.blue,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(color: Colors.blue, fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'يمكنك تعديل الربح المستهدف لتتبع أهدافك',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
                   ),
                 ],
               ),
@@ -1862,13 +1482,9 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _updateOrderProfit(
-                double.tryParse(profitController.text) ?? _order!.profitAmount,
-              );
+              _updateOrderProfit(double.tryParse(profitController.text) ?? _order!.profitAmount);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffd700)),
             child: const Text('حفظ', style: TextStyle(color: Colors.black)),
           ),
         ],
@@ -1877,44 +1493,25 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   }
 
   void _showEditPricesDialog() {
-    final totalAmountController = TextEditingController(
-      text: _order!.totalAmount.toStringAsFixed(0),
-    );
-    final deliveryCostController = TextEditingController(
-      text: _order!.deliveryCost.toStringAsFixed(0),
-    );
+    final totalAmountController = TextEditingController(text: _order!.totalAmount.toStringAsFixed(0));
+    final deliveryCostController = TextEditingController(text: _order!.deliveryCost.toStringAsFixed(0));
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF16213e),
-        title: const Text(
-          'تعديل الأسعار',
-          style: TextStyle(color: Color(0xFFffd700)),
-        ),
+        title: const Text('تعديل الأسعار', style: TextStyle(color: Color(0xFFffd700))),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildEditField(
-                'المبلغ الإجمالي',
-                totalAmountController,
-                Icons.attach_money,
-              ),
+              _buildEditField('المبلغ الإجمالي', totalAmountController, Icons.attach_money),
               const SizedBox(height: 12),
-              _buildEditField(
-                'تكلفة التوصيل',
-                deliveryCostController,
-                Icons.local_shipping,
-              ),
+              _buildEditField('تكلفة التوصيل', deliveryCostController, Icons.local_shipping),
               const SizedBox(height: 20),
               const Text(
                 'تعديل أسعار المنتجات:',
-                style: TextStyle(
-                  color: Color(0xFFffd700),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               ..._order!.items.map((item) => _buildProductPriceEditor(item)),
@@ -1930,15 +1527,11 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
             onPressed: () {
               Navigator.pop(context);
               _updateOrderPrices(
-                double.tryParse(totalAmountController.text) ??
-                    _order!.totalAmount,
-                double.tryParse(deliveryCostController.text) ??
-                    _order!.deliveryCost,
+                double.tryParse(totalAmountController.text) ?? _order!.totalAmount,
+                double.tryParse(deliveryCostController.text) ?? _order!.deliveryCost,
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffd700)),
             child: const Text('حفظ', style: TextStyle(color: Colors.black)),
           ),
         ],
@@ -1957,20 +1550,13 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(8)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             item.productName,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Row(
@@ -1983,10 +1569,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                   decoration: InputDecoration(
                     labelText: 'السعر',
                     labelStyle: const TextStyle(color: Colors.white70),
-                    prefixIcon: const Icon(
-                      Icons.attach_money,
-                      color: Colors.white70,
-                    ),
+                    prefixIcon: const Icon(Icons.attach_money, color: Colors.white70),
                     enabledBorder: OutlineInputBorder(
                       borderSide: const BorderSide(color: Colors.white30),
                       borderRadius: BorderRadius.circular(8),
@@ -1999,10 +1582,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                'الكمية: ${item.quantity}',
-                style: const TextStyle(color: Colors.white70, fontSize: 12),
-              ),
+              Text('الكمية: ${item.quantity}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
             ],
           ),
         ],
@@ -2013,12 +1593,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
   Future<void> _updateOrderProfit(double newProfitAmount) async {
     try {
       // تحديث الربح المستهدف في قاعدة البيانات
-      await AdminService.updateOrderInfo(
-        _order!.id,
-        _order!.totalAmount,
-        _order!.deliveryCost,
-        newProfitAmount,
-      );
+      await AdminService.updateOrderInfo(_order!.id, _order!.totalAmount, _order!.deliveryCost, newProfitAmount);
 
       await _loadOrderDetails();
       _showSuccessSnackBar('تم تحديث الربح المستهدف بنجاح');
@@ -2027,10 +1602,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     }
   }
 
-  Future<void> _updateOrderPrices(
-    double newTotalAmount,
-    double newDeliveryCost,
-  ) async {
+  Future<void> _updateOrderPrices(double newTotalAmount, double newDeliveryCost) async {
     try {
       // 🧠 نظام حسابات ذكي
       await _smartCalculationSystem(newTotalAmount, newDeliveryCost);
@@ -2042,18 +1614,15 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     }
   }
 
-  Future<void> _smartCalculationSystem(
-    double newTotalAmount,
-    double newDeliveryCost,
-  ) async {
+  Future<void> _smartCalculationSystem(double newTotalAmount, double newDeliveryCost) async {
     // 📊 حساب القيم الحالية
     double currentProductsTotal = 0;
     double currentTotalCost = 0;
     List<Map<String, dynamic>> itemsData = [];
 
     for (var item in _order!.items) {
-      final currentPrice = double.tryParse(_productPriceControllers[item.id]?.text ?? '0') ??
-          (item.customerPrice ?? item.productPrice);
+      final currentPrice =
+          double.tryParse(_productPriceControllers[item.id]?.text ?? '0') ?? (item.customerPrice ?? item.productPrice);
       final wholesalePrice = item.wholesalePrice ?? 0;
       final quantity = item.quantity;
 
@@ -2079,24 +1648,17 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     debugPrint('   المجموع المستهدف للمنتجات: ${targetProductsTotal.toStringAsFixed(0)} د.ع');
     debugPrint('   التغيير المطلوب: ${totalChange.toStringAsFixed(0)} د.ع');
 
-    if (totalChange.abs() > 1) { // إذا كان التغيير أكبر من 1 دينار
+    if (totalChange.abs() > 1) {
+      // إذا كان التغيير أكبر من 1 دينار
       await _distributeChangeIntelligently(itemsData, totalChange);
     }
 
     // تحديث معلومات الطلب
     final newProfit = targetProductsTotal - currentTotalCost;
-    await AdminService.updateOrderInfo(
-      _order!.id,
-      newTotalAmount,
-      newDeliveryCost,
-      newProfit,
-    );
+    await AdminService.updateOrderInfo(_order!.id, newTotalAmount, newDeliveryCost, newProfit);
   }
 
-  Future<void> _distributeChangeIntelligently(
-    List<Map<String, dynamic>> itemsData,
-    double totalChange,
-  ) async {
+  Future<void> _distributeChangeIntelligently(List<Map<String, dynamic>> itemsData, double totalChange) async {
     if (itemsData.isEmpty) return;
 
     // 🎯 استراتيجية التوزيع الذكي
@@ -2109,13 +1671,8 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     }
   }
 
-  Future<void> _distributeIncrease(
-    List<Map<String, dynamic>> itemsData,
-    double increaseAmount,
-  ) async {
-    final totalCurrentValue = itemsData.fold<double>(
-      0, (sum, item) => sum + item['currentTotal']
-    );
+  Future<void> _distributeIncrease(List<Map<String, dynamic>> itemsData, double increaseAmount) async {
+    final totalCurrentValue = itemsData.fold<double>(0, (sum, item) => sum + item['currentTotal']);
 
     for (var itemData in itemsData) {
       final item = itemData['item'] as AdminOrderItem;
@@ -2137,23 +1694,14 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       debugPrint('   الزيادة: +${priceIncrease.toStringAsFixed(0)} د.ع');
 
       // تحديث المنتج
-      await AdminService.updateProductPrice(
-        _order!.id,
-        item.id,
-        newPrice,
-        newTotalPrice,
-        newProfitPerItem,
-      );
+      await AdminService.updateProductPrice(_order!.id, item.id, newPrice, newTotalPrice, newProfitPerItem);
 
       // تحديث الـ controller
       _productPriceControllers[item.id]?.text = newPrice.toStringAsFixed(0);
     }
   }
 
-  Future<void> _distributeDecrease(
-    List<Map<String, dynamic>> itemsData,
-    double decreaseAmount,
-  ) async {
+  Future<void> _distributeDecrease(List<Map<String, dynamic>> itemsData, double decreaseAmount) async {
     // ترتيب المنتجات حسب هامش الربح (الأعلى ربحاً أولاً)
     itemsData.sort((a, b) {
       final profitA = a['currentProfit'] as double;
@@ -2187,13 +1735,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
         debugPrint('   التقليل: -${priceDecrease.toStringAsFixed(0)} د.ع');
 
         // تحديث المنتج
-        await AdminService.updateProductPrice(
-          _order!.id,
-          item.id,
-          newPrice,
-          newTotalPrice,
-          newProfitPerItem,
-        );
+        await AdminService.updateProductPrice(_order!.id, item.id, newPrice, newTotalPrice, newProfitPerItem);
 
         // تحديث الـ controller
         _productPriceControllers[item.id]?.text = newPrice.toStringAsFixed(0);
@@ -2207,11 +1749,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
     }
   }
 
-  Future<void> _updateSingleProductPrice(
-    AdminOrderItem item,
-    double newPrice,
-    int newQuantity,
-  ) async {
+  Future<void> _updateSingleProductPrice(AdminOrderItem item, double newPrice, int newQuantity) async {
     try {
       debugPrint('🔧 تحديث منتج واحد: ${item.productName}');
       debugPrint('   السعر: ${item.customerPrice ?? item.productPrice} → $newPrice د.ع');
@@ -2250,7 +1788,8 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       // حساب الإجماليات من المنتجات الحالية
       for (var item in _order!.items) {
         // استخدام السعر المحدث من الـ controller إذا كان متاحاً
-        final currentPrice = double.tryParse(_productPriceControllers[item.id]?.text ?? '0') ??
+        final currentPrice =
+            double.tryParse(_productPriceControllers[item.id]?.text ?? '0') ??
             (item.customerPrice ?? item.productPrice);
         final quantity = item.quantity;
         final wholesalePrice = item.wholesalePrice ?? 0;
@@ -2266,47 +1805,30 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
       final newOrderTotal = totalAmount + _order!.deliveryCost;
 
       // تحديث قاعدة البيانات
-      await AdminService.updateOrderInfo(
-        _order!.id,
-        newOrderTotal,
-        _order!.deliveryCost,
-        totalProfit,
-      );
+      await AdminService.updateOrderInfo(_order!.id, newOrderTotal, _order!.deliveryCost, totalProfit);
 
       debugPrint('✅ تم إعادة حساب إجماليات الطلب:');
       debugPrint('   المبلغ الإجمالي: $newOrderTotal د.ع');
       debugPrint('   الربح الإجمالي: $totalProfit د.ع');
-
     } catch (e) {
       debugPrint('❌ خطأ في إعادة حساب الإجماليات: $e');
     }
   }
 
   void _showEditProductPriceDialog(AdminOrderItem item) {
-    final priceController = TextEditingController(
-      text: (item.customerPrice ?? item.productPrice).toStringAsFixed(0),
-    );
-    final quantityController = TextEditingController(
-      text: item.quantity.toString(),
-    );
+    final priceController = TextEditingController(text: (item.customerPrice ?? item.productPrice).toStringAsFixed(0));
+    final quantityController = TextEditingController(text: item.quantity.toString());
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF16213e),
-        title: Text(
-          'تعديل ${item.productName}',
-          style: const TextStyle(color: Color(0xFFffd700)),
-        ),
+        title: Text('تعديل ${item.productName}', style: const TextStyle(color: Color(0xFFffd700))),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildEditField(
-                'سعر الوحدة',
-                priceController,
-                Icons.attach_money,
-              ),
+              _buildEditField('سعر الوحدة', priceController, Icons.attach_money),
               const SizedBox(height: 12),
               _buildEditField('الكمية', quantityController, Icons.numbers),
               const SizedBox(height: 16),
@@ -2318,21 +1840,9 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 ),
                 child: Column(
                   children: [
-                    _buildInfoRow(
-                      'سعر الجملة',
-                      '${(item.wholesalePrice ?? 0).toStringAsFixed(0)} د.ع',
-                      Icons.store,
-                    ),
-                    _buildInfoRow(
-                      'السعر الحالي',
-                      '${item.productPrice.toStringAsFixed(0)} د.ع',
-                      Icons.person,
-                    ),
-                    _buildInfoRow(
-                      'المجموع الحالي',
-                      '${item.totalPrice.toStringAsFixed(0)} د.ع',
-                      Icons.calculate,
-                    ),
+                    _buildInfoRow('سعر الجملة', '${(item.wholesalePrice ?? 0).toStringAsFixed(0)} د.ع', Icons.store),
+                    _buildInfoRow('السعر الحالي', '${item.productPrice.toStringAsFixed(0)} د.ع', Icons.person),
+                    _buildInfoRow('المجموع الحالي', '${item.totalPrice.toStringAsFixed(0)} د.ع', Icons.calculate),
                     // عرض الكمية المتاحة إذا كانت متوفرة
                     if (item.availableFrom != null && item.availableTo != null)
                       _buildInfoRow(
@@ -2361,17 +1871,13 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                 int.tryParse(quantityController.text) ?? item.quantity,
               );
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffd700)),
             child: const Text('حفظ', style: TextStyle(color: Colors.black)),
           ),
         ],
       ),
     );
   }
-
-
 
   Widget _buildStatusHistoryItem(StatusHistory history) {
     final statusColor = OrderStatusHelper.getStatusColor(history.status);
@@ -2403,11 +1909,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
               children: [
                 Text(
                   statusText,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: statusColor, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -2422,10 +1924,7 @@ class _AdvancedOrderDetailsPageState extends State<AdvancedOrderDetailsPage>
                       color: Colors.black.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(
-                      history.notes!,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
-                    ),
+                    child: Text(history.notes!, style: const TextStyle(color: Colors.white, fontSize: 14)),
                   ),
                 ],
               ],

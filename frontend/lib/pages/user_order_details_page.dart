@@ -1,14 +1,17 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/order.dart';
 import '../models/order_item.dart' as order_item_model;
-import '../widgets/common_header.dart';
 import '../utils/order_status_helper.dart';
-// تم إزالة جميع imports الإدارة - المستخدم لا يحتاج لها
+import '../widgets/app_background.dart';
 
 class UserOrderDetailsPage extends StatefulWidget {
   final String orderId;
@@ -23,14 +26,11 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   Order? _order;
   bool _isLoading = true;
   String? _error;
-  // تم إزالة _isAdmin - المستخدم لا يحتاج لصلاحيات الإدارة
-  // تم إزالة _isUpdatingStatus - المستخدم لا يمكنه تحديث الحالة
 
   @override
   void initState() {
     super.initState();
     _loadOrderDetails();
-    // تم إزالة فحص صلاحيات الإدارة - المستخدم لا يحتاج لها
   }
 
   Future<void> _loadOrderDetails() async {
@@ -70,23 +70,16 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       debugPrint('✅ تم جلب تفاصيل الطلب: ${orderResponse['id']}');
 
       // تحويل عناصر الطلب (حسب نوع الطلب)
-      final itemsKey = isScheduledOrder
-          ? 'scheduled_order_items'
-          : 'order_items';
+      final itemsKey = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
       final orderItems =
           (orderResponse[itemsKey] as List?)?.map((item) {
             if (isScheduledOrder) {
               // للطلبات المجدولة - استخدام أسماء الأعمدة الصحيحة
               return order_item_model.OrderItem(
                 id: item['id']?.toString() ?? '',
-                productId:
-                    item['product_id']?.toString() ??
-                    item['id']?.toString() ??
-                    '',
+                productId: item['product_id']?.toString() ?? item['id']?.toString() ?? '',
                 name: item['product_name'] ?? '',
-                image:
-                    item['product_image'] ??
-                    '', // ✅ استخدام صورة المنتج من قاعدة البيانات
+                image: item['product_image'] ?? '', // ✅ استخدام صورة المنتج من قاعدة البيانات
                 wholesalePrice: double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
                 customerPrice: double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
                 quantity: item['quantity'] ?? 1,
@@ -119,42 +112,28 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         province: isScheduledOrder
             ? (orderResponse['customer_province'] ?? 'غير محدد')
             : (orderResponse['province'] ?? 'غير محدد'),
-        city: isScheduledOrder
-            ? (orderResponse['customer_city'] ?? 'غير محدد')
-            : (orderResponse['city'] ?? 'غير محدد'),
-        notes: orderResponse['notes'],
+        city: isScheduledOrder ? (orderResponse['customer_city'] ?? 'غير محدد') : (orderResponse['city'] ?? 'غير محدد'),
+        notes: isScheduledOrder
+            ? (orderResponse['customer_notes'] ?? orderResponse['notes'])
+            : (orderResponse['customer_notes'] ?? orderResponse['notes']),
         totalCost: isScheduledOrder
-            ? (double.tryParse(
-                    orderResponse['total_amount']?.toString() ?? '0',
-                  ) ??
-                  0).toInt()
+            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
             : (orderResponse['total'] ?? 0),
         subtotal: isScheduledOrder
-            ? (double.tryParse(
-                    orderResponse['total_amount']?.toString() ?? '0',
-                  ) ??
-                  0).toInt()
+            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
             : (orderResponse['subtotal'] ?? 0),
         total: isScheduledOrder
-            ? (double.tryParse(
-                    orderResponse['total_amount']?.toString() ?? '0',
-                  ) ??
-                  0).toInt()
+            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
             : (orderResponse['total'] ?? 0),
         totalProfit: isScheduledOrder
-            ? (double.tryParse(
-                    orderResponse['profit_amount']?.toString() ?? '0',
-                  ) ??
-                  0).toInt()
+            ? (double.tryParse(orderResponse['profit_amount']?.toString() ?? '0') ?? 0).toInt()
             : (orderResponse['profit'] ?? 0),
         status: _parseOrderStatus(orderResponse['status'] ?? 'pending'),
         rawStatus: orderResponse['status'] ?? 'نشط', // ✅ تمرير الحالة الأصلية من قاعدة البيانات
         createdAt: DateTime.parse(orderResponse['created_at']),
         items: orderItems,
         // إضافة معلومات الجدولة إذا كان طلب مجدول
-        scheduledDate: isScheduledOrder
-            ? DateTime.tryParse(orderResponse['scheduled_date'] ?? '')
-            : null,
+        scheduledDate: isScheduledOrder ? DateTime.tryParse(orderResponse['scheduled_date'] ?? '') : null,
         scheduleNotes: isScheduledOrder ? orderResponse['notes'] : null,
       );
 
@@ -172,6 +151,9 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       debugPrint('🧮 المجموع الفرعي من قاعدة البيانات: ${order.subtotal} د.ع');
       debugPrint('🧮 المجموع الكلي من قاعدة البيانات: ${order.total} د.ع');
       debugPrint('🧮 إجمالي الربح من قاعدة البيانات: ${order.totalProfit} د.ع');
+      debugPrint('📝 الملاحظات من notes: "${orderResponse['notes']}"');
+      debugPrint('📝 الملاحظات من customer_notes: "${orderResponse['customer_notes']}"');
+      debugPrint('📝 الملاحظات النهائية: "${order.notes}"');
     } catch (e) {
       debugPrint('❌ خطأ في جلب تفاصيل الطلب: $e');
       setState(() {
@@ -231,57 +213,81 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     return totalProfit;
   }
 
-  // 🔍 التحقق من كون الطلب نشط (يمكن تعديله أو حذفه)
+  // 🔍 التحقق من كون الطلب نشط (يمكن تعديله أو حذفه) - أمان مضاعف
   bool _isOrderActive() {
-    if (_order == null) return false;
+    // 🛡️ فحص أولي - إذا لم يكن هناك طلب، فلا يمكن التعديل
+    if (_order == null) {
+      debugPrint('🚫 لا يوجد طلب - الأزرار مخفية');
+      return false;
+    }
 
-    // فحص مزدوج للحماية الكاملة:
+    // 🛡️ فحص الحالة الأصلية من قاعدة البيانات
+    final rawStatus = _order!.rawStatus.toLowerCase().trim();
 
-    // 1. فحص حالة OrderStatus
-    final isStatusActive = _order!.status == OrderStatus.pending ||
-                          _order!.status == OrderStatus.confirmed;
+    debugPrint('🔍 فحص صارم لنشاط الطلب:');
+    debugPrint('   📋 Raw Status الأصلي: "${_order!.rawStatus}"');
+    debugPrint('   📋 Raw Status منظف: "$rawStatus"');
 
-    // 2. فحص النص الأصلي للحالة من قاعدة البيانات
-    final rawStatus = _order!.rawStatus.toLowerCase();
-    final isRawStatusActive = rawStatus == 'active' ||
-                             rawStatus == 'pending' ||
-                             rawStatus == 'confirmed';
+    // 🛡️ قائمة صارمة للحالات النشطة فقط
+    final activeStatuses = ['نشط', 'active', 'pending', 'confirmed', 'جديد', 'new'];
 
-    // 3. التأكد من أن الطلب ليس في حالة نهائية
-    final isFinalStatus = rawStatus.contains('تم التوصيل') ||
-                         rawStatus.contains('delivered') ||
-                         rawStatus.contains('ملغي') ||
-                         rawStatus.contains('cancelled') ||
-                         rawStatus.contains('قيد التوصيل') ||
-                         rawStatus.contains('in_delivery') ||
-                         rawStatus.contains('مرفوض') ||
-                         rawStatus.contains('rejected') ||
-                         rawStatus.contains('لا يرد بعد الاتفاق') ||
-                         rawStatus.contains('لا يرد') ||
-                         rawStatus.contains('مغلق') ||
-                         rawStatus.contains('مؤجل') ||
-                         rawStatus.contains('طلب مكرر') ||
-                         rawStatus.contains('مستلم مسبقا') ||
-                         rawStatus.contains('لم يطلب') ||
-                         rawStatus.contains('الرقم غير معرف') ||
-                         rawStatus.contains('الرقم غير داخل في الخدمة') ||
-                         rawStatus.contains('لا يمكن الاتصال بالرقم') ||
-                         rawStatus.contains('مفصول عن الخدمة') ||
-                         rawStatus.contains('العنوان غير دقيق') ||
-                         rawStatus.contains('حظر المندوب') ||
-                         rawStatus.contains('تم تغيير محافظة الزبون') ||
-                         rawStatus.contains('تغيير المندوب');
+    // 🛡️ فحص إذا كانت الحالة في القائمة النشطة
+    bool isInActiveList = activeStatuses.any((status) => rawStatus == status);
 
-    // الطلب نشط فقط إذا كان في حالة نشطة وليس في حالة نهائية
-    final isActive = (isStatusActive || isRawStatusActive) && !isFinalStatus;
+    // 🛡️ قائمة شاملة للحالات غير النشطة (أي حالة أخرى = غير نشط)
+    final inactiveStatuses = [
+      'تم التوصيل',
+      'delivered',
+      'مسلم',
+      'ملغي',
+      'cancelled',
+      'مرفوض',
+      'rejected',
+      'قيد التوصيل',
+      'in_delivery',
+      'في الطريق',
+      'لا يرد بعد الاتفاق',
+      'لا يرد',
+      'no_answer',
+      'مغلق',
+      'closed',
+      'مؤجل',
+      'postponed',
+      'طلب مكرر',
+      'duplicate',
+      'مستلم مسبقا',
+      'لم يطلب',
+      'not_ordered',
+      'الرقم غير معرف',
+      'الرقم غير داخل في الخدمة',
+      'مفصول عن الخدمة',
+      'لا يمكن الاتصال بالرقم',
+      'العنوان غير دقيق',
+      'حظر المندوب',
+      'تم تغيير محافظة الزبون',
+      'تغيير المندوب',
+    ];
 
-    debugPrint('🔍 فحص نشاط الطلب:');
-    debugPrint('   📋 OrderStatus: ${_order!.status}');
-    debugPrint('   📋 Raw Status: "${_order!.rawStatus}"');
-    debugPrint('   📋 Is Status Active: $isStatusActive');
-    debugPrint('   📋 Is Raw Status Active: $isRawStatusActive');
-    debugPrint('   📋 Is Final Status: $isFinalStatus');
-    debugPrint('   📋 Final Result: $isActive');
+    // 🛡️ فحص إذا كانت الحالة في القائمة غير النشطة
+    bool isInInactiveList = inactiveStatuses.any((status) => rawStatus.contains(status));
+
+    // 🛡️ القرار النهائي: نشط فقط إذا كان في القائمة النشطة وليس في القائمة غير النشطة
+    bool isActive = isInActiveList && !isInInactiveList;
+
+    // 🛡️ فحص إضافي: إذا كانت الحالة فارغة أو غير معروفة، اعتبرها غير نشطة
+    if (rawStatus.isEmpty || rawStatus == 'null') {
+      isActive = false;
+    }
+
+    debugPrint('   ✅ في القائمة النشطة: $isInActiveList');
+    debugPrint('   ❌ في القائمة غير النشطة: $isInInactiveList');
+    debugPrint('   🎯 النتيجة النهائية: $isActive');
+
+    if (isActive) {
+      debugPrint('✅ الطلب نشط - الأزرار ظاهرة');
+    } else {
+      debugPrint('🚫 الطلب غير نشط - الأزرار مخفية');
+    }
 
     return isActive;
   }
@@ -298,10 +304,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     if (!isScheduledOrder && !_isOrderActive()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'لا يمكن تعديل هذا الطلب. الحالة الحالية: ${_order!.rawStatus}',
-            style: GoogleFonts.cairo(),
-          ),
+          content: Text('لا يمكن تعديل هذا الطلب. الحالة الحالية: ${_order!.rawStatus}', style: GoogleFonts.cairo()),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 4),
         ),
@@ -331,10 +334,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     if (!isScheduledOrder && !_isOrderActive()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'لا يمكن حذف هذا الطلب. الحالة الحالية: ${_order!.rawStatus}',
-            style: GoogleFonts.cairo(),
-          ),
+          content: Text('لا يمكن حذف هذا الطلب. الحالة الحالية: ${_order!.rawStatus}', style: GoogleFonts.cairo()),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 4),
         ),
@@ -342,33 +342,113 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       return;
     }
 
-    // إظهار رسالة تأكيد
+    // إظهار رسالة تأكيد بتصميم محسن
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1a1a2e),
-        title: Text('حذف الطلب', style: GoogleFonts.cairo(color: Colors.red)),
-        content: Text(
-          'هل أنت متأكد من حذف هذا الطلب؟\nلا يمكن التراجع عن هذا الإجراء.',
-          style: GoogleFonts.cairo(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'إلغاء',
-              style: GoogleFonts.cairo(color: Colors.white70),
+      barrierDismissible: false,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // أيقونة التحذير
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: const Icon(FontAwesomeIcons.triangleExclamation, color: Colors.red, size: 30),
+                    ),
+                    const SizedBox(height: 20),
+                    // العنوان
+                    Text(
+                      'حذف الطلب',
+                      style: GoogleFonts.cairo(color: Colors.red, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 15),
+                    // المحتوى
+                    Text(
+                      'هل أنت متأكد من حذف هذا الطلب؟\nلا يمكن التراجع عن هذا الإجراء.',
+                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, height: 1.5),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 25),
+                    // الأزرار
+                    Row(
+                      children: [
+                        // زر الإلغاء
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+                              ),
+                              child: Text(
+                                'إلغاء',
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 15),
+                        // زر الحذف
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async {
+                              Navigator.pop(context);
+                              await _confirmDeleteOrder();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
+                              ),
+                              child: Text(
+                                'حذف',
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _confirmDeleteOrder();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('حذف', style: GoogleFonts.cairo(color: Colors.white)),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -402,7 +482,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           throw Exception('لم يتم العثور على الطلب المجدول أو فشل في الحذف');
         }
 
-        debugPrint('✅ تم حذف الطلب المجدول وعناصره بنجاح من قاعدة البيانات');
+        debugPrint('✅ تم حذف الطلب المجدول');
       } else {
         // حذف الطلب العادي
         final deleteOrderResponse = await Supabase.instance.client
@@ -415,7 +495,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           throw Exception('لم يتم العثور على الطلب أو فشل في الحذف');
         }
 
-        debugPrint('✅ تم حذف الطلب العادي وعناصره بنجاح من قاعدة البيانات');
+        debugPrint('✅ تم حذف الطلب ');
       }
 
       // إظهار رسالة نجاح
@@ -448,110 +528,100 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
-      body: Column(
-        children: [
-          // الشريط العلوي الموحد
-          CommonHeader(
-            title: 'تفاصيل الطلب',
-            rightActions: [
-              // زر الرجوع على اليمين
-              GestureDetector(
-                onTap: () => context.go('/orders'),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: 1,
+      body: AppBackground(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(top: 20, left: 10, right: 10, bottom: 20),
+          child: Column(
+            children: [
+              // شريط علوي متحرك مع المحتوى
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Row(
+                  children: [
+                    // زر الرجوع
+                    GestureDetector(
+                      onTap: () => context.go('/orders'),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                        ),
+                        child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
+                      ),
                     ),
-                  ),
-                  child: Icon(
-                    FontAwesomeIcons.arrowRight,
-                    color: Color(0xFFffd700),
-                    size: 16,
-                  ),
+                    // العنوان في الوسط
+                    Expanded(
+                      child: Center(
+                        child: Text(
+                          'تفاصيل الطلب',
+                          style: GoogleFonts.cairo(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    // أزرار التعديل والحذف (للطلبات النشطة فقط)
+                    if (_order != null && _isOrderActive()) ...[
+                      // زر التعديل
+                      GestureDetector(
+                        onTap: _editOrder,
+                        child: Container(
+                          width: 35,
+                          height: 35,
+                          margin: const EdgeInsets.only(left: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.3), width: 1),
+                          ),
+                          child: const Icon(FontAwesomeIcons.penToSquare, color: Colors.blue, size: 16),
+                        ),
+                      ),
+                      // زر الحذف
+                      GestureDetector(
+                        onTap: _deleteOrder,
+                        child: Container(
+                          width: 35,
+                          height: 35,
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
+                          ),
+                          child: const Icon(FontAwesomeIcons.trash, color: Colors.red, size: 16),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            ],
-            leftActions: [
-              // أزرار التعديل والحذف (للطلبات النشطة أو المجدولة)
-              if (_order != null && (_isOrderActive() || _order!.scheduledDate != null)) ...[
-                // زر التعديل
-                GestureDetector(
-                  onTap: _editOrder,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    margin: const EdgeInsets.only(left: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.blue.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(
-                      FontAwesomeIcons.penToSquare,
-                      color: Colors.blue,
-                      size: 16,
-                    ),
-                  ),
-                ),
-                // زر الحذف
-                GestureDetector(
-                  onTap: _deleteOrder,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Colors.red.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(
-                      FontAwesomeIcons.trash,
-                      color: Colors.red,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ],
+              // المحتوى
+              if (_isLoading)
+                _buildLoadingState()
+              else if (_error != null)
+                _buildErrorState()
+              else
+                _buildOrderContent(),
             ],
           ),
-          Expanded(
-            child: _isLoading
-                ? _buildLoadingState()
-                : _error != null
-                ? _buildErrorState()
-                : _buildOrderContent(),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-
-
   Widget _buildLoadingState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: Color(0xFFffd700)),
-          SizedBox(height: 20),
-          Text(
-            'جاري تحميل تفاصيل الطلب...',
-            style: TextStyle(color: Colors.white),
-          ),
-        ],
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.6,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 3),
+            SizedBox(height: 20),
+            Text('جاري تحميل تفاصيل الطلب...', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
       ),
     );
   }
@@ -561,11 +631,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const FaIcon(
-            FontAwesomeIcons.triangleExclamation,
-            color: Colors.red,
-            size: 60,
-          ),
+          const FaIcon(FontAwesomeIcons.triangleExclamation, color: Colors.red, size: 60),
           const SizedBox(height: 20),
           Text(
             _error!,
@@ -579,10 +645,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
               backgroundColor: const Color(0xFFffd700),
               foregroundColor: const Color(0xFF1a1a2e),
             ),
-            child: Text(
-              'العودة للطلبات',
-              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-            ),
+            child: Text('العودة للطلبات', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -625,9 +688,30 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213e),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+        // خلفية شفافة مع توهج داخلي
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: statusColor.withValues(alpha: 0.6), width: 2),
+        // توهج داخلي متدرج
+        gradient: RadialGradient(
+          center: Alignment.center,
+          radius: 1.2,
+          colors: [
+            statusColor.withValues(alpha: 0.08), // توهج خفيف في المركز
+            statusColor.withValues(alpha: 0.03), // توهج أخف في الأطراف
+            Colors.transparent, // شفاف في الحواف
+          ],
+          stops: const [0.0, 0.6, 1.0],
+        ),
+        // توهج خارجي بسيط
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -644,32 +728,18 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'حالة الطلب',
-                  style: GoogleFonts.cairo(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 14,
-                  ),
-                ),
+                Text('حالة الطلب', style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
                 Text(
                   statusText,
-                  style: GoogleFonts.cairo(
-                    color: statusColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: GoogleFonts.cairo(color: statusColor, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
           ),
           Text(
             _formatDate(_order!.createdAt),
-            style: GoogleFonts.cairo(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 12,
-            ),
+            style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
           ),
-          // تم إزالة زر تحديث الحالة - المستخدم لا يمكنه تغيير حالة الطلب
         ],
       ),
     );
@@ -682,17 +752,28 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213e),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFF9c27b0).withValues(alpha: 0.5),
-          width: 2,
+        // خلفية شفافة مع توهج داخلي
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF9c27b0).withValues(alpha: 0.6), width: 2),
+        // توهج داخلي متدرج
+        gradient: RadialGradient(
+          center: Alignment.center,
+          radius: 1.2,
+          colors: [
+            const Color(0xFF9c27b0).withValues(alpha: 0.08), // توهج خفيف في المركز
+            const Color(0xFF9c27b0).withValues(alpha: 0.03), // توهج أخف في الأطراف
+            Colors.transparent, // شفاف في الحواف
+          ],
+          stops: const [0.0, 0.6, 1.0],
         ),
+        // توهج خارجي بسيط
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF9c27b0).withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+            spreadRadius: 0,
           ),
         ],
       ),
@@ -701,29 +782,17 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         children: [
           Row(
             children: [
-              const FaIcon(
-                FontAwesomeIcons.calendar,
-                color: Color(0xFF9c27b0),
-                size: 20,
-              ),
+              const FaIcon(FontAwesomeIcons.calendar, color: Color(0xFF9c27b0), size: 20),
               const SizedBox(width: 10),
               Text(
                 'طلب مجدول',
-                style: GoogleFonts.cairo(
-                  color: const Color(0xFF9c27b0),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: GoogleFonts.cairo(color: const Color(0xFF9c27b0), fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 15),
-          _buildInfoRow(
-            'تاريخ الجدولة',
-            DateFormat('yyyy/MM/dd', 'ar').format(_order!.scheduledDate!),
-          ),
-          if (_order!.scheduleNotes != null &&
-              _order!.scheduleNotes!.isNotEmpty)
+          _buildInfoRow('تاريخ الجدولة', DateFormat('yyyy/MM/dd', 'ar').format(_order!.scheduledDate!)),
+          if (_order!.scheduleNotes != null && _order!.scheduleNotes!.isNotEmpty)
             _buildInfoRow('ملاحظات الجدولة', _order!.scheduleNotes!),
         ],
       ),
@@ -731,289 +800,355 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   }
 
   Widget _buildCustomerInfoCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF16213e),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            // خلفية شفافة مضببة
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const FaIcon(
-                FontAwesomeIcons.user,
-                color: Color(0xFFffd700),
-                size: 20,
+              Row(
+                children: [
+                  const FaIcon(FontAwesomeIcons.user, color: Color(0xFFffd700), size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    'معلومات العميل',
+                    style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(
-                'معلومات العميل',
-                style: GoogleFonts.cairo(
-                  color: const Color(0xFFffd700),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              const SizedBox(height: 15),
+              _buildInfoRow('اسم الزبون', _order!.customerName, showCopyButton: true),
+              _buildInfoRow('رقم الزبون', _order!.primaryPhone, showCopyButton: true),
+              if (_order!.secondaryPhone != null)
+                _buildInfoRow('الرقم البديل', _order!.secondaryPhone!, showCopyButton: true),
+              _buildInfoRow('المحافظة', _order!.province),
+              _buildInfoRow('المدينة', _order!.city),
+              _buildNotesRow(),
             ],
           ),
-          const SizedBox(height: 15),
-          _buildInfoRow('الاسم', _order!.customerName),
-          _buildInfoRow('الهاتف الأساسي', _order!.primaryPhone),
-          if (_order!.secondaryPhone != null)
-            _buildInfoRow('الهاتف الثانوي', _order!.secondaryPhone!),
-          _buildInfoRow('المحافظة', _order!.province),
-          _buildInfoRow('المدينة', _order!.city),
-          if (_order!.notes != null && _order!.notes!.isNotEmpty)
-            _buildInfoRow('ملاحظات', _order!.notes!),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _buildInfoRow(String label, String value, {bool showCopyButton = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110, // ✅ زيادة العرض لمنع الكسرة
+            width: 110,
             child: Text(
               '$label:',
-              style: GoogleFonts.cairo(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-              ),
-              softWrap: false, // ✅ منع الكسرة
-              overflow: TextOverflow.visible, // ✅ إظهار النص كاملاً
+              style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+              softWrap: false,
+              overflow: TextOverflow.visible,
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(value, style: GoogleFonts.cairo(color: Colors.white, fontSize: 14)),
+                ),
+                if (showCopyButton) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _copyToClipboard(value),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.copy, color: Color(0xFFffd700), size: 16),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotesRow() {
+    // 🔍 تحليل جذري للملاحظات
+    String? rawNotes = _order?.notes;
+    debugPrint('🔍 تحليل الملاحظات:');
+    debugPrint('   rawNotes من الطلب: "$rawNotes"');
+    debugPrint('   نوع البيانات: ${rawNotes.runtimeType}');
+    debugPrint('   هل null؟ ${rawNotes == null}');
+    debugPrint('   هل فارغة؟ ${rawNotes?.isEmpty ?? true}');
+    debugPrint('   الطول: ${rawNotes?.length ?? 0}');
+
+    String displayNotes;
+    bool hasNotes = false;
+
+    if (rawNotes != null && rawNotes.trim().isNotEmpty) {
+      displayNotes = rawNotes.trim();
+      hasNotes = true;
+      debugPrint('✅ توجد ملاحظات: "$displayNotes"');
+    } else {
+      displayNotes = 'لا توجد ملاحظات';
+      hasNotes = false;
+      debugPrint('❌ لا توجد ملاحظات');
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              'ملاحظات:',
+              style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+              softWrap: false,
+              overflow: TextOverflow.visible,
             ),
           ),
           Expanded(
             child: Text(
-              value,
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
+              displayNotes,
+              style: GoogleFonts.cairo(
+                color: hasNotes ? Colors.white : Colors.white.withValues(alpha: 0.5),
+                fontSize: 12, // حجم أصغر للملاحظات
+                fontStyle: hasNotes ? FontStyle.normal : FontStyle.italic,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFffd700).withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+              ),
+              child: Text(
+                'تم نسخ: $text',
+                style: GoogleFonts.cairo(color: const Color(0xFF1a1a2e), fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.only(top: 50, left: 20, right: 20),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
   Widget _buildOrderItemsCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF16213e),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            // خلفية شفافة مضببة
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.blue.withValues(alpha: 0.3), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const FaIcon(
-                FontAwesomeIcons.bagShopping,
-                color: Colors.blue,
-                size: 20,
+              Row(
+                children: [
+                  const FaIcon(FontAwesomeIcons.bagShopping, color: Colors.blue, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    'عناصر الطلب (${_order!.items.length})',
+                    style: GoogleFonts.cairo(color: Colors.blue, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(
-                'عناصر الطلب (${_order!.items.length})',
-                style: GoogleFonts.cairo(
-                  color: Colors.blue,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              const SizedBox(height: 15),
+              ...(_order!.items.map((item) => _buildOrderItem(item)).toList()),
             ],
           ),
-          const SizedBox(height: 15),
-          ...(_order!.items.map((item) => _buildOrderItem(item)).toList()),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildOrderItem(order_item_model.OrderItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          // صورة المنتج
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey.withValues(alpha: 0.2),
-            ),
-            child: _hasValidImage(item)
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      item.image,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFFffd700),
-                            strokeWidth: 2,
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        debugPrint('❌ خطأ في تحميل صورة المنتج: $error');
-                        debugPrint('🔗 رابط الصورة: ${item.image}');
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.image_not_supported,
-                                color: Colors.grey,
-                                size: 20,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 15),
+          padding: const EdgeInsets.all(15),
+          decoration: BoxDecoration(
+            // خلفية مضببة أكثر للمنتجات
+            color: Colors.white.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              // صورة المنتج
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.grey.withValues(alpha: 0.2),
+                ),
+                child: _hasValidImage(item)
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          item.image,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 2),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            debugPrint('❌ خطأ في تحميل صورة المنتج: $error');
+                            debugPrint('🔗 رابط الصورة: ${item.image}');
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withValues(alpha: 0.3),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              Text(
-                                'لا توجد صورة',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 8,
-                                ),
+                              child: const Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.image_not_supported, color: Colors.grey, size: 20),
+                                  Text('لا توجد صورة', style: TextStyle(color: Colors.grey, fontSize: 8)),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  )
-                : Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.image, color: Colors.grey, size: 20),
-                        Text(
-                          'لا توجد صورة',
-                          style: TextStyle(color: Colors.grey, fontSize: 8),
+                            );
+                          },
                         ),
-                      ],
+                      )
+                    : Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.image, color: Colors.grey, size: 20),
+                            Text('لا توجد صورة', style: TextStyle(color: Colors.grey, fontSize: 8)),
+                          ],
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 15),
+              // تفاصيل المنتج
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                     ),
-                  ),
-          ),
-          const SizedBox(width: 15),
-          // تفاصيل المنتج
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'الكمية: ${item.quantity}',
+                      style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
+                    ),
+                    Text(
+                      'السعر: ${NumberFormat('#,###').format(_getItemPrice(item))} د.ع',
+                      style: GoogleFonts.cairo(
+                        color: const Color(0xFFffd700),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  'الكمية: ${item.quantity}',
-                  style: GoogleFonts.cairo(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  'السعر: ${_getItemPrice(item).toStringAsFixed(0)} د.ع',
-                  style: GoogleFonts.cairo(
-                    color: const Color(0xFFffd700),
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              // الربح الحقيقي للمنتج
+              Text(
+                'ربح: ${NumberFormat('#,###').format(_getItemProfit(item))} د.ع',
+                style: GoogleFonts.cairo(color: Colors.green, fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-          // المجموع
-          Text(
-            '${_getItemTotal(item).toStringAsFixed(0)} د.ع',
-            style: GoogleFonts.cairo(
-              color: Colors.green,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildOrderSummaryCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1a1a2e), // خلفية داكنة
-        border: Border.all(
-          color: const Color(0xFFffd700), // إطار ذهبي فقط
-          width: 2,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            // خلفية شفافة مضببة
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ملخص الطلب',
+                style: GoogleFonts.cairo(
+                  color: const Color(0xFFffd700), // لون ذهبي للنص
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 15),
+              _buildSummaryRow('المجموع الفرعي', '${NumberFormat('#,###').format(_calculateSubtotal())} د.ع'),
+              const Divider(color: Color(0xFF3a3a5c), thickness: 1),
+              _buildSummaryRow(
+                'المجموع الكلي',
+                '${NumberFormat('#,###').format(_calculateTotal())} د.ع',
+                isTotal: true,
+              ),
+              const SizedBox(height: 10),
+              _buildSummaryRow(
+                'إجمالي الربح',
+                '${NumberFormat('#,###').format(_calculateTotalProfit())} د.ع',
+                isProfit: true,
+              ),
+            ],
+          ),
         ),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFffd700).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ملخص الطلب',
-            style: GoogleFonts.cairo(
-              color: const Color(0xFFffd700), // لون ذهبي للنص
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 15),
-          _buildSummaryRow(
-            'المجموع الفرعي',
-            '${_calculateSubtotal().toStringAsFixed(0)} د.ع',
-          ),
-          const Divider(color: Color(0xFF3a3a5c), thickness: 1),
-          _buildSummaryRow(
-            'المجموع الكلي',
-            '${_calculateTotal().toStringAsFixed(0)} د.ع',
-            isTotal: true,
-          ),
-          const SizedBox(height: 10),
-          _buildSummaryRow(
-            'إجمالي الربح',
-            '${_calculateTotalProfit().toStringAsFixed(0)} د.ع',
-            isProfit: true,
-          ),
-        ],
       ),
     );
   }
@@ -1035,9 +1170,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
             style: GoogleFonts.cairo(
               color: Colors.white, // تغيير لون النص للخلفية الداكنة
               fontSize: isTotal || isProfit ? 16 : 14,
-              fontWeight: isTotal || isProfit
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+              fontWeight: isTotal || isProfit ? FontWeight.bold : FontWeight.normal,
             ),
           ),
           Text(
@@ -1052,21 +1185,13 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
                   ? const Color(0xFFffd700) // لون ذهبي للمجموع الكلي
                   : Colors.white, // لون أبيض للباقي
               fontSize: isTotal || isProfit ? 16 : 14,
-              fontWeight: isTotal || isProfit
-                  ? FontWeight.bold
-                  : FontWeight.normal,
+              fontWeight: isTotal || isProfit ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ],
       ),
     );
   }
-
-
-
-
-
-
 
   String _formatDate(DateTime date) {
     return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
@@ -1084,19 +1209,34 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     }
   }
 
-  double _getItemTotal(order_item_model.OrderItem item) {
-    // إذا كان total_price محفوظ في قاعدة البيانات، استخدمه
-    // وإلا احسب من السعر والكمية
-    double price = _getItemPrice(item);
-    return price * item.quantity;
+  // 💰 حساب ربح المنتج الواحد الحقيقي
+  double _getItemProfit(order_item_model.OrderItem item) {
+    // الربح = (سعر البيع - سعر الجملة) × الكمية
+    double customerPrice = item.customerPrice.toDouble();
+    double wholesalePrice = item.wholesalePrice.toDouble();
+
+    // إذا لم يكن هناك سعر عميل، فلا يوجد ربح
+    if (customerPrice <= 0) {
+      return 0.0;
+    }
+
+    // حساب الربح للوحدة الواحدة
+    double profitPerUnit = customerPrice - wholesalePrice;
+
+    // الربح الإجمالي = ربح الوحدة × الكمية
+    double totalProfit = profitPerUnit * item.quantity;
+
+    debugPrint('🧮 ربح المنتج ${item.name}:');
+    debugPrint('   سعر العميل: $customerPrice د.ع');
+    debugPrint('   سعر الجملة: $wholesalePrice د.ع');
+    debugPrint('   ربح الوحدة: $profitPerUnit د.ع');
+    debugPrint('   الكمية: ${item.quantity}');
+    debugPrint('   الربح الإجمالي: $totalProfit د.ع');
+
+    return totalProfit;
   }
 
   bool _hasValidImage(order_item_model.OrderItem item) {
-    return item.image.isNotEmpty &&
-        item.image != 'null' &&
-        item.image.startsWith('http');
+    return item.image.isNotEmpty && item.image != 'null' && item.image.startsWith('http');
   }
-
-  // تم إزالة جميع دوال تحديث الحالة والدوال المساعدة
-  // المستخدم لا يمكنه تغيير حالة الطلب - فقط الإدارة من لوحة التحكم
 }

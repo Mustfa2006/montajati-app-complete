@@ -9,7 +9,7 @@ class NavCustomPainter extends CustomPainter {
   NavCustomPainter(
       double startingLoc, int itemsLength, this.color, this.textDirection) {
     final span = 1.0 / itemsLength;
-    s = 0.15; // تضييق الفتحة قليلاً
+    s = 0.18; // توسيع الفتحة إلى اليمين واليسار
     // تحسين المحاذاة لتكون التقويسة تحت الكرة بالضبط
     double l = startingLoc + (span - s) / 2;
     loc = textDirection == TextDirection.rtl ? 1.0 - l - s : l;

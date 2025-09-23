@@ -36,7 +36,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.montajati.app"
-    compileSdk = 35  // مطلوب للمكونات الإضافية
+    compileSdk = 36  // مطلوب للمكونات الإضافية - تحديث إلى 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -52,7 +52,7 @@ android {
     defaultConfig {
         applicationId = "com.montajati.app"
         minSdk = flutter.minSdkVersion // Android 5.0 كحد أدنى للإنتاج
-        targetSdk = 35 // Android 15 - مطلوب للمكونات الإضافية
+        targetSdk = 36 // Android 15 - مطلوب للمكونات الإضافية - تحديث إلى 36
         versionCode = 8
         versionName = "2.2.0"
 

@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class UserService {
   static final _supabase = Supabase.instance.client;
@@ -22,18 +22,18 @@ class UserService {
       final userPhone = prefs.getString('current_user_phone');
 
       if (userId == null || userName == null || userPhone == null) {
-        print('❌ لا توجد بيانات مستخدم محفوظة من AuthService');
+        debugPrint('❌ لا توجد بيانات مستخدم محفوظة من AuthService');
         return;
       }
 
       // التحقق من أن البيانات لم تُحفظ مسبقاً في UserService
       final savedUserId = prefs.getString(_keyUserId);
       if (savedUserId == userId) {
-        print('✅ بيانات المستخدم محفوظة مسبقاً في UserService');
+        debugPrint('✅ بيانات المستخدم محفوظة مسبقاً في UserService');
         return;
       }
 
-      print('🔄 نسخ بيانات المستخدم من AuthService إلى UserService...');
+      debugPrint('🔄 نسخ بيانات المستخدم من AuthService إلى UserService...');
 
       // حفظ البيانات في UserService
       await prefs.setString(_keyUserId, userId);
@@ -41,13 +41,12 @@ class UserService {
       await prefs.setString(_keyUserPhone, _formatPhoneNumber(userPhone));
       await prefs.setBool(_keyIsDataLoaded, true);
 
-      print('✅ تم حفظ بيانات المستخدم في UserService:');
-      print('   المعرف: $userId');
-      print('   الاسم: $userName');
-      print('   الهاتف: ${_formatPhoneNumber(userPhone)}');
-
+      debugPrint('✅ تم حفظ بيانات المستخدم في UserService:');
+      debugPrint('   المعرف: $userId');
+      debugPrint('   الاسم: $userName');
+      debugPrint('   الهاتف: ${_formatPhoneNumber(userPhone)}');
     } catch (e) {
-      print('❌ خطأ في تحميل وحفظ بيانات المستخدم: $e');
+      debugPrint('❌ خطأ في تحميل وحفظ بيانات المستخدم: $e');
     }
   }
 
@@ -59,9 +58,9 @@ class UserService {
       await prefs.remove(_keyUserName);
       await prefs.remove(_keyUserPhone);
       await prefs.remove(_keyIsDataLoaded);
-      print('🗑️  مسح بيانات المستخدم ');
+      debugPrint('🗑️  مسح بيانات المستخدم ');
     } catch (e) {
-      print('❌ خطأ في مسح بيانات المستخدم: $e');
+      debugPrint('❌ خطأ في مسح بيانات المستخدم: $e');
     }
   }
 
@@ -72,10 +71,10 @@ class UserService {
       final fullName = prefs.getString(_keyUserName) ?? 'المستخدم';
       final names = fullName.split(' ');
       final firstName = names.isNotEmpty ? names.first : 'المستخدم';
-      print('📱 تم جلب الاسم: $firstName');
+      debugPrint('📱 تم جلب الاسم: $firstName');
       return firstName;
     } catch (e) {
-      print('❌ خطأ في جلب الاسم: $e');
+      debugPrint('❌ خطأ في جلب الاسم: $e');
       return 'المستخدم';
     }
   }
@@ -85,10 +84,10 @@ class UserService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final phone = prefs.getString(_keyUserPhone) ?? '07512345154';
-      print('📱 تم جلب رقم الهاتف من التخزين المحلي: $phone');
+      debugPrint('📱 تم جلب رقم الهاتف من التخزين المحلي: $phone');
       return phone;
     } catch (e) {
-      print('❌ خطأ في جلب رقم الهاتف: $e');
+      debugPrint('❌ خطأ في جلب رقم الهاتف: $e');
       return '07512345154';
     }
   }
@@ -100,12 +99,12 @@ class UserService {
 
     // إذا كان الرقم يبدأ بـ 964، إزالته واستبداله بـ 0
     if (cleanPhone.startsWith('964')) {
-      cleanPhone = '0' + cleanPhone.substring(3);
+      cleanPhone = '0${cleanPhone.substring(3)}';
     }
 
     // إذا لم يبدأ بـ 0، إضافته
     if (!cleanPhone.startsWith('0')) {
-      cleanPhone = '0' + cleanPhone;
+      cleanPhone = '0$cleanPhone';
     }
 
     // التأكد من أن الرقم 11 رقم (الطول الصحيح للرقم العراقي)
@@ -140,8 +139,7 @@ class UserService {
     final now = DateTime.now().toUtc().add(const Duration(hours: 3));
     final hour = now.hour;
 
-    // طباعة الوقت للتأكد (للتطوير فقط)
-    debugPrint('🕐 الوقت الحالي في العراق: ${now.hour}:${now.minute.toString().padLeft(2, '0')}');
+    // تم إزالة طباعة الوقت لتوفير الأداء
 
     // تحديد التحية والإيموجي حسب الوقت
     if (hour >= 5 && hour < 12) {

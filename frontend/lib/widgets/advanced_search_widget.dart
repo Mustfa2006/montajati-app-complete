@@ -5,18 +5,13 @@ class AdvancedSearchWidget extends StatefulWidget {
   final Function(Map<String, dynamic>) onFiltersChanged;
   final Map<String, dynamic> initialFilters;
 
-  const AdvancedSearchWidget({
-    super.key,
-    required this.onFiltersChanged,
-    this.initialFilters = const {},
-  });
+  const AdvancedSearchWidget({super.key, required this.onFiltersChanged, this.initialFilters = const {}});
 
   @override
   State<AdvancedSearchWidget> createState() => _AdvancedSearchWidgetState();
 }
 
-class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
-    with TickerProviderStateMixin {
+class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget> with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -47,22 +42,17 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
   }
 
   void _initializeAnimations() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
+    _animationController = AnimationController(duration: const Duration(milliseconds: 300), vsync: this);
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
 
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, -0.5), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _animationController,
-            curve: Curves.easeOutCubic,
-          ),
-        );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic));
   }
 
   void _initializeFilters() {
@@ -75,14 +65,11 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
     _minAmount = widget.initialFilters['minAmount'] ?? 0;
     _maxAmount = widget.initialFilters['maxAmount'] ?? 1000000;
     _selectedCity = widget.initialFilters['selectedCity'] ?? 'all';
-    _selectedPaymentMethod =
-        widget.initialFilters['selectedPaymentMethod'] ?? 'all';
+    _selectedPaymentMethod = widget.initialFilters['selectedPaymentMethod'] ?? 'all';
 
     _searchController.text = _searchQuery;
     _minAmountController.text = _minAmount > 0 ? _minAmount.toString() : '';
-    _maxAmountController.text = _maxAmount < 1000000
-        ? _maxAmount.toString()
-        : '';
+    _maxAmountController.text = _maxAmount < 1000000 ? _maxAmount.toString() : '';
   }
 
   @override
@@ -151,10 +138,7 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,10 +146,7 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
           _buildHeader(),
           const SizedBox(height: 15),
           _buildBasicFilters(),
-          if (_showAdvancedFilters) ...[
-            const SizedBox(height: 15),
-            _buildAdvancedFilters(),
-          ],
+          if (_showAdvancedFilters) ...[const SizedBox(height: 15), _buildAdvancedFilters()],
           const SizedBox(height: 15),
           _buildActionButtons(),
         ],
@@ -180,22 +161,13 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
         const SizedBox(width: 10),
         const Text(
           'البحث والفلترة المتقدمة',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const Spacer(),
         IconButton(
-          icon: Icon(
-            _showAdvancedFilters ? Icons.expand_less : Icons.expand_more,
-            color: const Color(0xFFffd700),
-          ),
+          icon: Icon(_showAdvancedFilters ? Icons.expand_less : Icons.expand_more, color: const Color(0xFFffd700)),
           onPressed: _toggleAdvancedFilters,
-          tooltip: _showAdvancedFilters
-              ? 'إخفاء الفلاتر المتقدمة'
-              : 'إظهار الفلاتر المتقدمة',
+          tooltip: _showAdvancedFilters ? 'إخفاء الفلاتر المتقدمة' : 'إظهار الفلاتر المتقدمة',
         ),
       ],
     );
@@ -222,32 +194,18 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
       decoration: BoxDecoration(
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: TextField(
         controller: _searchController,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'البحث (رقم الطلب، اسم العميل، الهاتف...)',
-          hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 14,
-          ),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: Color(0xFFffd700),
-            size: 20,
-          ),
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
+          prefixIcon: const Icon(Icons.search, color: Color(0xFFffd700), size: 20),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(
-                    Icons.clear,
-                    color: Color(0xFFffd700),
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.clear, color: Color(0xFFffd700), size: 18),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
@@ -256,10 +214,7 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 15,
-            vertical: 12,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
         ),
         onChanged: (value) {
           setState(() => _searchQuery = value);
@@ -326,21 +281,14 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
           decoration: BoxDecoration(
             color: const Color(0xFF1a1a2e),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: const Color(0xFFffd700).withValues(alpha: 0.2),
-              width: 1,
-            ),
+            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.2), width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
                 'فلاتر متقدمة',
-                style: TextStyle(
-                  color: Color(0xFFffd700),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 15),
               Row(
@@ -433,21 +381,14 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'نطاق المبلغ (د.ع)',
-            style: TextStyle(
-              color: Color(0xFFffd700),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
           Row(
@@ -459,20 +400,12 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     hintText: 'من',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 12,
-                    ),
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      ),
+                      borderSide: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 8,
-                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   ),
                   onChanged: (value) {
                     setState(() {
@@ -492,20 +425,12 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     hintText: 'إلى',
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 12,
-                    ),
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      ),
+                      borderSide: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                     ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 8,
-                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   ),
                   onChanged: (value) {
                     setState(() {
@@ -528,21 +453,14 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'تاريخ مخصص',
-            style: TextStyle(
-              color: Color(0xFFffd700),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
           Row(
@@ -551,24 +469,15 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
                 child: GestureDetector(
                   onTap: () => _selectDate(true),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     decoration: BoxDecoration(
-                      border: Border.all(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      ),
+                      border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      _startDate != null
-                          ? DateFormat('dd/MM/yyyy').format(_startDate!)
-                          : 'من تاريخ',
+                      _startDate != null ? DateFormat('dd/MM/yyyy').format(_startDate!) : 'من تاريخ',
                       style: TextStyle(
-                        color: _startDate != null
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.5),
+                        color: _startDate != null ? Colors.white : Colors.white.withValues(alpha: 0.5),
                         fontSize: 12,
                       ),
                     ),
@@ -582,24 +491,15 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
                 child: GestureDetector(
                   onTap: () => _selectDate(false),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     decoration: BoxDecoration(
-                      border: Border.all(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      ),
+                      border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      _endDate != null
-                          ? DateFormat('dd/MM/yyyy').format(_endDate!)
-                          : 'إلى تاريخ',
+                      _endDate != null ? DateFormat('dd/MM/yyyy').format(_endDate!) : 'إلى تاريخ',
                       style: TextStyle(
-                        color: _endDate != null
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.5),
+                        color: _endDate != null ? Colors.white : Colors.white.withValues(alpha: 0.5),
                         fontSize: 12,
                       ),
                     ),
@@ -625,9 +525,7 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
               backgroundColor: const Color(0xFFffd700),
               foregroundColor: const Color(0xFF1a1a2e),
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ),
@@ -641,9 +539,7 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
               foregroundColor: const Color(0xFFffd700),
               side: const BorderSide(color: Color(0xFFffd700)),
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ),
@@ -661,24 +557,15 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
       decoration: BoxDecoration(
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 12,
-          ),
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
         style: const TextStyle(color: Colors.white, fontSize: 12),
         dropdownColor: const Color(0xFF1a1a2e),
@@ -686,10 +573,7 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
         items: items.map((item) {
           return DropdownMenuItem<String>(
             value: item['value'],
-            child: Text(
-              item['label']!,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
+            child: Text(item['label']!, style: const TextStyle(color: Colors.white, fontSize: 12)),
           );
         }).toList(),
         onChanged: onChanged,
@@ -700,9 +584,7 @@ class _AdvancedSearchWidgetState extends State<AdvancedSearchWidget>
   Future<void> _selectDate(bool isStartDate) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isStartDate
-          ? (_startDate ?? DateTime.now())
-          : (_endDate ?? DateTime.now()),
+      initialDate: isStartDate ? (_startDate ?? DateTime.now()) : (_endDate ?? DateTime.now()),
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {

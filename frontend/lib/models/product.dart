@@ -1,5 +1,40 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+
 class Product {
   final String id;
+
+  // 🎯 دالة مساعدة آمنة لتحويل التبليغات من JSON
+  static List<String> _parseNotificationTags(dynamic tags) {
+    if (tags == null) return <String>[];
+
+    try {
+      if (tags is List) {
+        // تحويل آمن لكل عنصر في القائمة
+        return tags
+            .where((tag) => tag != null) // إزالة القيم الفارغة
+            .map((tag) => tag.toString())
+            .where((tag) => tag.isNotEmpty) // إزالة النصوص الفارغة
+            .toList();
+      } else if (tags is String && tags.isNotEmpty) {
+        // محاولة تحويل النص إلى JSON
+        try {
+          final decoded = json.decode(tags);
+          if (decoded is List) {
+            return _parseNotificationTags(decoded);
+          }
+        } catch (_) {
+          // إذا فشل التحويل، إرجاع قائمة فارغة
+        }
+      }
+      return <String>[];
+    } catch (e) {
+      debugPrint('خطأ في تحويل التبليغات: $e');
+      return <String>[];
+    }
+  }
+
   final String name;
   final String description;
   final double wholesalePrice;
@@ -13,6 +48,7 @@ class Product {
   final int availableQuantity;
   final String category;
   final int displayOrder; // ترتيب عرض المنتج (1 = أول منتج، 2 = ثاني منتج، إلخ)
+  final List<String> notificationTags; // 🎯 تبليغات ذكية للمنتج
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -31,6 +67,7 @@ class Product {
     required this.availableQuantity,
     required this.category,
     this.displayOrder = 999, // قيمة افتراضية عالية للمنتجات الجديدة
+    this.notificationTags = const [], // 🎯 قائمة فارغة افتراضياً
     required this.createdAt,
     required this.updatedAt,
   });
@@ -51,12 +88,9 @@ class Product {
       availableQuantity: json['available_quantity'] ?? 100,
       category: json['category']?.toString() ?? '',
       displayOrder: json['display_order'] ?? 999, // قيمة افتراضية عالية
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'])
-          : DateTime.now(),
-      updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
-          : DateTime.now(),
+      notificationTags: _parseNotificationTags(json['notification_tags']), // 🎯 تحويل آمن للتبليغات
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : DateTime.now(),
     );
   }
 
@@ -76,6 +110,7 @@ class Product {
       'available_quantity': availableQuantity,
       'category': category,
       'display_order': displayOrder,
+      'notification_tags': notificationTags, // 🎯 إضافة التبليغات للـ JSON
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };

@@ -1,48 +1,38 @@
 // 🎨 صفحة تفاصيل المنتج الأنيقة والمرتبة
 // Elegant Product Details Page with Beautiful Design
 
-import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import 'dart:ui';
-import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:saver_gallery/saver_gallery.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:universal_html/html.dart' as html;
 
 import '../core/design_system.dart';
 import '../models/product.dart';
-import '../services/cart_service.dart';
 import '../services/favorites_service.dart';
 import '../utils/number_formatter.dart';
-import '../widgets/common_header.dart';
 
 class ModernProductDetailsPage extends StatefulWidget {
   final String productId;
 
-  const ModernProductDetailsPage({
-    super.key,
-    required this.productId,
-  });
+  const ModernProductDetailsPage({super.key, required this.productId});
 
   @override
   State<ModernProductDetailsPage> createState() => _ModernProductDetailsPageState();
 }
 
-class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
-    with TickerProviderStateMixin {
-
+class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> with TickerProviderStateMixin {
   // Controllers & Animation
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  late AnimationController _floatController;
-  late Animation<double> _floatAnimation;
 
   // Page Controllers
   final PageController _imagePageController = PageController();
@@ -62,9 +52,16 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
   int _selectedQuantity = 1;
   bool _isFavorite = false;
   bool _isDescriptionExpanded = false;
-  bool _showActionButtons = false; // حالة إظهار أزرار الإجراءات
+
   bool _showActionBalls = false; // حالة إظهار الكرات المنبثقة
+  // مفاتيح قياس مواضع الكرات
+  final GlobalKey _mainBallKey = GlobalKey();
+  final GlobalKey _heartBallKey = GlobalKey();
+  final GlobalKey _cameraBallKey = GlobalKey();
+  final GlobalKey _galleryBallKey = GlobalKey();
+  OverlayEntry? _actionsOverlay;
   final List<double> _pinnedPrices = []; // قائمة الأسعار المثبتة
+  bool _isHandlingAction = false; // حارس لمنع تنفيذ مضاعف للنقرات
 
   // Colors for product variants
   final List<Map<String, dynamic>> _productColors = [
@@ -99,40 +96,14 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
   }
 
   void _initializeAnimations() {
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
+    _fadeController = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
 
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _floatController = AnimationController(
-      duration: const Duration(milliseconds: 2400),
-      vsync: this,
-    )..repeat(reverse: true);
+    _slideController = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    ));
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
-
-    _floatAnimation = Tween<double>(begin: -6, end: 6).animate(
-      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
-    );
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut));
 
     _fadeController.forward();
     _slideController.forward();
@@ -140,11 +111,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
 
   Future<void> _loadProductData() async {
     try {
-      final response = await Supabase.instance.client
-          .from('products')
-          .select()
-          .eq('id', widget.productId)
-          .single();
+      final response = await Supabase.instance.client.from('products').select().eq('id', widget.productId).single();
 
       setState(() {
         _productData = response;
@@ -164,12 +131,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
           'wholesale_price': 0,
           'min_price': 0,
           'max_price': 0,
-          'images': [
-            '',
-            '',
-            '',
-            '',
-          ],
+          'images': ['', '', '', ''],
           'available_quantity': 0,
           'category': '',
         };
@@ -223,10 +185,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
     // Add to cart logic here
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'تم إضافة المنتج للسلة بنجاح!',
-          style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-        ),
+        content: Text('تم إضافة المنتج للسلة بنجاح!', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -240,10 +199,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
       HapticFeedback.lightImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'تم نسخ الوصف بنجاح!',
-            style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-          ),
+          content: Text('تم نسخ الوصف بنجاح!', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
           backgroundColor: AppDesignSystem.goldColor,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -254,9 +210,9 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
 
   @override
   void dispose() {
+    _removeActionsOverlay();
     _fadeController.dispose();
     _slideController.dispose();
-    _floatController.dispose();
     _imagePageController.dispose();
     _priceController.dispose();
     _scrollController.dispose();
@@ -274,13 +230,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
             children: [
               CircularProgressIndicator(color: AppDesignSystem.goldColor),
               const SizedBox(height: 20),
-              Text(
-                'جاري تحميل المنتج...',
-                style: GoogleFonts.cairo(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-              ),
+              Text('جاري تحميل المنتج...', style: GoogleFonts.cairo(color: Colors.white, fontSize: 16)),
             ],
           ),
         ),
@@ -288,87 +238,57 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A1A), // خلفية هادئة
-      floatingActionButton: _buildFloatingCartButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      backgroundColor: Colors.black, // خلفية سوداء للتأثير ثلاثي الأبعاد
       extendBody: true, // إزالة الشريط الأسود
-      body: SafeArea(
-        bottom: false, // إزالة SafeArea من الأسفل
-        child: Column(
-          children: [
-            // Header أنيق وبسيط
-            _buildCleanHeader(),
+      body: Stack(
+        children: [
+          // المحتوى الرئيسي
+          SafeArea(
+            bottom: false, // إزالة SafeArea من الأسفل
+            child: Column(
+              children: [
+                // المحتوى الرئيسي
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 10), // تقليل المسافة العلوية
+                          // منطقة الصورة الأنيقة
+                          _buildElegantImageSection(),
 
-            // المحتوى الرئيسي
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 10), // تقليل المسافة العلوية
+                          // فاصل بسيط بدون كرة
+                          const SizedBox(height: 10),
 
-                      // منطقة الصورة الأنيقة
-                      _buildElegantImageSection(),
+                          // تفاصيل المنتج في container أنيق (بدون مسافة)
+                          _buildProductDetailsCard(),
 
-                      const SizedBox(height: 5), // تقليل المسافة بين الصورة والإطار
-
-                      // تفاصيل المنتج في container أنيق
-                      _buildProductDetailsCard(),
-
-                      const SizedBox(height: 20), // تقليل المسافة من 100 إلى 20
-                    ],
+                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 🎨 Header أنيق وبسيط
-  Widget _buildCleanHeader() {
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // زر الرجوع أنيق
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new,
-                color: Colors.white,
-                size: 18,
-              ),
+              ],
             ),
           ),
 
-          // زر المشاركة فقط
-          GestureDetector(
-            onTap: () => HapticFeedback.lightImpact(),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF2A2A2A),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.share_outlined,
-                color: Colors.white,
-                size: 18,
+          // زر الرجوع في الزاوية
+          Positioned(
+            top: 25,
+            right: 20,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
               ),
             ),
           ),
@@ -377,18 +297,19 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
     );
   }
 
-  // 🎨 منطقة الصورة النظيفة والمرتبة
+  // 🎨 منطقة الصورة النظيفة بدون مربع
   Widget _buildElegantImageSection() {
     final images = _getImagesList();
 
     return Container(
-      height: 280, // تقليل الارتفاع
+      height: 320, // تكبير الصورة قليلاً
       color: Colors.transparent,
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
           // الصورة الرئيسية - نظيفة وبسيطة
           Center(
-            child: Container(
+            child: SizedBox(
               width: 300,
               height: 300,
               child: PageView.builder(
@@ -399,63 +320,56 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                 },
                 itemCount: images.length,
                 itemBuilder: (context, index) {
-                  return Container(
-                    child: Stack(
-                      children: [
-                        // ظل بسيط أسفل المنتج
-                        Positioned(
-                          bottom: 60,
-                          left: 60,
-                          right: 60,
-                          child: Container(
-                            height: 20,
-                            decoration: BoxDecoration(
-                              gradient: RadialGradient(
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.3),
-                                  Colors.black.withValues(alpha: 0.1),
-                                  Colors.transparent,
-                                ],
-                                stops: [0.0, 0.6, 1.0],
-                              ),
-                              borderRadius: BorderRadius.circular(100),
+                  return Stack(
+                    children: [
+                      // ظل بسيط أسفل المنتج
+                      Positioned(
+                        bottom: 60,
+                        left: 60,
+                        right: 60,
+                        child: Container(
+                          height: 20,
+                          decoration: BoxDecoration(
+                            gradient: RadialGradient(
+                              colors: [
+                                Colors.black.withValues(alpha: 0.3),
+                                Colors.black.withValues(alpha: 0.1),
+                                Colors.transparent,
+                              ],
+                              stops: [0.0, 0.6, 1.0],
                             ),
+                            borderRadius: BorderRadius.circular(100),
                           ),
                         ),
+                      ),
 
-                        // الصورة النظيفة
-                        Center(
-                          child: Container(
-                            width: 280,
-                            height: 280,
-                            child: CachedNetworkImage(
-                              imageUrl: images[index],
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => Center(
-                                child: CircularProgressIndicator(
-                                  color: const Color(0xFFD4AF37),
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              errorWidget: (context, url, error) => Center(
-                                child: Icon(
-                                  Icons.image_not_supported,
-                                  color: Colors.white.withValues(alpha: 0.3),
-                                  size: 40,
-                                ),
+                      // الصورة النظيفة
+                      Center(
+                        child: SizedBox(
+                          width: 500,
+                          height: 500,
+                          child: CachedNetworkImage(
+                            imageUrl: images[index],
+                            fit: BoxFit.contain,
+                            placeholder: (context, url) => Center(
+                              child: CircularProgressIndicator(color: const Color(0xFFD4AF37), strokeWidth: 2),
+                            ),
+                            errorWidget: (context, url, error) => Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: Colors.white.withValues(alpha: 0.3),
+                                size: 40,
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   );
                 },
               ),
             ),
           ),
-
-
 
           // مؤشر الصور البسيط
           if (images.length > 1)
@@ -497,67 +411,9 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
   }
 
   // 🎯 الكرة العائمة - استجابة كاملة 100% بدون تداخل
-  Widget _buildFloatingBall() {
-    return GestureDetector(
-      onTap: () {
-        // تفعيل/إخفاء الكرات المنبثقة
-        if (!mounted) return;
 
-        HapticFeedback.lightImpact();
-        setState(() {
-          _showActionBalls = !_showActionBalls;
-        });
-      },
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF363940),
-              Color(0xFF2D3748),
-              Color(0xFF1A202C),
-            ],
-          ),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: _isFavorite ? Colors.red : const Color(0xFFFFD700),
-            width: _isFavorite ? 4.0 : 3.0,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 5),
-              spreadRadius: 2,
-            ),
-            BoxShadow(
-              color: (_isFavorite ? Colors.red : const Color(0xFFFFD700)).withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 0),
-              spreadRadius: 0,
-            ),
-          ],
-        ),
-        child: Center(
-          child: Icon(
-            _isFavorite ? Icons.favorite : Icons.apps,
-            color: _isFavorite ? Colors.red : const Color(0xFFFFD700),
-            size: _isFavorite ? 32 : 28,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 🎯 كرة الإجراءات المنبثقة - ذكية ومميزة حسب الحالة
-  Widget _buildActionBall({
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+  // 🎨 العرض البصري للكرة فقط (بدون منطق النقر)
+  Widget _buildActionBallVisual(IconData icon, {Key? widgetKey}) {
     // تحديد خصائص كرة القلب حسب حالة المفضلة
     bool isHeartBall = icon == Icons.favorite;
     bool isActive = isHeartBall ? _isFavorite : false;
@@ -591,52 +447,35 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
       builder: (context, scale, child) {
         return Transform.scale(
           scale: scale,
-          child: GestureDetector(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              onTap();
-              // إخفاء الكرات بعد النقر
-              setState(() {
-                _showActionBalls = false;
-              });
-            },
-            child: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    ballColor,
-                    ballColor.withValues(alpha: 0.8),
-                  ],
-                ),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: borderColor,
-                  width: isActive ? 3.0 : 2.0, // حدود أكثر سمكاً للحالة النشطة
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                    spreadRadius: 1,
-                  ),
-                  BoxShadow(
-                    color: const Color(0xFFFFD700).withValues(alpha: 0.2),
-                    blurRadius: 12,
-                    offset: const Offset(0, 0),
-                    spreadRadius: 0,
-                  ),
-                ],
+          child: Container(
+            key: widgetKey,
+            width: 45,
+            height: 45,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [ballColor, ballColor.withValues(alpha: 0.8)],
               ),
-              child: Icon(
-                isHeartBall && isActive ? Icons.favorite : icon,
-                color: iconColor,
-                size: isActive ? 28 : 24, // حجم أكبر للحالة النشطة
-              ),
+              shape: BoxShape.circle,
+              border: Border.all(color: borderColor, width: isActive ? 3.0 : 2.0),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                  spreadRadius: 1,
+                ),
+                BoxShadow(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 0),
+                  spreadRadius: 0,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Icon(isHeartBall && isActive ? Icons.favorite : icon, color: iconColor, size: isActive ? 24 : 20),
             ),
           ),
         );
@@ -644,237 +483,18 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
     );
   }
 
-  // 🎨 تحديد لون الأيقونة حسب النوع
-  Color _getIconColor(IconData icon) {
-    if (icon == Icons.favorite) {
-      return Colors.red;
-    } else if (icon == Icons.photo_camera) {
-      return Colors.blue;
-    } else {
-      return Colors.green;
-    }
-  }
-
-  // 🎯 نفس تصميم CurvedNavigationBar بالضبط!
-  Widget _buildCurvedBallSection() {
-    return SizedBox(
-      width: 80,
-      height: 70,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // القوس المقطوع بنفس كود CurvedNavigationBar
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: CustomPaint(
-              painter: _NavCustomPainter(0.5, 1, const Color(0xFFD4AF37), TextDirection.ltr),
-              child: Container(
-                height: 70.0,
-                color: Colors.transparent,
-              ),
-            ),
-          ),
-
-          // الكرة بنفس تصميم CurvedNavigationBar بالضبط!
-          Positioned(
-            bottom: -45,
-            left: 0,
-            width: 80,
-            child: Center(
-              child: GestureDetector(
-                onTap: () {
-                  // تفعيل الكرة
-                  HapticFeedback.lightImpact();
-                },
-                child: TweenAnimationBuilder<double>(
-                  duration: const Duration(milliseconds: 800),
-                  curve: Curves.elasticOut,
-                  tween: Tween(begin: 0.8, end: 1.0),
-                  builder: (context, scale, child) {
-                    return Transform.scale(
-                      scale: scale,
-                      child: ClipOval(
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 600),
-                            curve: Curves.easeInOutCubic,
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Color(0xFF363940),
-                                  Color(0xFF2D3748),
-                                  Color(0xFF1A202C),
-                                ],
-                              ),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: const Color(0xFFFFD700),
-                                width: 3.0,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 6),
-                                  spreadRadius: 2,
-                                ),
-                                BoxShadow(
-                                  color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 0),
-                                  spreadRadius: 1,
-                                ),
-                                BoxShadow(
-                                  color: const Color(0xFFFFD700).withValues(alpha: 0.2),
-                                  blurRadius: 30,
-                                  offset: const Offset(0, 0),
-                                  spreadRadius: 3,
-                                ),
-                              ],
-                            ),
-                            child: Stack(
-                              children: [
-                                Positioned.fill(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      gradient: RadialGradient(
-                                        colors: [
-                                          const Color(0xFFFFD700).withValues(alpha: 0.1),
-                                          Colors.transparent,
-                                        ],
-                                        stops: const [0.3, 1.0],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Center(
-                                  child: AnimatedScale(
-                                    duration: const Duration(milliseconds: 400),
-                                    scale: 1.0,
-                                    child: AnimatedRotation(
-                                      duration: const Duration(milliseconds: 800),
-                                      turns: 0.0,
-                                      child: IconTheme(
-                                        data: const IconThemeData(
-                                          color: Color(0xFFFFD700),
-                                          size: 28,
-                                        ),
-                                        child: const Icon(Icons.apps), // أيقونة المربعات
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-
-          // أزرار الإجراءات المنبثقة
-          if (_showActionButtons)
-            Positioned(
-              left: 85,
-              top: -10,
-              child: _buildActionButtons(),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // 🎬 أزرار الإجراءات المنبثقة
-  Widget _buildActionButtons() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFD4AF37).withValues(alpha: 0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // زر القلب
-          _buildActionButton(
-            icon: Icons.favorite_border,
-            onTap: () => _toggleFavorite(),
-            tooltip: 'إضافة للمفضلة',
-          ),
-
-          const SizedBox(width: 8),
-
-          // زر حفظ صورة واحدة
-          _buildActionButton(
-            icon: Icons.photo_camera,
-            onTap: () => _saveCurrentImage(),
-            tooltip: 'حفظ الصورة الحالية',
-          ),
-
-          const SizedBox(width: 8),
-
-          // زر حفظ كل الصور
-          _buildActionButton(
-            icon: Icons.photo_library,
-            onTap: () => _saveAllImages(),
-            tooltip: 'حفظ كل الصور',
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🎯 زر إجراء واحد
-  Widget _buildActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    required String tooltip,
-  }) {
+  // 🎯 كرة الإجراءات المنبثقة - مع النقر
+  Widget _buildActionBall({required IconData icon, required Color color, required VoidCallback onTap, Key? widgetKey}) {
     return GestureDetector(
       onTap: () {
-        onTap();
-        // تم النقر على الزر
+        debugPrint('🎯 تم النقر على كرة! الأيقونة: $icon');
         HapticFeedback.lightImpact();
+        onTap();
+        setState(() {
+          _showActionBalls = false;
+        });
       },
-      child: Tooltip(
-        message: tooltip,
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: const Color(0xFFD4AF37).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(
-            icon,
-            color: const Color(0xFFD4AF37),
-            size: 16,
-          ),
-        ),
-      ),
+      child: _buildActionBallVisual(icon, widgetKey: widgetKey),
     );
   }
 
@@ -902,7 +522,6 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
         updatedAt: DateTime.now(),
       );
 
-      final wasLiked = _isFavorite;
       final success = await _favoritesService.toggleFavorite(product);
 
       if (success && mounted) {
@@ -914,10 +533,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
           SnackBar(
             content: Text(
               _isFavorite ? 'تم إضافة المنتج للمفضلة ❤️' : 'تم إزالة المنتج من المفضلة 💔',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             backgroundColor: _isFavorite ? Colors.green : Colors.red,
             duration: const Duration(seconds: 2),
@@ -944,10 +560,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
           SnackBar(
             content: Text(
               'تم حفظ الصورة في الاستوديو ✅',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 2),
@@ -961,10 +574,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
           SnackBar(
             content: Text(
               'فشل في حفظ الصورة: $e',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
@@ -980,6 +590,66 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
     final images = _getImagesList();
     if (images.isEmpty) return;
 
+    // فرع الويب: أطلق جميع التنزيلات فوراً دفعة واحدة بدون انتظار متسلسل
+    if (kIsWeb) {
+      // تنزيل صامت لكل الصور عبر Blob دون فتح تبويبات
+      int downloaded = 0;
+      int failed = 0;
+      for (int i = 0; i < images.length; i++) {
+        final url = images[i];
+        try {
+          final response = await http.get(Uri.parse(url));
+          if (response.statusCode != 200) {
+            failed++;
+            continue;
+          }
+          // تخمين الامتداد والنوع
+          final lower = url.toLowerCase();
+          String ext = '.jpg';
+          String mime = 'image/jpeg';
+          if (lower.endsWith('.png')) {
+            ext = '.png';
+            mime = 'image/png';
+          } else if (lower.endsWith('.webp')) {
+            ext = '.webp';
+            mime = 'image/webp';
+          }
+
+          final blob = html.Blob([response.bodyBytes], mime);
+          final objUrl = html.Url.createObjectUrlFromBlob(blob);
+          final anchor = html.AnchorElement(href: objUrl)
+            ..download = 'image_${i + 1}_${DateTime.now().millisecondsSinceEpoch}$ext'
+            ..style.display = 'none';
+          html.document.body?.append(anchor);
+          anchor.click();
+          anchor.remove();
+          html.Url.revokeObjectUrl(objUrl);
+          downloaded++;
+        } catch (e) {
+          failed++;
+        }
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+        final msg = failed == 0
+            ? 'تم تنزيل $downloaded صورة ✅'
+            : 'تم تنزيل $downloaded صورة، وفشل $failed (قيود المصدر)';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              msg,
+              style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+            backgroundColor: failed == 0 ? Colors.green : Colors.orange,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    // الأجهزة: نحفظ تسلسلياً لكن برسالة واحدة في النهاية
     try {
       int savedCount = 0;
       for (int i = 0; i < images.length; i++) {
@@ -990,16 +660,13 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
           debugPrint('❌ فشل في حفظ الصورة $i: $e');
         }
       }
-
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'تم حفظ $savedCount من ${images.length} صور في الاستوديو ✅',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 3),
@@ -1009,14 +676,12 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
       }
     } catch (e) {
       if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'فشل في حفظ الصور: $e',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 3),
@@ -1030,7 +695,53 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
   // 💾 حفظ صورة في الاستوديو
   Future<void> _saveImageToGallery(String imageUrl, String fileName) async {
     try {
-      // طلب الصلاحيات
+      // دعم الويب: لا يمكن الحفظ في الاستوديو على المتصفح
+      if (kIsWeb) {
+        // تنزيل مباشر عبر المتصفح. نحاول أولاً عبر Blob، وإن فشل (مثل CORS) نسقط إلى رابط مباشر
+        try {
+          final response = await http.get(Uri.parse(imageUrl));
+          if (response.statusCode != 200) {
+            throw Exception('HTTP ${response.statusCode}');
+          }
+          // تحديد نوع/امتداد الملف بناءً على رابط الصورة
+          final lower = imageUrl.toLowerCase();
+          String ext = '.jpg';
+          String mime = 'image/jpeg';
+          if (lower.endsWith('.png')) {
+            ext = '.png';
+            mime = 'image/png';
+          } else if (lower.endsWith('.webp')) {
+            ext = '.webp';
+            mime = 'image/webp';
+          }
+          final blob = html.Blob([response.bodyBytes], mime);
+          final url = html.Url.createObjectUrlFromBlob(blob);
+          final anchor = html.AnchorElement(href: url)
+            ..download = '$fileName$ext'
+            ..style.display = 'none';
+          html.document.body?.append(anchor);
+          anchor.click();
+          anchor.remove();
+          html.Url.revokeObjectUrl(url);
+        } catch (e) {
+          // سقوط إلى رابط مباشر يُنزل أو يفتح الصورة في تبويب جديد
+          try {
+            final anchor = html.AnchorElement(href: imageUrl)
+              ..download = fileName
+              ..target = '_blank'
+              ..rel = 'noopener'
+              ..style.display = 'none';
+            html.document.body?.append(anchor);
+            anchor.click();
+            anchor.remove();
+          } catch (err) {
+            debugPrint('❌ تعذّر تنزيل الصورة على الويب: $e / $err');
+          }
+        }
+        return;
+      }
+
+      // طلب الصلاحيات (للأجهزة فقط)
       final status = await Permission.storage.request();
       if (!status.isGranted) {
         throw Exception('لا توجد صلاحية للوصول للتخزين');
@@ -1042,14 +753,16 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
         throw Exception('فشل في تحميل الصورة');
       }
 
-      // حفظ الصورة في الاستوديو
-      final result = await ImageGallerySaver.saveImage(
+      // حفظ الصورة في الاستوديو باستخدام saver_gallery
+      final result = await SaverGallery.saveImage(
         response.bodyBytes,
-        name: fileName,
         quality: 100,
+        fileName: fileName,
+        androidRelativePath: "Pictures/منتجاتي/images",
+        skipIfExists: false,
       );
 
-      if (result['isSuccess'] != true) {
+      if (result.isSuccess != true) {
         throw Exception('فشل في حفظ الصورة في الاستوديو');
       }
 
@@ -1060,518 +773,249 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
     }
   }
 
-  // 📋 كارت تفاصيل المنتج الأنيق مع قوس عميق
+  // 📋 كارت تفاصيل المنتج الشفاف والمضبب
   Widget _buildProductDetailsCard() {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        // الجزء الرصاصي الأساسي
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 0),
-          padding: const EdgeInsets.fromLTRB(24, 40, 24, 0), // زيادة المسافة العلوية
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(50), // قوس عميق
-              topRight: Radius.circular(50), // قوس عميق
-            ),
-            // إضافة ظل للتأثير ثلاثي الأبعاد
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                spreadRadius: 5,
-                offset: const Offset(0, -10),
-              ),
-            ],
+        // الجزء الشفاف والمضبب
+        ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(50), // قوس عميق
+            topRight: Radius.circular(50), // قوس عميق
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // اسم المنتج فقط (بدون مجسم)
-              Text(
-                _productData?['name'] ?? 'اسم المنتج',
-                style: GoogleFonts.cairo(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  height: 1.3,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 0),
+              padding: const EdgeInsets.fromLTRB(24, 40, 24, 0), // زيادة المسافة العلوية
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.01), // شفافية خفيفة جداً لإظهار الخلفية الخرافية
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(50), // قوس عميق
+                  topRight: Radius.circular(50), // قوس عميق
                 ),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                // إضافة ظل للتأثير ثلاثي الأبعاد
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                    offset: const Offset(0, -10),
+                  ),
+                ],
               ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // اسم المنتج فقط (بدون مجسم)
+                  Text(
+                    _productData?['name'] ?? 'اسم المنتج',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.cairo(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      height: 1.3,
+                    ),
+                  ),
 
-              const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-              const SizedBox(height: 24),
+                  // شريط الألوان والكمية المدمج
+                  _buildColorAndQuantityBar(),
 
-              // شريط الألوان والكمية المدمج
-              _buildColorAndQuantityBar(),
+                  const SizedBox(height: 28),
 
-              const SizedBox(height: 28),
+                  // السعر
+                  _buildPriceDisplay(),
 
-              // السعر
-              _buildPriceDisplay(),
+                  const SizedBox(height: 24),
 
-              const SizedBox(height: 24),
+                  // الوصف
+                  _buildDescription(),
 
-              // الوصف
-              _buildDescription(),
+                  const SizedBox(height: 24),
 
-              // مساحة إضافية لتجنب تداخل الزر العائم
-              const SizedBox(height: 30), // تقليل المسافة من 100 إلى 30
-            ],
+                  // زر إضافة إلى السلة
+                  _buildAddToCartButton(),
+
+                  // مساحة إضافية لتجنب تداخل الزر العائم
+                  const SizedBox(height: 30), // تقليل المسافة من 100 إلى 30
+                ],
+              ),
+            ),
           ),
         ),
 
-        // الكرة في الأعلى بين الجزء الرصاصي والأسود (الجهة اليسرى)
-        Positioned(
-          top: -30, // في الأعلى بين الجزأين
-          left: 40, // سحب الكرة إلى اليمين قليلاً
-          child: _buildFloatingBall(),
-        ),
+        // 🎯 الكرة الرئيسية منفصلة في الجهة اليمنى
+        _buildMainFloatingBall(),
 
-        // الكرات المنبثقة عند النقر - نفس مواقع الكرات البيضاء في الصورة المرجعية
-        if (_showActionBalls) ...[
-          // كرة حفظ المنتج (قلب) - أعلى يمين الكرة الأصلية
-          Positioned(
-            top: -60, // مسافة موحدة 80 بكسل من الكرة الرئيسية
-            left: 110, // مسافة موحدة 120 بكسل من الكرة الرئيسية
-            child: _buildActionBall(
-              icon: Icons.favorite,
-              color: const Color(0xFF2A2A2A), // سيتم تجاهله واستخدام اللون الذكي
-              onTap: _toggleFavorite,
-            ),
+        // طبقة شفافة عامة تلتقط النقرات وتحدد الهدف بناءً على مفاتيح القياس
+        if (_showActionBalls)
+          Positioned.fill(
+            child: GestureDetector(behavior: HitTestBehavior.translucent, onTapDown: _handleActionBallsTap),
           ),
 
-          // كرة حفظ الصورة الحالية - فوق الكرة الأصلية مائلة لليمين
+        // طبقة إضافية تغطي المنطقة أعلى البطاقة لضمان التقاط نقرات الكرات ذات الإزاحة السالبة
+        if (_showActionBalls)
           Positioned(
-            top: -90, // مسافة موحدة 120 بكسل أعلى (فرق 40 بكسل من القلب)
-            left: 60, // مسافة موحدة 80 بكسل يمين (فرق 40 بكسل من القلب)
-            child: _buildActionBall(
-              icon: Icons.photo_camera,
-              color: const Color(0xFF2A2A2A),
-              onTap: _saveCurrentImage,
-            ),
+            top: -180, // تغطية كافية فوق حد البطاقة لغاية 180px
+            left: 0,
+            right: 0,
+            height: 220, // ارتفاع يغطي القلب والكاميرا
+            child: GestureDetector(behavior: HitTestBehavior.translucent, onTapDown: _handleActionBallsTap),
           ),
-
-          // كرة حفظ كل الصور - أسفل يمين الكرة الأصلية
-          Positioned(
-            top: -0, // مسافة موحدة 40 بكسل أعلى (فرق 40 بكسل من القلب)
-            left: 115, // مسافة موحدة 120 بكسل يمين (نفس القلب)
-            child: _buildActionBall(
-              icon: Icons.photo_library,
-              color: const Color(0xFF2A2A2A),
-              onTap: _saveAllImages,
-            ),
-          ),
-        ],
-
       ],
     );
   }
 
-  // 🖼️ عارض الصور الأنيق مثل Nike
-  Widget _buildProductImageViewer() {
-    final images = _getImagesList();
-
-    return Container(
-      height: 450,
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+  // 🎯 الكرة الرئيسية والكرات المنبثقة - قسم منفصل
+  Widget _buildMainFloatingBall() {
+    return Positioned(
+      top: -29,
+      right: 50, // تصحيح الموضع ليظهر داخل الشاشة
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // الصورة الرئيسية تطفو فوق قوس بيضوي
-          Center(
-            child: SizedBox(
-              width: 300,
-              height: 300,
-              child: PageView.builder(
-                  controller: _imagePageController,
-                  onPageChanged: (index) {
-                    setState(() => _currentImageIndex = index);
-                    HapticFeedback.selectionClick();
-                  },
-                  itemCount: images.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: CachedNetworkImage(
-                        imageUrl: images[index],
-                        fit: BoxFit.contain,
-                      ),
-                    );
-                  },
+          // الكرة الرئيسية
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _showActionBalls = !_showActionBalls;
+              });
+              if (_showActionBalls) {
+                _showActionsOverlay();
+              } else {
+                _removeActionsOverlay();
+              }
+            },
+            child: Container(
+              key: _mainBallKey,
+              width: 50,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.orange, // إبقاء نفس الإعدادات كما كانت
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF363940), Color(0xFF2D3748), Color(0xFF1A202C)],
                 ),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFFFFD700), width: 3.0),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, 8)),
+                  BoxShadow(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                    blurRadius: 5,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
               ),
-            ),
-
-          // قوس بيضوي يحيط بالمنتج مع مؤشر صغير
-          Positioned(
-            bottom: 72,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: SizedBox(
-                width: 320,
-                height: 120,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // القوس المرسوم
-                    CustomPaint(
-                      size: const Size(320, 120),
-                      painter: _ArcRingPainter(color: AppDesignSystem.goldColor),
-                    ),
-                    // مؤشر صغير في منتصف القوس
-                    Container(
-                      width: 34,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: AppDesignSystem.goldColor.withValues(alpha: 0.6),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppDesignSystem.goldColor.withValues(alpha: 0.25),
-                            blurRadius: 8,
-                            spreadRadius: 1,
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              if (_currentImageIndex > 0) {
-                                _imagePageController.previousPage(
-                                  duration: const Duration(milliseconds: 280),
-                                  curve: Curves.easeInOut,
-                                );
-                              }
-                            },
-                            child: Icon(Icons.chevron_left, size: 12, color: AppDesignSystem.goldColor),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              if (_currentImageIndex < images.length - 1) {
-                                _imagePageController.nextPage(
-                                  duration: const Duration(milliseconds: 280),
-                                  curve: Curves.easeInOut,
-                                );
-                              }
-                            },
-                            child: Icon(Icons.chevron_right, size: 12, color: AppDesignSystem.goldColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+              child: Center(
+                child: Icon(
+                  _isFavorite ? Icons.favorite : Icons.apps,
+                  color: _isFavorite ? Colors.red : const Color(0xFFFFD700),
+                  size: 25,
                 ),
               ),
             ),
           ),
 
-          // النقاط الملونة تحت المنصة مثل Nike
-          Positioned(
-            bottom: 20,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildColorDot(Colors.orange, true),
-                const SizedBox(width: 8),
-                _buildColorDot(Colors.blue, false),
-                const SizedBox(width: 8),
-                _buildColorDot(Colors.grey, false),
-                const SizedBox(width: 8),
-                _buildColorDot(Colors.green, false),
-                const SizedBox(width: 8),
-                _buildColorDot(Colors.red, false),
-              ],
-            ),
-          ),
-
-          // مؤشر الصور الأنيق في الأسفل
-          if (images.length > 1)
+          // الكرات المنبثقة - نفس المواقع الأصلية بالضبط
+          if (_showActionBalls) ...[
+            // كرة المفضلة - يسار
             Positioned(
-              bottom: -15,
-              left: 0,
-              right: 0,
-              child: Container(
-                height: 50,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                    images.length,
-                    (index) => GestureDetector(
-                      onTap: () {
-                        _imagePageController.animateToPage(
-                          index,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width: _currentImageIndex == index ? 12 : 8,
-                        height: _currentImageIndex == index ? 12 : 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _currentImageIndex == index
-                              ? AppDesignSystem.goldColor
-                              : AppDesignSystem.goldColor.withValues(alpha: 0.3),
-                          boxShadow: _currentImageIndex == index
-                              ? [
-                                  BoxShadow(
-                                    color: AppDesignSystem.goldColor.withValues(alpha: 0.6),
-                                    blurRadius: 8,
-                                    spreadRadius: 2,
-                                  ),
-                                ]
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              top: -40,
+              right: 60, // تصحيح الموضع ليظهر داخل الشاشة
+              child: _buildActionBall(
+                icon: Icons.favorite,
+                color: const Color(0xFF2A2A2A),
+                onTap: _toggleFavorite,
+                widgetKey: _heartBallKey,
               ),
             ),
 
-          // عداد الصور الأنيق في الزاوية
-          if (images.length > 1)
+            // كرة حفظ الصورة الحالية - أعلى
             Positioned(
-              top: 25,
-              right: 25,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.black.withValues(alpha: 0.8),
-                      Colors.black.withValues(alpha: 0.6),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(
-                    color: AppDesignSystem.goldColor.withValues(alpha: 0.4),
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  '${_currentImageIndex + 1} / ${images.length}',
-                  style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+              top: -55, // أعلى الكرة الرئيسية
+              right: 10,
+              child: _buildActionBall(
+                icon: Icons.photo_camera,
+                color: const Color(0xFF2A2A2A),
+                onTap: _saveCurrentImage,
+                widgetKey: _cameraBallKey,
               ),
             ),
 
-          // أزرار التنقل الجانبية
-          if (images.length > 1) ...[
-            // زر السابق
+            // كرة حفظ كل الصور - أسفل
             Positioned(
-              left: 15,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: () {
-                    if (_currentImageIndex > 0) {
-                      _imagePageController.previousPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    }
-                  },
-                  child: Container(
-                    width: 35,
-                    height: 35,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withValues(alpha: 0.6),
-                      border: Border.all(
-                        color: AppDesignSystem.goldColor.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.arrow_back_ios,
-                      color: _currentImageIndex > 0
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.3),
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // زر التالي
-            Positioned(
-              right: 15,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: GestureDetector(
-                  onTap: () {
-                    if (_currentImageIndex < images.length - 1) {
-                      _imagePageController.nextPage(
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    }
-                  },
-                  child: Container(
-                    width: 35,
-                    height: 35,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withValues(alpha: 0.6),
-                      border: Border.all(
-                        color: AppDesignSystem.goldColor.withValues(alpha: 0.3),
-                        width: 1,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      Icons.arrow_forward_ios,
-                      color: _currentImageIndex < images.length - 1
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.3),
-                      size: 16,
-                    ),
-                  ),
-                ),
+              top: 13, // أسفل الكرة الرئيسية
+              right: 65, // تصحيح الموضع ليظهر داخل الشاشة
+              child: _buildActionBall(
+                icon: Icons.photo_library,
+                color: const Color(0xFF2A2A2A),
+                onTap: _saveAllImages,
+                widgetKey: _galleryBallKey,
               ),
             ),
           ],
         ],
       ),
-
-
     );
   }
 
-  // 🏆 عنوان المنتج المبهر في الوسط
-  Widget _buildProductTitle() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
-      child: Column(
-        children: [
-          // اسم المنتج مع تأثير متدرج
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppDesignSystem.goldColor.withValues(alpha: 0.15),
-                  AppDesignSystem.goldColor.withValues(alpha: 0.05),
-                  Colors.transparent,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppDesignSystem.goldColor.withValues(alpha: 0.3),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppDesignSystem.goldColor.withValues(alpha: 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 5),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // اسم المنتج
-                Text(
-                  _productData!['name'] ?? 'منتج بدون اسم',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.cairo(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    height: 1.3,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+  // 🧠 معالج نقرات عام يعتمد على الإحداثيات العالمية للكرات (لا تغيير للمواقع إطلاقاً)
+  void _handleActionBallsTap(TapDownDetails details) {
+    if (_isHandlingAction) return; // منع تكرار التنفيذ
+    _isHandlingAction = true;
+    final pos = details.globalPosition;
 
-                const SizedBox(height: 12),
+    bool hit(GlobalKey key) {
+      final ctx = key.currentContext;
+      if (ctx == null) return false;
+      final box = ctx.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return false;
+      final topLeft = box.localToGlobal(Offset.zero);
+      final size = box.size;
+      final center = topLeft + Offset(size.width / 2, size.height / 2);
+      final radius = (size.shortestSide / 2) + 6; // سماحية بسيطة لتأثيرات التحجيم
+      return (pos - center).distance <= radius;
+    }
 
-                // خط فاصل ذهبي
-                Container(
-                  width: 60,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.transparent,
-                        AppDesignSystem.goldColor,
-                        Colors.transparent,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+    if (hit(_heartBallKey)) {
+      HapticFeedback.lightImpact();
+      _toggleFavorite();
+    } else if (hit(_cameraBallKey)) {
+      HapticFeedback.lightImpact();
+      _saveCurrentImage();
+    } else if (hit(_galleryBallKey)) {
+      HapticFeedback.lightImpact();
+      _saveAllImages();
+    }
 
-                const SizedBox(height: 12),
+    setState(() => _showActionBalls = false);
+    _removeActionsOverlay();
+    _isHandlingAction = false; // تحرير الحارس
+  }
 
-                // الفئة
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppDesignSystem.goldColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(25),
-                    border: Border.all(
-                      color: AppDesignSystem.goldColor.withValues(alpha: 0.5),
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    _productData!['category'] ?? 'عام',
-                    style: GoogleFonts.cairo(
-                      color: AppDesignSystem.goldColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+  // 🧠 إدارة طبقة Overlay على مستوى الشاشة لالتقاط النقرات فوق حدود البطاقة
+  void _showActionsOverlay() {
+    final overlay = Overlay.of(context);
+    _actionsOverlay?.remove();
+    _actionsOverlay = OverlayEntry(
+      builder: (ctx) => Positioned.fill(
+        child: GestureDetector(behavior: HitTestBehavior.translucent, onTapDown: _handleActionBallsTap),
       ),
     );
+    overlay.insert(_actionsOverlay!);
+  }
+
+  void _removeActionsOverlay() {
+    _actionsOverlay?.remove();
+    _actionsOverlay = null;
   }
 
   // دالة مساعدة للحصول على قائمة الصور
@@ -1584,994 +1028,180 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
     return [];
   }
 
-
-  // 🎨🔢 شريط الألوان والكمية المدمج
+  // 🎨🔢 شريط الألوان والكمية المدمج - متناسق مع الخلفية الخرافية
   Widget _buildColorAndQuantityBar() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          // قسم الألوان
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05), // شفافية خفيفة
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.2), // حدود ذهبية خفيفة
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                spreadRadius: 1,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // قسم الألوان
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.palette,
-                      color: const Color(0xFFD4AF37),
-                      size: 16,
+                    Row(
+                      children: [
+                        Icon(Icons.palette, color: const Color(0xFFD4AF37), size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          'اللون',
+                          style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'اللون',
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 32,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _productColors.length,
-                    itemBuilder: (context, index) {
-                      final colorData = _productColors[index];
-                      final isSelected = _selectedColor == colorData['name'];
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() => _selectedColor = colorData['name']);
-                          HapticFeedback.selectionClick();
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 32,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _productColors.length,
+                        itemBuilder: (context, index) {
+                          final colorData = _productColors[index];
+                          final isSelected = _selectedColor == colorData['name'];
+                          return GestureDetector(
+                            onTap: () {
+                              setState(() => _selectedColor = colorData['name']);
+                              HapticFeedback.selectionClick();
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                color: colorData['color'],
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withValues(alpha: 0.2),
+                                  width: isSelected ? 2.5 : 1,
+                                ),
+                              ),
+                              child: isSelected
+                                  ? Icon(
+                                      Icons.check,
+                                      color: colorData['color'] == Colors.white ? Colors.black : Colors.white,
+                                      size: 16,
+                                    )
+                                  : null,
+                            ),
+                          );
                         },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: colorData['color'],
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected
-                                  ? const Color(0xFFD4AF37)
-                                  : Colors.white.withValues(alpha: 0.2),
-                              width: isSelected ? 2.5 : 1,
-                            ),
-                          ),
-                          child: isSelected ? Icon(
-                            Icons.check,
-                            color: colorData['color'] == Colors.white ? Colors.black : Colors.white,
-                            size: 16,
-                          ) : null,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // خط فاصل رفيع
-          Container(
-            width: 1,
-            height: 60,
-            color: Colors.white.withValues(alpha: 0.2),
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-
-          // قسم الكمية
-          Expanded(
-            flex: 1,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.inventory_2,
-                      color: const Color(0xFFD4AF37),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'الكمية',
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        if (_selectedQuantity > 1) {
-                          setState(() => _selectedQuantity--);
-                          HapticFeedback.selectionClick();
-                        }
-                      },
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: _selectedQuantity > 1
-                              ? const Color(0xFF3A3A3A)
-                              : const Color(0xFF2A2A2A),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            width: 1,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.remove,
-                          color: _selectedQuantity > 1
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.3),
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      width: 40,
-                      child: Text(
-                        '$_selectedQuantity',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.cairo(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFFD4AF37),
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedQuantity++);
-                        HapticFeedback.selectionClick();
-                      },
-                      child: Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF3A3A3A),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🛒 زر السلة العائم الطويل
-  Widget _buildFloatingCartButton() {
-    final isEnabled = _isPriceValid && _customerPrice > 0;
-
-    return Container(
-      width: 200,
-      height: 55,
-      decoration: BoxDecoration(
-        color: isEnabled
-            ? const Color(0xFFD4AF37)
-            : Colors.grey.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: isEnabled
-                ? const Color(0xFFD4AF37).withValues(alpha: 0.3)
-                : Colors.grey.withValues(alpha: 0.2),
-            blurRadius: 12,
-            spreadRadius: 2,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(28),
-          onTap: isEnabled ? _addToCart : null,
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.shopping_cart_outlined,
-                  color: isEnabled ? Colors.black : Colors.white.withValues(alpha: 0.5),
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'إضافة للسلة',
-                  style: GoogleFonts.cairo(
-                    color: isEnabled ? Colors.black : Colors.white.withValues(alpha: 0.5),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 🎨 اختيار الألوان الأنيق
-  Widget _buildColorSelection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'اللون',
-          style: GoogleFonts.cairo(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: _productColors.take(5).map((colorData) {
-            final isSelected = _selectedColor == colorData['name'];
-            return GestureDetector(
-              onTap: () {
-                setState(() => _selectedColor = colorData['name']);
-                HapticFeedback.selectionClick();
-              },
-              child: Container(
-                margin: const EdgeInsets.only(right: 12),
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: colorData['color'],
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFFD4AF37)
-                        : Colors.white.withValues(alpha: 0.2),
-                    width: isSelected ? 2.5 : 1,
-                  ),
-                ),
-                child: isSelected ? Icon(
-                  Icons.check,
-                  color: colorData['color'] == Colors.white ? Colors.black : Colors.white,
-                  size: 18,
-                ) : null,
               ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
 
-  // 💳 بطاقة سعر مدمجة
-  Widget _buildCompactPriceCard(String label, dynamic price, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.cairo(
-              fontSize: 11,
-              color: color,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            NumberFormatter.formatCurrency(price ?? 0),
-            style: GoogleFonts.cairo(
-              fontSize: 12,
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuantityButton(IconData icon, VoidCallback onPressed) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: AppDesignSystem.goldColor.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: AppDesignSystem.goldColor.withValues(alpha: 0.5),
-          ),
-        ),
-        child: Icon(
-          icon,
-          color: AppDesignSystem.goldColor,
-          size: 16,
-        ),
-      ),
-    );
-  }
-
-  // 💰 قسم الأسعار المحسن والمنظم
-  Widget _buildPriceSection() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: Column(
-        children: [
-          // قسم عرض الأسعار المرجعية
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppDesignSystem.bottomNavColor.withValues(alpha: 0.8),
-                  AppDesignSystem.bottomNavColor.withValues(alpha: 0.6),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: AppDesignSystem.goldColor.withValues(alpha: 0.3),
+              // خط فاصل رفيع
+              Container(
                 width: 1,
+                height: 60,
+                color: Colors.white.withValues(alpha: 0.2),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+
+              // قسم الكمية
+              Expanded(
+                flex: 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Icon(
-                      FontAwesomeIcons.chartLine,
-                      color: AppDesignSystem.goldColor,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'الأسعار المرجعية',
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppDesignSystem.goldColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(child: _buildCompactPriceCard('جملة', _productData!['wholesale_price'], Colors.blue)),
-                    const SizedBox(width: 8),
-                    Expanded(child: _buildCompactPriceCard('أدنى', _productData!['min_price'], Colors.green)),
-                    const SizedBox(width: 8),
-                    Expanded(child: _buildCompactPriceCard('أقصى', _productData!['max_price'], Colors.red)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // قسم تحديد السعر
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppDesignSystem.goldColor.withValues(alpha: 0.15),
-                  AppDesignSystem.goldColor.withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: AppDesignSystem.goldColor.withValues(alpha: 0.4),
-                width: 1,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppDesignSystem.goldColor.withValues(alpha: 0.1),
-                  blurRadius: 15,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // عنوان القسم
-                Row(
-                  children: [
-                    Icon(
-                      FontAwesomeIcons.dollarSign,
-                      color: AppDesignSystem.goldColor,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'تحديد سعر البيع',
-                      style: GoogleFonts.cairo(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppDesignSystem.goldColor,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(
-                color: _isPriceValid
-                    ? Colors.green
-                    : AppDesignSystem.goldColor.withValues(alpha: 0.5),
-                width: 2,
-              ),
-            ),
-            child: TextField(
-              controller: _priceController,
-              keyboardType: TextInputType.number,
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-              decoration: InputDecoration(
-                hintText: 'أدخل السعر للعميل',
-                hintStyle: GoogleFonts.cairo(
-                  color: Colors.white.withValues(alpha: 0.6),
-                ),
-                prefixIcon: Icon(
-                  FontAwesomeIcons.dollarSign,
-                  color: AppDesignSystem.goldColor,
-                  size: 18,
-                ),
-                suffixText: 'د.ع',
-                suffixStyle: GoogleFonts.cairo(
-                  color: AppDesignSystem.goldColor,
-                  fontWeight: FontWeight.bold,
-                ),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.all(16),
-              ),
-              onChanged: (value) {
-                final price = double.tryParse(value) ?? 0;
-                setState(() {
-                  _customerPrice = price;
-                  _validatePrice();
-                });
-              },
-            ),
-          ),
-
-          // مؤشر صحة السعر
-          if (!_isPriceValid && _customerPrice > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'السعر يجب أن يكون بين ${NumberFormatter.formatCurrency(_productData!['min_price'])} و ${NumberFormatter.formatCurrency(_productData!['max_price'])}',
-                style: GoogleFonts.cairo(
-                  color: Colors.red,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-
-          // حساب الربح
-          if (_isPriceValid)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: Colors.green.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'الربح المتوقع:',
-                      style: GoogleFonts.cairo(
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      NumberFormatter.formatCurrency(
-                        (_customerPrice - (_productData!['wholesale_price'] ?? 0)) * _selectedQuantity,
-                      ),
-                      style: GoogleFonts.cairo(
-                        color: Colors.green,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPriceRow(String label, dynamic price, Color color) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          '$label:',
-          style: GoogleFonts.cairo(
-            color: Colors.white.withValues(alpha: 0.8),
-            fontSize: 14,
-          ),
-        ),
-        Text(
-          NumberFormatter.formatCurrency(price),
-          style: GoogleFonts.cairo(
-            color: color,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-      ],
-    );
-  }
-
-
-
-  // 📝 قسم الوصف القابل للطي مع زر النسخ
-  Widget _buildProductDescription() {
-    final description = _productData!['description'] ?? 'وصف المنتج غير متوفر';
-    final shortDescription = description.length > 100
-        ? '${description.substring(0, 100)}...'
-        : description;
-
-    return Container(
-      margin: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppDesignSystem.bottomNavColor.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // رأس القسم مع زر النسخ
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppDesignSystem.goldColor.withValues(alpha: 0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
-              border: Border(
-                bottom: BorderSide(
-                  color: AppDesignSystem.goldColor.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      FontAwesomeIcons.fileText,
-                      color: AppDesignSystem.goldColor,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'وصف المنتج',
-                      style: GoogleFonts.cairo(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-
-                // زر النسخ
-                GestureDetector(
-                  onTap: _copyDescription,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppDesignSystem.goldColor.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: AppDesignSystem.goldColor.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: Icon(
-                      FontAwesomeIcons.copy,
-                      color: AppDesignSystem.goldColor,
-                      size: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // محتوى الوصف
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isDescriptionExpanded ? description : shortDescription,
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.8),
-                    height: 1.6,
-                  ),
-                ),
-
-                if (description.length > 100) ...[
-                  const SizedBox(height: 16),
-
-                  // زر التوسيع/الطي
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _isDescriptionExpanded = !_isDescriptionExpanded;
-                      });
-                      HapticFeedback.lightImpact();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: AppDesignSystem.goldColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: AppDesignSystem.goldColor.withValues(alpha: 0.3),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.inventory_2, color: const Color(0xFFD4AF37), size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          'الكمية',
+                          style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _isDescriptionExpanded ? 'إخفاء التفاصيل' : 'عرض المزيد',
-                            style: GoogleFonts.cairo(
-                              fontSize: 12,
-                              color: AppDesignSystem.goldColor,
-                              fontWeight: FontWeight.w600,
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            if (_selectedQuantity > 1) {
+                              setState(() => _selectedQuantity--);
+                              HapticFeedback.selectionClick();
+                            }
+                          },
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: _selectedQuantity > 1
+                                  ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                                  : Colors.white.withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          AnimatedRotation(
-                            turns: _isDescriptionExpanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 300),
                             child: Icon(
-                              Icons.keyboard_arrow_down,
-                              color: AppDesignSystem.goldColor,
+                              Icons.remove,
+                              color: _selectedQuantity > 1 ? Colors.white : Colors.white.withValues(alpha: 0.3),
                               size: 16,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🎨 بناء النقطة الملونة مثل Nike
-  Widget _buildColorDot(Color color, bool isSelected) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        // يمكن إضافة منطق تغيير اللون هنا
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: isSelected ? 16 : 12,
-        height: isSelected ? 16 : 12,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.3),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected ? [
-            BoxShadow(
-              color: color.withValues(alpha: 0.4),
-              blurRadius: 8,
-              spreadRadius: 1,
-            ),
-          ] : null,
-        ),
-      ),
-    );
-  }
-
-  // 🎨 السعر والأزرار العصرية
-  Widget _buildModernPriceAndActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // السعر مع تأثيرات
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppDesignSystem.goldColor.withValues(alpha: 0.1),
-                AppDesignSystem.goldColor.withValues(alpha: 0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: AppDesignSystem.goldColor.withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'السعر المقترح',
-                style: GoogleFonts.cairo(
-                  fontSize: 14,
-                  color: Colors.white70,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Text(
-                    '${NumberFormatter.formatCurrency(_customerPrice)}',
-                    style: GoogleFonts.cairo(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppDesignSystem.goldColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'ربح ${NumberFormatter.formatCurrency(_customerPrice - (_productData?['wholesale_price']?.toDouble() ?? 0))}',
-                      style: GoogleFonts.cairo(
-                        fontSize: 12,
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        // زر إضافة للسلة خرافي
-        Container(
-          width: double.infinity,
-          height: 60,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppDesignSystem.goldColor,
-                AppDesignSystem.goldColor.withValues(alpha: 0.8),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: AppDesignSystem.goldColor.withValues(alpha: 0.4),
-                blurRadius: 15,
-                spreadRadius: 2,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(30),
-              onTap: () {
-                HapticFeedback.heavyImpact();
-                // إضافة للسلة
-              },
-              child: Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.shopping_cart_outlined,
-                      color: Colors.black,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'إضافة للسلة',
-                      style: GoogleFonts.cairo(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                        ),
+                        SizedBox(
+                          width: 40,
+                          child: Text(
+                            '$_selectedQuantity',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.cairo(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFD4AF37),
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _selectedQuantity++);
+                            HapticFeedback.selectionClick();
+                          },
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                            ),
+                            child: const Icon(Icons.add, color: Colors.white, size: 16),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
         ),
-      ],
-    );
-  }
-
-  // 🔢 اختيار الكمية الأنيق
-  Widget _buildQuantitySelection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'الكمية',
-          style: GoogleFonts.cairo(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            GestureDetector(
-              onTap: () {
-                if (_selectedQuantity > 1) {
-                  setState(() => _selectedQuantity--);
-                  HapticFeedback.selectionClick();
-                }
-              },
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: _selectedQuantity > 1
-                      ? const Color(0xFF3A3A3A)
-                      : const Color(0xFF2A2A2A),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.remove,
-                  color: _selectedQuantity > 1
-                      ? Colors.white
-                      : Colors.white.withValues(alpha: 0.3),
-                  size: 18,
-                ),
-              ),
-            ),
-            Container(
-              width: 60,
-              child: Text(
-                '$_selectedQuantity',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                setState(() => _selectedQuantity++);
-                HapticFeedback.selectionClick();
-              },
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3A3A3A),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.add,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+      ),
     );
   }
 
@@ -2579,154 +1209,141 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
   Widget _buildPriceDisplay() {
     final minPrice = _productData?['min_price']?.toDouble() ?? 0;
     final maxPrice = _productData?['max_price']?.toDouble() ?? 0;
-    final wholesalePrice = _productData?['wholesale_price']?.toDouble() ?? 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // نطاق الأسعار المسموح - متناسق مع الخلفية الخرافية
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.2), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // سعر الجملة في الأعلى
+                  Row(
+                    children: [
+                      Icon(Icons.inventory_2, color: const Color(0xFF4CAF50), size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'سعر الجملة: ',
+                        style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.7)),
+                      ),
+                      Text(
+                        NumberFormatter.formatCurrency((_productData?['wholesale_price'] ?? 0).toDouble()),
+                        style: GoogleFonts.cairo(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF4CAF50),
+                        ),
+                      ),
+                    ],
+                  ),
 
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      // الحد الأدنى
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.arrow_downward, color: const Color(0xFFFFD700), size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'الحد الأدنى',
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 12,
+                                      color: const Color(0xFFFFD700),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                NumberFormatter.formatCurrency(minPrice),
+                                style: GoogleFonts.cairo(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
 
-        // نطاق الأسعار المسموح
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2A2A2A),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 1,
+                      const SizedBox(width: 12),
+
+                      // الحد الأعلى
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4A90E2).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF4A90E2).withValues(alpha: 0.3), width: 1),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.arrow_upward, color: const Color(0xFF4A90E2), size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'الحد الأعلى',
+                                    style: GoogleFonts.cairo(
+                                      fontSize: 12,
+                                      color: const Color(0xFF4A90E2),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                NumberFormatter.formatCurrency(maxPrice),
+                                style: GoogleFonts.cairo(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              // سعر الجملة في الأعلى
-              Row(
-                children: [
-                  Icon(
-                    Icons.inventory_2,
-                    color: const Color(0xFF4CAF50),
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'سعر الجملة: ',
-                    style: GoogleFonts.cairo(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                  ),
-                  Text(
-                    NumberFormatter.formatCurrency((_productData?['wholesale_price'] ?? 0).toDouble()),
-                    style: GoogleFonts.cairo(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF4CAF50),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  // الحد الأدنى
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3A3A3A),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.orange.withValues(alpha: 0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.arrow_downward,
-                                color: Colors.orange,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'الحد الأدنى',
-                                style: GoogleFonts.cairo(
-                                  fontSize: 12,
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            NumberFormatter.formatCurrency(minPrice),
-                            style: GoogleFonts.cairo(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  // الحد الأعلى
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3A3A3A),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue.withValues(alpha: 0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.arrow_upward,
-                                color: Colors.blue,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'الحد الأعلى',
-                                style: GoogleFonts.cairo(
-                                  fontSize: 12,
-                                  color: Colors.blue,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            NumberFormatter.formatCurrency(maxPrice),
-                            style: GoogleFonts.cairo(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ),
         ),
 
@@ -2734,11 +1351,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
 
         Text(
           'سعر البيع للزبون',
-          style: GoogleFonts.cairo(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
+          style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
         ),
         const SizedBox(height: 12),
 
@@ -2746,58 +1359,56 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
         Row(
           children: [
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3A3A3A),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _customerPrice == 0
-                        ? const Color(0xFFD4AF37)
-                        : _isPriceValid
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _customerPrice == 0
+                            ? const Color(0xFFFFD700).withValues(alpha: 0.2)
+                            : _isPriceValid
                             ? const Color(0xFF4CAF50)
                             : const Color(0xFFE53E3E),
-                    width: 2.5,
-                  ),
-                ),
-                child: TextField(
-                  controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  style: GoogleFonts.cairo(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'أدخل سعر البيع',
-                    hintStyle: GoogleFonts.cairo(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 16,
+                        width: 2.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    prefixIcon: Icon(
-                      Icons.attach_money,
-                      color: const Color(0xFFD4AF37),
-                      size: 20,
+                    child: TextField(
+                      controller: _priceController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      decoration: InputDecoration(
+                        hintText: 'أدخل سعر البيع',
+                        hintStyle: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.5), fontSize: 16),
+                        prefixIcon: Icon(Icons.attach_money, color: const Color(0xFFD4AF37), size: 20),
+                        suffixText: 'د.ع',
+                        suffixStyle: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
+                        border: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.all(16),
+                      ),
+                      onChanged: (value) {
+                        final price = double.tryParse(value) ?? 0;
+                        setState(() {
+                          _customerPrice = price;
+                          _validatePrice();
+                        });
+                      },
                     ),
-                    suffixText: 'د.ع',
-                    suffixStyle: GoogleFonts.cairo(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 14,
-                    ),
-                    border: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(16),
                   ),
-                  onChanged: (value) {
-                    final price = double.tryParse(value) ?? 0;
-                    setState(() {
-                      _customerPrice = price;
-                      _validatePrice();
-                    });
-                  },
                 ),
               ),
             ),
@@ -2809,16 +1420,17 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: _isPriceValid
-                    ? const Color(0xFFD4AF37)
-                    : const Color(0xFF3A3A3A),
+                color: _isPriceValid ? const Color(0xFFFFD700) : Colors.white.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _isPriceValid
-                      ? const Color(0xFFD4AF37)
-                      : Colors.white.withValues(alpha: 0.2),
-                  width: 1,
-                ),
+                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.2), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Material(
                 color: Colors.transparent,
@@ -2828,9 +1440,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                   child: Center(
                     child: Icon(
                       Icons.push_pin,
-                      color: _isPriceValid
-                          ? Colors.black
-                          : Colors.white.withValues(alpha: 0.3),
+                      color: _isPriceValid ? Colors.black : Colors.white.withValues(alpha: 0.3),
                       size: 20,
                     ),
                   ),
@@ -2846,11 +1456,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               'السعر يجب أن يكون بين ${NumberFormatter.formatCurrency(_productData!['min_price'])} و ${NumberFormatter.formatCurrency(_productData!['max_price'])}',
-              style: GoogleFonts.cairo(
-                fontSize: 12,
-                color: Colors.red,
-                fontWeight: FontWeight.w500,
-              ),
+              style: GoogleFonts.cairo(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500),
             ),
           ),
 
@@ -2889,10 +1495,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                   HapticFeedback.heavyImpact();
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(
-                        '🗑️ تم حذف السعر المثبت',
-                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
-                      ),
+                      content: Text('🗑️ تم حذف السعر المثبت', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
                       backgroundColor: Colors.orange,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -2904,13 +1507,13 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: _customerPrice == price
-                        ? const Color(0xFFD4AF37).withValues(alpha: 0.3)
-                        : const Color(0xFF3A3A3A),
+                        ? const Color(0xFFFFD700).withValues(alpha: 0.2)
+                        : const Color(0xFF4A90E2).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: _customerPrice == price
-                          ? const Color(0xFFD4AF37)
-                          : Colors.white.withValues(alpha: 0.2),
+                          ? const Color(0xFFFFD700)
+                          : const Color(0xFF4A90E2).withValues(alpha: 0.3),
                       width: 1,
                     ),
                   ),
@@ -2919,9 +1522,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                     children: [
                       Icon(
                         Icons.push_pin,
-                        color: _customerPrice == price
-                            ? const Color(0xFFD4AF37)
-                            : Colors.white.withValues(alpha: 0.7),
+                        color: _customerPrice == price ? const Color(0xFFD4AF37) : Colors.white.withValues(alpha: 0.7),
                         size: 14,
                       ),
                       const SizedBox(width: 4),
@@ -2930,9 +1531,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                         style: GoogleFonts.cairo(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: _customerPrice == price
-                              ? const Color(0xFFD4AF37)
-                              : Colors.white,
+                          color: _customerPrice == price ? const Color(0xFFD4AF37) : Colors.white,
                         ),
                       ),
                     ],
@@ -2952,27 +1551,16 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
             decoration: BoxDecoration(
               color: const Color(0xFF1E7B3A).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
-                width: 1,
-              ),
+              border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.3), width: 1),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.trending_up,
-                  color: const Color(0xFF4CAF50),
-                  size: 14,
-                ),
+                Icon(Icons.trending_up, color: const Color(0xFF4CAF50), size: 14),
                 const SizedBox(width: 6),
                 Text(
                   'ربح: ${NumberFormatter.formatCurrency((_customerPrice - (_productData!['wholesale_price'] ?? 0)) * _selectedQuantity)}',
-                  style: GoogleFonts.cairo(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF4CAF50),
-                  ),
+                  style: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF4CAF50)),
                 ),
               ],
             ),
@@ -2989,19 +1577,19 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
       width: double.infinity,
       height: 52,
       decoration: BoxDecoration(
-        color: isEnabled
-            ? const Color(0xFFD4AF37)
-            : Colors.grey.withValues(alpha: 0.3),
+        color: isEnabled ? const Color(0xFFFFD700) : const Color(0xFF4A90E2).withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: isEnabled ? () {
-            HapticFeedback.heavyImpact();
-            _addToCart();
-          } : null,
+          onTap: isEnabled
+              ? () {
+                  HapticFeedback.heavyImpact();
+                  _addToCart();
+                }
+              : null,
           child: Center(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -3031,19 +1619,14 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
   // 📝 الوصف المنعزل مع انيميشن
   Widget _buildDescription() {
     final description = _productData?['description'] ?? 'وصف المنتج هنا...';
-    final shortDescription = description.length > 80
-        ? '${description.substring(0, 80)}...'
-        : description;
+    final shortDescription = description.length > 80 ? '${description.substring(0, 80)}...' : description;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 0),
       decoration: BoxDecoration(
         color: const Color(0xFF2A2A2A),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
       ),
       child: Column(
         children: [
@@ -3059,20 +1642,12 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.description,
-                    color: const Color(0xFFD4AF37),
-                    size: 20,
-                  ),
+                  Icon(Icons.description, color: const Color(0xFFD4AF37), size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'الوصف',
-                      style: GoogleFonts.cairo(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                      style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
                     ),
                   ),
                   // زر النسخ
@@ -3081,14 +1656,19 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3A3A3A),
+                        color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.2), width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 8,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      child: Icon(
-                        Icons.copy,
-                        color: const Color(0xFFD4AF37),
-                        size: 16,
-                      ),
+                      child: Icon(Icons.copy, color: const Color(0xFFD4AF37), size: 16),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -3096,11 +1676,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                   AnimatedRotation(
                     turns: _isDescriptionExpanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 300),
-                    child: Icon(
-                      Icons.keyboard_arrow_down,
-                      color: Colors.white.withValues(alpha: 0.7),
-                      size: 24,
-                    ),
+                    child: Icon(Icons.keyboard_arrow_down, color: Colors.white.withValues(alpha: 0.7), size: 24),
                   ),
                 ],
               ),
@@ -3119,11 +1695,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Text(
                   description,
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.8),
-                    height: 1.6,
-                  ),
+                  style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.8), height: 1.6),
                 ),
               ),
             ),
@@ -3135,113 +1707,11 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage>
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Text(
                 shortDescription,
-                style: GoogleFonts.cairo(
-                  fontSize: 14,
-                  color: Colors.white.withValues(alpha: 0.6),
-                  height: 1.5,
-                ),
+                style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.6), height: 1.5),
               ),
             ),
         ],
       ),
     );
   }
-
-
-
 }
-
-
-
-// رسام قوس بيضوي أنيق يحيط بالمنتج
-class _ArcRingPainter extends CustomPainter {
-  final Color color;
-  _ArcRingPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // مركز وبيضاوي القوس
-    final center = Offset(size.width / 2, size.height * 0.62);
-    final oval = Rect.fromCenter(
-      center: center,
-      width: size.width * 0.95,
-      height: size.height * 1.05,
-    );
-
-    // زوايا القوس (يشبه Nike)
-    final startAngle = math.pi + 0.25; // يبدأ من اليسار لأعلى قليلًا
-    final sweepAngle = math.pi - 0.5;  // حتى اليمين مع تقليل بسيط للطرفين
-
-    // ظل ناعم أسفل القوس
-    final shadowPaint = Paint()
-      ..color = color.withValues(alpha: 0.25)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-    canvas.drawArc(oval, startAngle, sweepAngle, false, shadowPaint);
-
-    // القوس الرئيسي
-    final mainPaint = Paint()
-      ..color = color.withValues(alpha: 0.75)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(oval, startAngle, sweepAngle, false, mainPaint);
-
-    // لمسة لمعان داخلية
-    final innerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.20)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.round;
-    final innerOval = oval.deflate(4);
-    canvas.drawArc(innerOval, startAngle, sweepAngle, false, innerPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArcRingPainter oldDelegate) {
-    return oldDelegate.color != color;
-  }
-}
-
-// 🎨 رسام القوس بنفس كود CurvedNavigationBar
-class _NavCustomPainter extends CustomPainter {
-  final double loc;
-  final double s;
-  final Color color;
-  final TextDirection textDirection;
-
-  _NavCustomPainter(this.loc, this.s, this.color, [this.textDirection = TextDirection.ltr]);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    final w = size.width;
-    final h = size.height;
-    final x = w * loc;
-
-    // قوس مقلوب (مقطوع للأعلى) مثل الصورة
-    path.moveTo(0, h);
-    path.lineTo(x - 40, h);
-    path.quadraticBezierTo(x - 20, h, x - 20, h - 20);
-    path.quadraticBezierTo(x - 20, 0, x, 0);
-    path.quadraticBezierTo(x + 20, 0, x + 20, h - 20);
-    path.quadraticBezierTo(x + 20, h, x + 40, h);
-    path.lineTo(w, h);
-    path.lineTo(w, 0);
-    path.lineTo(0, 0);
-    path.close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => true;
-}
-
-

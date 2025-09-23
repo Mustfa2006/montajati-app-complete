@@ -6,7 +6,7 @@ import '../models/product.dart';
 import '../services/favorites_service.dart';
 // تم إزالة import cart_service غير المستخدم
 import '../widgets/pull_to_refresh_wrapper.dart';
-
+import '../widgets/fantastic_background.dart';
 import '../widgets/custom_app_bar.dart';
 
 import 'package:go_router/go_router.dart';
@@ -131,7 +131,8 @@ class _FavoritesPageState extends State<FavoritesPage>
     final isTablet = screenWidth > 600;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
+      backgroundColor: Colors.black, // خلفية سوداء للتأثير ثلاثي الأبعاد
+      extendBody: true,
       appBar: CustomAppBar(
         title: 'مفضلتي',
         leading: IconButton(
@@ -164,21 +165,29 @@ class _FavoritesPageState extends State<FavoritesPage>
             ),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // شريط البحث والفلترة
-          _buildSearchAndFilterBar(),
+          // 🌌 الخلفية الخرافية
+          const FantasticBackground(),
 
           // المحتوى الرئيسي
-          Expanded(
-            child: ListenableBuilder(
-              listenable: _favoritesService,
-              builder: (context, child) {
-                return _displayedFavorites.isEmpty
-                    ? _buildEmptyState()
-                    : _buildFavoritesList(isTablet);
-              },
-            ),
+          Column(
+            children: [
+              // شريط البحث والفلترة
+              _buildSearchAndFilterBar(),
+
+              // المحتوى الرئيسي
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: _favoritesService,
+                  builder: (context, child) {
+                    return _displayedFavorites.isEmpty
+                        ? _buildEmptyState()
+                        : _buildFavoritesList(isTablet);
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),

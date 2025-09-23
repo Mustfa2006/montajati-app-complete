@@ -1,10 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-
-
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../widgets/custom_app_bar.dart';
-import 'package:intl/intl.dart';
 
 class ReportsPage extends StatefulWidget {
   const ReportsPage({super.key});
@@ -112,12 +110,7 @@ class _ReportsPageState extends State<ReportsPage> {
       List<Map<String, dynamic>> stats = [];
       for (int i = 6; i >= 0; i--) {
         final date = DateTime.now().subtract(Duration(days: i));
-        stats.add({
-          'date': date,
-          'profits': (i * 1000 + 500).toDouble(),
-          'orders': i + 2,
-          'withdrawals': i * 500.0,
-        });
+        stats.add({'date': date, 'profits': (i * 1000 + 500).toDouble(), 'orders': i + 2, 'withdrawals': i * 500.0});
       }
       setState(() => _dailyStats = stats);
     } catch (e) {
@@ -163,32 +156,20 @@ class _ReportsPageState extends State<ReportsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'فترة التقرير',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('فترة التقرير', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedPeriod,
-                    decoration: const InputDecoration(
-                      labelText: 'الفترة الزمنية',
-                      border: OutlineInputBorder(),
-                    ),
+                    initialValue: _selectedPeriod,
+                    decoration: const InputDecoration(labelText: 'الفترة الزمنية', border: OutlineInputBorder()),
                     items: const [
                       DropdownMenuItem<String>(value: 'week', child: Text('أسبوع')),
                       DropdownMenuItem<String>(value: 'month', child: Text('شهر')),
-                      DropdownMenuItem<String>(
-                        value: 'quarter',
-                        child: Text('ربع سنة'),
-                      ),
+                      DropdownMenuItem<String>(value: 'quarter', child: Text('ربع سنة')),
                       DropdownMenuItem<String>(value: 'year', child: Text('سنة')),
-                      DropdownMenuItem<String>(
-                        value: 'custom',
-                        child: Text('فترة مخصصة'),
-                      ),
+                      DropdownMenuItem<String>(value: 'custom', child: Text('فترة مخصصة')),
                     ],
                     onChanged: (value) {
                       setState(() => _selectedPeriod = value!);
@@ -210,28 +191,18 @@ class _ReportsPageState extends State<ReportsPage> {
                 children: [
                   Expanded(
                     child: TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'من تاريخ',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'من تاريخ', border: OutlineInputBorder()),
                       readOnly: true,
-                      controller: TextEditingController(
-                        text: DateFormat('yyyy-MM-dd').format(_startDate),
-                      ),
+                      controller: TextEditingController(text: DateFormat('yyyy-MM-dd').format(_startDate)),
                       onTap: () => _selectDate(true),
                     ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: TextFormField(
-                      decoration: const InputDecoration(
-                        labelText: 'إلى تاريخ',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: 'إلى تاريخ', border: OutlineInputBorder()),
                       readOnly: true,
-                      controller: TextEditingController(
-                        text: DateFormat('yyyy-MM-dd').format(_endDate),
-                      ),
+                      controller: TextEditingController(text: DateFormat('yyyy-MM-dd').format(_endDate)),
                       onTap: () => _selectDate(false),
                     ),
                   ),
@@ -251,10 +222,7 @@ class _ReportsPageState extends State<ReportsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'الملخص المالي',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('الملخص المالي', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             GridView.count(
               shrinkWrap: true,
@@ -296,12 +264,7 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -320,11 +283,7 @@ class _ReportsPageState extends State<ReportsPage> {
               Expanded(
                 child: Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: color.withValues(alpha: 0.8),
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w500),
                 ),
               ),
             ],
@@ -332,11 +291,7 @@ class _ReportsPageState extends State<ReportsPage> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
@@ -350,10 +305,7 @@ class _ReportsPageState extends State<ReportsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'إحصائيات الطلبات',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('إحصائيات الطلبات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             GridView.count(
               shrinkWrap: true,
@@ -369,12 +321,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   Icons.shopping_cart,
                   Colors.blue,
                 ),
-                _buildStatCard(
-                  'طلبات نشطة',
-                  '${_ordersData['active_orders'] ?? 0}',
-                  Icons.pending,
-                  Colors.orange,
-                ),
+                _buildStatCard('طلبات نشطة', '${_ordersData['active_orders'] ?? 0}', Icons.pending, Colors.orange),
                 _buildStatCard(
                   'طلبات مكتملة',
                   '${_ordersData['completed_orders'] ?? 0}',
@@ -396,10 +343,7 @@ class _ReportsPageState extends State<ReportsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'إحصائيات السحوبات',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('إحصائيات السحوبات', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             GridView.count(
               shrinkWrap: true,
@@ -448,10 +392,7 @@ class _ReportsPageState extends State<ReportsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'مخطط الأرباح اليومية',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('مخطط الأرباح اليومية', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             SizedBox(
               height: 200,
@@ -464,10 +405,7 @@ class _ReportsPageState extends State<ReportsPage> {
                         showTitles: true,
                         reservedSize: 60,
                         getTitlesWidget: (value, meta) {
-                          return Text(
-                            '${value.toInt()}',
-                            style: const TextStyle(fontSize: 10),
-                          );
+                          return Text('${value.toInt()}', style: const TextStyle(fontSize: 10));
                         },
                       ),
                     ),
@@ -476,32 +414,21 @@ class _ReportsPageState extends State<ReportsPage> {
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
                           if (value.toInt() < _dailyStats.length) {
-                            final date =
-                                _dailyStats[value.toInt()]['date'] as DateTime;
-                            return Text(
-                              DateFormat('MM/dd').format(date),
-                              style: const TextStyle(fontSize: 10),
-                            );
+                            final date = _dailyStats[value.toInt()]['date'] as DateTime;
+                            return Text(DateFormat('MM/dd').format(date), style: const TextStyle(fontSize: 10));
                           }
                           return const Text('');
                         },
                       ),
                     ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: true),
                   lineBarsData: [
                     LineChartBarData(
                       spots: _dailyStats.asMap().entries.map((entry) {
-                        return FlSpot(
-                          entry.key.toDouble(),
-                          entry.value['profits'].toDouble(),
-                        );
+                        return FlSpot(entry.key.toDouble(), entry.value['profits'].toDouble());
                       }).toList(),
                       isCurved: true,
                       color: Colors.blue,
@@ -525,10 +452,7 @@ class _ReportsPageState extends State<ReportsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'الإحصائيات اليومية',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('الإحصائيات اليومية', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -542,16 +466,10 @@ class _ReportsPageState extends State<ReportsPage> {
                 rows: _dailyStats.map((stat) {
                   return DataRow(
                     cells: [
-                      DataCell(
-                        Text(DateFormat('yyyy-MM-dd').format(stat['date'])),
-                      ),
-                      DataCell(
-                        Text('${stat['profits'].toStringAsFixed(0)} د.ع'),
-                      ),
+                      DataCell(Text(DateFormat('yyyy-MM-dd').format(stat['date']))),
+                      DataCell(Text('${stat['profits'].toStringAsFixed(0)} د.ع')),
                       DataCell(Text('${stat['orders']}')),
-                      DataCell(
-                        Text('${stat['withdrawals'].toStringAsFixed(0)} د.ع'),
-                      ),
+                      DataCell(Text('${stat['withdrawals'].toStringAsFixed(0)} د.ع')),
                     ],
                   );
                 }).toList(),

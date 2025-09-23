@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/admin_user.dart';
 import '../services/user_management_service.dart';
 
@@ -14,8 +15,7 @@ class UserDetailsPage extends StatefulWidget {
   State<UserDetailsPage> createState() => _UserDetailsPageState();
 }
 
-class _UserDetailsPageState extends State<UserDetailsPage>
-    with TickerProviderStateMixin {
+class _UserDetailsPageState extends State<UserDetailsPage> with TickerProviderStateMixin {
   late TabController _tabController;
   AdminUser? _currentUser;
   bool _isLoading = true;
@@ -68,11 +68,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       elevation: 0,
       title: Text(
         _currentUser?.name ?? 'تفاصيل المستخدم',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -88,11 +84,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           onPressed: _showEditUserDialog,
         ),
         PopupMenuButton<String>(
-          icon: const FaIcon(
-            FontAwesomeIcons.ellipsisVertical,
-            color: Colors.white,
-            size: 20,
-          ),
+          icon: const FaIcon(FontAwesomeIcons.ellipsisVertical, color: Colors.white, size: 20),
           color: const Color(0xFF0f1419),
           onSelected: _handleMenuAction,
           itemBuilder: (context) => [
@@ -100,11 +92,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               value: 'refresh',
               child: Row(
                 children: [
-                  FaIcon(
-                    FontAwesomeIcons.arrowsRotate,
-                    color: Color(0xFF2196F3),
-                    size: 16,
-                  ),
+                  FaIcon(FontAwesomeIcons.arrowsRotate, color: Color(0xFF2196F3), size: 16),
                   SizedBox(width: 12),
                   Text('تحديث', style: TextStyle(color: Colors.white)),
                 ],
@@ -115,19 +103,12 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               child: Row(
                 children: [
                   FaIcon(
-                    _currentUser?.isActive == true
-                        ? FontAwesomeIcons.userSlash
-                        : FontAwesomeIcons.userCheck,
-                    color: _currentUser?.isActive == true
-                        ? const Color(0xFFF44336)
-                        : const Color(0xFF4CAF50),
+                    _currentUser?.isActive == true ? FontAwesomeIcons.userSlash : FontAwesomeIcons.userCheck,
+                    color: _currentUser?.isActive == true ? const Color(0xFFF44336) : const Color(0xFF4CAF50),
                     size: 16,
                   ),
                   const SizedBox(width: 12),
-                  Text(
-                    _currentUser?.isActive == true ? 'تعطيل' : 'تفعيل',
-                    style: const TextStyle(color: Colors.white),
-                  ),
+                  Text(_currentUser?.isActive == true ? 'تعطيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
                 ],
               ),
             ),
@@ -135,11 +116,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               value: 'delete',
               child: Row(
                 children: [
-                  FaIcon(
-                    FontAwesomeIcons.trash,
-                    color: Color(0xFFF44336),
-                    size: 16,
-                  ),
+                  FaIcon(FontAwesomeIcons.trash, color: Color(0xFFF44336), size: 16),
                   SizedBox(width: 12),
                   Text('حذف', style: TextStyle(color: Colors.white)),
                 ],
@@ -155,18 +132,9 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         unselectedLabelColor: Colors.white70,
         tabs: const [
           Tab(icon: FaIcon(FontAwesomeIcons.user, size: 16), text: 'المعلومات'),
-          Tab(
-            icon: FaIcon(FontAwesomeIcons.chartLine, size: 16),
-            text: 'الإحصائيات',
-          ),
-          Tab(
-            icon: FaIcon(FontAwesomeIcons.cartShopping, size: 16),
-            text: 'الطلبات',
-          ),
-          Tab(
-            icon: FaIcon(FontAwesomeIcons.clockRotateLeft, size: 16),
-            text: 'النشاط',
-          ),
+          Tab(icon: FaIcon(FontAwesomeIcons.chartLine, size: 16), text: 'الإحصائيات'),
+          Tab(icon: FaIcon(FontAwesomeIcons.cartShopping, size: 16), text: 'الطلبات'),
+          Tab(icon: FaIcon(FontAwesomeIcons.clockRotateLeft, size: 16), text: 'النشاط'),
         ],
       ),
     );
@@ -179,10 +147,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         children: [
           CircularProgressIndicator(color: Color(0xFFffc107)),
           SizedBox(height: 16),
-          Text(
-            'جاري تحميل تفاصيل المستخدم...',
-            style: TextStyle(color: Colors.white70, fontSize: 16),
-          ),
+          Text('جاري تحميل تفاصيل المستخدم...', style: TextStyle(color: Colors.white70, fontSize: 16)),
         ],
       ),
     );
@@ -191,10 +156,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
   Widget _buildBody() {
     if (_currentUser == null) {
       return const Center(
-        child: Text(
-          'لم يتم العثور على المستخدم',
-          style: TextStyle(color: Colors.white70, fontSize: 16),
-        ),
+        child: Text('لم يتم العثور على المستخدم', style: TextStyle(color: Colors.white70, fontSize: 16)),
       );
     }
 
@@ -204,12 +166,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [
-              _buildUserInfoTab(),
-              _buildStatisticsTab(),
-              _buildOrdersTab(),
-              _buildActivityTab(),
-            ],
+            children: [_buildUserInfoTab(), _buildStatisticsTab(), _buildOrdersTab(), _buildActivityTab()],
           ),
         ),
       ],
@@ -221,10 +178,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
         color: Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(20),
-          bottomRight: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
       ),
       child: Row(
         children: [
@@ -234,19 +188,11 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               CircleAvatar(
                 radius: 40,
                 backgroundColor: const Color(0xFFffc107),
-                backgroundImage: _currentUser!.avatarUrl != null
-                    ? NetworkImage(_currentUser!.avatarUrl!)
-                    : null,
+                backgroundImage: _currentUser!.avatarUrl != null ? NetworkImage(_currentUser!.avatarUrl!) : null,
                 child: _currentUser!.avatarUrl == null
                     ? Text(
-                        _currentUser!.name.isNotEmpty
-                            ? _currentUser!.name[0].toUpperCase()
-                            : 'U',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        _currentUser!.name.isNotEmpty ? _currentUser!.name[0].toUpperCase() : 'U',
+                        style: const TextStyle(color: Colors.black, fontSize: 24, fontWeight: FontWeight.bold),
                       )
                     : null,
               ),
@@ -260,10 +206,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
                     decoration: BoxDecoration(
                       color: const Color(0xFF4CAF50),
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFF1a1a2e),
-                        width: 3,
-                      ),
+                      border: Border.all(color: const Color(0xFF1a1a2e), width: 3),
                     ),
                   ),
                 ),
@@ -278,30 +221,14 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               children: [
                 Text(
                   _currentUser!.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  _currentUser!.phone,
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
-                ),
+                Text(_currentUser!.phone, style: const TextStyle(color: Colors.white70, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text(
-                  _currentUser!.email,
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
-                ),
+                Text(_currentUser!.email, style: const TextStyle(color: Colors.white70, fontSize: 14)),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _buildStatusBadge(),
-                    const SizedBox(width: 12),
-                    _buildRoleBadge(),
-                  ],
-                ),
+                Row(children: [_buildStatusBadge(), const SizedBox(width: 12), _buildRoleBadge()]),
               ],
             ),
           ),
@@ -311,10 +238,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             children: [
               _buildQuickStat('الطلبات', _currentUser!.totalOrders.toString()),
               const SizedBox(height: 8),
-              _buildQuickStat(
-                'المبيعات',
-                '${_currentUser!.totalSales.toStringAsFixed(0)} د.ع',
-              ),
+              _buildQuickStat('المبيعات', '${_currentUser!.totalSales.toStringAsFixed(0)} د.ع'),
             ],
           ),
         ],
@@ -355,11 +279,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           const SizedBox(width: 6),
           Text(
             text,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ],
       ),
@@ -385,21 +305,15 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         mainAxisSize: MainAxisSize.min,
         children: [
           FaIcon(
-            _currentUser!.isAdmin
-                ? FontAwesomeIcons.userTie
-                : FontAwesomeIcons.user,
-            color: _currentUser!.isAdmin
-                ? const Color(0xFFFF9800)
-                : const Color(0xFF2196F3),
+            _currentUser!.isAdmin ? FontAwesomeIcons.userTie : FontAwesomeIcons.user,
+            color: _currentUser!.isAdmin ? const Color(0xFFFF9800) : const Color(0xFF2196F3),
             size: 12,
           ),
           const SizedBox(width: 6),
           Text(
             _currentUser!.roleDisplay,
             style: TextStyle(
-              color: _currentUser!.isAdmin
-                  ? const Color(0xFFFF9800)
-                  : const Color(0xFF2196F3),
+              color: _currentUser!.isAdmin ? const Color(0xFFFF9800) : const Color(0xFF2196F3),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -414,16 +328,9 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       children: [
         Text(
           value,
-          style: const TextStyle(
-            color: Color(0xFFffc107),
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(color: Color(0xFFffc107), fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
       ],
     );
   }
@@ -434,59 +341,24 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       child: Column(
         children: [
           _buildInfoCard('المعلومات الشخصية', [
-            _buildInfoRow(
-              'الاسم الكامل',
-              _currentUser!.name,
-              FontAwesomeIcons.user,
-            ),
-            _buildInfoRow(
-              'رقم الهاتف',
-              _currentUser!.phone,
-              FontAwesomeIcons.phone,
-            ),
-            _buildInfoRow(
-              'البريد الإلكتروني',
-              _currentUser!.email,
-              FontAwesomeIcons.envelope,
-            ),
+            _buildInfoRow('الاسم الكامل', _currentUser!.name, FontAwesomeIcons.user),
+            _buildInfoRow('رقم الهاتف', _currentUser!.phone, FontAwesomeIcons.phone),
+            _buildInfoRow('البريد الإلكتروني', _currentUser!.email, FontAwesomeIcons.envelope),
             _buildPasswordRow(), // إضافة كلمة المرور هنا
-            _buildInfoRow(
-              'تاريخ التسجيل',
-              _formatDate(_currentUser!.createdAt),
-              FontAwesomeIcons.calendar,
-            ),
+            _buildInfoRow('تاريخ التسجيل', _formatDate(_currentUser!.createdAt), FontAwesomeIcons.calendar),
             if (_currentUser!.lastLogin != null)
-              _buildInfoRow(
-                'آخر دخول',
-                _formatDate(_currentUser!.lastLogin!),
-                FontAwesomeIcons.clock,
-              ),
+              _buildInfoRow('آخر دخول', _formatDate(_currentUser!.lastLogin!), FontAwesomeIcons.clock),
           ]),
 
           const SizedBox(height: 16),
 
-          if (_currentUser!.province != null ||
-              _currentUser!.city != null ||
-              _currentUser!.address != null)
+          if (_currentUser!.province != null || _currentUser!.city != null || _currentUser!.address != null)
             _buildInfoCard('معلومات العنوان', [
               if (_currentUser!.province != null)
-                _buildInfoRow(
-                  'المحافظة',
-                  _currentUser!.province!,
-                  FontAwesomeIcons.locationDot,
-                ),
-              if (_currentUser!.city != null)
-                _buildInfoRow(
-                  'المدينة',
-                  _currentUser!.city!,
-                  FontAwesomeIcons.city,
-                ),
+                _buildInfoRow('المحافظة', _currentUser!.province!, FontAwesomeIcons.locationDot),
+              if (_currentUser!.city != null) _buildInfoRow('المدينة', _currentUser!.city!, FontAwesomeIcons.city),
               if (_currentUser!.address != null)
-                _buildInfoRow(
-                  'العنوان',
-                  _currentUser!.address!,
-                  FontAwesomeIcons.house,
-                ),
+                _buildInfoRow('العنوان', _currentUser!.address!, FontAwesomeIcons.house),
             ]),
 
           const SizedBox(height: 16),
@@ -496,38 +368,19 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           const SizedBox(height: 16),
 
           _buildInfoCard('معلومات الحساب', [
-            _buildInfoRow(
-              'حالة الحساب',
-              _currentUser!.displayStatus,
-              FontAwesomeIcons.userCheck,
-            ),
-            _buildInfoRow(
-              'نوع المستخدم',
-              _currentUser!.roleDisplay,
-              FontAwesomeIcons.userTie,
-            ),
+            _buildInfoRow('حالة الحساب', _currentUser!.displayStatus, FontAwesomeIcons.userCheck),
+            _buildInfoRow('نوع المستخدم', _currentUser!.roleDisplay, FontAwesomeIcons.userTie),
             _buildInfoRow(
               'تم التحقق من البريد',
               _currentUser!.isEmailVerified ? 'نعم' : 'لا',
               FontAwesomeIcons.envelope,
             ),
-            _buildInfoRow(
-              'عدد مرات الدخول',
-              _currentUser!.loginCount.toString(),
-              FontAwesomeIcons.rightToBracket,
-            ),
+            _buildInfoRow('عدد مرات الدخول', _currentUser!.loginCount.toString(), FontAwesomeIcons.rightToBracket),
           ]),
 
-          if (_currentUser!.notes != null &&
-              _currentUser!.notes!.isNotEmpty) ...[
+          if (_currentUser!.notes != null && _currentUser!.notes!.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _buildInfoCard('ملاحظات', [
-              _buildInfoRow(
-                'ملاحظات',
-                _currentUser!.notes!,
-                FontAwesomeIcons.noteSticky,
-              ),
-            ]),
+            _buildInfoCard('ملاحظات', [_buildInfoRow('ملاحظات', _currentUser!.notes!, FontAwesomeIcons.noteSticky)]),
           ],
         ],
       ),
@@ -548,11 +401,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFFffc107),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Color(0xFFffc107), fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           ...children,
@@ -570,20 +419,13 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           const SizedBox(width: 12),
           Expanded(
             flex: 2,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-            ),
+            child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
           ),
           Expanded(
             flex: 3,
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -607,18 +449,11 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
-              const FaIcon(
-                FontAwesomeIcons.key,
-                color: Colors.white54,
-                size: 14,
-              ),
+              const FaIcon(FontAwesomeIcons.key, color: Colors.white54, size: 14),
               const SizedBox(width: 12),
               const Expanded(
                 flex: 2,
-                child: Text(
-                  'كلمة المرور',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
+                child: Text('كلمة المرور', style: TextStyle(color: Colors.white70, fontSize: 14)),
               ),
               Expanded(
                 flex: 3,
@@ -627,18 +462,12 @@ class _UserDetailsPageState extends State<UserDetailsPage>
                     Expanded(
                       child: Text(
                         isPasswordVisible ? password : '••••••••',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                       ),
                     ),
                     IconButton(
                       icon: FaIcon(
-                        isPasswordVisible
-                            ? FontAwesomeIcons.eyeSlash
-                            : FontAwesomeIcons.eye,
+                        isPasswordVisible ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
                         color: const Color(0xFFffc107),
                         size: 16,
                       ),
@@ -649,18 +478,11 @@ class _UserDetailsPageState extends State<UserDetailsPage>
                       },
                     ),
                     IconButton(
-                      icon: const FaIcon(
-                        FontAwesomeIcons.copy,
-                        color: Color(0xFFffc107),
-                        size: 16,
-                      ),
+                      icon: const FaIcon(FontAwesomeIcons.copy, color: Color(0xFFffc107), size: 16),
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: password));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('تم نسخ كلمة المرور'),
-                            backgroundColor: Color(0xFF4CAF50),
-                          ),
+                          const SnackBar(content: Text('تم نسخ كلمة المرور'), backgroundColor: Color(0xFF4CAF50)),
                         );
                       },
                     ),
@@ -692,18 +514,10 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             children: [
               const Text(
                 'الأرباح',
-                style: TextStyle(
-                  color: Color(0xFFffc107),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Color(0xFFffc107), fontSize: 16, fontWeight: FontWeight.bold),
               ),
               IconButton(
-                icon: const FaIcon(
-                  FontAwesomeIcons.penToSquare,
-                  color: Color(0xFFffc107),
-                  size: 16,
-                ),
+                icon: const FaIcon(FontAwesomeIcons.penToSquare, color: Color(0xFFffc107), size: 16),
                 onPressed: _showEditProfitsDialog,
               ),
             ],
@@ -735,12 +549,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
     );
   }
 
-  Widget _buildProfitItem(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _buildProfitItem(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -760,11 +569,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
         ],
@@ -774,21 +579,14 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
   // دالة تعديل الأرباح
   void _showEditProfitsDialog() {
-    final achievedController = TextEditingController(
-      text: _currentUser!.achievedProfits.toString(),
-    );
-    final expectedController = TextEditingController(
-      text: _currentUser!.expectedProfits.toString(),
-    );
+    final achievedController = TextEditingController(text: _currentUser!.achievedProfits.toString());
+    final expectedController = TextEditingController(text: _currentUser!.expectedProfits.toString());
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        title: const Text(
-          'تعديل الأرباح',
-          style: TextStyle(color: Color(0xFFffc107)),
-        ),
+        title: const Text('تعديل الأرباح', style: TextStyle(color: Color(0xFFffc107))),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -799,12 +597,8 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               decoration: const InputDecoration(
                 labelText: 'الأرباح المحققة',
                 labelStyle: TextStyle(color: Colors.white70),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFffc107)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFffc107)),
-                ),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffc107))),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffc107))),
               ),
             ),
             const SizedBox(height: 16),
@@ -815,12 +609,8 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               decoration: const InputDecoration(
                 labelText: 'الأرباح المنتظرة',
                 labelStyle: TextStyle(color: Colors.white70),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFffc107)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Color(0xFFffc107)),
-                ),
+                enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffc107))),
+                focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffc107))),
               ),
             ),
           ],
@@ -835,9 +625,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               double.tryParse(achievedController.text) ?? 0.0,
               double.tryParse(expectedController.text) ?? 0.0,
             ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffc107),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffc107)),
             child: const Text('حفظ', style: TextStyle(color: Colors.black)),
           ),
         ],
@@ -849,11 +637,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
   void _updateProfits(double achieved, double expected) async {
     try {
       // تحديث في قاعدة البيانات (يمكن إضافة جدول منفصل للأرباح)
-      await UserManagementService.updateUserProfits(
-        _currentUser!.id,
-        achieved,
-        expected,
-      );
+      await UserManagementService.updateUserProfits(_currentUser!.id, achieved, expected);
 
       // تحديث البيانات المحلية
       setState(() {
@@ -900,22 +684,16 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم تحديث الأرباح بنجاح'),
-            backgroundColor: Color(0xFF4CAF50),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('تم تحديث الأرباح بنجاح'), backgroundColor: Color(0xFF4CAF50)));
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في تحديث الأرباح: $e'),
-            backgroundColor: const Color(0xFFF44336),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في تحديث الأرباح: $e'), backgroundColor: const Color(0xFFF44336)));
       }
     }
   }
@@ -927,40 +705,24 @@ class _UserDetailsPageState extends State<UserDetailsPage>
     if (_currentUser == null) {
       debugPrint('❌ المستخدم غير موجود');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('خطأ: بيانات المستخدم غير متوفرة'),
-          backgroundColor: Color(0xFFF44336),
-        ),
+        const SnackBar(content: Text('خطأ: بيانات المستخدم غير متوفرة'), backgroundColor: Color(0xFFF44336)),
       );
       return;
     }
     final nameController = TextEditingController(text: _currentUser!.name);
     final phoneController = TextEditingController(text: _currentUser!.phone);
     final emailController = TextEditingController(text: _currentUser!.email);
-    final passwordController = TextEditingController(
-      text: _currentUser!.password ?? '',
-    );
-    final provinceController = TextEditingController(
-      text: _currentUser!.province ?? '',
-    );
-    final cityController = TextEditingController(
-      text: _currentUser!.city ?? '',
-    );
-    final addressController = TextEditingController(
-      text: _currentUser!.address ?? '',
-    );
-    final notesController = TextEditingController(
-      text: _currentUser!.notes ?? '',
-    );
+    final passwordController = TextEditingController(text: _currentUser!.password ?? '');
+    final provinceController = TextEditingController(text: _currentUser!.province ?? '');
+    final cityController = TextEditingController(text: _currentUser!.city ?? '');
+    final addressController = TextEditingController(text: _currentUser!.address ?? '');
+    final notesController = TextEditingController(text: _currentUser!.notes ?? '');
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        title: const Text(
-          'تعديل بيانات المستخدم',
-          style: TextStyle(color: Color(0xFFffc107)),
-        ),
+        title: const Text('تعديل بيانات المستخدم', style: TextStyle(color: Color(0xFFffc107))),
         content: SizedBox(
           width: 400,
           child: SingleChildScrollView(
@@ -1010,24 +772,15 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
               _updateUserData(updates);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffc107),
-            ),
-            child: const Text(
-              'حفظ التغييرات',
-              style: TextStyle(color: Colors.black),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffc107)),
+            child: const Text('حفظ التغييرات', style: TextStyle(color: Colors.black)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEditField(
-    String label,
-    TextEditingController controller, {
-    int maxLines = 1,
-  }) {
+  Widget _buildEditField(String label, TextEditingController controller, {int maxLines = 1}) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
@@ -1035,12 +788,8 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white70),
-        enabledBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFffc107)),
-        ),
-        focusedBorder: const OutlineInputBorder(
-          borderSide: BorderSide(color: Color(0xFFffc107)),
-        ),
+        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffc107))),
+        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffc107))),
       ),
     );
   }
@@ -1058,20 +807,13 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           decoration: InputDecoration(
             labelText: 'كلمة المرور',
             labelStyle: const TextStyle(color: Colors.white70),
-            enabledBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.white30),
-            ),
-            focusedBorder: const OutlineInputBorder(
-              borderSide: BorderSide(color: Color(0xFFffc107)),
-            ),
+            enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+            focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffc107))),
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: Icon(
-                    isPasswordVisible ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.white54,
-                  ),
+                  icon: Icon(isPasswordVisible ? Icons.visibility_off : Icons.visibility, color: Colors.white54),
                   onPressed: () {
                     setStateLocal(() {
                       isPasswordVisible = !isPasswordVisible;
@@ -1098,22 +840,15 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
   // توليد كلمة مرور عشوائية
   String _generateRandomPassword() {
-    const chars =
-        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     final random = DateTime.now().millisecondsSinceEpoch;
-    return List.generate(
-      8,
-      (index) => chars[(random + index) % chars.length],
-    ).join();
+    return List.generate(8, (index) => chars[(random + index) % chars.length]).join();
   }
 
   // دالة تحديث بيانات المستخدم
   void _updateUserData(Map<String, String> data) async {
     try {
-      final updatedUser = await UserManagementService.updateUser(
-        _currentUser!.id,
-        data,
-      );
+      final updatedUser = await UserManagementService.updateUser(_currentUser!.id, data);
 
       if (updatedUser != null) {
         setState(() {
@@ -1123,22 +858,16 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         if (mounted) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تم تحديث بيانات المستخدم بنجاح'),
-              backgroundColor: Color(0xFF4CAF50),
-            ),
+            const SnackBar(content: Text('تم تحديث بيانات المستخدم بنجاح'), backgroundColor: Color(0xFF4CAF50)),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في تحديث البيانات: $e'),
-            backgroundColor: const Color(0xFFF44336),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في تحديث البيانات: $e'), backgroundColor: const Color(0xFFF44336)));
       }
     }
   }
@@ -1225,17 +954,13 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               'عميل متكرر',
               _currentUser!.isFrequentBuyer ? 'نعم' : 'لا',
               FontAwesomeIcons.repeat,
-              _currentUser!.isFrequentBuyer
-                  ? const Color(0xFF4CAF50)
-                  : const Color(0xFF757575),
+              _currentUser!.isFrequentBuyer ? const Color(0xFF4CAF50) : const Color(0xFF757575),
             ),
             _buildStatRow(
               'عميل عالي القيمة',
               _currentUser!.isHighValueCustomer ? 'نعم' : 'لا',
               FontAwesomeIcons.gem,
-              _currentUser!.isHighValueCustomer
-                  ? const Color(0xFFFFD700)
-                  : const Color(0xFF757575),
+              _currentUser!.isHighValueCustomer ? const Color(0xFFFFD700) : const Color(0xFF757575),
             ),
           ]),
         ],
@@ -1254,10 +979,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
               children: [
                 CircularProgressIndicator(color: Color(0xFFffc107)),
                 SizedBox(height: 16),
-                Text(
-                  'جاري تحميل طلبات المستخدم...',
-                  style: TextStyle(color: Colors.white70, fontSize: 16),
-                ),
+                Text('جاري تحميل طلبات المستخدم...', style: TextStyle(color: Colors.white70, fontSize: 16)),
               ],
             ),
           );
@@ -1268,19 +990,11 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const FaIcon(
-                  FontAwesomeIcons.exclamationTriangle,
-                  color: Colors.red,
-                  size: 64,
-                ),
+                const FaIcon(FontAwesomeIcons.triangleExclamation, color: Colors.red, size: 64),
                 const SizedBox(height: 16),
                 Text(
                   'خطأ في تحميل الطلبات',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1300,19 +1014,11 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                FaIcon(
-                  FontAwesomeIcons.cartShopping,
-                  color: Colors.white30,
-                  size: 64,
-                ),
+                FaIcon(FontAwesomeIcons.cartShopping, color: Colors.white30, size: 64),
                 SizedBox(height: 16),
                 Text(
                   'لا توجد طلبات',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 8),
                 Text(
@@ -1382,10 +1088,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       decoration: BoxDecoration(
         color: const Color(0xFF1a1f2e),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1,
-        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
       ),
       child: Column(
         children: [
@@ -1394,10 +1097,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: const Color(0xFF252b3a),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
             ),
             child: Row(
               children: [
@@ -1407,11 +1107,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
                     color: const Color(0xFFffc107).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const FaIcon(
-                    FontAwesomeIcons.receipt,
-                    color: Color(0xFFffc107),
-                    size: 16,
-                  ),
+                  child: const FaIcon(FontAwesomeIcons.receipt, color: Color(0xFFffc107), size: 16),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1420,18 +1116,11 @@ class _UserDetailsPageState extends State<UserDetailsPage>
                     children: [
                       Text(
                         'طلب #${order['id']}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         _formatDate(createdAt),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
                       ),
                     ],
                   ),
@@ -1446,29 +1135,13 @@ class _UserDetailsPageState extends State<UserDetailsPage>
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                _buildOrderDetailRow(
-                  'اسم الزبون',
-                  order['customer_name'] ?? 'غير محدد',
-                  FontAwesomeIcons.user,
-                ),
+                _buildOrderDetailRow('اسم الزبون', order['customer_name'] ?? 'غير محدد', FontAwesomeIcons.user),
                 const SizedBox(height: 8),
-                _buildOrderDetailRow(
-                  'رقم الهاتف',
-                  order['customer_phone'] ?? 'غير محدد',
-                  FontAwesomeIcons.phone,
-                ),
+                _buildOrderDetailRow('رقم الهاتف', order['customer_phone'] ?? 'غير محدد', FontAwesomeIcons.phone),
                 const SizedBox(height: 8),
-                _buildOrderDetailRow(
-                  'عدد المنتجات',
-                  '$totalItems منتج',
-                  FontAwesomeIcons.cubes,
-                ),
+                _buildOrderDetailRow('عدد المنتجات', '$totalItems منتج', FontAwesomeIcons.cubes),
                 const SizedBox(height: 8),
-                _buildOrderDetailRow(
-                  'إجمالي السعر',
-                  '${order['total_price'] ?? 0} د.ع',
-                  FontAwesomeIcons.dollarSign,
-                ),
+                _buildOrderDetailRow('إجمالي السعر', '${order['total_price'] ?? 0} د.ع', FontAwesomeIcons.dollarSign),
                 if (order['total_profit'] != null) ...[
                   const SizedBox(height: 8),
                   _buildOrderDetailRow(
@@ -1526,52 +1199,26 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: backgroundColor, borderRadius: BorderRadius.circular(12)),
       child: Text(
         statusText,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
+        style: TextStyle(color: textColor, fontSize: 12, fontWeight: FontWeight.w600),
       ),
     );
   }
 
   // 📝 بناء صف تفاصيل الطلب
-  Widget _buildOrderDetailRow(
-    String label,
-    String value,
-    IconData icon, {
-    Color? valueColor,
-  }) {
+  Widget _buildOrderDetailRow(String label, String value, IconData icon, {Color? valueColor}) {
     return Row(
       children: [
-        FaIcon(
-          icon,
-          color: const Color(0xFFffc107),
-          size: 14,
-        ),
+        FaIcon(icon, color: const Color(0xFFffc107), size: 14),
         const SizedBox(width: 8),
-        Text(
-          '$label:',
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.7),
-            fontSize: 14,
-          ),
-        ),
+        Text('$label:', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             value,
-            style: TextStyle(
-              color: valueColor ?? Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: TextStyle(color: valueColor ?? Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
             textAlign: TextAlign.end,
           ),
         ),
@@ -1584,19 +1231,11 @@ class _UserDetailsPageState extends State<UserDetailsPage>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FaIcon(
-            FontAwesomeIcons.clockRotateLeft,
-            color: Colors.white30,
-            size: 64,
-          ),
+          FaIcon(FontAwesomeIcons.clockRotateLeft, color: Colors.white30, size: 64),
           SizedBox(height: 16),
           Text(
             'سجل النشاط',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white70, fontSize: 18, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8),
           Text(
@@ -1639,11 +1278,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Color(0xFFffc107),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(color: Color(0xFFffc107), fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           ...children,
@@ -1659,26 +1294,16 @@ class _UserDetailsPageState extends State<UserDetailsPage>
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
             child: FaIcon(icon, color: color, size: 16),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-            ),
+            child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
           ),
           Text(
             value,
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -1717,17 +1342,10 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
   Future<void> _toggleUserStatus() async {
     try {
-      final success = await UserManagementService.toggleUserStatus(
-        _currentUser!.id,
-        !_currentUser!.isActive,
-      );
+      final success = await UserManagementService.toggleUserStatus(_currentUser!.id, !_currentUser!.isActive);
 
       if (success) {
-        _showSuccessSnackBar(
-          _currentUser!.isActive
-              ? 'تم تعطيل المستخدم بنجاح'
-              : 'تم تفعيل المستخدم بنجاح',
-        );
+        _showSuccessSnackBar(_currentUser!.isActive ? 'تم تعطيل المستخدم بنجاح' : 'تم تفعيل المستخدم بنجاح');
         _loadUserDetails();
       } else {
         _showErrorSnackBar('فشل في تغيير حالة المستخدم');
@@ -1748,15 +1366,10 @@ class _UserDetailsPageState extends State<UserDetailsPage>
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFF44336),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF44336)),
             child: const Text('حذف'),
           ),
         ],
@@ -1765,9 +1378,7 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
     if (confirmed == true) {
       try {
-        final success = await UserManagementService.deleteUser(
-          _currentUser!.id,
-        );
+        final success = await UserManagementService.deleteUser(_currentUser!.id);
 
         if (success) {
           _showSuccessSnackBar('تم حذف المستخدم بنجاح');
@@ -1783,21 +1394,13 @@ class _UserDetailsPageState extends State<UserDetailsPage>
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
     );
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
   }
 }

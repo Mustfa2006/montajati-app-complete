@@ -1,23 +1,23 @@
+import 'dart:convert';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:convert';
 
-
-// تم إزالة Smart Cache - الجلب المباشر من قاعدة البيانات
-import '../widgets/pull_to_refresh_wrapper.dart';
-import '../utils/error_handler.dart';
+import '../core/design_system.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
-import '../widgets/curved_navigation_bar.dart';
-import '../widgets/common_header.dart';
+import '../utils/error_handler.dart';
 import '../utils/order_status_helper.dart';
-import '../core/design_system.dart';
+import '../widgets/app_background.dart';
+import '../widgets/curved_navigation_bar.dart';
+import '../widgets/pull_to_refresh_wrapper.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -29,23 +29,18 @@ class OrdersPage extends StatefulWidget {
 class _OrdersPageState extends State<OrdersPage> {
   String selectedFilter = 'all';
 
-  // متغيرات البحث
   String searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-
-  // الجلب المباشر من قاعدة البيانات
   final SupabaseClient _supabase = Supabase.instance.client;
   List<Order> _orders = [];
-  List<Order> _scheduledOrders = []; // قائمة منفصلة للطلبات المجدولة
+  List<Order> _scheduledOrders = [];
   bool _isLoading = false;
-
-  // متغيرات التحميل التدريجي
   bool _isLoadingMore = false;
   bool _hasMoreData = true;
   int _currentPage = 0;
   final int _pageSize = 25;
+  final ScrollController _scrollController = ScrollController();
 
-  // العدادات الكاملة من قاعدة البيانات
   Map<String, int> _orderCounts = {
     'all': 0,
     'processing': 0,
@@ -56,17 +51,9 @@ class _OrdersPageState extends State<OrdersPage> {
     'scheduled': 0,
   };
 
-  // متحكم التمرير للتحميل التدريجي
-  final ScrollController _scrollController = ScrollController();
-
-  // تم حذف _scheduledOrders - Smart Cache يتولى جميع الطلبات
-
-
-
   // دالة مراقبة التمرير للتحميل التدريجي
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       _loadMoreOrders();
     }
   }
@@ -74,30 +61,12 @@ class _OrdersPageState extends State<OrdersPage> {
   @override
   void initState() {
     super.initState();
-
-    // إعداد مستمع التمرير
     _scrollController.addListener(_onScroll);
-
-    // 🚀 تحميل العدادات والطلبات
     _loadOrderCounts();
     _loadOrdersFromDatabase();
-
-    // جلب الطلبات المجدولة أيضاً
     _loadScheduledOrdersOnInit();
-
-    // إعادة تعيين الفلتر إلى "الكل"
     selectedFilter = 'all';
-
-    // تم حذف OrderSyncService - كان معطلاً ولا يؤثر على التطبيق
   }
-
-  // تم حذف دالة _initializeSmartCache - استخدام التحميل التدريجي المباشر
-
-  // تم حذف الدالة القديمة - Smart Cache يتولى العرض الفوري
-
-
-
-  // تم حذف _onGlobalCacheChanged - Smart Cache يتولى التحديثات
 
   // دالة مساعدة للحصول على رقم هاتف المستخدم الحالي
   Future<String?> _getCurrentUserPhone() async {
@@ -158,15 +127,17 @@ class _OrdersPageState extends State<OrdersPage> {
           List<OrderItem> items = [];
           if (orderData['scheduled_order_items'] != null) {
             for (var itemData in orderData['scheduled_order_items']) {
-              items.add(OrderItem(
-                id: itemData['id'] ?? '',
-                productId: itemData['product_id'] ?? '',
-                name: itemData['product_name'] ?? '',
-                image: itemData['product_image'] ?? '',
-                wholesalePrice: 0.0, // سيتم حسابه لاحقاً
-                customerPrice: (itemData['price'] ?? 0.0).toDouble(),
-                quantity: itemData['quantity'] ?? 1,
-              ));
+              items.add(
+                OrderItem(
+                  id: itemData['id'] ?? '',
+                  productId: itemData['product_id'] ?? '',
+                  name: itemData['product_name'] ?? '',
+                  image: itemData['product_image'] ?? '',
+                  wholesalePrice: 0.0, // سيتم حسابه لاحقاً
+                  customerPrice: (itemData['price'] ?? 0.0).toDouble(),
+                  quantity: itemData['quantity'] ?? 1,
+                ),
+              );
             }
           }
 
@@ -179,10 +150,10 @@ class _OrdersPageState extends State<OrdersPage> {
             province: orderData['province'] ?? orderData['customer_province'] ?? '',
             city: orderData['city'] ?? orderData['customer_city'] ?? '',
             notes: orderData['notes'] ?? orderData['customer_notes'] ?? '',
-            totalCost: ((orderData['total_amount'] ?? 0.0) * 100).toInt(),
+            totalCost: (orderData['total_amount'] ?? 0.0).toInt(),
             totalProfit: 0, // سيتم حسابه لاحقاً
-            subtotal: ((orderData['total_amount'] ?? 0.0) * 100).toInt(),
-            total: ((orderData['total_amount'] ?? 0.0) * 100).toInt(),
+            subtotal: (orderData['total_amount'] ?? 0.0).toInt(),
+            total: (orderData['total_amount'] ?? 0.0).toInt(),
             status: OrderStatus.pending, // حالة افتراضية للطلبات المجدولة
             rawStatus: 'مجدول', // حالة مجدول
             createdAt: DateTime.parse(orderData['created_at'] ?? DateTime.now().toIso8601String()),
@@ -201,7 +172,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
       debugPrint('✅ تم جلب ${scheduledOrders.length} طلب مجدول');
       return scheduledOrders;
-
     } catch (e) {
       debugPrint('❌ خطأ في جلب الطلبات المجدولة: $e');
       return [];
@@ -240,60 +210,28 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  /// تحديث البيانات عند السحب للأسفل
   Future<void> _refreshData() async {
     try {
-      debugPrint('🔄 تحديث بيانات صفحة الطلبات...');
-
-      // التحقق من رقم هاتف المستخدم
       final prefs = await SharedPreferences.getInstance();
       String? currentUserPhone = prefs.getString('current_user_phone');
 
       if (currentUserPhone != null && currentUserPhone.isNotEmpty) {
-        debugPrint('📱 تحديث للمستخدم: $currentUserPhone');
-
-        // تحديث العدادات والطلبات للمستخدم الحالي
         await _loadOrderCounts();
         await _loadOrdersFromDatabase();
         await _loadScheduledOrdersFromDatabase(currentUserPhone);
       }
-
-      // ✅ تم الاستغناء عن الكاش العالمي - Smart Cache يتولى كل شيء
-
-      debugPrint('✅ تم تحديث بيانات صفحة الطلبات بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في التحديث: $e');
     }
   }
 
-
-
-
-
-  // تم حذف دالة _loadOrders القديمة - Smart Cache يتولى التحميل
-
-  // تم حذف دالة _loadScheduledOrders القديمة - Smart Cache يتولى الطلبات المجدولة أيضاً
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Smart Cache يتولى التحميل تلقائياً
-    debugPrint('📱 تم استدعاء didChangeDependencies - Smart Cache يتولى التحميل');
-  }
-
-  // تم حذف دالة _loadOrdersLight القديمة - Smart Cache يتولى التحميل الخفيف
-
   @override
   void dispose() {
     _scrollController.dispose();
     _searchController.dispose();
-
-    // تم إزالة Smart Cache
-
     super.dispose();
   }
 
-  // تحميل الطلبات مباشرة من قاعدة البيانات مع التحميل التدريجي
   Future<void> _loadOrdersFromDatabase({bool isLoadMore = false}) async {
     if (_isLoading || (isLoadMore && _isLoadingMore) || (isLoadMore && !_hasMoreData)) return;
 
@@ -318,7 +256,9 @@ class _OrdersPageState extends State<OrdersPage> {
       }
 
       final offset = _currentPage * _pageSize;
-      debugPrint('🔍 جلب طلبات المستخدم: $currentUserPhone - الصفحة: $_currentPage ($offset-${offset + _pageSize - 1})');
+      debugPrint(
+        '🔍 جلب طلبات المستخدم: $currentUserPhone - الصفحة: $_currentPage ($offset-${offset + _pageSize - 1})',
+      );
 
       final response = await _supabase
           .from('orders')
@@ -374,12 +314,10 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  // تحميل المزيد من الطلبات (التحميل التدريجي)
   Future<void> _loadMoreOrders() async {
     await _loadOrdersFromDatabase(isLoadMore: true);
   }
 
-  // جلب العدادات الكاملة من قاعدة البيانات
   Future<void> _loadOrderCounts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -390,11 +328,7 @@ class _OrdersPageState extends State<OrdersPage> {
         return;
       }
 
-      debugPrint('📊 جلب العدادات الكاملة للمستخدم: $currentUserPhone');
-
-      // 🎯 استعلام COUNT مباشر - جلب العدد فقط بدون البيانات
-
-      // 1. العدد الكامل
+      debugPrint('📊 جلب العدادات للمستخدم: $currentUserPhone');
       final totalResponse = await _supabase
           .from('orders')
           .select('id')
@@ -402,22 +336,32 @@ class _OrdersPageState extends State<OrdersPage> {
           .count(CountOption.exact);
       final total = totalResponse.count;
 
-      // 2. عدد طلبات المعالجة
       final processingResponse = await _supabase
           .from('orders')
           .select('id')
           .eq('user_phone', currentUserPhone)
           .inFilter('status', [
-            'تم تغيير محافظة الزبون', 'تغيير المندوب', 'لا يرد', 'لا يرد بعد الاتفاق',
-            'مغلق', 'مغلق بعد الاتفاق', 'الرقم غير معرف', 'الرقم غير داخل في الخدمة',
-            'لا يمكن الاتصال بالرقم', 'مؤجل', 'مؤجل لحين اعادة الطلب لاحقا',
-            'مفصول عن الخدمة', 'طلب مكرر', 'مستلم مسبقا', 'العنوان غير دقيق',
-            'لم يطلب', 'حظر المندوب'
+            'تم تغيير محافظة الزبون',
+            'تغيير المندوب',
+            'لا يرد',
+            'لا يرد بعد الاتفاق',
+            'مغلق',
+            'مغلق بعد الاتفاق',
+            'الرقم غير معرف',
+            'الرقم غير داخل في الخدمة',
+            'لا يمكن الاتصال بالرقم',
+            'مؤجل',
+            'مؤجل لحين اعادة الطلب لاحقا',
+            'مفصول عن الخدمة',
+            'طلب مكرر',
+            'مستلم مسبقا',
+            'العنوان غير دقيق',
+            'لم يطلب',
+            'حظر المندوب',
           ])
           .count(CountOption.exact);
       final processing = processingResponse.count;
 
-      // 3. عدد الطلبات النشطة
       final activeResponse = await _supabase
           .from('orders')
           .select('id')
@@ -426,7 +370,6 @@ class _OrdersPageState extends State<OrdersPage> {
           .count(CountOption.exact);
       final active = activeResponse.count;
 
-      // 4. عدد طلبات قيد التوصيل
       final inDeliveryResponse = await _supabase
           .from('orders')
           .select('id')
@@ -435,7 +378,6 @@ class _OrdersPageState extends State<OrdersPage> {
           .count(CountOption.exact);
       final inDelivery = inDeliveryResponse.count;
 
-      // 5. عدد الطلبات المسلمة
       final deliveredResponse = await _supabase
           .from('orders')
           .select('id')
@@ -444,7 +386,6 @@ class _OrdersPageState extends State<OrdersPage> {
           .count(CountOption.exact);
       final delivered = deliveredResponse.count;
 
-      // 6. عدد الطلبات الملغية
       final cancelledResponse = await _supabase
           .from('orders')
           .select('id')
@@ -453,7 +394,6 @@ class _OrdersPageState extends State<OrdersPage> {
           .count(CountOption.exact);
       final cancelled = cancelledResponse.count;
 
-      // جلب عدد الطلبات المجدولة
       final scheduledCount = await _getScheduledOrdersCount(currentUserPhone);
 
       setState(() {
@@ -467,17 +407,8 @@ class _OrdersPageState extends State<OrdersPage> {
           'scheduled': scheduledCount,
         };
       });
-
-      debugPrint('✅ تم جلب العدادات الحقيقية من قاعدة البيانات:');
-      debugPrint('   📊 المجموع الكامل: $total');
-      debugPrint('   🔧 يحتاج معالجة: $processing');
-      debugPrint('   ⚡ نشط: $active');
-      debugPrint('   🚚 قيد التوصيل: $inDelivery');
-      debugPrint('   ✅ تم التسليم: $delivered');
-      debugPrint('   ❌ ملغي: $cancelled');
     } catch (e) {
       debugPrint('❌ خطأ في جلب العدادات: $e');
-      // في حالة الخطأ، استخدم العدادات من الطلبات المحملة
       setState(() {
         _orderCounts = {
           'all': _orders.length,
@@ -492,38 +423,28 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  // تم حذف _onOrdersChanged - Smart Cache يتولى التحديثات
-
-  // تم حذف _onScheduledOrdersChanged - Smart Cache يتولى الطلبات المجدولة
-
-  // تم حذف _convertScheduledOrdersToOrderList - Smart Cache يتولى التحويل
-
-  // حساب عدد الطلبات لكل حالة (من قاعدة البيانات مباشرة)
   Map<String, int> get orderCounts {
     return _orderCounts;
   }
 
-  // دوال مساعدة للواجهة فقط
-
-  // قسم معالجة - الطلبات التي تحتاج معالجة
   bool _isProcessingStatus(String status) {
     return status == 'تم تغيير محافظة الزبون' ||
-           status == 'تغيير المندوب' ||
-           status == 'لا يرد' ||
-           status == 'لا يرد بعد الاتفاق' ||
-           status == 'مغلق' ||
-           status == 'مغلق بعد الاتفاق' ||
-           status == 'الرقم غير معرف' ||
-           status == 'الرقم غير داخل في الخدمة' ||
-           status == 'لا يمكن الاتصال بالرقم' ||
-           status == 'مؤجل' ||
-           status == 'مؤجل لحين اعادة الطلب لاحقا' ||
-           status == 'مفصول عن الخدمة' ||
-           status == 'طلب مكرر' ||
-           status == 'مستلم مسبقا' ||
-           status == 'العنوان غير دقيق' ||
-           status == 'لم يطلب' ||
-           status == 'حظر المندوب';
+        status == 'تغيير المندوب' ||
+        status == 'لا يرد' ||
+        status == 'لا يرد بعد الاتفاق' ||
+        status == 'مغلق' ||
+        status == 'مغلق بعد الاتفاق' ||
+        status == 'الرقم غير معرف' ||
+        status == 'الرقم غير داخل في الخدمة' ||
+        status == 'لا يمكن الاتصال بالرقم' ||
+        status == 'مؤجل' ||
+        status == 'مؤجل لحين اعادة الطلب لاحقا' ||
+        status == 'مفصول عن الخدمة' ||
+        status == 'طلب مكرر' ||
+        status == 'مستلم مسبقا' ||
+        status == 'العنوان غير دقيق' ||
+        status == 'لم يطلب' ||
+        status == 'حظر المندوب';
   }
 
   bool _isActiveStatus(String status) {
@@ -531,102 +452,53 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   bool _isInDeliveryStatus(String status) {
-    return status == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
-           status == 'in_delivery';
+    return status == 'قيد التوصيل الى الزبون (في عهدة المندوب)' || status == 'in_delivery';
   }
 
   bool _isDeliveredStatus(String status) {
-    return status == 'تم التسليم للزبون' ||
-           status == 'delivered';
+    return status == 'تم التسليم للزبون' || status == 'delivered';
   }
 
   bool _isCancelledStatus(String status) {
     return status == 'الغاء الطلب' ||
-           status == 'رفض الطلب' ||
-           status == 'تم الارجاع الى التاجر' ||
-           status == 'cancelled';
+        status == 'رفض الطلب' ||
+        status == 'تم الارجاع الى التاجر' ||
+        status == 'cancelled';
   }
 
-  // تم حذف الدالة المكررة
-
-  // فلترة الطلبات حسب الحالة والبحث
   List<Order> get filteredOrders {
-    debugPrint('🔍 فلترة الطلبات بالفلتر: $selectedFilter');
-
     List<Order> baseOrders = _orders;
 
-    // تطبيق فلتر الحالة
     if (selectedFilter != 'all') {
       switch (selectedFilter) {
         case 'processing':
-          // قسم المعالجة - الطلبات التي تحتاج معالجة
           baseOrders = _orders.where((order) => _isProcessingStatus(order.rawStatus)).toList();
           break;
         case 'active':
-          // قسم النشط - الطلبات النشطة فقط
           baseOrders = _orders.where((order) => _isActiveStatus(order.rawStatus)).toList();
           break;
         case 'in_delivery':
-          // قسم قيد التوصيل
           baseOrders = _orders.where((order) => _isInDeliveryStatus(order.rawStatus)).toList();
           break;
         case 'delivered':
-          // قسم تم التسليم
           baseOrders = _orders.where((order) => _isDeliveredStatus(order.rawStatus)).toList();
           break;
         case 'cancelled':
-          // قسم ملغي
           baseOrders = _orders.where((order) => _isCancelledStatus(order.rawStatus)).toList();
           break;
       }
     }
 
-    debugPrint('🚀 تم الحصول على ${baseOrders.length} طلب بعد الفلترة');
-
-    // ✅ ضمان الترتيب الصحيح: الأحدث أولاً دائماً
     baseOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-    debugPrint(
-      '📋 الفلتر الحالي: $selectedFilter, عدد الطلبات: ${baseOrders.length}',
-    );
-
-    // ✅ طباعة تفاصيل أول 3 طلبات للتشخيص
-    if (baseOrders.isNotEmpty) {
-      debugPrint('📋 أول 3 طلبات في filteredOrders (بعد الترتيب):');
-      for (int i = 0; i < baseOrders.length && i < 3; i++) {
-        final order = baseOrders[i];
-        debugPrint(
-          '   ${i + 1}. ${order.customerName} - ${order.id} - ${order.createdAt}',
-        );
-      }
-    } else {
-      debugPrint('⚠️ لا توجد طلبات في filteredOrders!');
-    }
-
-    // طباعة حالات الطلبات الموجودة للتشخيص
-    final statusCounts = <String, int>{};
-    for (final order in baseOrders) {
-      final statusKey = order.status.toString().split('.').last;
-      statusCounts[statusKey] = (statusCounts[statusKey] ?? 0) + 1;
-    }
-    debugPrint('📊 إحصائيات الحالات: $statusCounts');
-
-    // تطبيق فلتر الحالة أولاً
     List<Order> statusFiltered = baseOrders;
 
     if (selectedFilter == 'scheduled') {
-      // ✅ للطلبات المجدولة، استخدم القائمة المحفوظة
       statusFiltered = _scheduledOrders;
-      debugPrint('🔍 عدد الطلبات المجدولة: ${statusFiltered.length}');
     } else {
-      // ✅ للطلبات العادية، الفلترة تمت بالفعل على مستوى قاعدة البيانات
       statusFiltered = baseOrders;
-      debugPrint(
-        '🔍 عدد الطلبات المفلترة للحالة $selectedFilter: ${statusFiltered.length}',
-      );
     }
 
-    // تطبيق فلتر البحث
     if (searchQuery.isNotEmpty) {
       statusFiltered = statusFiltered.where((order) {
         final customerName = order.customerName.toLowerCase();
@@ -634,12 +506,8 @@ class _OrdersPageState extends State<OrdersPage> {
         final secondaryPhone = order.secondaryPhone?.toLowerCase() ?? '';
         final query = searchQuery.toLowerCase();
 
-        return customerName.contains(query) ||
-            primaryPhone.contains(query) ||
-            secondaryPhone.contains(query);
+        return customerName.contains(query) || primaryPhone.contains(query) || secondaryPhone.contains(query);
       }).toList();
-
-      debugPrint('🔍 عدد الطلبات بعد البحث: ${statusFiltered.length}');
     }
 
     return statusFiltered;
@@ -647,81 +515,47 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppDesignSystem.primaryBackground,
-      extendBody: true, // السماح للمحتوى بالظهور خلف الشريط السفلي
-      body: _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : Column(
-            children: [
-              // الشريط العلوي الموحد
-              CommonHeader(
-                title: 'الطلبات',
-                rightActions: [
-                  // زر الرجوع على اليمين
-                  GestureDetector(
-                    onTap: () => context.go('/products'),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(
-                        FontAwesomeIcons.arrowRight,
-                        color: Color(0xFFffd700),
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              // منطقة المحتوى القابل للتمرير (تحتوي على البحث والفلتر والطلبات)
-              Expanded(child: _buildScrollableContent()),
-            ],
-          ),
-      // الشريط السفلي المنحني
-      bottomNavigationBar: CurvedNavigationBar(
-        index: 1, // الطلبات
-        items: <Widget>[
-          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
-        ],
-        color: AppDesignSystem.bottomNavColor, // لون الشريط موحد
-        buttonBackgroundColor: AppDesignSystem.activeButtonColor, // لون الكرة موحد
-        backgroundColor: Colors.transparent, // خلفية شفافة
-        animationCurve: Curves.elasticOut, // منحنى مبهر
-        animationDuration: Duration(milliseconds: 1200), // انتقال مبهر
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/products');
-              break;
-            case 1:
-              // الصفحة الحالية
-              break;
-            case 2:
-              context.go('/profits');
-              break;
-            case 3:
-              context.go('/account');
-              break;
-          }
-        },
-        letIndexChange: (index) => true,
+    return AppBackground(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildScrollableContent(), // المحتوى مباشرة بدون شريط ثابت
+        bottomNavigationBar: CurvedNavigationBar(
+          index: 1, // الطلبات
+          items: <Widget>[
+            Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+            Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+            Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
+            Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          ],
+          color: AppDesignSystem.bottomNavColor, // لون الشريط موحد
+          buttonBackgroundColor: AppDesignSystem.activeButtonColor, // لون الكرة موحد
+          backgroundColor: Colors.transparent, // خلفية شفافة
+          animationCurve: Curves.elasticOut, // منحنى مبهر
+          animationDuration: Duration(milliseconds: 1200), // انتقال مبهر
+          onTap: (index) {
+            switch (index) {
+              case 0:
+                context.go('/products');
+                break;
+              case 1:
+                // الصفحة الحالية
+                break;
+              case 2:
+                context.go('/profits');
+                break;
+              case 3:
+                context.go('/account');
+                break;
+            }
+          },
+          letIndexChange: (index) => true,
+        ),
       ),
     );
   }
-
-
 
   // بناء المحتوى القابل للتمرير
   Widget _buildScrollableContent() {
@@ -734,11 +568,14 @@ class _OrdersPageState extends State<OrdersPage> {
         controller: _scrollController,
         physics: const BouncingScrollPhysics(),
         slivers: [
+          // الشريط العلوي مع العنوان وزر الرجوع (ضمن المحتوى القابل للتمرير)
+          SliverToBoxAdapter(child: _buildHeader()),
+
           // شريط البحث
           SliverToBoxAdapter(child: _buildSearchBar()),
 
-          // شريط فلتر الحالة
-          SliverToBoxAdapter(child: _buildFilterBar()),
+          // شريط فلتر الحالة المحسن
+          SliverToBoxAdapter(child: _buildEnhancedFilterBar()),
 
           // قائمة الطلبات
           displayedOrders.isEmpty
@@ -774,57 +611,117 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
+  // بناء الشريط العلوي (ضمن المحتوى القابل للتمرير)
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 35, 16, 20),
+      child: Row(
+        children: [
+          // زر الرجوع
+          GestureDetector(
+            onTap: () => context.go('/products'),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFFFFD700).withValues(alpha: 0.3),
+                    const Color(0xFFFFD700).withValues(alpha: 0.1),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.4), width: 1),
+              ),
+              child: Icon(FontAwesomeIcons.arrowRight, color: const Color(0xFFFFD700), size: 18),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // العنوان
+          Expanded(
+            child: Text(
+              'الطلبات',
+              style: GoogleFonts.cairo(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                shadows: [
+                  Shadow(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(width: 56), // لتوسيط العنوان
+        ],
+      ),
+    );
+  }
+
   // بناء شريط البحث
   Widget _buildSearchBar() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF2a2a3e),
-        borderRadius: BorderRadius.circular(12), // ✅ زوايا مقوسة خفيفة
-        border: Border.all(color: const Color(0xFF3a3a5e), width: 1),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.black.withValues(alpha: 0.3), Colors.black.withValues(alpha: 0.5)],
+        ),
+        borderRadius: BorderRadius.circular(25), // أطراف مقوصة بالكامل
+        border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFFFFD700).withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
       ),
-      child: TextField(
-        controller: _searchController,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
-        textAlign: TextAlign.right,
-        onChanged: (value) {
-          setState(() {
-            searchQuery = value.toLowerCase();
-          });
-        },
-        decoration: InputDecoration(
-          hintText: 'البحث برقم الهاتف أو اسم العميل...',
-          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: Color(0xFFffc107),
-            size: 22,
-          ),
-          suffixIcon: searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() {
-                      searchQuery = '';
-                    });
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 15,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25), // قص الزوايا بالكامل
+        child: TextField(
+          controller: _searchController,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          textAlign: TextAlign.right,
+          onChanged: (value) {
+            setState(() {
+              searchQuery = value.toLowerCase();
+            });
+          },
+          decoration: InputDecoration(
+            hintText: 'البحث برقم الهاتف أو اسم العميل...',
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+            prefixIcon: const Icon(Icons.search, color: Color(0xFFFFD700), size: 22),
+            suffixIcon: searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() {
+                        searchQuery = '';
+                      });
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            errorBorder: InputBorder.none,
+            disabledBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           ),
         ),
       ),
     );
   }
 
-  // بناء شريط فلتر الحالة
-  Widget _buildFilterBar() {
+  // بناء شريط فلتر الحالة الأفقي مع تصميم شفاف مضبب رهيب
+  Widget _buildEnhancedFilterBar() {
     return Container(
-      height: 70,
+      height: 85,
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.symmetric(horizontal: 15),
       child: SingleChildScrollView(
@@ -833,160 +730,126 @@ class _OrdersPageState extends State<OrdersPage> {
         padding: const EdgeInsets.symmetric(horizontal: 5),
         child: Row(
           children: [
-            _buildFilterButton(
-              'all',
-              'الكل',
-              FontAwesomeIcons.list,
-              const Color(0xFF6c757d),
-            ),
-            const SizedBox(width: 12),
-            _buildFilterButton(
-              'processing',
-              'معالجة',
-              FontAwesomeIcons.wrench,
-              const Color(0xFFff6b35),
-            ),
-            const SizedBox(width: 12),
-            _buildFilterButton(
-              'active',
-              'نشط',
-              FontAwesomeIcons.clock,
-              const Color(0xFFffc107),
-            ),
-            const SizedBox(width: 12),
-            _buildFilterButton(
-              'in_delivery',
-              'قيد التوصيل',
-              FontAwesomeIcons.truck,
-              const Color(0xFF007bff),
-            ),
-            const SizedBox(width: 12),
-            _buildFilterButton(
-              'delivered',
-              'تم التسليم',
-              FontAwesomeIcons.circleCheck,
-              const Color(0xFF28a745),
-            ),
-            const SizedBox(width: 12),
-            _buildFilterButton(
-              'cancelled',
-              'ملغي',
-              FontAwesomeIcons.circleXmark,
-              const Color(0xFFdc3545),
-            ),
-            const SizedBox(width: 12),
-            // ✅ فلتر الطلبات المجدولة
-            _buildFilterButton(
-              'scheduled',
-              'مجدول',
-              FontAwesomeIcons.calendar,
-              const Color(0xFF8b5cf6),
-            ),
-            const SizedBox(width: 20), // مساحة إضافية في النهاية
+            _buildGlassFilterButton('all', 'الكل', FontAwesomeIcons.list, const Color(0xFF6c757d)),
+            const SizedBox(width: 10),
+            _buildGlassFilterButton('processing', 'معالجة', FontAwesomeIcons.wrench, const Color(0xFFff6b35)),
+            const SizedBox(width: 10),
+            _buildGlassFilterButton('active', 'نشط', FontAwesomeIcons.clock, const Color(0xFFffc107)),
+            const SizedBox(width: 10),
+            _buildGlassFilterButton('in_delivery', 'قيد التوصيل', FontAwesomeIcons.truck, const Color(0xFF007bff)),
+            const SizedBox(width: 10),
+            _buildGlassFilterButton('delivered', 'تم التسليم', FontAwesomeIcons.circleCheck, const Color(0xFF28a745)),
+            const SizedBox(width: 10),
+            _buildGlassFilterButton('cancelled', 'ملغي', FontAwesomeIcons.circleXmark, const Color(0xFFdc3545)),
+            const SizedBox(width: 10),
+            _buildGlassFilterButton('scheduled', 'مجدول', FontAwesomeIcons.calendar, const Color(0xFF8b5cf6)),
+            const SizedBox(width: 20),
           ],
         ),
       ),
     );
   }
 
-  // بناء زر الفلتر مع العداد
-  Widget _buildFilterButton(
-    String status,
-    String label,
-    IconData icon,
-    Color color,
-  ) {
+  // بناء زر فلتر شفاف مضبب بتصميم رهيب
+  Widget _buildGlassFilterButton(String status, String label, IconData icon, Color color) {
     bool isSelected = selectedFilter == status;
     int count = orderCounts[status] ?? 0;
-    double width = _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing' ? 130 : 95;
+    double width = _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing'
+        ? 130
+        : 100; // زيادة العرض لتجنب overflow
 
     return GestureDetector(
       onTap: () async {
-        // ⚡ تحديث فوري للواجهة - عرض فوري من Smart Cache
         setState(() {
           selectedFilter = status;
         });
-
-        debugPrint('🚀 تغيير الفلتر إلى: $status');
-
-        // ⚡ عرض النتائج فوراً
-        if (mounted) {
-          setState(() {});
-        }
-
-        // 🔄 تحديث البيانات في الخلفية
         await _loadOrdersFromDatabase();
       },
-      child: IntrinsicHeight(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: width * 0.95, // تكبير العرض قليلاً
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(18),
-            border: isSelected
-                ? Border.all(color: const Color(0xFFffd700), width: 2)
-                : Border.all(color: Colors.transparent, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.3),
-                blurRadius: isSelected ? 10 : 6,
-                offset: const Offset(0, 2),
-              ),
-              if (isSelected)
-                BoxShadow(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.4),
-                  blurRadius: 6,
-                  offset: const Offset(0, 0),
-                ),
-            ],
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        width: width,
+        height: 60, // تقصير الأزرار
+        decoration: BoxDecoration(
+          // شفافية تامة مع تأثير زجاجي أنيق
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? color // إطار عامق للحالة المختارة
+                : color.withValues(alpha: 0.4),
+            width: isSelected ? 3 : 1.5, // إطار أعمق للمحدد
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: status == 'active' ? Colors.black : Colors.white,
-                    size: 12, // تكبير الأيقونة قليلاً
-                  ),
-                  const SizedBox(width: 4), // زيادة المسافة قليلاً
-                  Text(
-                    label,
-                    style: GoogleFonts.cairo(
-                      fontSize: _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing'
-                          ? 10 // تكبير النص قليلاً
-                          : 11, // تكبير النص قليلاً
-                      fontWeight: FontWeight.w600,
-                      color: status == 'active' ? Colors.black : Colors.white,
+          // بدون توهج - فقط إطار
+          boxShadow: [],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              decoration: BoxDecoration(
+                // تدرج شفاف أنيق
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isSelected
+                      ? [color.withValues(alpha: 0.15), color.withValues(alpha: 0.08), Colors.transparent]
+                      : [Colors.white.withValues(alpha: 0.05), Colors.transparent],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(6), // تقليل الـ padding لتجنب overflow
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // الأيقونة والنص
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(icon, color: isSelected ? Colors.white : color.withValues(alpha: 0.9), size: 14),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            label,
+                            style: GoogleFonts.cairo(
+                              fontSize: status == 'processing' || status == 'in_delivery' || status == 'delivered'
+                                  ? 9
+                                  : 10,
+                              fontWeight: FontWeight.w700,
+                              color: isSelected ? Colors.white : color.withValues(alpha: 0.9),
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2), // زيادة المسافة قليلاً
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 5,
-                  vertical: 2,
-                ), // تكبير الحشو قليلاً
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(
-                    8,
-                  ), // تكبير الزوايا قليلاً
+
+                    const SizedBox(height: 4),
+
+                    // العداد مع تصميم شفاف
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), // تقليل padding العداد
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15), // لون ثابت للعداد
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
+                      ),
+                      child: Text(
+                        count.toString(),
+                        style: GoogleFonts.cairo(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: isSelected ? Colors.white : color, // لون واضح للعداد
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                child: Text(
-                  count.toString(),
-                  style: GoogleFonts.cairo(
-                    fontSize: 10, // تكبير النص قليلاً
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -999,19 +862,11 @@ class _OrdersPageState extends State<OrdersPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            FontAwesomeIcons.bagShopping,
-            size: 64,
-            color: const Color(0xFF6c757d),
-          ),
+          Icon(FontAwesomeIcons.bagShopping, size: 64, color: const Color(0xFF6c757d)),
           const SizedBox(height: 20),
           Text(
             'لا توجد طلبات حالياً',
-            style: GoogleFonts.cairo(
-              fontSize: 19.2,
-              color: const Color(0xFF6c757d),
-              fontWeight: FontWeight.w600,
-            ),
+            style: GoogleFonts.cairo(fontSize: 19.2, color: const Color(0xFF6c757d), fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -1038,43 +893,51 @@ class _OrdersPageState extends State<OrdersPage> {
         height: isScheduled ? 145 : 145, // ارتفاع أقل للطلبات المجدولة
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: cardColors['gradientColors'],
-          ),
+          // خلفية شفافة تماماً
+          color: const Color.fromARGB(0, 0, 0, 0),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cardColors['borderColor'], width: 2),
+          border: Border.all(color: cardColors['borderColor'].withValues(alpha: 0.6), width: 2),
+          // توهج بسيط جداً داخل حدود البطاقة
           boxShadow: [
-            // ظل ملون حسب حالة الطلب
             BoxShadow(
-              color: cardColors['shadowColor'],
-              blurRadius: 25,
-              offset: const Offset(0, 10),
-              spreadRadius: 3,
-            ),
-            // ظل داخلي للعمق
-            BoxShadow(
-              color: cardColors['borderColor'].withValues(alpha: 0.1),
-              blurRadius: 30,
-              offset: const Offset(0, 0),
-              spreadRadius: 1,
-            ),
-            // ظل أسود للعمق
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-            // ظل خفيف للحواف
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
+              color: cardColors['shadowColor'].withValues(alpha: 0.150), // توهج خفيف جداً
+              blurRadius: 0, // ضبابية قليلة
+              offset: const Offset(0, 2), // إزاحة بسيطة
+              spreadRadius: 0, // بدون انتشار خارج البطاقة
             ),
           ],
         ),
         child: Container(
+          // إضافة توهج داخلي جميل
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            // توهج داخلي متدرج
+            gradient: RadialGradient(
+              center: Alignment.center,
+              radius: 1.2,
+              colors: [
+                cardColors['shadowColor'].withValues(alpha: 0), // توهج خفيف في المركز
+                cardColors['shadowColor'].withValues(alpha: 0), // توهج أخف في الأطراف
+                Colors.transparent, // شفاف في الحواف
+              ],
+              stops: const [0.0, 0.6, 1.0],
+            ),
+            // توهج داخلي إضافي باستخدام BoxShadow
+            boxShadow: [
+              BoxShadow(
+                color: cardColors['shadowColor'].withValues(alpha: 0.0),
+                blurRadius: 0,
+                offset: const Offset(0, 0),
+                spreadRadius: -2,
+              ),
+              BoxShadow(
+                color: cardColors['borderColor'].withValues(alpha: 0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+                spreadRadius: -1,
+              ),
+            ],
+          ),
           padding: const EdgeInsets.all(2), // تقليل المساحة الداخلية
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1089,18 +952,13 @@ class _OrdersPageState extends State<OrdersPage> {
                 child: isScheduled
                     ? Center(
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: const Color(0xFF8b5cf6),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFF8b5cf6,
-                                ).withValues(alpha: 0.3),
+                                color: const Color(0xFF8b5cf6).withValues(alpha: 0.3),
                                 blurRadius: 3,
                                 offset: const Offset(0, 1),
                               ),
@@ -1108,17 +966,11 @@ class _OrdersPageState extends State<OrdersPage> {
                           ),
                           child: Text(
                             'مجدول',
-                            style: GoogleFonts.cairo(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
+                            style: GoogleFonts.cairo(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
                           ),
                         ),
                       )
-                    : Center(
-                        child: _buildStatusBadge(order),
-                      ), // عرض حالة الطلب للطلبات العادية
+                    : Center(child: _buildStatusBadge(order)), // عرض حالة الطلب للطلبات العادية
               ),
 
               // الصف الرابع - المعلومات المالية والتاريخ
@@ -1134,10 +986,7 @@ class _OrdersPageState extends State<OrdersPage> {
   Widget _buildCustomerInfoWithStatus(Order order) {
     return Flexible(
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 2,
-        ), // تقليل المساحة
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), // تقليل المساحة
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1151,11 +1000,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   // اسم الزبون
                   Text(
                     order.customerName,
-                    style: GoogleFonts.cairo(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                    style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1165,11 +1010,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   // رقم الهاتف
                   Row(
                     children: [
-                      const Icon(
-                        FontAwesomeIcons.phone,
-                        color: Color(0xFF28a745),
-                        size: 10,
-                      ),
+                      const Icon(FontAwesomeIcons.phone, color: Color(0xFF28a745), size: 10),
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(
@@ -1191,11 +1032,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   // العنوان (المحافظة والمدينة)
                   Row(
                     children: [
-                      const Icon(
-                        FontAwesomeIcons.locationDot,
-                        color: Color(0xFFdc3545),
-                        size: 10,
-                      ),
+                      const Icon(FontAwesomeIcons.locationDot, color: Color(0xFFdc3545), size: 10),
                       const SizedBox(width: 3),
                       Expanded(
                         child: Text(
@@ -1222,26 +1059,15 @@ class _OrdersPageState extends State<OrdersPage> {
               // تاريخ الجدولة للطلبات المجدولة
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8b5cf6),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: BoxDecoration(color: const Color(0xFF8b5cf6), borderRadius: BorderRadius.circular(8)),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      FontAwesomeIcons.calendar,
-                      color: Colors.white,
-                      size: 12,
-                    ),
+                    const Icon(FontAwesomeIcons.calendar, color: Colors.white, size: 12),
                     const SizedBox(height: 2),
                     Text(
                       DateFormat('MM/dd').format(order.scheduledDate!),
-                      style: GoogleFonts.cairo(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                      style: GoogleFonts.cairo(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.white),
                     ),
                   ],
                 ),
@@ -1254,36 +1080,21 @@ class _OrdersPageState extends State<OrdersPage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        width: 1,
-                      ),
-                    ),
-                    child:
-                        order.items.isNotEmpty &&
-                            order.items.first.image.isNotEmpty
+                    decoration: BoxDecoration(border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1)),
+                    child: order.items.isNotEmpty && order.items.first.image.isNotEmpty
                         ? Image.network(
                             order.items.first.image,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
                               return Container(
                                 color: const Color(0xFF6c757d),
-                                child: const Icon(
-                                  FontAwesomeIcons.box,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
+                                child: const Icon(FontAwesomeIcons.box, color: Colors.white, size: 18),
                               );
                             },
                           )
                         : Container(
                             color: const Color(0xFF6c757d),
-                            child: const Icon(
-                              FontAwesomeIcons.box,
-                              color: Colors.white,
-                              size: 18,
-                            ),
+                            child: const Icon(FontAwesomeIcons.box, color: Colors.white, size: 18),
                           ),
                   ),
                 ),
@@ -1296,10 +1107,23 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  // بناء شارة الحالة باستخدام OrderStatusHelper والنص الأصلي
+  // دالة مساعدة لتقصير النص في البطاقة فقط (بدون تأثير على الوسيط)
+  String _getShortStatusTextForCard(String originalStatus) {
+    // إذا كان النص "قيد التوصيل في عهد المندوب" نقصره إلى "قيد التوصيل"
+    if (originalStatus.contains('قيد التوصيل في عهد المندوب') ||
+        originalStatus.contains('قيد التوصيل الى الزبون في عهد المندوب')) {
+      return 'قيد التوصيل';
+    }
+    // باقي النصوص تبقى كما هي
+    return originalStatus;
+  }
+
+  // بناء شارة الحالة باستخدام OrderStatusHelper والنص المقصر للبطاقة
   Widget _buildStatusBadge(Order order) {
     // استخدام النص الأصلي من قاعدة البيانات
-    final statusText = OrderStatusHelper.getArabicStatus(order.rawStatus);
+    final originalStatusText = OrderStatusHelper.getArabicStatus(order.rawStatus);
+    // تقصير النص للعرض في البطاقة فقط
+    final displayStatusText = _getShortStatusTextForCard(originalStatusText);
     final backgroundColor = OrderStatusHelper.getStatusColor(order.rawStatus);
 
     // تحديد لون النص بناءً على الحالة
@@ -1319,31 +1143,18 @@ class _OrdersPageState extends State<OrdersPage> {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: backgroundColor.withValues(alpha: 0.7),
-          width: 1,
-        ),
+        border: Border.all(color: backgroundColor.withValues(alpha: 0.7), width: 1),
         boxShadow: [
-          BoxShadow(
-            color: backgroundColor.withValues(alpha: 0.3),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: backgroundColor.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Text(
-        statusText,
+        displayStatusText,
         style: GoogleFonts.cairo(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: textColor,
-          shadows: [
-            Shadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 1,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          shadows: [Shadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 1, offset: const Offset(0, 1))],
         ),
         textAlign: TextAlign.center,
       ),
@@ -1356,12 +1167,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
     return Container(
       height: isScheduled ? 38 : 35, // تصغير ارتفاع الشريط السفلي
-      margin: const EdgeInsets.only(
-        left: 8,
-        right: 8,
-        top: 0,
-        bottom: 6,
-      ), // رفع الشريط قليلاً
+      margin: const EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 6), // رفع الشريط قليلاً
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.2),
@@ -1379,7 +1185,7 @@ class _OrdersPageState extends State<OrdersPage> {
           Expanded(
             flex: 2,
             child: Text(
-              '${order.total} د.ع',
+              '${NumberFormat('#,###').format(order.total)} د.ع',
               style: GoogleFonts.cairo(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
@@ -1414,9 +1220,8 @@ class _OrdersPageState extends State<OrdersPage> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: (_isSupportRequested(order)
-                              ? const Color(0xFF28a745)
-                              : const Color(0xFFff8c00)).withValues(alpha: 0.3),
+                          color: (_isSupportRequested(order) ? const Color(0xFF28a745) : const Color(0xFFff8c00))
+                              .withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1426,20 +1231,14 @@ class _OrdersPageState extends State<OrdersPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _isSupportRequested(order)
-                              ? FontAwesomeIcons.circleCheck
-                              : FontAwesomeIcons.headset,
+                          _isSupportRequested(order) ? FontAwesomeIcons.circleCheck : FontAwesomeIcons.headset,
                           color: Colors.white,
                           size: 8,
                         ),
                         const SizedBox(width: 2),
                         Text(
                           _isSupportRequested(order) ? 'تم المعالجة' : 'معالجة',
-                          style: GoogleFonts.cairo(
-                            fontSize: 7,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                          style: GoogleFonts.cairo(fontSize: 7, fontWeight: FontWeight.w600, color: Colors.white),
                         ),
                       ],
                     ),
@@ -1469,19 +1268,11 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          FontAwesomeIcons.penToSquare,
-                          color: Colors.white,
-                          size: 8,
-                        ),
+                        const Icon(FontAwesomeIcons.penToSquare, color: Colors.white, size: 8),
                         const SizedBox(width: 2),
                         Text(
                           'تعديل',
-                          style: GoogleFonts.cairo(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                          style: GoogleFonts.cairo(fontSize: 8, fontWeight: FontWeight.w600, color: Colors.white),
                         ),
                       ],
                     ),
@@ -1507,19 +1298,11 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          FontAwesomeIcons.trash,
-                          color: Colors.white,
-                          size: 8,
-                        ),
+                        const Icon(FontAwesomeIcons.trash, color: Colors.white, size: 8),
                         const SizedBox(width: 2),
                         Text(
                           'حذف',
-                          style: GoogleFonts.cairo(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                          style: GoogleFonts.cairo(fontSize: 8, fontWeight: FontWeight.w600, color: Colors.white),
                         ),
                       ],
                     ),
@@ -1535,22 +1318,12 @@ class _OrdersPageState extends State<OrdersPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Icon(
-                  FontAwesomeIcons.calendar,
-                  color: Colors.white.withValues(alpha: 0.7),
-                  size: 10,
-                ),
+                Icon(FontAwesomeIcons.calendar, color: Colors.white.withValues(alpha: 0.7), size: 10),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
-                    isScheduled
-                        ? _formatDate(order.scheduledDate!)
-                        : _formatDate(order.createdAt),
-                    style: GoogleFonts.cairo(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                    ),
+                    isScheduled ? _formatDate(order.scheduledDate!) : _formatDate(order.createdAt),
+                    style: GoogleFonts.cairo(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1588,8 +1361,7 @@ class _OrdersPageState extends State<OrdersPage> {
       'حظر المندوب',
     ];
 
-    return statusesNeedProcessing.contains(order.rawStatus) &&
-           !(order.supportRequested ?? false);
+    return statusesNeedProcessing.contains(order.rawStatus) && !(order.supportRequested ?? false);
   }
 
   // التحقق من أن الطلب تم إرسال طلب دعم له
@@ -1609,24 +1381,14 @@ class _OrdersPageState extends State<OrdersPage> {
           builder: (context, setState) {
             return AlertDialog(
               backgroundColor: const Color(0xFF1a1a2e),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
-                  Icon(
-                    FontAwesomeIcons.headset,
-                    color: const Color(0xFFffd700),
-                    size: 20,
-                  ),
+                  Icon(FontAwesomeIcons.headset, color: const Color(0xFFffd700), size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'إرسال للدعم',
-                    style: GoogleFonts.cairo(
-                      fontSize: 18,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: GoogleFonts.cairo(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -1641,9 +1403,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF16213e),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                        ),
+                        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1674,11 +1434,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     // حقل الملاحظات
                     Text(
                       'ملاحظات إضافية:',
-                      style: GoogleFonts.cairo(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: Colors.white,
-                      ),
+                      style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
                     ),
                     const SizedBox(height: 8),
                     TextField(
@@ -1690,21 +1446,15 @@ class _OrdersPageState extends State<OrdersPage> {
                         hintStyle: GoogleFonts.cairo(color: Colors.grey),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                          ),
+                          borderSide: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                            color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                          ),
+                          borderSide: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFffd700),
-                          ),
+                          borderSide: const BorderSide(color: Color(0xFFffd700)),
                         ),
                         contentPadding: const EdgeInsets.all(12),
                         filled: true,
@@ -1717,27 +1467,24 @@ class _OrdersPageState extends State<OrdersPage> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'إلغاء',
-                    style: GoogleFonts.cairo(color: Colors.grey),
-                  ),
+                  child: Text('إلغاء', style: GoogleFonts.cairo(color: Colors.grey)),
                 ),
                 ElevatedButton(
-                  onPressed: isLoading ? null : () async {
-                    setState(() {
-                      isLoading = true;
-                    });
-                    await _sendSupportRequest(order, notesController.text);
-                    setState(() {
-                      isLoading = false;
-                    });
-                  },
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          setState(() {
+                            isLoading = true;
+                          });
+                          await _sendSupportRequest(order, notesController.text);
+                          setState(() {
+                            isLoading = false;
+                          });
+                        },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF28a745),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   child: isLoading
                       ? const SizedBox(
@@ -1748,10 +1495,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : Text(
-                          'إرسال للدعم',
-                          style: GoogleFonts.cairo(),
-                        ),
+                      : Text('إرسال للدعم', style: GoogleFonts.cairo()),
                 ),
               ],
             );
@@ -1768,26 +1512,13 @@ class _OrdersPageState extends State<OrdersPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '$emoji ',
-            style: const TextStyle(fontSize: 14),
-          ),
+          Text('$emoji ', style: const TextStyle(fontSize: 14)),
           Text(
             '$label: ',
-            style: GoogleFonts.cairo(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: const Color(0xFFffd700),
-            ),
+            style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 12, color: const Color(0xFFffd700)),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.cairo(
-                fontSize: 12,
-                color: Colors.white,
-              ),
-            ),
+            child: Text(value, style: GoogleFonts.cairo(fontSize: 12, color: Colors.white)),
           ),
         ],
       ),
@@ -1805,10 +1536,8 @@ class _OrdersPageState extends State<OrdersPage> {
 
       // إرسال طلب الدعم للخادم (سيرسل تلقائياً للتلغرام)
       final response = await http.post(
-  Uri.parse('https://montajati-official-backend-production.up.railway.app/api/support/send-support-request'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        Uri.parse('https://montajati-official-backend-production.up.railway.app/api/support/send-support-request'),
+        headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'orderId': order.id,
           'customerName': order.customerName,
@@ -1855,23 +1584,15 @@ class _OrdersPageState extends State<OrdersPage> {
             children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 8),
-              Text(
-                'تم إرسال طلب الدعم بنجاح',
-                style: GoogleFonts.cairo(),
-              ),
+              Text('تم إرسال طلب الدعم بنجاح', style: GoogleFonts.cairo()),
             ],
           ),
           backgroundColor: const Color(0xFF28a745),
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
-
-
-
     } catch (error, stackTrace) {
       debugPrint('❌ === خطأ في عملية إرسال طلب الدعم ===');
       debugPrint('❌ نوع الخطأ: ${error.runtimeType}');
@@ -1912,10 +1633,7 @@ class _OrdersPageState extends State<OrdersPage> {
     if (!_isActiveStatus(order.rawStatus)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'لا يمكن تعديل الطلبات غير النشطة',
-            style: GoogleFonts.cairo(),
-          ),
+          content: Text('لا يمكن تعديل الطلبات غير النشطة', style: GoogleFonts.cairo()),
           backgroundColor: const Color(0xFFdc3545),
         ),
       );
@@ -1936,43 +1654,120 @@ class _OrdersPageState extends State<OrdersPage> {
     if (!isScheduledOrder && !_isActiveStatus(order.rawStatus)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'لا يمكن حذف الطلبات غير النشطة',
-            style: GoogleFonts.cairo(),
-          ),
+          content: Text('لا يمكن حذف الطلبات غير النشطة', style: GoogleFonts.cairo()),
           backgroundColor: const Color(0xFFdc3545),
         ),
       );
       return;
     }
 
-    // إظهار رسالة تأكيد
+    // إظهار رسالة تأكيد بتصميم محسن
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1a1a2e),
-        title: Text('حذف الطلب', style: GoogleFonts.cairo(color: Colors.red)),
-        content: Text(
-          'هل أنت متأكد من حذف طلب ${order.customerName}؟\nلا يمكن التراجع عن هذا الإجراء.',
-          style: GoogleFonts.cairo(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'إلغاء',
-              style: GoogleFonts.cairo(color: Colors.white70),
+      barrierDismissible: false,
+      builder: (context) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // أيقونة التحذير
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: const Icon(FontAwesomeIcons.triangleExclamation, color: Colors.red, size: 30),
+                    ),
+                    const SizedBox(height: 20),
+                    // العنوان
+                    Text(
+                      'حذف الطلب',
+                      style: GoogleFonts.cairo(color: Colors.red, fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 15),
+                    // المحتوى
+                    Text(
+                      'هل أنت متأكد من حذف طلب ${order.customerName}؟\nلا يمكن التراجع عن هذا الإجراء.',
+                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, height: 1.5),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 25),
+                    // الأزرار
+                    Row(
+                      children: [
+                        // زر الإلغاء
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+                              ),
+                              child: Text(
+                                'إلغاء',
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 15),
+                        // زر الحذف
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () async {
+                              Navigator.pop(context);
+                              await _confirmDeleteOrder(order);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
+                              ),
+                              child: Text(
+                                'حذف',
+                                style: GoogleFonts.cairo(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _confirmDeleteOrder(order);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text('حذف', style: GoogleFonts.cairo(color: Colors.white)),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1984,9 +1779,7 @@ class _OrdersPageState extends State<OrdersPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFFffd700)),
-        ),
+        builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFFffd700))),
       );
 
       // حذف الطلب من قاعدة البيانات
@@ -2019,7 +1812,6 @@ class _OrdersPageState extends State<OrdersPage> {
         }
 
         debugPrint('✅ تم حذف الطلب المجدول بنجاح من قاعدة البيانات');
-
       } else {
         debugPrint('📦 حذف طلب عادي من جدول orders');
 
@@ -2033,11 +1825,7 @@ class _OrdersPageState extends State<OrdersPage> {
         debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
 
         // ✅ الخطوة 2: حذف الطلب العادي
-        final deleteOrderResponse = await Supabase.instance.client
-            .from('orders')
-            .delete()
-            .eq('id', order.id)
-            .select();
+        final deleteOrderResponse = await Supabase.instance.client.from('orders').delete().eq('id', order.id).select();
 
         if (deleteOrderResponse.isEmpty) {
           throw Exception('لم يتم العثور على الطلب أو فشل في الحذف');
@@ -2216,6 +2004,4 @@ class _OrdersPageState extends State<OrdersPage> {
       ],
     };
   }
-
-
 }

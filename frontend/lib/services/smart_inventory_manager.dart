@@ -147,6 +147,7 @@ class SmartInventoryManager {
     required String category,
     required String userPhone, // مطلوب لربط المنتج بالمستخدم
     List<String>? images,
+    List<String>? notificationTags, // 🎯 إضافة دعم التبليغات الذكية
   }) async {
     try {
       if (kDebugMode) {
@@ -213,6 +214,14 @@ class SmartInventoryManager {
       if (images != null && images.isNotEmpty) {
         productData['image_url'] = images.first;
         productData['images'] = images;
+      }
+
+      // 🎯 إضافة التبليغات الذكية إذا كانت متوفرة
+      if (notificationTags != null && notificationTags.isNotEmpty) {
+        productData['notification_tags'] = notificationTags;
+        if (kDebugMode) {
+          debugPrint('🎯 إضافة ${notificationTags.length} تبليغ ذكي للمنتج');
+        }
       }
 
       // تحديث ترتيب المنتجات الموجودة أولاً

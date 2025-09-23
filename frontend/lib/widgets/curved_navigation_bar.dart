@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
 import 'dart:ui';
-import 'nav_custom_clipper.dart';
+
+import 'package:flutter/material.dart';
+
 import 'nav_button.dart';
+import 'nav_custom_clipper.dart';
 import 'nav_custom_painter.dart';
 
 typedef LetIndexPage = bool Function(int value);
@@ -32,18 +34,17 @@ class CurvedNavigationBar extends StatefulWidget {
     this.animationDuration = const Duration(milliseconds: 1200), // مدة أطول للتأثير المبهر
     this.height = 75.0, // ارتفاع افتراضي محسن
     this.maxWidth,
-  })  : letIndexChange = letIndexChange ?? ((_) => true),
-        assert(items.isNotEmpty),
-        assert(0 <= index && index < items.length),
-        assert(0 <= height && height <= 100.0), // تحديث الحد الأقصى للارتفاع
-        assert(maxWidth == null || 0 <= maxWidth);
+  }) : letIndexChange = letIndexChange ?? ((_) => true),
+       assert(items.isNotEmpty),
+       assert(0 <= index && index < items.length),
+       assert(0 <= height && height <= 100.0), // تحديث الحد الأقصى للارتفاع
+       assert(maxWidth == null || 0 <= maxWidth);
 
   @override
   CurvedNavigationBarState createState() => CurvedNavigationBarState();
 }
 
-class CurvedNavigationBarState extends State<CurvedNavigationBar>
-    with SingleTickerProviderStateMixin {
+class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTickerProviderStateMixin {
   late double _startingPos;
   late int _endingIndex;
   late double _pos;
@@ -69,8 +70,7 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar>
         if ((endingPos - _pos).abs() < (_startingPos - _pos).abs()) {
           _icon = widget.items[_endingIndex];
         }
-        _buttonHide =
-            (1 - ((middle - _pos) / (_startingPos - middle)).abs()).abs();
+        _buttonHide = (1 - ((middle - _pos) / (_startingPos - middle)).abs()).abs();
       });
     });
   }
@@ -82,8 +82,7 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar>
       final newPosition = widget.index / _length;
       _startingPos = _pos;
       _endingIndex = widget.index;
-      _animationController.animateTo(newPosition,
-          duration: widget.animationDuration, curve: widget.animationCurve);
+      _animationController.animateTo(newPosition, duration: widget.animationDuration, curve: widget.animationCurve);
     }
     if (!_animationController.isAnimating) {
       _icon = widget.items[_endingIndex];
@@ -100,18 +99,16 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar>
   Widget build(BuildContext context) {
     final textDirection = Directionality.of(context);
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
 
     // حساب الأحجام المتجاوبة بناءً على حجم الشاشة
     final isSmallScreen = screenWidth < 360;
     final isMediumScreen = screenWidth >= 360 && screenWidth < 400;
-    final isLargeScreen = screenWidth >= 400;
 
     // ارتفاع الشريط متجاوب مع ضمان مساحة كافية
     final responsiveHeight = isSmallScreen ? 68.0 : (isMediumScreen ? 72.0 : 75.0);
 
-    // حجم الكرة متجاوب مع ضمان وضوح جيد
-    final ballSize = isSmallScreen ? 52.0 : (isMediumScreen ? 56.0 : 60.0);
+    // حجم الكرة متجاوب مع ضمان وضوح جيد - مصغر قليلاً
+    final ballSize = isSmallScreen ? 48.0 : (isMediumScreen ? 52.0 : 55.0);
 
     // موضع الكرة متجاوب مع ضمان عدم التداخل
     final ballBottomPosition = isSmallScreen ? -38.0 : (isMediumScreen ? -40.0 : -42.0);
@@ -134,28 +131,19 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar>
               color: Colors.transparent,
               width: maxWidth,
               child: ClipRect(
-                clipper: NavCustomClipper(
-                  deviceHeight: MediaQuery.sizeOf(context).height,
-                ),
+                clipper: NavCustomClipper(deviceHeight: MediaQuery.sizeOf(context).height),
                 child: Stack(
                   clipBehavior: Clip.none,
                   alignment: Alignment.bottomCenter,
                   children: <Widget>[
                     Positioned(
                       bottom: ballBottomPosition, // موضع متجاوب للكرة
-                      left: textDirection == TextDirection.rtl
-                          ? null
-                          : _pos * maxWidth,
-                      right: textDirection == TextDirection.rtl
-                          ? _pos * maxWidth
-                          : null,
+                      left: textDirection == TextDirection.rtl ? null : _pos * maxWidth,
+                      right: textDirection == TextDirection.rtl ? _pos * maxWidth : null,
                       width: maxWidth / _length,
                       child: Center(
                         child: Transform.translate(
-                          offset: Offset(
-                            0,
-                            -(1 - _buttonHide) * moveHeight,
-                          ),
+                          offset: Offset(0, -(1 - _buttonHide) * moveHeight),
                           child: TweenAnimationBuilder<double>(
                             duration: Duration(milliseconds: 800),
                             curve: Curves.elasticOut,
@@ -212,43 +200,45 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar>
                                           ),
                                         ],
                                       ),
-                                  child: Stack(
-                                    children: [
-                                      // تأثير إضاءة داخلية
-                                      Positioned.fill(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            gradient: RadialGradient(
-                                              colors: [
-                                                const Color(0xFFFFD700).withValues(alpha: 0.1), // توهج ذهبي خفيف
-                                                Colors.transparent,
-                                              ],
-                                              stops: [0.3, 1.0],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      // الأيقونة
-                                      Center(
-                                        child: AnimatedScale(
-                                          duration: Duration(milliseconds: 400),
-                                          scale: 1.0,
-                                          child: AnimatedRotation(
-                                            duration: Duration(milliseconds: 800),
-                                            turns: 0.0,
-                                            child: IconTheme(
-                                              data: IconThemeData(
-                                                color: const Color(0xFFFFD700), // ذهبي مضيء
-                                                size: isSmallScreen ? 24.0 : (isMediumScreen ? 26.0 : 28.0), // حجم متجاوب
+                                      child: Stack(
+                                        children: [
+                                          // تأثير إضاءة داخلية
+                                          Positioned.fill(
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: RadialGradient(
+                                                  colors: [
+                                                    const Color(0xFFFFD700).withValues(alpha: 0.1), // توهج ذهبي خفيف
+                                                    Colors.transparent,
+                                                  ],
+                                                  stops: [0.3, 1.0],
+                                                ),
                                               ),
-                                              child: _icon,
                                             ),
                                           ),
-                                        ),
+                                          // الأيقونة
+                                          Center(
+                                            child: AnimatedScale(
+                                              duration: Duration(milliseconds: 400),
+                                              scale: 1.0,
+                                              child: AnimatedRotation(
+                                                duration: Duration(milliseconds: 800),
+                                                turns: 0.0,
+                                                child: IconTheme(
+                                                  data: IconThemeData(
+                                                    color: const Color(0xFFFFD700), // ذهبي مضيء
+                                                    size: isSmallScreen
+                                                        ? 24.0
+                                                        : (isMediumScreen ? 26.0 : 28.0), // حجم متجاوب
+                                                  ),
+                                                  child: _icon,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
                                     ),
                                   ),
                                 ),
@@ -263,8 +253,7 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar>
                       right: 0,
                       bottom: 0 - (responsiveHeight - responsiveHeight), // موضع متجاوب للرسم
                       child: CustomPaint(
-                        painter: NavCustomPainter(
-                            _pos, _length, widget.color, textDirection),
+                        painter: NavCustomPainter(_pos, _length, widget.color, textDirection),
                         child: Container(
                           height: responsiveHeight, // ارتفاع متجاوب للرسم
                           color: Colors.transparent, // شفاف تماماً لحل مشكلة السواد
@@ -281,19 +270,20 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar>
                           horizontal: isSmallScreen ? 4.0 : (isMediumScreen ? 6.0 : 8.0), // padding أفقي متجاوب
                         ),
                         child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly, // توزيع متساوي للأزرار
-                            children: widget.items.map((item) {
-                          return Expanded(
-                            child: NavButton(
-                              onTap: _buttonTap,
-                              position: _pos,
-                              length: _length,
-                              index: widget.items.indexOf(item),
-                              child: Center(child: item),
-                              screenWidth: screenWidth, // تمرير عرض الشاشة للأزرار
-                            ),
-                          );
-                        }).toList()),
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly, // توزيع متساوي للأزرار
+                          children: widget.items.map((item) {
+                            return Expanded(
+                              child: NavButton(
+                                onTap: _buttonTap,
+                                position: _pos,
+                                length: _length,
+                                index: widget.items.indexOf(item),
+                                screenWidth: screenWidth,
+                                child: Center(child: item), // تمرير عرض الشاشة للأزرار
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ),
                     ),
                   ],
@@ -321,8 +311,7 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar>
     setState(() {
       _startingPos = _pos;
       _endingIndex = index;
-      _animationController.animateTo(newPosition,
-          duration: widget.animationDuration, curve: widget.animationCurve);
+      _animationController.animateTo(newPosition, duration: widget.animationDuration, curve: widget.animationCurve);
     });
   }
 }

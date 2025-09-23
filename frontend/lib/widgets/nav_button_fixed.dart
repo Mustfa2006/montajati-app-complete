@@ -7,7 +7,8 @@ class NavButton extends StatelessWidget {
   final ValueChanged<int> onTap;
   final Widget child;
 
-  NavButton({
+  const NavButton({
+    super.key,
     required this.onTap,
     required this.position,
     required this.length,
@@ -21,18 +22,17 @@ class NavButton extends StatelessWidget {
     final difference = (position - desiredPosition).abs();
     final verticalAlignment = 1 - length * difference;
     final isActive = difference < 1.0 / length * 0.99;
-    
+
     return Expanded(
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () {
           onTap(index);
         },
-        child: Container(
+        child: SizedBox(
           height: 75.0,
           child: Transform.translate(
-            offset: Offset(
-                0, difference < 1.0 / length ? verticalAlignment * 40 : 0),
+            offset: Offset(0, difference < 1.0 / length ? verticalAlignment * 40 : 0),
             child: AnimatedContainer(
               duration: Duration(milliseconds: 300),
               curve: Curves.easeOut,
@@ -40,15 +40,15 @@ class NavButton extends StatelessWidget {
               padding: EdgeInsets.all(14), // حشو أكبر للزر
               decoration: BoxDecoration(
                 // ألوان بسيطة وواضحة
-                color: isActive 
-                  ? const Color(0xFFFFD700) // ذهبي واضح للنشط
-                  : Colors.white.withValues(alpha: 0.9), // أبيض واضح للغير نشط
+                color: isActive
+                    ? const Color(0xFFFFD700) // ذهبي واضح للنشط
+                    : Colors.white.withValues(alpha: 0.9), // أبيض واضح للغير نشط
                 borderRadius: BorderRadius.circular(12),
                 // حدود واضحة
                 border: Border.all(
                   color: isActive
-                    ? const Color(0xFFB8860B) // ذهبي داكن للنشط
-                    : Colors.grey.withValues(alpha: 0.7), // رمادي واضح للغير نشط
+                      ? const Color(0xFFB8860B) // ذهبي داكن للنشط
+                      : Colors.grey.withValues(alpha: 0.7), // رمادي واضح للغير نشط
                   width: 2.0,
                 ),
                 // ظل بسيط وواضح
@@ -75,9 +75,10 @@ class NavButton extends StatelessWidget {
                   scale: isActive ? 1.1 : 1.0,
                   child: IconTheme(
                     data: IconThemeData(
-                      color: isActive 
-                        ? Colors.white // أبيض واضح للنشط
-                        : Colors.grey[700], // رمادي داكن واضح للغير نشط
+                      color: isActive
+                          ? Colors
+                                .white // أبيض واضح للنشط
+                          : Colors.grey[700], // رمادي داكن واضح للغير نشط
                       size: isActive ? 30 : 26, // أكبر قليلاً
                     ),
                     child: child,

@@ -32,6 +32,7 @@ class SimpleProductService {
     int stockQuantity = 100,
     int availableFrom = 90,
     int availableTo = 80,
+    List<String>? notificationTags, // 🎯 إضافة دعم التبليغات الذكية
   }) async {
     try {
       debugPrint('🚀 بدء إضافة المنتج: $name');
@@ -84,6 +85,7 @@ class SimpleProductService {
         category: category,
         userPhone: userPhone,
         images: imageUrls,
+        notificationTags: notificationTags, // 🎯 تمرير التبليغات الذكية
       );
 
       if (!result['success']) {
