@@ -7,14 +7,17 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/design_system.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
+import '../providers/theme_provider.dart';
 import '../utils/error_handler.dart';
 import '../utils/order_status_helper.dart';
+import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 import '../widgets/curved_navigation_bar.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
@@ -515,13 +518,15 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
     return AppBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
         body: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _buildScrollableContent(), // المحتوى مباشرة بدون شريط ثابت
+            : _buildScrollableContent(isDark), // المحتوى مباشرة بدون شريط ثابت
         bottomNavigationBar: CurvedNavigationBar(
           index: 1, // الطلبات
           items: <Widget>[
@@ -558,7 +563,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   // بناء المحتوى القابل للتمرير
-  Widget _buildScrollableContent() {
+  Widget _buildScrollableContent(bool isDark) {
     List<Order> displayedOrders = filteredOrders;
 
     return PullToRefreshWrapper(
@@ -569,13 +574,13 @@ class _OrdersPageState extends State<OrdersPage> {
         physics: const BouncingScrollPhysics(),
         slivers: [
           // الشريط العلوي مع العنوان وزر الرجوع (ضمن المحتوى القابل للتمرير)
-          SliverToBoxAdapter(child: _buildHeader()),
+          SliverToBoxAdapter(child: _buildHeader(isDark)),
 
           // شريط البحث
-          SliverToBoxAdapter(child: _buildSearchBar()),
+          SliverToBoxAdapter(child: _buildSearchBar(isDark)),
 
           // شريط فلتر الحالة المحسن
-          SliverToBoxAdapter(child: _buildEnhancedFilterBar()),
+          SliverToBoxAdapter(child: _buildEnhancedFilterBar(isDark)),
 
           // قائمة الطلبات
           displayedOrders.isEmpty
@@ -602,7 +607,7 @@ class _OrdersPageState extends State<OrdersPage> {
                               )
                             : const SizedBox.shrink();
                       }
-                      return _buildOrderCard(displayedOrders[index]);
+                      return _buildOrderCard(displayedOrders[index], isDark);
                     }, childCount: displayedOrders.length + (_isLoadingMore ? 1 : 0)),
                   ),
                 ),
@@ -612,70 +617,33 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   // بناء الشريط العلوي (ضمن المحتوى القابل للتمرير)
-  Widget _buildHeader() {
+  Widget _buildHeader(bool isDark) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 35, 16, 20),
       child: Row(
         children: [
-          // زر الرجوع
-          GestureDetector(
-            onTap: () => context.go('/products'),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    const Color(0xFFFFD700).withValues(alpha: 0.3),
-                    const Color(0xFFFFD700).withValues(alpha: 0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.4), width: 1),
-              ),
-              child: Icon(FontAwesomeIcons.arrowRight, color: const Color(0xFFFFD700), size: 18),
-            ),
-          ),
           const SizedBox(width: 16),
           // العنوان
           Expanded(
             child: Text(
               'الطلبات',
-              style: GoogleFonts.cairo(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                shadows: [
-                  Shadow(
-                    color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
+              style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.bold, color: ThemeColors.textColor(isDark)),
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(width: 56), // لتوسيط العنوان
         ],
       ),
     );
   }
 
   // بناء شريط البحث
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(bool isDark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.black.withValues(alpha: 0.3), Colors.black.withValues(alpha: 0.5)],
-        ),
+        color: ThemeColors.cardBackground(isDark),
         borderRadius: BorderRadius.circular(25), // أطراف مقوصة بالكامل
-        border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+        border: Border.all(color: ThemeColors.cardBorder(isDark), width: 1),
         boxShadow: [
           BoxShadow(color: const Color(0xFFFFD700).withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2)),
         ],
@@ -684,7 +652,7 @@ class _OrdersPageState extends State<OrdersPage> {
         borderRadius: BorderRadius.circular(25), // قص الزوايا بالكامل
         child: TextField(
           controller: _searchController,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: ThemeColors.textColor(isDark), fontSize: 16),
           textAlign: TextAlign.right,
           onChanged: (value) {
             setState(() {
@@ -693,7 +661,7 @@ class _OrdersPageState extends State<OrdersPage> {
           },
           decoration: InputDecoration(
             hintText: 'البحث برقم الهاتف أو اسم العميل...',
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+            hintStyle: TextStyle(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
             prefixIcon: const Icon(Icons.search, color: Color(0xFFFFD700), size: 22),
             suffixIcon: searchQuery.isNotEmpty
                 ? IconButton(
@@ -719,7 +687,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   // بناء شريط فلتر الحالة الأفقي مع تصميم شفاف مضبب رهيب
-  Widget _buildEnhancedFilterBar() {
+  Widget _buildEnhancedFilterBar(bool isDark) {
     return Container(
       height: 85,
       margin: const EdgeInsets.only(top: 10),
@@ -752,11 +720,10 @@ class _OrdersPageState extends State<OrdersPage> {
 
   // بناء زر فلتر شفاف مضبب بتصميم رهيب
   Widget _buildGlassFilterButton(String status, String label, IconData icon, Color color) {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
     bool isSelected = selectedFilter == status;
     int count = orderCounts[status] ?? 0;
-    double width = _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing'
-        ? 130
-        : 100; // زيادة العرض لتجنب overflow
+    double width = _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing' ? 130 : 100;
 
     return GestureDetector(
       onTap: () async {
@@ -807,7 +774,15 @@ class _OrdersPageState extends State<OrdersPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(icon, color: isSelected ? Colors.white : color.withValues(alpha: 0.9), size: 14),
+                        Icon(
+                          icon,
+                          color: isSelected
+                              ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
+                              : isDark
+                              ? color.withValues(alpha: 0.9)
+                              : (status == 'all' ? Colors.black.withValues(alpha: 0.7) : color),
+                          size: 14,
+                        ),
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
@@ -817,7 +792,11 @@ class _OrdersPageState extends State<OrdersPage> {
                                   ? 9
                                   : 10,
                               fontWeight: FontWeight.w700,
-                              color: isSelected ? Colors.white : color.withValues(alpha: 0.9),
+                              color: isSelected
+                                  ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
+                                  : isDark
+                                  ? color.withValues(alpha: 0.9)
+                                  : (status == 'all' ? Colors.black.withValues(alpha: 0.7) : color),
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 1,
@@ -831,9 +810,9 @@ class _OrdersPageState extends State<OrdersPage> {
 
                     // العداد مع تصميم شفاف
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), // تقليل padding العداد
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15), // لون ثابت للعداد
+                        color: color.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
                       ),
@@ -842,7 +821,11 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: GoogleFonts.cairo(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: isSelected ? Colors.white : color, // لون واضح للعداد
+                          color: isSelected
+                              ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
+                              : isDark
+                              ? color
+                              : (status == 'all' ? Colors.black.withValues(alpha: 0.8) : color),
                         ),
                       ),
                     ),
@@ -874,7 +857,7 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   // بناء بطاقة الطلب الواحدة
-  Widget _buildOrderCard(Order order) {
+  Widget _buildOrderCard(Order order, bool isDark) {
     // ✅ تحديد إذا كان الطلب مجدول
     final bool isScheduled = order.scheduledDate != null;
 
@@ -890,60 +873,49 @@ class _OrdersPageState extends State<OrdersPage> {
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
         width: MediaQuery.of(context).size.width * 0.95,
-        height: isScheduled ? 145 : 145, // ارتفاع أقل للطلبات المجدولة
+        height: isScheduled ? 145 : 145,
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          // خلفية شفافة تماماً
-          color: const Color.fromARGB(0, 0, 0, 0),
+          // خلفية بيضاء في الوضع النهاري، شفافة في الوضع الليلي
+          color: isDark ? const Color.fromARGB(0, 0, 0, 0) : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cardColors['borderColor'].withValues(alpha: 0.6), width: 2),
-          // توهج بسيط جداً داخل حدود البطاقة
-          boxShadow: [
-            BoxShadow(
-              color: cardColors['shadowColor'].withValues(alpha: 0.150), // توهج خفيف جداً
-              blurRadius: 0, // ضبابية قليلة
-              offset: const Offset(0, 2), // إزاحة بسيطة
-              spreadRadius: 0, // بدون انتشار خارج البطاقة
-            ),
-          ],
+          border: Border.all(
+            color: isDark ? cardColors['borderColor'].withValues(alpha: 0.6) : cardColors['borderColor'],
+            width: isDark ? 2 : 1,
+          ),
+          // ظل وتوهج مناسب للوضع
+          boxShadow: isDark
+              ? [
+                  BoxShadow(
+                    color: cardColors['shadowColor'].withValues(alpha: 0.150),
+                    blurRadius: 0,
+                    offset: const Offset(0, 2),
+                    spreadRadius: 0,
+                  ),
+                ]
+              : [
+                  // توهج خفيف بلون الحالة في الوضع النهاري
+                  BoxShadow(
+                    color: cardColors['shadowColor'].withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                    spreadRadius: 0,
+                  ),
+                  BoxShadow(color: Colors.grey.withValues(alpha: 0.50), blurRadius: 8, offset: const Offset(0, 2)),
+                ],
         ),
         child: Container(
-          // إضافة توهج داخلي جميل
+          // توهج للبطاقة بالكامل بلون حالة الطلب
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            // توهج داخلي متدرج
-            gradient: RadialGradient(
-              center: Alignment.center,
-              radius: 1.2,
-              colors: [
-                cardColors['shadowColor'].withValues(alpha: 0), // توهج خفيف في المركز
-                cardColors['shadowColor'].withValues(alpha: 0), // توهج أخف في الأطراف
-                Colors.transparent, // شفاف في الحواف
-              ],
-              stops: const [0.0, 0.6, 1.0],
-            ),
-            // توهج داخلي إضافي باستخدام BoxShadow
-            boxShadow: [
-              BoxShadow(
-                color: cardColors['shadowColor'].withValues(alpha: 0.0),
-                blurRadius: 0,
-                offset: const Offset(0, 0),
-                spreadRadius: -2,
-              ),
-              BoxShadow(
-                color: cardColors['borderColor'].withValues(alpha: 0.1),
-                blurRadius: 4,
-                offset: const Offset(0, 1),
-                spreadRadius: -1,
-              ),
-            ],
+            color: isDark ? Colors.transparent : cardColors['shadowColor'].withValues(alpha: 0.2),
           ),
-          padding: const EdgeInsets.all(2), // تقليل المساحة الداخلية
+          padding: const EdgeInsets.all(2),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // الصف الأول - معلومات الزبون
-              _buildCustomerInfoWithStatus(order),
+              _buildCustomerInfoWithStatus(order, isDark),
 
               // الصف الثالث - حالة الطلب
               Container(
@@ -983,10 +955,10 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   // بناء معلومات الزبون مع حالة الطلب
-  Widget _buildCustomerInfoWithStatus(Order order) {
+  Widget _buildCustomerInfoWithStatus(Order order, bool isDark) {
     return Flexible(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), // تقليل المساحة
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1000,7 +972,11 @@ class _OrdersPageState extends State<OrdersPage> {
                   // اسم الزبون
                   Text(
                     order.customerName,
-                    style: GoogleFonts.cairo(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white),
+                    style: GoogleFonts.cairo(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: ThemeColors.textColor(isDark),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1164,18 +1140,20 @@ class _OrdersPageState extends State<OrdersPage> {
   // بناء تذييل الطلب
   Widget _buildOrderFooter(Order order) {
     final bool isScheduled = order.scheduledDate != null;
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
 
     return Container(
-      height: isScheduled ? 38 : 35, // تصغير ارتفاع الشريط السفلي
-      margin: const EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 6), // رفع الشريط قليلاً
+      height: isScheduled ? 38 : 35,
+      margin: const EdgeInsets.only(left: 8, right: 8, top: 0, bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
+        // خلفية شفافة في الوضع الليلي، إطار فقط في الوضع النهاري
+        color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isScheduled
-              ? const Color(0xFF8b5cf6).withValues(alpha: 0.3)
-              : const Color(0xFFffd700).withValues(alpha: 0.3),
+              ? const Color(0xFF8b5cf6).withValues(alpha: isDark ? 0.3 : 0.5)
+              : const Color(0xFFffd700).withValues(alpha: isDark ? 0.3 : 0.5),
           width: 1,
         ),
       ),
@@ -1190,13 +1168,15 @@ class _OrdersPageState extends State<OrdersPage> {
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
                 color: const Color(0xFFd4af37),
-                shadows: [
-                  Shadow(
-                    color: const Color(0xFFd4af37).withValues(alpha: 0.3),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+                shadows: isDark
+                    ? [
+                        Shadow(
+                          color: const Color(0xFFd4af37).withValues(alpha: 0.3),
+                          blurRadius: 3,
+                          offset: const Offset(0, 1),
+                        ),
+                      ]
+                    : [],
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -1318,12 +1298,20 @@ class _OrdersPageState extends State<OrdersPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Icon(FontAwesomeIcons.calendar, color: Colors.white.withValues(alpha: 0.7), size: 10),
+                Icon(
+                  FontAwesomeIcons.calendar,
+                  color: isDark ? Colors.white.withValues(alpha: 0.7) : Colors.black.withValues(alpha: 0.6),
+                  size: 10,
+                ),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
                     isScheduled ? _formatDate(order.scheduledDate!) : _formatDate(order.createdAt),
-                    style: GoogleFonts.cairo(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.white),
+                    style: GoogleFonts.cairo(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : Colors.black.withValues(alpha: 0.7),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -1335,9 +1323,11 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  // تنسيق التاريخ
+  // تنسيق التاريخ بتوقيت بغداد (UTC+3)
   String _formatDate(DateTime date) {
-    return '${date.year}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
+    // تحويل من UTC إلى توقيت بغداد
+    final baghdadDate = date.toUtc().add(const Duration(hours: 3));
+    return '${baghdadDate.year}/${baghdadDate.month.toString().padLeft(2, '0')}/${baghdadDate.day.toString().padLeft(2, '0')}';
   }
 
   // التحقق من أن الطلب يحتاج معالجة
@@ -1662,6 +1652,8 @@ class _OrdersPageState extends State<OrdersPage> {
     }
 
     // إظهار رسالة تأكيد بتصميم محسن
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1672,13 +1664,25 @@ class _OrdersPageState extends State<OrdersPage> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              filter: ImageFilter.blur(sigmaX: isDark ? 15 : 5, sigmaY: isDark ? 15 : 5),
               child: Container(
                 padding: const EdgeInsets.all(25),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
+                  border: Border.all(
+                    color: Colors.red.withValues(alpha: isDark ? 0.3 : 0.5),
+                    width: isDark ? 1 : 2,
+                  ),
+                  boxShadow: isDark
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1703,7 +1707,11 @@ class _OrdersPageState extends State<OrdersPage> {
                     // المحتوى
                     Text(
                       'هل أنت متأكد من حذف طلب ${order.customerName}؟\nلا يمكن التراجع عن هذا الإجراء.',
-                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, height: 1.5),
+                      style: GoogleFonts.cairo(
+                        color: isDark ? Colors.white : Colors.black.withValues(alpha: 0.8),
+                        fontSize: 16,
+                        height: 1.5,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 25),
@@ -1717,14 +1725,21 @@ class _OrdersPageState extends State<OrdersPage> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.1),
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.grey.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+                                border: Border.all(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.3)
+                                      : Colors.grey.withValues(alpha: 0.4),
+                                  width: isDark ? 1 : 2,
+                                ),
                               ),
                               child: Text(
                                 'إلغاء',
                                 style: GoogleFonts.cairo(
-                                  color: Colors.white,
+                                  color: isDark ? Colors.white : Colors.black.withValues(alpha: 0.7),
                                   fontSize: 16,
                                   fontWeight: FontWeight.w500,
                                 ),

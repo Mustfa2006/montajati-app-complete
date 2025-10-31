@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import 'inventory_service.dart';
 
 // نموذج عنصر السلة
@@ -10,8 +11,12 @@ class CartItem {
   final int wholesalePrice;
   final int minPrice;
   final int maxPrice;
+  final int priceStep; // ✅ خطوة السعر (مثل 250، 500، 1000)
   int customerPrice;
   int quantity;
+  final String? colorId; // 🎨 معرف اللون
+  final String? colorName; // 🎨 اسم اللون
+  final String? colorHex; // 🎨 كود اللون
 
   CartItem({
     required this.id,
@@ -22,7 +27,11 @@ class CartItem {
     required this.minPrice,
     required this.maxPrice,
     required this.customerPrice,
+    this.priceStep = 250, // ✅ قيمة افتراضية 250
     this.quantity = 1,
+    this.colorId,
+    this.colorName,
+    this.colorHex,
   });
 
   // تحويل إلى Map
@@ -35,8 +44,12 @@ class CartItem {
       'wholesalePrice': wholesalePrice,
       'minPrice': minPrice,
       'maxPrice': maxPrice,
+      'priceStep': priceStep, // ✅ إضافة priceStep
       'customerPrice': customerPrice,
       'quantity': quantity,
+      'colorId': colorId,
+      'colorName': colorName,
+      'colorHex': colorHex,
     };
   }
 
@@ -51,7 +64,11 @@ class CartItem {
       minPrice: map['minPrice'] ?? 0,
       maxPrice: map['maxPrice'] ?? 0,
       customerPrice: map['customerPrice'],
+      priceStep: map['priceStep'] ?? 250, // ✅ إضافة priceStep مع قيمة افتراضية
       quantity: map['quantity'],
+      colorId: map['colorId'],
+      colorName: map['colorName'],
+      colorHex: map['colorHex'],
     );
   }
 
@@ -64,8 +81,12 @@ class CartItem {
     int? wholesalePrice,
     int? minPrice,
     int? maxPrice,
+    int? priceStep,
     int? customerPrice,
     int? quantity,
+    String? colorId,
+    String? colorName,
+    String? colorHex,
   }) {
     return CartItem(
       id: id ?? this.id,
@@ -76,7 +97,11 @@ class CartItem {
       minPrice: minPrice ?? this.minPrice,
       maxPrice: maxPrice ?? this.maxPrice,
       customerPrice: customerPrice ?? this.customerPrice,
+      priceStep: priceStep ?? this.priceStep, // ✅ إضافة priceStep
       quantity: quantity ?? this.quantity,
+      colorId: colorId ?? this.colorId,
+      colorName: colorName ?? this.colorName,
+      colorHex: colorHex ?? this.colorHex,
     );
   }
 }
@@ -119,12 +144,17 @@ class CartService extends ChangeNotifier {
     required int maxPrice,
     required int customerPrice,
     int quantity = 1,
+    int priceStep = 250, // ✅ إضافة priceStep مع قيمة افتراضية
+    String? colorId, // 🎨 معرف اللون
+    String? colorName, // 🎨 اسم اللون
+    String? colorHex, // 🎨 كود اللون
   }) async {
     try {
       // 1. التحقق من توفر الكمية فقط (بدون حجز)
       final availabilityCheck = await InventoryService.checkAvailability(
         productId: productId,
         requestedQuantity: quantity,
+        colorId: colorId, // 🎨 تمرير معرف اللون للتحقق
       );
 
       if (!availabilityCheck['success'] || !availabilityCheck['is_available']) {
@@ -134,20 +164,15 @@ class CartService extends ChangeNotifier {
           await InventoryService.checkAndNotifyOutOfStock(productId);
         }
 
-        return {
-          'success': false,
-          'message': 'الكمية المطلوبة غير متوفرة',
-          'max_available': maxAvailable,
-        };
+        return {'success': false, 'message': 'الكمية المطلوبة غير متوفرة', 'max_available': maxAvailable};
       }
 
       // 2. إضافة المنتج للسلة (بدون حجز المخزون)
-      final existingItemIndex = _items.indexWhere(
-        (item) => item.productId == productId,
-      );
+      // 🎯 المنتج يعتبر مختلف إذا كان له لون مختلف
+      final existingItemIndex = _items.indexWhere((item) => item.productId == productId && item.colorId == colorId);
 
       if (existingItemIndex >= 0) {
-        // إذا كان المنتج موجود، زيادة الكمية
+        // إذا كان المنتج موجود بنفس اللون، زيادة الكمية
         _items[existingItemIndex] = _items[existingItemIndex].copyWith(
           quantity: _items[existingItemIndex].quantity + quantity,
           customerPrice: customerPrice, // تحديث السعر
@@ -164,7 +189,11 @@ class CartService extends ChangeNotifier {
             minPrice: minPrice,
             maxPrice: maxPrice,
             customerPrice: customerPrice,
+            priceStep: priceStep, // ✅ إضافة priceStep
             quantity: quantity,
+            colorId: colorId, // 🎨 حفظ معرف اللون
+            colorName: colorName, // 🎨 حفظ اسم اللون
+            colorHex: colorHex, // 🎨 حفظ كود اللون
           ),
         );
       }
@@ -174,40 +203,38 @@ class CartService extends ChangeNotifier {
       return {'success': true, 'message': 'تم إضافة المنتج للسلة بنجاح'};
     } catch (e) {
       debugPrint('❌ خطأ في إضافة المنتج للسلة: $e');
-      return {
-        'success': false,
-        'message': 'خطأ في النظام',
-        'error': e.toString(),
-      };
+      return {'success': false, 'message': 'خطأ في النظام', 'error': e.toString()};
     }
   }
 
-  // تحديث كمية منتج
-  void updateQuantity(String productId, int newQuantity) {
+  // تحديث كمية منتج (باستخدام item.id)
+  void updateQuantity(String itemId, int newQuantity) {
     if (newQuantity <= 0) {
-      removeItem(productId);
+      removeItem(itemId);
       return;
     }
 
-    final itemIndex = _items.indexWhere((item) => item.productId == productId);
+    final itemIndex = _items.indexWhere((item) => item.id == itemId);
     if (itemIndex >= 0) {
-      _items[itemIndex] = _items[itemIndex].copyWith(quantity: newQuantity);
+      // 🎯 التحقق من أن الكمية لا تتجاوز 10
+      final finalQuantity = newQuantity > 10 ? 10 : newQuantity;
+      _items[itemIndex] = _items[itemIndex].copyWith(quantity: finalQuantity);
       notifyListeners();
     }
   }
 
-  // تحديث سعر منتج
-  void updatePrice(String productId, int newPrice) {
-    final itemIndex = _items.indexWhere((item) => item.productId == productId);
+  // تحديث سعر منتج (باستخدام item.id)
+  void updatePrice(String itemId, int newPrice) {
+    final itemIndex = _items.indexWhere((item) => item.id == itemId);
     if (itemIndex >= 0) {
       _items[itemIndex] = _items[itemIndex].copyWith(customerPrice: newPrice);
       notifyListeners();
     }
   }
 
-  // حذف منتج من السلة
-  void removeItem(String productId) {
-    _items.removeWhere((item) => item.productId == productId);
+  // حذف منتج من السلة (باستخدام item.id)
+  void removeItem(String itemId) {
+    _items.removeWhere((item) => item.id == itemId);
     notifyListeners();
   }
 
@@ -277,11 +304,7 @@ class CartService extends ChangeNotifier {
       if (allReservationsSuccessful) {
         // إذا نجحت جميع الحجوزات، امسح السلة
         clearCart();
-        return {
-          'success': true,
-          'message': 'تم حجز جميع المنتجات بنجاح',
-          'reservations': reservationResults,
-        };
+        return {'success': true, 'message': 'تم حجز جميع المنتجات بنجاح', 'reservations': reservationResults};
       } else {
         // إذا فشل أي حجز، ألغِ جميع الحجوزات الناجحة
         for (var reservation in reservationResults) {
@@ -301,11 +324,7 @@ class CartService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('❌ خطأ في حجز منتجات السلة: $e');
-      return {
-        'success': false,
-        'message': 'خطأ في النظام',
-        'error': e.toString(),
-      };
+      return {'success': false, 'message': 'خطأ في النظام', 'error': e.toString()};
     }
   }
 
@@ -331,8 +350,7 @@ class CartService extends ChangeNotifier {
 
         if (result['success'] && !result['is_available']) {
           allAvailable = false;
-          warningMessage +=
-              '${item.name}: متوفر حتى ${result['max_available']} قطعة فقط\n';
+          warningMessage += '${item.name}: متوفر حتى ${result['max_available']} قطعة فقط\n';
         }
       }
 
@@ -344,19 +362,12 @@ class CartService extends ChangeNotifier {
       };
     } catch (e) {
       debugPrint('❌ خطأ في التحقق من توفر منتجات السلة: $e');
-      return {
-        'success': false,
-        'message': 'خطأ في النظام',
-        'error': e.toString(),
-      };
+      return {'success': false, 'message': 'خطأ في النظام', 'error': e.toString()};
     }
   }
 
   // تنسيق الأسعار
   String formatPrice(int price) {
-    return price.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
+    return price.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
   }
 }

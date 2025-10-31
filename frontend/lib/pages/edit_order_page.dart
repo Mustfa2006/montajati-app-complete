@@ -3,10 +3,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order.dart';
 import '../models/order_item.dart';
+import '../providers/theme_provider.dart';
+import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 
 class EditOrderPage extends StatefulWidget {
@@ -163,6 +166,7 @@ class _EditOrderPageState extends State<EditOrderPage> {
           .single();
 
       debugPrint('✅ تم جلب تفاصيل الطلب: ${orderResponse['id']}');
+      debugPrint('📝 الملاحظات المجلبة: ${orderResponse['customer_notes']}');
 
       // تحويل عناصر الطلب
       final itemsKey = widget.isScheduled ? 'scheduled_order_items' : 'order_items';
@@ -192,7 +196,7 @@ class _EditOrderPageState extends State<EditOrderPage> {
             : (orderResponse['secondary_phone']),
         province: orderResponse['province'] ?? orderResponse['customer_province'] ?? '',
         city: orderResponse['city'] ?? orderResponse['customer_city'] ?? '',
-        notes: widget.isScheduled ? (orderResponse['customer_notes']) : (orderResponse['notes']),
+        notes: orderResponse['customer_notes'], // ✅ جلب من customer_notes دائماً
         items: orderItems,
         totalCost: (orderResponse['total_amount'] ?? orderResponse['total'] ?? 0).toInt(),
         totalProfit: (orderResponse['profit_amount'] ?? orderResponse['profit'] ?? 0).toInt(),
@@ -208,6 +212,7 @@ class _EditOrderPageState extends State<EditOrderPage> {
       _primaryPhoneController.text = order.primaryPhone;
       _secondaryPhoneController.text = order.secondaryPhone ?? '';
       _notesController.text = order.notes ?? '';
+      debugPrint('📝 تم تعبئة حقل الملاحظات: ${_notesController.text}');
 
       // ✅ تعيين المحافظة والمدينة المحفوظة
       _selectedProvince = order.province;
@@ -272,6 +277,8 @@ class _EditOrderPageState extends State<EditOrderPage> {
 
   // 🎨 الشريط العلوي المحسن
   Widget _buildEnhancedHeader() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: ClipRRect(
@@ -281,9 +288,12 @@ class _EditOrderPageState extends State<EditOrderPage> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
+              color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.2), width: 1),
+              boxShadow: isDark
+                  ? []
+                  : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
             ),
             child: Row(
               children: [
@@ -294,11 +304,18 @@ class _EditOrderPageState extends State<EditOrderPage> {
                     width: 45,
                     height: 45,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : const Color(0xFFffd700).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.3)
+                            : const Color(0xFFffd700).withValues(alpha: 0.5),
+                        width: 1,
+                      ),
                     ),
-                    child: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+                    child: Icon(Icons.arrow_back, color: isDark ? Colors.white : const Color(0xFFffd700), size: 18),
                   ),
                 ),
 
@@ -307,7 +324,11 @@ class _EditOrderPageState extends State<EditOrderPage> {
                   child: Center(
                     child: Text(
                       'تعديل الطلب',
-                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.cairo(
+                        color: ThemeColors.textColor(isDark),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -451,6 +472,8 @@ class _EditOrderPageState extends State<EditOrderPage> {
 
   // 👤 بطاقة معلومات العميل
   Widget _buildCustomerInfoCard() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -458,9 +481,15 @@ class _EditOrderPageState extends State<EditOrderPage> {
         child: Container(
           padding: const EdgeInsets.all(25),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.2), width: 1),
+            border: Border.all(
+              color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.2 : 0.5),
+              width: isDark ? 1 : 2,
+            ),
+            boxShadow: isDark
+                ? []
+                : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,77 +540,101 @@ class _EditOrderPageState extends State<EditOrderPage> {
     bool showIcon = true,
     int? maxLength,
   }) {
-    // التحقق من صحة البيانات
-    bool isValid = true;
-    if (isRequired && controller.text.trim().isEmpty) {
+    // ✅ التحقق من صحة البيانات بدقة
+    bool isValid = false;
+
+    if (keyboardType == TextInputType.phone) {
+      // للهاتف: يجب أن يكون 11 رقم ويبدأ بـ 07
+      if (isRequired) {
+        // الهاتف الأساسي: مطلوب
+        isValid = controller.text.length == 11 && controller.text.startsWith('07');
+      } else {
+        // الهاتف الثانوي: اختياري - صحيح إذا كان فارغ أو 11 رقم ويبدأ بـ 07
+        isValid = controller.text.isEmpty || (controller.text.length == 11 && controller.text.startsWith('07'));
+      }
+    } else if (keyboardType == TextInputType.multiline) {
+      // للملاحظات: لا نريد إطار أخضر
       isValid = false;
+    } else {
+      // لاسم العميل: يجب أن يكون مملوء
+      if (isRequired) {
+        isValid = controller.text.trim().isNotEmpty;
+      } else {
+        // للحقول الاختيارية: صحيح إذا كان مملوء أو فارغ
+        isValid = true;
+      }
     }
-    if (keyboardType == TextInputType.phone && controller.text.isNotEmpty) {
-      isValid = controller.text.length >= 10 && controller.text.length <= 11;
-    }
-    if (controller.text.trim().isNotEmpty && keyboardType != TextInputType.phone) {
-      isValid = true;
-    }
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return Container(
-      height: maxLines > 1 ? null : 75, // ارتفاع محسن للحقول العادية
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(color: const Color(0xFFffd700).withValues(alpha: 0.05), blurRadius: 5, spreadRadius: 0.5),
-        ],
-      ),
+      height: maxLines > 1 ? null : 75,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(15)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(15),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(
-                color: isValid
-                    ? const Color(0xFF28a745).withValues(alpha: 0.6) // أخضر للبيانات الصحيحة
-                    : const Color(0xFFffd700).withValues(alpha: 0.3), // ذهبي للبيانات غير المكتملة
-                width: 1,
+                color: isValid ? const Color(0xFF28a745) : const Color(0xFFffd700).withValues(alpha: 0.3),
+                width: isValid ? 3 : 1,
               ),
+              boxShadow: isDark
+                  ? []
+                  : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))],
             ),
-            child: TextFormField(
-              controller: controller,
-              keyboardType: keyboardType,
-              maxLines: maxLines,
-              maxLength: maxLength,
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, height: 1.2),
-              textAlignVertical: TextAlignVertical.center,
-              decoration: InputDecoration(
-                labelText: isRequired ? '$label *' : label,
-                labelStyle: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 14),
-                counterText: '', // إخفاء عداد الأحرف
-                prefixIcon: showIcon
-                    ? Container(
-                        margin: const EdgeInsets.all(12),
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFFffd700).withValues(alpha: 0.3),
-                              const Color(0xFFffed4e).withValues(alpha: 0.2),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(icon, color: const Color(0xFFffd700), size: 20),
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: showIcon ? 20 : 20, vertical: 14),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide(color: const Color(0xFFffd700), width: 2),
+            child: Material(
+              type: MaterialType.transparency,
+              child: TextFormField(
+                controller: controller,
+                keyboardType: keyboardType,
+                maxLines: maxLines,
+                maxLength: maxLength,
+                style: GoogleFonts.cairo(
+                  color: ThemeColors.textColor(isDark),
+                  fontSize: 16,
+                  height: 1.2,
+                  decoration: TextDecoration.none,
                 ),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                textAlignVertical: TextAlignVertical.center,
+                onChanged: (value) {
+                  setState(() {}); // ✅ تحديث UI عند تغيير النص لإظهار الإطار الأخضر
+                },
+                decoration: InputDecoration(
+                  labelText: null,
+                  floatingLabelBehavior: FloatingLabelBehavior.never,
+                  hintText: isRequired ? '$label *' : label,
+                  hintStyle: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
+                  counterText: '', // إخفاء عداد الأحرف
+                  prefixIcon: showIcon
+                      ? Container(
+                          margin: const EdgeInsets.all(12),
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                const Color(0xFFffd700).withValues(alpha: 0.3),
+                                const Color(0xFFffed4e).withValues(alpha: 0.2),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(icon, color: const Color(0xFFffd700), size: 20),
+                        )
+                      : null,
+                  border: InputBorder.none, // ✅ إزالة الحدود الافتراضية
+                  enabledBorder: InputBorder.none, // ✅ إزالة حدود الحالة العادية
+                  focusedBorder: InputBorder.none, // ✅ إزالة حدود التركيز
+                  disabledBorder: InputBorder.none, // ✅ إزالة حدود التعطيل
+                  errorBorder: InputBorder.none, // ✅ إزالة حدود الخطأ
+                  focusedErrorBorder: InputBorder.none, // ✅ إزالة حدود الخطأ مع التركيز
+                  contentPadding: EdgeInsets.symmetric(horizontal: showIcon ? 20 : 20, vertical: 14),
+                ),
               ),
-            ),
+            ), // ✅ إغلاق Material widget
           ),
         ),
       ),
@@ -590,6 +643,8 @@ class _EditOrderPageState extends State<EditOrderPage> {
 
   // 📍 بطاقة الموقع
   Widget _buildLocationCard() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -597,9 +652,15 @@ class _EditOrderPageState extends State<EditOrderPage> {
         child: Container(
           padding: const EdgeInsets.all(25),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFF00d4ff).withValues(alpha: 0.2), width: 1),
+            border: Border.all(
+              color: const Color(0xFF00d4ff).withValues(alpha: isDark ? 0.2 : 0.5),
+              width: isDark ? 1 : 2,
+            ),
+            boxShadow: isDark
+                ? []
+                : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,6 +680,8 @@ class _EditOrderPageState extends State<EditOrderPage> {
 
   // 📝 بطاقة الملاحظات
   Widget _buildNotesCard() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -626,9 +689,15 @@ class _EditOrderPageState extends State<EditOrderPage> {
         child: Container(
           padding: const EdgeInsets.all(25),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.04),
+            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFff6b6b).withValues(alpha: 0.2), width: 1),
+            border: Border.all(
+              color: const Color(0xFFff6b6b).withValues(alpha: isDark ? 0.2 : 0.5),
+              width: isDark ? 1 : 2,
+            ),
+            boxShadow: isDark
+                ? []
+                : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,14 +780,16 @@ class _EditOrderPageState extends State<EditOrderPage> {
 
   // 🏛️ حقل المحافظة المحسن
   Widget _buildEnhancedProvinceField() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return GestureDetector(
       onTap: _showProvinceSelector,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(color: const Color(0xFF00d4ff).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1),
-          ],
+          boxShadow: isDark
+              ? [BoxShadow(color: const Color(0xFF00d4ff).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1)]
+              : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(15),
@@ -727,9 +798,12 @@ class _EditOrderPageState extends State<EditOrderPage> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                border: Border.all(
+                  color: isDark ? Colors.white.withValues(alpha: 0.2) : const Color(0xFF00d4ff).withValues(alpha: 0.3),
+                  width: isDark ? 1 : 2,
+                ),
               ),
               child: Row(
                 children: [
@@ -757,7 +831,9 @@ class _EditOrderPageState extends State<EditOrderPage> {
                         Text(
                           _selectedProvince ?? 'اختر المحافظة',
                           style: GoogleFonts.cairo(
-                            color: _selectedProvince != null ? Colors.white : Colors.white54,
+                            color: _selectedProvince != null
+                                ? ThemeColors.textColor(isDark)
+                                : ThemeColors.secondaryTextColor(isDark),
                             fontSize: 16,
                           ),
                         ),
@@ -776,14 +852,16 @@ class _EditOrderPageState extends State<EditOrderPage> {
 
   // 🏘️ حقل المدينة المحسن
   Widget _buildEnhancedCityField() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return GestureDetector(
       onTap: _selectedProvince != null ? _showCitySelector : null,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(color: const Color(0xFF00d4ff).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1),
-          ],
+          boxShadow: isDark
+              ? [BoxShadow(color: const Color(0xFF00d4ff).withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 1)]
+              : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(15),
@@ -792,9 +870,12 @@ class _EditOrderPageState extends State<EditOrderPage> {
             child: Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                border: Border.all(
+                  color: isDark ? Colors.white.withValues(alpha: 0.2) : const Color(0xFF00d4ff).withValues(alpha: 0.3),
+                  width: isDark ? 1 : 2,
+                ),
               ),
               child: Row(
                 children: [
@@ -822,7 +903,9 @@ class _EditOrderPageState extends State<EditOrderPage> {
                         Text(
                           _selectedCity ?? (_selectedProvince != null ? 'اختر المدينة' : 'اختر المحافظة أولاً'),
                           style: GoogleFonts.cairo(
-                            color: _selectedCity != null ? Colors.white : Colors.white54,
+                            color: _selectedCity != null
+                                ? ThemeColors.textColor(isDark)
+                                : ThemeColors.secondaryTextColor(isDark),
                             fontSize: 16,
                           ),
                         ),
@@ -1036,7 +1119,9 @@ class _EditOrderPageState extends State<EditOrderPage> {
                   : _secondaryPhoneController.text.trim(),
               'province': _selectedProvince!,
               'city': _selectedCity!,
-              'notes': _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+              'customer_notes': _notesController.text.trim().isEmpty
+                  ? null
+                  : _notesController.text.trim(), // ✅ حفظ في customer_notes دائماً
             })
             .eq('id', widget.orderId);
       }

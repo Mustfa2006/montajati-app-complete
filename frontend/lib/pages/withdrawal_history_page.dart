@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../providers/theme_provider.dart';
 import '../services/withdrawal_service.dart';
-import '../widgets/common_header.dart';
+import '../utils/theme_colors.dart';
+import '../widgets/app_background.dart';
 
 class WithdrawalHistoryPage extends StatefulWidget {
   const WithdrawalHistoryPage({super.key});
@@ -19,6 +23,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   String searchQuery = '';
   bool _isLoading = true;
   List<Map<String, dynamic>> withdrawalRequests = [];
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -75,9 +80,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       debugPrint('👤 جلب طلبات السحب للمستخدم: $currentUserId');
 
       // جلب طلبات السحب للمستخدم الحالي فقط
-      final requests = await WithdrawalService.getUserWithdrawalRequests(
-        currentUserId,
-      );
+      final requests = await WithdrawalService.getUserWithdrawalRequests(currentUserId);
 
       debugPrint('📊 طلبات السحب المجلبة: $requests');
       debugPrint('📊 عدد طلبات السحب: ${requests.length}');
@@ -97,12 +100,9 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       setState(() => _isLoading = false);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('خطأ في جلب طلبات السحب: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('خطأ في جلب طلبات السحب: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -124,37 +124,15 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       .where((req) => req['status'] == 'rejected')
       .fold(0.0, (sum, req) => sum + (req['amount'] as num).toDouble());
 
-  int get completedRequestsCount =>
-      withdrawalRequests.where((req) => req['status'] == 'completed').length;
+  int get completedRequestsCount => withdrawalRequests.where((req) => req['status'] == 'completed').length;
 
-  int get pendingRequestsCount =>
-      withdrawalRequests.where((req) => req['status'] == 'pending').length;
+  int get pendingRequestsCount => withdrawalRequests.where((req) => req['status'] == 'pending').length;
 
-  // ترجمة حالات الطلبات من الإنجليزية إلى العربية
-  String _getArabicStatus(String status) {
-    switch (status) {
-      case 'pending':
-        return 'قيد المراجعة';
-      case 'approved':
-        return 'تمت الموافقة';
-      case 'completed':
-        return 'تم التحويل';
-      case 'rejected':
-        return 'مرفوض';
-      default:
-        return status;
-    }
-  }
-
-  double get totalRequestedAmount => withdrawalRequests.fold(
-    0.0,
-    (sum, req) => sum + (req['amount'] as num).toDouble(),
-  );
+  double get totalRequestedAmount =>
+      withdrawalRequests.fold(0.0, (sum, req) => sum + (req['amount'] as num).toDouble());
 
   String get lastWithdrawalDate {
-    final completedRequests = withdrawalRequests
-        .where((req) => req['status'] == 'تم التحويل')
-        .toList();
+    final completedRequests = withdrawalRequests.where((req) => req['status'] == 'تم التحويل').toList();
 
     if (completedRequests.isEmpty) return 'لا يوجد';
 
@@ -206,68 +184,196 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
-      extendBody: true, // إزالة الخلفية السوداء خلف الشريط السفلي
-      body: Column(
-        children: [
-          // الشريط العلوي الموحد
-          CommonHeader(
-            title: 'سجل السحب',
-            rightActions: [
-              // زر الرجوع على اليمين
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(
-                    FontAwesomeIcons.arrowRight,
-                    color: Color(0xFFffd700),
-                    size: 16,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // المحتوى القابل للتمرير (يحتوي على الإحصائيات والفلتر والقائمة)
-          Expanded(child: _buildScrollableContent()),
-        ],
-      ),
-
-      // شريط التنقل السفلي
-      bottomNavigationBar: _buildBottomNavigationBar(),
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    return AppBackground(
+      child: Scaffold(backgroundColor: Colors.transparent, extendBody: true, body: _buildScrollableContent(isDark)),
     );
   }
 
+  // بناء الشريط العلوي البسيط
+  Widget _buildSimpleHeader(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
+        children: [
+          // زر الرجوع
+          GestureDetector(
+            onTap: () => context.pop(),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+              ),
+              child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
+            ),
+          ),
 
+          const SizedBox(width: 15),
+
+          // العنوان
+          Expanded(
+            child: Text(
+              'سجل السحب',
+              style: GoogleFonts.cairo(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: ThemeColors.textColor(isDark),
+                shadows: isDark
+                    ? [
+                        Shadow(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : [],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+
+          const SizedBox(width: 55), // للتوازن مع زر الرجوع
+        ],
+      ),
+    );
+  }
+
+  // بناء شريط البحث
+  Widget _buildSearchBar(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: ThemeColors.cardBackground(isDark),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: ThemeColors.cardBorder(isDark), width: 1),
+        ),
+        child: TextField(
+          controller: _searchController,
+          onChanged: (value) {
+            setState(() {
+              searchQuery = value;
+            });
+          },
+          style: GoogleFonts.cairo(color: ThemeColors.textColor(isDark), fontSize: 16),
+          decoration: InputDecoration(
+            hintText: 'البحث في طلبات السحب...',
+            hintStyle: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
+            prefixIcon: Icon(
+              FontAwesomeIcons.magnifyingGlass,
+              color: const Color(0xFFffd700).withValues(alpha: 0.7),
+              size: 18,
+            ),
+            border: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // بناء أزرار فلترة الحالات
+  Widget _buildStatusFilterButtons(bool isDark) {
+    final filters = [
+      {'key': 'الكل', 'label': 'الكل', 'icon': FontAwesomeIcons.list},
+      {'key': 'pending', 'label': 'قيد المراجعة', 'icon': FontAwesomeIcons.clock},
+      {'key': 'completed', 'label': 'مكتمل', 'icon': FontAwesomeIcons.circleCheck},
+      {'key': 'cancelled', 'label': 'ملغي', 'icon': FontAwesomeIcons.ban},
+    ];
+
+    return SizedBox(
+      height: 50,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: filters.length,
+        itemBuilder: (context, index) {
+          final filter = filters[index];
+          final isSelected = selectedFilter == filter['key'];
+
+          return Container(
+            margin: const EdgeInsets.only(right: 10),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  selectedFilter = filter['key'] as String;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: isSelected ? const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]) : null,
+                  color: isSelected ? null : ThemeColors.cardBackground(isDark),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFFffd700) : ThemeColors.cardBorder(isDark),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      filter['icon'] as IconData,
+                      size: 14,
+                      color: isSelected
+                          ? Colors.black
+                          : (isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black87),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      filter['label'] as String,
+                      style: GoogleFonts.cairo(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Colors.black : ThemeColors.textColor(isDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   // بناء المحتوى القابل للتمرير
-  Widget _buildScrollableContent() {
+  Widget _buildScrollableContent(bool isDark) {
     return RefreshIndicator(
       onRefresh: _refreshData,
       color: const Color(0xFFffd700),
-      backgroundColor: const Color(0xFF16213e),
+      backgroundColor: Colors.transparent,
       child: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // شريط الإحصائيات السريعة
-          SliverToBoxAdapter(child: _buildQuickStats()),
+          // مساحة للشريط العلوي
+          SliverToBoxAdapter(child: const SizedBox(height: 25)),
 
-          // شريط التصفية والبحث
-          SliverToBoxAdapter(child: _buildFilterBar()),
+          // الشريط العلوي البسيط
+          SliverToBoxAdapter(child: _buildSimpleHeader(isDark)),
+
+          // مساحة بعد الشريط العلوي
+          SliverToBoxAdapter(child: const SizedBox(height: 20)),
+
+          // شريط البحث
+          SliverToBoxAdapter(child: _buildSearchBar(isDark)),
+
+          // مساحة بعد شريط البحث
+          SliverToBoxAdapter(child: const SizedBox(height: 15)),
+
+          // أزرار فلترة الحالات
+          SliverToBoxAdapter(child: _buildStatusFilterButtons(isDark)),
+
+          // مساحة بعد أزرار الفلترة
+          SliverToBoxAdapter(child: const SizedBox(height: 20)),
 
           // قائمة طلبات السحب
-          _buildWithdrawalSliverList(),
+          _buildWithdrawalSliverList(isDark),
         ],
       ),
     );
@@ -278,281 +384,8 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     await _loadWithdrawalRequests();
   }
 
-  // بناء شريط الإحصائيات السريعة
-  Widget _buildQuickStats() {
-    return Container(
-      margin: const EdgeInsets.all(15),
-      height: 80,
-      child: Row(
-        children: [
-          // إجمالي المسحوب
-          Expanded(
-            child: _buildStatCard(
-              'إجمالي المسحوب',
-              '${totalWithdrawn.toStringAsFixed(0)} د.ع',
-              FontAwesomeIcons.circleCheck,
-              const Color(0xFF28a745),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // قيد المراجعة
-          Expanded(
-            child: _buildStatCard(
-              'قيد المراجعة',
-              '${pendingAmount.toStringAsFixed(0)} د.ع',
-              FontAwesomeIcons.clock,
-              const Color(0xFFffc107),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // آخر سحب
-          Expanded(
-            child: _buildStatCard(
-              'آخر سحب',
-              lastWithdrawalDate,
-              FontAwesomeIcons.calendar,
-              const Color(0xFF6c757d),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [const Color(0xFF16213e), const Color(0xFF1a1a2e)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 14),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            style: GoogleFonts.cairo(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.9),
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 1),
-          Text(
-            value,
-            style: GoogleFonts.cairo(
-              fontSize: 8,
-              fontWeight: FontWeight.w700,
-              color: color,
-              shadows: [
-                Shadow(
-                  color: color.withValues(alpha: 0.3),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // بناء شريط التصفية والبحث
-  Widget _buildFilterBar() {
-    return Column(
-      children: [
-        // أزرار الفلتر
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 15),
-          height: 45,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterButton('الكل', const Color(0xFF6c757d)),
-                const SizedBox(width: 10),
-                _buildFilterButton('قيد المراجعة', const Color(0xFFffc107)),
-                const SizedBox(width: 10),
-                _buildFilterButton('مرفوض', const Color(0xFFdc3545)),
-                const SizedBox(width: 10),
-                _buildFilterButton('تم التحويل', const Color(0xFF17a2b8)),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        // حقل البحث
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 15),
-          height: 45,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF16213e), Color(0xFF1a1a2e)],
-            ),
-            borderRadius: BorderRadius.circular(25), // زيادة التقوس
-            border: Border.all(
-              color: const Color(0xFFffd700).withValues(alpha: 0.4),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFffd700).withValues(alpha: 0.1),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: TextField(
-            style: GoogleFonts.cairo(
-              fontSize: 14,
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
-            decoration: InputDecoration(
-              hintText: 'بحث برقم الطلب، المبلغ، أو طريقة الدفع...',
-              hintStyle: GoogleFonts.cairo(
-                fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.6),
-                fontWeight: FontWeight.w400,
-              ),
-              prefixIcon: Container(
-                padding: const EdgeInsets.all(12),
-                child: Icon(
-                  FontAwesomeIcons.magnifyingGlass,
-                  size: 16,
-                  color: const Color(0xFFffd700).withValues(alpha: 0.8),
-                ),
-              ),
-              suffixIcon: searchQuery.isNotEmpty
-                  ? GestureDetector(
-                      onTap: () => setState(() => searchQuery = ''),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        child: Icon(
-                          FontAwesomeIcons.xmark,
-                          size: 14,
-                          color: Colors.white.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    )
-                  : null,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 12,
-                horizontal: 20,
-              ),
-            ),
-            onChanged: (value) => setState(() => searchQuery = value),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFilterButton(String text, Color color) {
-    bool isSelected = selectedFilter == text;
-    return GestureDetector(
-      onTap: () => setState(() => selectedFilter = text),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [color, color.withValues(alpha: 0.8)],
-                )
-              : null,
-          color: isSelected ? null : Colors.transparent,
-          border: Border.all(
-            color: isSelected ? color : color.withValues(alpha: 0.6),
-            width: isSelected ? 2 : 1,
-          ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          text,
-          style: GoogleFonts.cairo(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: isSelected
-                ? (text == 'قيد المراجعة' ? Colors.black : Colors.white)
-                : color,
-            shadows: isSelected
-                ? [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-        ),
-      ),
-    );
-  }
-
   // بناء قائمة طلبات السحب كـ Sliver
-  Widget _buildWithdrawalSliverList() {
+  Widget _buildWithdrawalSliverList(bool isDark) {
     // عرض مؤشر التحميل
     if (_isLoading) {
       return SliverFillRemaining(
@@ -564,7 +397,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
               SizedBox(height: 20),
               Text(
                 'جاري تحميل طلبات السحب...',
-                style: TextStyle(color: Colors.white),
+                style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -572,32 +405,19 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       );
     }
 
-    List<Map<String, dynamic>> filteredRequests = withdrawalRequests.where((
-      req,
-    ) {
-      bool matchesFilter =
-          selectedFilter == 'الكل' ||
-          _getArabicStatus(req['status']) == selectedFilter;
-      bool matchesSearch =
+    // تطبيق الفلترة والبحث
+    List<Map<String, dynamic>> filteredRequests = withdrawalRequests.where((request) {
+      // فلترة حسب الحالة
+      bool statusMatch = selectedFilter == 'الكل' || request['status'] == selectedFilter;
+
+      // فلترة حسب البحث
+      bool searchMatch =
           searchQuery.isEmpty ||
-          req['id'].toString().toLowerCase().contains(
-            searchQuery.toLowerCase(),
-          ) ||
-          req['amount'].toString().contains(searchQuery) ||
-          req['method'].toString().toLowerCase().contains(
-            searchQuery.toLowerCase(),
-          ) ||
-          req['status'].toString().toLowerCase().contains(
-            searchQuery.toLowerCase(),
-          ) ||
-          req['requestDate'].toString().contains(searchQuery) ||
-          (req['processDate'] != null &&
-              req['processDate'].toString().contains(searchQuery)) ||
-          (req['note'] != null &&
-              req['note'].toString().toLowerCase().contains(
-                searchQuery.toLowerCase(),
-              ));
-      return matchesFilter && matchesSearch;
+          (request['account_details']?.toString().contains(searchQuery) ?? false) ||
+          (request['cardholder_name']?.toString().contains(searchQuery) ?? false) ||
+          request['amount'].toString().contains(searchQuery);
+
+      return statusMatch && searchMatch;
     }).toList();
 
     if (filteredRequests.isEmpty) {
@@ -606,18 +426,23 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                FontAwesomeIcons.inbox,
-                size: 64,
-                color: Colors.white.withValues(alpha: 0.3),
-              ),
-              const SizedBox(height: 16),
+              Icon(FontAwesomeIcons.fileInvoiceDollar, size: 80, color: Colors.white.withValues(alpha: 0.3)),
+              const SizedBox(height: 20),
               Text(
-                'لا توجد طلبات سحب',
+                withdrawalRequests.isEmpty ? 'لا توجد طلبات سحب' : 'لا توجد نتائج',
                 style: GoogleFonts.cairo(
-                  fontSize: 18,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                   color: Colors.white.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                withdrawalRequests.isEmpty ? 'لم تقم بأي طلبات سحب حتى الآن' : 'جرب تغيير معايير البحث أو الفلترة',
+                style: GoogleFonts.cairo(
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
             ],
@@ -627,15 +452,10 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.only(
-        left: 15,
-        right: 15,
-        top: 10,
-        bottom: 100, // مساحة للشريط السفلي
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
-          return _buildWithdrawalCard(filteredRequests[index]);
+          return _buildWithdrawalCard(filteredRequests[index], isDark);
         }, childCount: filteredRequests.length),
       ),
     );
@@ -643,123 +463,63 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
 
   // تم إزالة دالة _buildWithdrawalList غير المستخدمة
 
-  // بناء بطاقة طلب السحب
-  Widget _buildWithdrawalCard(Map<String, dynamic> request) {
+  // بناء بطاقة طلب السحب محسنة
+  Widget _buildWithdrawalCard(Map<String, dynamic> request, bool isDark) {
     Color statusColor = _getStatusColor(request['status']);
 
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 15),
+      margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213e),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFffd700), // إطار ذهبي
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-          BoxShadow(
-            color: const Color(0xFFffd700).withValues(alpha: 0.2), // ظل ذهبي
-            blurRadius: 20,
-            offset: const Offset(0, 0),
-          ),
-          BoxShadow(
-            color: statusColor.withValues(alpha: 0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 0),
-          ),
-        ],
+        color: ThemeColors.cardBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ThemeColors.cardBorder(isDark), width: 1),
+        boxShadow: isDark
+            ? [
+                BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, 8)),
+                BoxShadow(
+                  color: const Color(0xFFffd700).withValues(alpha: 0.1),
+                  blurRadius: 30,
+                  offset: const Offset(0, 0),
+                ),
+              ]
+            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(20),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // الصف الأول: الحالة
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    _getStatusText(request['status']),
-                    style: GoogleFonts.cairo(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: _getStatusTextColor(request['status']),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // الصف الثاني: المبلغ وطريقة السحب
+            // الصف الأول: الحالة والمبلغ
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  flex: 3,
+                // الحالة
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: statusColor.withValues(alpha: 0.5), width: 1),
+                  ),
                   child: Text(
-                    '${request['amount'].toStringAsFixed(0)} د.ع',
-                    style: GoogleFonts.cairo(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF007bff),
-                      shadows: [
-                        Shadow(
-                          color: const Color(0xFF007bff).withValues(alpha: 0.3),
-                          blurRadius: 3,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                    _getStatusText(request['status']),
+                    style: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w700, color: statusColor),
                   ),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Icon(
-                        (request['withdrawal_method'] ?? '') == 'mastercard'
-                            ? FontAwesomeIcons.creditCard
-                            : FontAwesomeIcons.mobileScreen,
-                        color:
-                            (request['withdrawal_method'] ?? '') == 'mastercard'
-                            ? const Color(0xFF28a745)
-                            : const Color(0xFF17a2b8),
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          _getMethodText(request['withdrawal_method']),
-                          style: GoogleFonts.cairo(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color:
-                                (request['withdrawal_method'] ?? '') ==
-                                    'mastercard'
-                                ? const Color(0xFF28a745)
-                                : const Color(0xFF17a2b8),
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+
+                // المبلغ مع فاصلة
+                Text(
+                  '${_formatAmount(request['amount'])} د.ع',
+                  style: GoogleFonts.cairo(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFFffd700),
+                    shadows: [
+                      Shadow(
+                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
@@ -767,76 +527,95 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 16),
 
-            // الصف الثاني والنصف: رقم البطاقة
+            // طريقة السحب
             Row(
               children: [
-                const Icon(
-                  FontAwesomeIcons.creditCard,
-                  color: Color(0xFF17a2b8),
-                  size: 12,
+                Icon(
+                  _getMethodIcon(request['withdrawal_method']),
+                  color: const Color(0xFFffd700).withValues(alpha: 0.8),
+                  size: 16,
                 ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'رقم البطاقة: ${request['account_details'] ?? 'غير محدد'}',
-                    style: GoogleFonts.cairo(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                const SizedBox(width: 8),
+                Text(
+                  'طريقة السحب: ${_getMethodText(request['withdrawal_method'])}',
+                  style: GoogleFonts.cairo(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ThemeColors.textColor(isDark),
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
 
-            // الصف الثالث: تاريخ الطلب
+            // رقم البطاقة
             Row(
               children: [
-                const Icon(
-                  FontAwesomeIcons.calendarPlus,
-                  color: Color(0xFF28a745),
-                  size: 12,
-                ),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'تاريخ الطلب: ${_formatDate(request['request_date'])}',
-                    style: GoogleFonts.cairo(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                Icon(FontAwesomeIcons.hashtag, color: ThemeColors.secondaryIconColor(isDark), size: 14),
+                const SizedBox(width: 8),
+                Text(
+                  'رقم البطاقة: ${_extractCardNumber(request['account_details'])}',
+                  style: GoogleFonts.cairo(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: ThemeColors.secondaryTextColor(isDark),
                   ),
                 ),
               ],
             ),
 
-            // الصف الرابع: تاريخ المعالجة (إذا كان موجوداً)
+            const SizedBox(height: 12),
+
+            // اسم حامل البطاقة
+            Row(
+              children: [
+                Icon(FontAwesomeIcons.user, color: ThemeColors.secondaryIconColor(isDark), size: 14),
+                const SizedBox(width: 8),
+                Text(
+                  'اسم حامل البطاقة: ${_extractCardHolderName(request['account_details'])}',
+                  style: GoogleFonts.cairo(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: ThemeColors.secondaryTextColor(isDark),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // تاريخ الطلب
+            Row(
+              children: [
+                Icon(FontAwesomeIcons.calendar, color: ThemeColors.secondaryIconColor(isDark), size: 14),
+                const SizedBox(width: 8),
+                Text(
+                  'تاريخ الطلب: ${_formatDateWithSeparator(request['request_date'])}',
+                  style: GoogleFonts.cairo(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: ThemeColors.secondaryTextColor(isDark),
+                  ),
+                ),
+              ],
+            ),
+
+            // تاريخ المعالجة (إذا كان موجوداً)
             if (request['process_date'] != null) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 12),
               Row(
                 children: [
-                  const Icon(
-                    FontAwesomeIcons.calendarCheck,
-                    color: Color(0xFF007bff),
-                    size: 12,
-                  ),
-                  const SizedBox(width: 6),
-                  Flexible(
-                    child: Text(
-                      'تاريخ المعالجة: ${_formatDate(request['process_date'])}',
-                      style: GoogleFonts.cairo(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withValues(alpha: 0.6),
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                  Icon(FontAwesomeIcons.check, color: Colors.green.withValues(alpha: 0.8), size: 14),
+                  const SizedBox(width: 8),
+                  Text(
+                    'تاريخ المعالجة: ${_formatDateWithSeparator(request['process_date'])}',
+                    style: GoogleFonts.cairo(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: ThemeColors.secondaryTextColor(isDark),
                     ),
                   ),
                 ],
@@ -849,7 +628,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   }
 
   Color _getStatusColor(String? status) {
-    switch (status) {
+    switch (status?.toLowerCase().trim()) {
       case 'pending':
         return const Color(0xFFffc107); // أصفر - قيد المراجعة
       case 'approved':
@@ -858,23 +637,19 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
         return const Color(0xFF28a745); // أخضر - تم التحويل
       case 'rejected':
         return const Color(0xFFdc3545); // أحمر - مرفوض
+      case 'cancelled':
+        return const Color(0xFFfd7e14); // برتقالي - ملغي
       default:
         return const Color(0xFF6c757d); // رمادي - غير محدد
     }
   }
 
-  Color _getStatusTextColor(String? status) {
-    switch (status) {
-      case 'pending':
-        return Colors.black; // نص أسود على خلفية صفراء
-      default:
-        return Colors.white; // نص أبيض على باقي الخلفيات
-    }
-  }
-
   // ترجمة حالة الطلب للعربية
   String _getStatusText(String? status) {
-    switch (status) {
+    // طباعة الحالة للتشخيص
+    debugPrint('🔍 حالة الطلب الواردة: "$status"');
+
+    switch (status?.toLowerCase().trim()) {
       case 'pending':
         return 'قيد المراجعة';
       case 'approved':
@@ -883,25 +658,144 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
         return 'مكتمل';
       case 'rejected':
         return 'مرفوض';
+      case 'cancelled':
+        return 'ملغي';
       default:
-        return 'غير محدد';
+        debugPrint('⚠️ حالة غير معروفة: "$status"');
+        return status?.toString() ?? 'غير محدد';
     }
   }
 
   // ترجمة طريقة السحب للعربية
   String _getMethodText(String? method) {
-    switch (method) {
+    debugPrint('🔍 طريقة السحب الواردة: "$method"');
+
+    if (method == null) return 'غير محدد';
+
+    // التحقق من النص المحفوظ
+    if (method.contains('بطاقة كي كارد') || method.contains('كي كارد')) {
+      return 'كي كارد';
+    } else if (method.contains('زين كاش')) {
+      return 'زين كاش';
+    }
+
+    // التحقق من القيم القديمة
+    switch (method.toLowerCase().trim()) {
       case 'mastercard':
-        return 'ماستر كارد';
+      case 'ki_card':
+        return 'كي كارد';
       case 'zaincash':
+      case 'zain_cash':
         return 'زين كاش';
       default:
-        return 'غير محدد';
+        return method; // عرض القيمة الفعلية إذا لم تكن معروفة
     }
   }
 
-  // تنسيق التاريخ بتوقيت العراق
-  String _formatDate(String? dateString) {
+  // الحصول على أيقونة طريقة السحب
+  IconData _getMethodIcon(String? method) {
+    if (method == null) return FontAwesomeIcons.circleQuestion;
+
+    if (method.contains('بطاقة كي كارد') ||
+        method.contains('كي كارد') ||
+        method.toLowerCase().contains('mastercard') ||
+        method.toLowerCase().contains('ki_card')) {
+      return FontAwesomeIcons.creditCard;
+    } else if (method.contains('زين كاش') ||
+        method.toLowerCase().contains('zaincash') ||
+        method.toLowerCase().contains('zain_cash')) {
+      return FontAwesomeIcons.mobileScreen;
+    }
+
+    return FontAwesomeIcons.circleQuestion;
+  }
+
+  // استخراج رقم البطاقة من account_details
+  String _extractCardNumber(String? accountDetails) {
+    if (accountDetails == null || accountDetails.isEmpty) {
+      return 'غير محدد';
+    }
+
+    debugPrint('🔍 استخراج رقم البطاقة من: "$accountDetails"');
+
+    // تنسيق البيانات المحفوظة: "بطاقة كي كارد - اسم حامل البطاقة - رقم البطاقة"
+    final parts = accountDetails.split(' - ');
+
+    if (parts.length >= 3) {
+      // الجزء الثالث هو رقم البطاقة
+      final cardNumber = parts[2].trim();
+      debugPrint('✅ رقم البطاقة المستخرج: "$cardNumber"');
+      return cardNumber;
+    } else if (parts.length == 2) {
+      // إذا كان هناك جزءان فقط، نتحقق أيهما الرقم
+      final secondPart = parts[1].trim();
+      // إذا كان الجزء الثاني يحتوي على أرقام فقط، فهو رقم البطاقة
+      if (RegExp(r'^\d+$').hasMatch(secondPart)) {
+        debugPrint('✅ رقم البطاقة المستخرج: "$secondPart"');
+        return secondPart;
+      }
+    }
+
+    // البحث عن أي رقم في النص كحل أخير
+    final RegExp numberRegex = RegExp(r'\d{4,}');
+    final match = numberRegex.firstMatch(accountDetails);
+
+    if (match != null) {
+      final cardNumber = match.group(0) ?? 'غير محدد';
+      debugPrint('✅ رقم البطاقة المستخرج (بحث): "$cardNumber"');
+      return cardNumber;
+    }
+
+    debugPrint('❌ لم يتم العثور على رقم البطاقة');
+    return 'غير محدد';
+  }
+
+  // استخراج اسم حامل البطاقة من account_details
+  String _extractCardHolderName(String? accountDetails) {
+    if (accountDetails == null || accountDetails.isEmpty) {
+      return 'غير محدد';
+    }
+
+    debugPrint('🔍 استخراج اسم حامل البطاقة من: "$accountDetails"');
+
+    // تنسيق البيانات المحفوظة: "بطاقة كي كارد - اسم حامل البطاقة - رقم البطاقة"
+    final parts = accountDetails.split(' - ');
+
+    if (parts.length >= 3) {
+      // الجزء الثاني هو اسم حامل البطاقة
+      final cardHolderName = parts[1].trim();
+      debugPrint('✅ اسم حامل البطاقة المستخرج: "$cardHolderName"');
+      return cardHolderName;
+    } else if (parts.length == 2) {
+      // إذا كان هناك جزءان فقط، نتحقق أيهما الاسم
+      final secondPart = parts[1].trim();
+      // إذا كان الجزء الثاني لا يحتوي على أرقام فقط، فهو الاسم
+      if (!RegExp(r'^\d+$').hasMatch(secondPart)) {
+        debugPrint('✅ اسم حامل البطاقة المستخرج: "$secondPart"');
+        return secondPart;
+      }
+    }
+
+    debugPrint('❌ لم يتم العثور على اسم حامل البطاقة');
+    return 'غير محدد';
+  }
+
+  // تنسيق المبلغ مع فاصلة
+  String _formatAmount(dynamic amount) {
+    if (amount == null) return '0';
+
+    try {
+      final numAmount = double.parse(amount.toString());
+      final formatter = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+      String result = numAmount.toStringAsFixed(0);
+      return result.replaceAllMapped(formatter, (Match m) => '${m[1]},');
+    } catch (e) {
+      return amount.toString();
+    }
+  }
+
+  // تنسيق التاريخ بتوقيت العراق مع فاصل
+  String _formatDateWithSeparator(String? dateString) {
     if (dateString == null) return 'غير محدد';
 
     try {
@@ -909,82 +803,16 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       final utcDate = DateTime.parse(dateString);
       final iraqDate = utcDate.add(const Duration(hours: 3));
 
-      // تنسيق التاريخ: السنة-الشهر-اليوم الساعة:الدقيقة
+      // تنسيق التاريخ: السنة-الشهر-اليوم __ الساعة:الدقيقة
       final year = iraqDate.year;
       final month = iraqDate.month.toString().padLeft(2, '0');
       final day = iraqDate.day.toString().padLeft(2, '0');
       final hour = iraqDate.hour.toString().padLeft(2, '0');
       final minute = iraqDate.minute.toString().padLeft(2, '0');
 
-      return '$year-$month-$day $hour:$minute';
+      return '$year-$month-$day __ $hour:$minute';
     } catch (e) {
       return 'تاريخ غير صحيح';
     }
-  }
-
-  // بناء شريط التنقل السفلي
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      margin: const EdgeInsets.only(
-        left: 15,
-        right: 15,
-        bottom: 8,
-      ), // رفع للأعلى
-      height: 55, // تصغير الارتفاع
-      decoration: BoxDecoration(
-        color: const Color(0xFF16213e),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1.5,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _buildNavItem(FontAwesomeIcons.store, 'منتجاتي', 0, '/products'),
-          _buildNavItem(FontAwesomeIcons.bagShopping, 'الطلبات', 1, '/orders'),
-          _buildNavItem(FontAwesomeIcons.chartLine, 'الأرباح', 2, '/profits'),
-          _buildNavItem(FontAwesomeIcons.user, 'الحساب', 3, '/account'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, int index, String route) {
-    bool isSelected =
-        index == 2; // الأرباح محددة (لأن سجل السحب جزء من الأرباح)
-    return GestureDetector(
-      onTap: () => context.go(route),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          vertical: 6,
-          horizontal: 10,
-        ), // تصغير المساحة العمودية
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? const Color(0xFFffd700)
-                  : Colors.white.withValues(alpha: 0.6),
-              size: 18, // تصغير الأيقونات
-            ),
-            const SizedBox(height: 2), // تقليل المسافة
-            Text(
-              label,
-              style: GoogleFonts.cairo(
-                fontSize: 10, // تصغير النص
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected
-                    ? const Color(0xFFffd700)
-                    : Colors.white.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

@@ -1,16 +1,20 @@
-// صفحة الحساب الشخصي - تصميم مفصل ودقيق حسب المواصفات
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:intl/intl.dart';
-import '../widgets/curved_navigation_bar.dart';
-import '../widgets/common_header.dart';
+
 import '../core/design_system.dart';
-import '../services/real_auth_service.dart';
+import '../l10n/app_localizations.dart';
+import '../providers/theme_provider.dart';
+import '../utils/theme_colors.dart';
+import '../widgets/app_background.dart';
+import '../widgets/curved_navigation_bar.dart';
 
 class NewAccountPage extends StatefulWidget {
   const NewAccountPage({super.key});
@@ -19,333 +23,223 @@ class NewAccountPage extends StatefulWidget {
   State<NewAccountPage> createState() => _NewAccountPageState();
 }
 
-class _NewAccountPageState extends State<NewAccountPage>
-    with TickerProviderStateMixin {
-  // متحكمات الحركة
-  late AnimationController _animationController;
-  late AnimationController _headerAnimationController;
-  late AnimationController _particleAnimationController;
-  late AnimationController _settingsAnimationController;
+class _NewAccountPageState extends State<NewAccountPage> {
+  bool _isLoading = true;
+  int _currentNavIndex = 3; // الحساب
 
-  // الحركات
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideDownAnimation;
-  late Animation<Offset> _slideUpAnimation;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _rotationAnimation;
-  // تم إزالة _pulseAnimation غير المستخدم
-
-  // متغيرات الإعدادات
-  bool _ordersNotifications = true;
-  bool _profitsNotifications = true;
-  // تم إزالة _offersNotifications غير المستخدم
-  bool _darkMode = true; // الوضع الليلي دائماً
-  // تم إزالة _twoFactorAuth و _hideAccount غير المستخدمين
-  double _fontSize = 100.0;
-  double get _fontScale => _fontSize / 100; // معامل تكبير الخط
-
-  // بيانات المستخدم الحقيقية من قاعدة البيانات
-  Map<String, dynamic> _userData = {
-    'name': 'جاري التحميل...',
-    'email': 'جاري التحميل...',
-    'phone': 'جاري التحميل...',
-    'joinDate': 'جاري التحميل...',
-    'totalOrders': 0,
-    'totalProfits': 0.0,
-    'rating': 0.0,
-    'successRate': 0,
-    'monthlyProfit': 0.0,
-  };
-
-  // متغيرات التحكم في التحميل
-  bool _isLoadingUserData = true;
-  String? _currentUserPhone;
-  // تم إزالة _currentUserId غير المستخدم
-
-
+  // بيانات المستخدم
+  String _userName = '';
+  String _userPhone = '';
+  String _userEmail = '';
+  String _joinDate = '';
+  int _totalOrders = 0;
+  double _totalProfits = 0.0;
 
   @override
   void initState() {
     super.initState();
-
-    // تهيئة المتحكمات
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-
-    _headerAnimationController = AnimationController(
-      duration: const Duration(seconds: 4),
-      vsync: this,
-    );
-
-    _particleAnimationController = AnimationController(
-      duration: const Duration(seconds: 8),
-      vsync: this,
-    );
-
-    _settingsAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-
-    // تهيئة الحركات
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
-    );
-
-    _slideDownAnimation =
-        Tween<Offset>(begin: const Offset(0, -0.5), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _animationController,
-            curve: Curves.elasticOut,
-          ),
-        );
-
-    _slideUpAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-          CurvedAnimation(
-            parent: _animationController,
-            curve: Curves.easeOutBack,
-          ),
-        );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.elasticOut),
-    );
-
-    _rotationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _particleAnimationController,
-        curve: Curves.linear,
-      ),
-    );
-
-    // تم إزالة تعيين _pulseAnimation غير المستخدم
-
-    // بدء الحركات
-    _animationController.forward();
-    _headerAnimationController.repeat(reverse: true);
-    _particleAnimationController.repeat();
-
-    // جلب بيانات المستخدم
     _loadUserData();
   }
 
-  /// جلب بيانات المستخدم من قاعدة البيانات
   Future<void> _loadUserData() async {
     try {
-      debugPrint('🔄 بدء تحميل بيانات المستخدم...');
-
-      // الحصول على المستخدم الحالي
       final prefs = await SharedPreferences.getInstance();
-      _currentUserPhone = prefs.getString('current_user_phone');
-      // تم إزالة تعيين _currentUserId غير المستخدم
+      final userPhone = prefs.getString('current_user_phone');
 
-      if (_currentUserPhone == null || _currentUserPhone!.isEmpty) {
-        debugPrint('❌ لا يوجد مستخدم مسجل دخول');
-        setState(() => _isLoadingUserData = false);
+      if (userPhone == null) {
+        setState(() => _isLoading = false);
         return;
       }
 
-      debugPrint('📱 رقم هاتف المستخدم: $_currentUserPhone');
-
-      // جلب بيانات المستخدم من قاعدة البيانات
-      final response = await Supabase.instance.client
+      // جلب بيانات المستخدم
+      final userResponse = await Supabase.instance.client
           .from('users')
-          .select(
-            'id, name, phone, email, created_at, achieved_profits, expected_profits, is_admin',
-          )
-          .eq('phone', _currentUserPhone!)
+          .select('name, phone, email, created_at')
+          .eq('phone', userPhone)
           .maybeSingle();
 
-      if (response != null) {
-        debugPrint('✅ تم جلب بيانات المستخدم: $response');
+      if (userResponse != null) {
+        _userName = userResponse['name'] ?? '';
+        _userPhone = userResponse['phone'] ?? '';
+        _userEmail = userResponse['email'] ?? '';
 
-        // تنسيق تاريخ التسجيل
-        String formattedDate = 'غير محدد';
-        if (response['created_at'] != null) {
-          try {
-            final createdAt = DateTime.parse(response['created_at']);
-            formattedDate = DateFormat('dd MMMM yyyy', 'ar').format(createdAt);
-          } catch (e) {
-            debugPrint('خطأ في تنسيق التاريخ: $e');
-          }
+        // تنسيق تاريخ الانضمام
+        if (userResponse['created_at'] != null) {
+          final createdAt = DateTime.parse(userResponse['created_at']);
+          final baghdadDate = createdAt.toUtc().add(const Duration(hours: 3));
+          _joinDate = DateFormat('yyyy/MM/dd').format(baghdadDate);
         }
-
-        // حساب عدد الطلبات الحقيقي
-        int totalOrders = 0;
-        try {
-          final ordersResponse = await Supabase.instance.client
-              .from('orders')
-              .select('id')
-              .eq('user_id', response['id']);
-          totalOrders = ordersResponse.length;
-          debugPrint('📊 عدد الطلبات: $totalOrders');
-        } catch (e) {
-          debugPrint('خطأ في حساب عدد الطلبات: $e');
-        }
-
-        // حساب إحصائيات المستخدم
-        final totalProfits =
-            (response['achieved_profits'] ?? 0.0) +
-            (response['expected_profits'] ?? 0.0);
-
-        setState(() {
-          _userData = {
-            'name': response['name'] ?? 'غير محدد',
-            'email': response['email'] ?? '$_currentUserPhone@montajati.com',
-            'phone': response['phone'] ?? _currentUserPhone,
-            'joinDate': formattedDate,
-            'totalOrders': totalOrders,
-            'totalProfits': totalProfits,
-            'rating': 4.8, // قيمة افتراضية
-            'successRate': 95, // قيمة افتراضية
-            'monthlyProfit': response['achieved_profits'] ?? 0.0,
-          };
-          _isLoadingUserData = false;
-        });
-
-        debugPrint('✅ تم تحديث بيانات المستخدم في الواجهة');
-      } else {
-        debugPrint('❌ لم يتم العثور على المستخدم في قاعدة البيانات');
-        setState(() => _isLoadingUserData = false);
       }
+
+      // جلب عدد الطلبات
+      final ordersResponse = await Supabase.instance.client.from('orders').select('id').eq('user_phone', userPhone);
+      _totalOrders = ordersResponse.length;
+
+      // جلب الأرباح
+      final profitsResponse = await Supabase.instance.client
+          .from('orders')
+          .select('profit')
+          .eq('user_phone', userPhone)
+          .inFilter('status', ['delivered', 'واصل', 'تم التسليم للزبون']);
+
+      _totalProfits = 0.0;
+      for (var order in profitsResponse) {
+        _totalProfits += (order['profit'] ?? 0).toDouble();
+      }
+
+      setState(() => _isLoading = false);
     } catch (e) {
-      debugPrint('❌ خطأ في جلب بيانات المستخدم: $e');
-      setState(() => _isLoadingUserData = false);
+      debugPrint('❌ خطأ في تحميل بيانات المستخدم: $e');
+      setState(() => _isLoading = false);
     }
   }
 
-  @override
-  void dispose() {
-    _animationController.dispose();
-    _headerAnimationController.dispose();
-    _particleAnimationController.dispose();
-    _settingsAnimationController.dispose();
-    super.dispose();
+  Future<void> _logout(AppLocalizations l10n) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1a1f2e),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(l10n.logoutConfirm, style: GoogleFonts.cairo(color: Colors.white)),
+        content: Text(l10n.logoutMessage, style: GoogleFonts.cairo(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.cancel, style: GoogleFonts.cairo(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.logout, style: GoogleFonts.cairo(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      if (mounted) context.go('/login');
+    }
+  }
+
+  Widget _buildThemeToggle(ThemeProvider themeProvider, bool isDark) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: ThemeColors.cardBackground(isDark),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: ThemeColors.cardBorder(isDark)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: FaIcon(
+                  themeProvider.isDarkMode ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
+                  color: const Color(0xFFffd700),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Text(
+                  themeProvider.getThemeName(),
+                  style: GoogleFonts.cairo(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: ThemeColors.textColor(isDark),
+                  ),
+                ),
+              ),
+              Switch(
+                value: themeProvider.isDarkMode,
+                onChanged: (value) => themeProvider.setDarkMode(value),
+                activeThumbColor: const Color(0xFFffd700),
+                activeTrackColor: const Color(0xFFffd700).withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppDesignSystem.primaryBackground, // خلفية موحدة
-      extendBody: true, // إزالة الخلفية السوداء خلف الشريط السفلي
-      body: Stack(
-        children: [
-          // خلفية متحركة مع جزيئات
-          _buildAnimatedBackground(),
+    final l10n = AppLocalizations.of(context)!;
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
 
-          // المحتوى الرئيسي
-          Column(
-            children: [
-              // الشريط العلوي الموحد
-              CommonHeader(
-                title: 'حسابي',
-                rightActions: [
-                  // زر الرجوع على اليمين
-                  GestureDetector(
-                    onTap: () => context.go('/products'),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(
-                        FontAwesomeIcons.arrowRight,
-                        color: Color(0xFFffd700),
-                        size: 16,
+    return Scaffold(
+      body: AppBackground(
+        child: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFFffd700)))
+              : Column(
+                  children: [
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          const SizedBox(width: 10),
+                          Text(
+                            l10n.myAccount,
+                            style: GoogleFonts.cairo(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: ThemeColors.textColor(isDark),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
-              ),
 
-              // محتوى الصفحة مع حركات
-              Expanded(
-                child: AnimatedBuilder(
-                  animation: _fadeAnimation,
-                  builder: (context, child) {
-                    return FadeTransition(
-                      opacity: _fadeAnimation,
+                    // Content
+                    Expanded(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.only(
-                          left: 12.5,
-                          right: 12.5,
-                          top: 25,
-                          bottom: 100, // مساحة للشريط السفلي
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Column(
                           children: [
-                            // بطاقة المعلومات الشخصية المفصلة
-                            SlideTransition(
-                              position: _slideDownAnimation,
-                              child: ScaleTransition(
-                                scale: _scaleAnimation,
-                                child: _buildDetailedUserInfoCard(),
-                              ),
-                            ),
-
-                            const SizedBox(height: 25),
-
-                            // قسم الإعدادات السريعة
-                            SlideTransition(
-                              position: _slideUpAnimation,
-                              child: _buildQuickSettingsSection(),
-                            ),
-
-                            const SizedBox(height: 25),
-
-                            // قسم الإجراءات والروابط
-                            SlideTransition(
-                              position: _slideUpAnimation,
-                              child: _buildActionsSection(),
-                            ),
-
-                            const SizedBox(height: 30),
-
-                            // زر تسجيل الخروج
-                            SlideTransition(
-                              position: _slideUpAnimation,
-                              child: _buildLogoutButton(),
-                            ),
-
+                            _buildUserCard(l10n, isDark),
                             const SizedBox(height: 20),
+                            _buildThemeToggle(themeProvider, isDark),
+                            const SizedBox(height: 20),
+                            _buildMenuItems(l10n, isDark),
+                            const SizedBox(height: 30),
                           ],
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-
-
-        ],
+        ),
       ),
-
-      // شريط التنقل السفلي المنحني
       bottomNavigationBar: CurvedNavigationBar(
-        index: 3, // الحساب
-        items: <Widget>[
-          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
+        index: _currentNavIndex,
+        items: const <Widget>[
+          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)),
+          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)),
+          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)),
+          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)),
         ],
-        color: AppDesignSystem.bottomNavColor, // لون الشريط موحد
-        buttonBackgroundColor: AppDesignSystem.activeButtonColor, // لون الكرة موحد
-        backgroundColor: Colors.transparent, // خلفية شفافة
-        animationCurve: Curves.elasticOut, // منحنى مبهر
-        animationDuration: Duration(milliseconds: 1200), // انتقال مبهر
+        color: AppDesignSystem.bottomNavColor,
+        buttonBackgroundColor: AppDesignSystem.activeButtonColor,
+        backgroundColor: Colors.transparent,
+        animationCurve: Curves.elasticOut,
+        animationDuration: const Duration(milliseconds: 1200),
         onTap: (index) {
+          setState(() {
+            _currentNavIndex = index;
+          });
           switch (index) {
             case 0:
               context.go('/products');
@@ -357,7 +251,7 @@ class _NewAccountPageState extends State<NewAccountPage>
               context.go('/profits');
               break;
             case 3:
-              // الصفحة الحالية
+              // الحساب - الصفحة الحالية
               break;
           }
         },
@@ -366,1212 +260,183 @@ class _NewAccountPageState extends State<NewAccountPage>
     );
   }
 
-  // تم حذف _buildNavButton غير المستخدم
-
-  // بناء الخلفية المتحركة مع جزيئات
-  Widget _buildAnimatedBackground() {
-    return AnimatedBuilder(
-      animation: _particleAnimationController,
-      builder: (context, child) {
-        return Container(
-          width: double.infinity,
-          height: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF1a1a2e), Color(0xFF16213e)], // وضع ليلي دائماً
-            ),
+  Widget _buildUserCard(AppLocalizations l10n, bool isDark) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(25),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+        child: Container(
+          padding: const EdgeInsets.all(30),
+          decoration: BoxDecoration(
+            color: ThemeColors.cardBackground(isDark),
+            borderRadius: BorderRadius.circular(25),
+            border: Border.all(color: ThemeColors.cardBorder(isDark)),
           ),
-          child: Stack(
-            children: List.generate(20, (index) {
-              return Positioned(
-                left: (index * 50.0) % MediaQuery.of(context).size.width,
-                top: (index * 80.0) % MediaQuery.of(context).size.height,
-                child: Transform.rotate(
-                  angle: _rotationAnimation.value * 2 * 3.14159,
-                  child: Container(
-                    width: 4,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        );
-      },
-    );
-  }
-
-
-
-  // بناء بطاقة المعلومات الشخصية المفصلة
-  Widget _buildDetailedUserInfoCard() {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.95,
-      height: 140, // ✅ تصغير من 200 إلى 140
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF667eea).withValues(alpha: 0.1),
-            const Color(0xFFf093fb).withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFF667eea).withValues(alpha: 0.3),
-          width: 2,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF667eea).withValues(alpha: 0.2),
-            blurRadius: 30,
-            offset: const Offset(0, 15),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(15), // ✅ تصغير من 20 إلى 15
-        child: Row(
-          children: [
-            // صورة الملف الشخصي (يسار البطاقة)
-            _buildProfileImage(),
-
-            const SizedBox(width: 15), // ✅ تصغير من 20 إلى 15
-            // المعلومات الأساسية (وسط البطاقة)
-            Expanded(child: _buildUserBasicInfo()),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // بناء صورة الملف الشخصي
-  Widget _buildProfileImage() {
-    return GestureDetector(
-      onTap: _changeProfileImage,
-      child: Container(
-        width: 45, // ✅ تصغير أكثر من 50 إلى 45
-        height: 45, // ✅ تصغير أكثر من 50 إلى 45
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2), // تصغير الحدود
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: const Icon(
-          FontAwesomeIcons.user,
-          color: Color(0xFF1a1a2e),
-          size: 28, // ✅ تصغير من 35 إلى 28
-        ),
-      ),
-    );
-  }
-
-  // بناء المعلومات الأساسية للمستخدم
-  Widget _buildUserBasicInfo() {
-    if (_isLoadingUserData) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 2),
-            SizedBox(height: 8),
-            Text(
-              'جاري تحميل البيانات...',
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // اسم المستخدم
-        Text(
-          _userData['name'],
-          style: GoogleFonts.cairo(
-            fontSize: 18, // تصغير من 22.4 إلى 18
-            fontWeight: FontWeight.w700,
-            color: _darkMode ? Colors.white : const Color(0xFF1a1a2e),
-            letterSpacing: 0.5,
-          ),
-        ),
-
-        const SizedBox(height: 8),
-
-        // ✅ تم إخفاء البريد الإلكتروني حسب الطلب
-        const SizedBox(height: 6),
-
-        // رقم الهاتف
-        Row(
-          children: [
-            const Icon(
-              FontAwesomeIcons.phone,
-              color: Color(0xFF28a745),
-              size: 14,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _userData['phone'],
-              style: GoogleFonts.cairo(
-                fontSize: 13, // تصغير من 16 إلى 13
-                fontWeight: FontWeight.w500,
-                color: Colors.white70, // أبيض في الوضع الليلي
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 6),
-
-        // تاريخ التسجيل
-        Row(
-          children: [
-            const Icon(
-              FontAwesomeIcons.calendarDays,
-              color: Color(0xFFffc107),
-              size: 14,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'عضو منذ: ${_userData['joinDate']}',
-              style: GoogleFonts.cairo(
-                fontSize: 12, // تصغير من 14.4 إلى 12
-                fontWeight: FontWeight.w400,
-                color: Colors.white70, // أبيض في الوضع الليلي
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // بناء قسم الإعدادات السريعة
-  Widget _buildQuickSettingsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // عنوان القسم
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.5),
-          child: Row(
-            children: [
-              const Icon(
-                FontAwesomeIcons.sliders,
-                color: Color(0xFF667eea),
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'الإعدادات السريعة',
-                style: GoogleFonts.cairo(
-                  fontSize: 20.8, // 1.3rem
-                  fontWeight: FontWeight.w700,
-                  color: _darkMode ? Colors.white : const Color(0xFF1a1a2e),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 15),
-
-        // شبكة البطاقات
-        Row(
-          children: [
-            // بطاقة إعدادات الإشعارات
-            Expanded(child: _buildNotificationsCard()),
-            const SizedBox(width: 15),
-            // بطاقة الأمان والخصوصية
-            Expanded(child: _buildSecurityCard()),
-          ],
-        ),
-
-        const SizedBox(height: 15),
-
-        // الصف الثاني من البطاقات
-        Row(
-          children: [
-            // بطاقة إعدادات المظهر
-            Expanded(child: _buildAppearanceCard()),
-            const SizedBox(width: 15),
-            // بطاقة الإحصائيات الشخصية
-            Expanded(child: _buildPersonalStatsCard()),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // بطاقة إعدادات الإشعارات
-  Widget _buildNotificationsCard() {
-    return Container(
-      height: 120, // تكبير المربعات قليلاً
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05), // خلفية شفافة للوضع الليلي
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFF17a2b8),
-          width: 1,
-        ), // تقليل سمك الحدود
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF17a2b8).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(10), // تقليل padding
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min, // تقليل المساحة المطلوبة
-          children: [
-            // العنوان
-            Row(
-              children: [
-                const Icon(
-                  FontAwesomeIcons.bell,
-                  color: Color(0xFF17a2b8),
-                  size: 14, // تقليل حجم الأيقونة
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    'الإشعارات',
-                    style: GoogleFonts.cairo(
-                      fontSize: 13 * _fontScale, // تطبيق معامل تكبير الخط
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 4), // تقليل المسافة أكثر
-            // المفاتيح مع فراغ بسيط
-            Flexible(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildCompactToggleSwitch(
-                    'إشعارات الطلبات',
-                    _ordersNotifications,
-                  ),
-                  const SizedBox(height: 12), // فراغ أكبر بين الإشعارات
-                  _buildCompactToggleSwitch(
-                    'إشعارات الأرباح',
-                    _profitsNotifications,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // بطاقة الأمان والخصوصية
-  Widget _buildSecurityCard() {
-    return Container(
-      height: 120, // تكبير المربعات قليلاً
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05), // خلفية شفافة للوضع الليلي
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFdc3545),
-          width: 1,
-        ), // تقليل سمك الحدود
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFdc3545).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // العنوان
-            Row(
-              children: [
-                const Icon(
-                  FontAwesomeIcons.shieldHalved,
-                  color: Color(0xFFdc3545),
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'الأمان والخصوصية',
-                    style: GoogleFonts.cairo(
-                      fontSize: 13 * _fontScale, // تطبيق معامل تكبير الخط
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 4), // تقليل المسافة
-            // زر الدعم - في الوسط بالضبط
-            Expanded(
-              child: Center(
-                child: _buildSmallButton(
-                  'تغيير كلمة المرور',
-                  const Color(0xFFffc107),
-                  FontAwesomeIcons.key,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // بطاقة إعدادات المظهر
-  Widget _buildAppearanceCard() {
-    return Container(
-      height: 120, // تكبير المربعات قليلاً
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05), // خلفية شفافة للوضع الليلي
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFF6f42c1),
-          width: 1,
-        ), // تقليل سمك الحدود
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF6f42c1).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // العنوان
-            Row(
-              children: [
-                const Icon(
-                  FontAwesomeIcons.palette,
-                  color: Color(0xFF6f42c1),
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'المظهر',
-                  style: GoogleFonts.cairo(
-                    fontSize: 13, // تصغير أكثر
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 4), // تقليل المسافة
-            // خيارات المظهر - شريط حجم الخط فقط
-            Flexible(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [_buildCompactFontSizeSlider()],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // بطاقة الإحصائيات الشخصية
-  Widget _buildPersonalStatsCard() {
-    return Container(
-      height: 120, // تكبير المربعات قليلاً
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05), // خلفية شفافة للوضع الليلي
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFF28a745),
-          width: 1,
-        ), // تقليل سمك الحدود
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF28a745).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // العنوان
-            Row(
-              children: [
-                const Icon(
-                  FontAwesomeIcons.chartBar,
-                  color: Color(0xFF28a745),
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'إحصائياتي',
-                  style: GoogleFonts.cairo(
-                    fontSize: 17.6, // 1.1rem
-                    fontWeight: FontWeight.w600,
-                    color: _darkMode ? Colors.white : const Color(0xFF1a1a2e),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 8),
-
-            // الإحصائيات
-            Row(
-              children: [
-                const Icon(
-                  FontAwesomeIcons.circleCheck,
-                  color: Color(0xFF28a745),
-                  size: 14,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${_userData['successRate']}% معدل نجاح',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14.4,
-                    color: const Color(0xFF28a745),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(
-                  FontAwesomeIcons.coins,
-                  color: Color(0xFFffc107),
-                  size: 14,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '${(_userData['monthlyProfit'] / 1000).toStringAsFixed(0)}K د.ع/شهر',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14.4,
-                    color: const Color(0xFFffc107),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // تم حذف _buildToggleSwitch غير المستخدم
-
-  // بناء مفتاح تبديل مضغوط للبطاقات الصغيرة
-  Widget _buildCompactToggleSwitch(String title, bool value) {
-    return Container(
-      height: 18, // ارتفاع أصغر
-      margin: EdgeInsets.zero, // إزالة أي هوامش
-      padding: EdgeInsets.zero, // إزالة أي حشو
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: GoogleFonts.cairo(
-                fontSize: 11, // خط أصغر أكثر
-                fontWeight: FontWeight.w500,
-                color: Colors.white70,
-                height: 1.0, // تقليل ارتفاع السطر
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Transform.scale(
-            scale: 0.6, // مفتاح أصغر أكثر
-            child: Switch(
-              value: value,
-              onChanged: (newValue) {
-                setState(() {
-                  if (title == 'إشعارات الطلبات') {
-                    _ordersNotifications = newValue;
-                  } else if (title == 'إشعارات الأرباح') {
-                    _profitsNotifications = newValue;
-                  } else if (title == 'الوضع الليلي') {
-                    _darkMode = newValue;
-                  }
-                });
-              },
-              thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
-                if (states.contains(WidgetState.selected)) {
-                  return const Color(0xFF28a745);
-                }
-                return const Color(0xFF6c757d);
-              }),
-              materialTapTargetSize:
-                  MaterialTapTargetSize.shrinkWrap, // تقليل منطقة اللمس
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // بناء زر صغير
-  Widget _buildSmallButton(String title, Color color, IconData icon) {
-    return GestureDetector(
-      onTap: () {
-        if (title == 'تغيير كلمة المرور') {
-          _openTelegramSupport();
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 12),
-            const SizedBox(width: 4),
-            Text(
-              title,
-              style: GoogleFonts.cairo(
-                fontSize: 11.2,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // تم حذف _buildFontSizeSlider غير المستخدم
-
-  // بناء شريط تمرير حجم الخط مضغوط
-  Widget _buildCompactFontSizeSlider() {
-    return Row(
-      children: [
-        Text(
-          'حجم الخط',
-          style: GoogleFonts.cairo(
-            fontSize: 10, // خط أصغر
-            color: Colors.white70,
-          ),
-        ),
-        Expanded(
-          child: Transform.scale(
-            scale: 0.8, // تصغير الشريط
-            child: Slider(
-              value: _fontSize,
-              min: 80,
-              max: 120,
-              divisions: 4,
-              onChanged: (value) {
-                setState(() {
-                  _fontSize = value;
-                });
-              },
-              activeColor: const Color(0xFF6f42c1),
-              inactiveColor: const Color(0xFF6f42c1).withValues(alpha: 0.3),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // بناء قسم الإجراءات والروابط
-  Widget _buildActionsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // عنوان القسم
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.5),
-          child: Text(
-            'الإجراءات والروابط',
-            style: GoogleFonts.cairo(
-              fontSize: 20.8, // 1.3rem
-              fontWeight: FontWeight.w700,
-              color: _darkMode ? Colors.white : const Color(0xFF1a1a2e),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 15),
-
-        // الأزرار
-
-        _buildActionButton(
-          title: 'الدعم والمساعدة',
-          icon: FontAwesomeIcons.headset,
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6f42c1), Color(0xFF5a2d91)], // بنفسجي
-          ),
-          onTap: _openSupport,
-        ),
-
-        // ✅ تم حذف زر اختبار النظام حسب الطلب
-      ],
-    );
-  }
-
-  // بناء زر إجراء
-  Widget _buildActionButton({
-    required String title,
-    required IconData icon,
-    required LinearGradient gradient,
-    Color textColor = Colors.white,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: 50,
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: gradient.colors.first.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: textColor, size: 18),
-            const SizedBox(width: 12),
-            Text(
-              title,
-              style: GoogleFonts.cairo(
-                fontSize: 16, // 1rem
-                fontWeight: FontWeight.w600,
-                color: textColor,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // بناء زر تسجيل الخروج
-  Widget _buildLogoutButton() {
-    return GestureDetector(
-      onTap: _showLogoutDialog,
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: 45,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFdc3545), Color(0xFFc82333)],
-          ),
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFdc3545).withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              FontAwesomeIcons.rightFromBracket,
-              color: Colors.white,
-              size: 18,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'تسجيل الخروج',
-              style: GoogleFonts.cairo(
-                fontSize: 16, // 1rem
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-
-
-  // الدوال المطلوبة للوظائف
-
-  // الدوال المطلوبة للوظائف
-
-  // تغيير صورة الملف الشخصي
-  void _changeProfileImage() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1a1a2e),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
-        return Container(
-          padding: const EdgeInsets.all(20),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // عنوان
+              // Name
               Text(
-                'تغيير الصورة الشخصية',
+                _userName.isNotEmpty ? _userName : l10n.user,
                 style: GoogleFonts.cairo(
-                  fontSize: 18 * _fontScale,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: ThemeColors.textColor(isDark),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
 
-              // خيارات تغيير الصورة
+              // Phone
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // الكاميرا
-                  _buildImageOption(
-                    icon: FontAwesomeIcons.camera,
-                    label: 'الكاميرا',
-                    onTap: () {
-                      Navigator.pop(context);
-                      _pickImageFromCamera();
-                    },
-                  ),
-                  // المعرض
-                  _buildImageOption(
-                    icon: FontAwesomeIcons.image,
-                    label: 'المعرض',
-                    onTap: () {
-                      Navigator.pop(context);
-                      _pickImageFromGallery();
-                    },
-                  ),
-                  // حذف الصورة
-                  _buildImageOption(
-                    icon: FontAwesomeIcons.trash,
-                    label: 'حذف',
-                    color: const Color(0xFFdc3545),
-                    onTap: () {
-                      Navigator.pop(context);
-                      _removeProfileImage();
-                    },
+                  FaIcon(FontAwesomeIcons.phone, size: 14, color: ThemeColors.secondaryIconColor(isDark)),
+                  const SizedBox(width: 8),
+                  Text(
+                    _userPhone,
+                    style: GoogleFonts.cairo(fontSize: 16, color: ThemeColors.secondaryTextColor(isDark)),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
-  // بناء خيار الصورة
-  Widget _buildImageOption({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Color? color,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 80,
-        height: 80,
-        decoration: BoxDecoration(
-          color: (color ?? const Color(0xFF667eea)).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: color ?? const Color(0xFF667eea), width: 2),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color ?? const Color(0xFF667eea), size: 24),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              style: GoogleFonts.cairo(
-                fontSize: 12 * _fontScale,
-                fontWeight: FontWeight.w600,
-                color: color ?? const Color(0xFF667eea),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // التقاط صورة من الكاميرا
-  void _pickImageFromCamera() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'فتح الكاميرا لالتقاط صورة جديدة',
-          style: GoogleFonts.cairo(),
-        ),
-        backgroundColor: const Color(0xFF28a745),
-      ),
-    );
-  }
-
-  // اختيار صورة من المعرض
-  void _pickImageFromGallery() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'فتح معرض الصور لاختيار صورة',
-          style: GoogleFonts.cairo(),
-        ),
-        backgroundColor: const Color(0xFF007bff),
-      ),
-    );
-  }
-
-  // حذف الصورة الشخصية
-  void _removeProfileImage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم حذف الصورة الشخصية', style: GoogleFonts.cairo()),
-        backgroundColor: const Color(0xFFdc3545),
-      ),
-    );
-  }
-
-  // ✅ تم حذف الدوال غير المستخدمة
-
-
-
-  // فتح الدعم والمساعدة - التلغرام
-  void _openSupport() async {
-    const telegramUrl = 'https://t.me/montajati_support';
-
-    try {
-      final Uri url = Uri.parse(telegramUrl);
-
-      if (await canLaunchUrl(url)) {
-        await launchUrl(
-          url,
-          mode: LaunchMode.externalApplication, // فتح في تطبيق التلغرام
-        );
-      } else {
-        // إذا لم يتمكن من فتح التلغرام، اعرض رسالة مع الرابط
-        if (mounted) {
-          _showTelegramDialog();
-        }
-      }
-    } catch (e) {
-      // في حالة حدوث خطأ، اعرض رسالة مع الرابط
-      if (mounted) {
-        _showTelegramDialog();
-      }
-    }
-  }
-
-  // عرض نافذة معلومات التلغرام
-  void _showTelegramDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF1a1a2e),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF0088cc), Color(0xFF006bb3)],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  FontAwesomeIcons.telegram,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Text(
-                  'الدعم والمساعدة',
-                  style: GoogleFonts.cairo(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'للحصول على الدعم والمساعدة، تواصل معنا عبر التلغرام:',
-                style: GoogleFonts.cairo(
-                  fontSize: 16,
-                  color: Colors.white70,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 15),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16213e),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF0088cc), width: 1),
-                ),
-                child: Row(
+              if (_joinDate.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      FontAwesomeIcons.at,
-                      color: Color(0xFF0088cc),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'montajati_support',
-                        style: GoogleFonts.cairo(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF0088cc),
-                        ),
-                      ),
+                    FaIcon(FontAwesomeIcons.calendar, size: 14, color: ThemeColors.secondaryIconColor(isDark)),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${l10n.joinedOn} $_joinDate',
+                      style: GoogleFonts.cairo(fontSize: 14, color: ThemeColors.secondaryTextColor(isDark)),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'إغلاق',
-                style: GoogleFonts.cairo(
-                  color: Colors.grey[400],
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                // محاولة فتح التلغرام مرة أخرى
-                const telegramUrl = 'https://t.me/montajati_support';
-                final Uri url = Uri.parse(telegramUrl);
-                await launchUrl(url, mode: LaunchMode.externalApplication);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0088cc),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              ],
+
+              const SizedBox(height: 25),
+
+              // Stats
+              Row(
                 children: [
-                  const Icon(FontAwesomeIcons.telegram, size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    'فتح التلغرام',
-                    style: GoogleFonts.cairo(fontWeight: FontWeight.w600),
+                  Expanded(
+                    child: _buildStatItem(l10n.orders, _totalOrders.toString(), FontAwesomeIcons.boxOpen, isDark),
+                  ),
+                  Container(width: 1, height: 50, color: ThemeColors.dividerColor(isDark)),
+                  Expanded(
+                    child: _buildStatItem(
+                      l10n.profits,
+                      '${NumberFormat('#,###').format(_totalProfits)} د.ع',
+                      FontAwesomeIcons.coins,
+                      isDark,
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
-        );
-      },
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  // إظهار نافذة تسجيل الخروج
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'تسجيل الخروج',
-            style: GoogleFonts.cairo(fontWeight: FontWeight.w700),
-          ),
-          content: Text(
-            'هل أنت متأكد من رغبتك في تسجيل الخروج؟',
-            style: GoogleFonts.cairo(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'إلغاء',
-                style: GoogleFonts.cairo(
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w600,
+  Widget _buildStatItem(String label, String value, IconData icon, bool isDark) {
+    return Column(
+      children: [
+        FaIcon(icon, color: const Color(0xFFffd700), size: 24),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.bold, color: ThemeColors.textColor(isDark)),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: GoogleFonts.cairo(fontSize: 14, color: ThemeColors.secondaryTextColor(isDark))),
+      ],
+    );
+  }
+
+  Widget _buildMenuItems(AppLocalizations l10n, bool isDark) {
+    return Column(
+      children: [
+        _buildMenuItem(
+          icon: FontAwesomeIcons.userPen,
+          title: l10n.editProfile,
+          isDark: isDark,
+          onTap: () {
+            // TODO: Navigate to edit profile
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildMenuItem(
+          icon: FontAwesomeIcons.circleInfo,
+          title: l10n.aboutApp,
+          isDark: isDark,
+          onTap: () {
+            // TODO: Show about dialog
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildMenuItem(
+          icon: FontAwesomeIcons.rightFromBracket,
+          title: l10n.logout,
+          color: Colors.red,
+          isDark: isDark,
+          onTap: () => _logout(l10n),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required bool isDark,
+    String? trailing,
+    Color? color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(15),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: ThemeColors.cardBackground(isDark),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: ThemeColors.cardBorder(isDark)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (color ?? const Color(0xFFffd700)).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: FaIcon(icon, color: color ?? const Color(0xFFffd700), size: 22),
                 ),
-              ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.cairo(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: ThemeColors.textColor(isDark),
+                    ),
+                  ),
+                ),
+                if (trailing != null)
+                  Text(trailing, style: GoogleFonts.cairo(fontSize: 14, color: ThemeColors.secondaryTextColor(isDark)))
+                else
+                  FaIcon(FontAwesomeIcons.chevronLeft, color: ThemeColors.secondaryIconColor(isDark), size: 14),
+              ],
             ),
-            ElevatedButton(
-              onPressed: () async {
-                // حفظ BuildContext قبل العملية غير المتزامنة
-                final navigator = Navigator.of(context);
-                final router = GoRouter.of(context);
-
-                navigator.pop();
-
-                // تسجيل الخروج باستخدام خدمة المصادقة
-                await AuthService.logout();
-
-                // التوجه لصفحة الترحيب
-                if (mounted) {
-                  router.go('/welcome');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFdc3545),
-                foregroundColor: Colors.white,
-              ),
-              child: Text(
-                'تسجيل الخروج',
-                style: GoogleFonts.cairo(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-
-
-  // فتح دعم التلغرام مع رسالة تغيير كلمة المرور
-  Future<void> _openTelegramSupport() async {
-    try {
-      // إعداد الرسالة مع بيانات المستخدم الحقيقية
-      final userName = _userData['name'] ?? 'غير محدد';
-      final userPhone = _userData['phone'] ?? _currentUserPhone ?? 'غير محدد';
-
-      final message =
-          '''مرحباً، أريد تغيير كلمة المرور في تطبيق منتجاتي
-
-اسم المستخدم: $userName
-رقم الهاتف: $userPhone''';
-
-      // ترميز الرسالة للـ URL
-      final encodedMessage = Uri.encodeComponent(message);
-
-      // إنشاء رابط التلغرام مع الرسالة
-      final telegramUrl = 'https://t.me/montajati_support?text=$encodedMessage';
-
-      debugPrint('📱 فتح التلغرام مع الرسالة: $message');
-
-      final Uri url = Uri.parse(telegramUrl);
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-        debugPrint('✅ تم فتح رابط التلغرام بنجاح');
-
-        // عرض رسالة تأكيد للمستخدم
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'تم فتح التلغرام. سيتم التواصل معك قريباً لتغيير كلمة المرور.',
-                style: GoogleFonts.cairo(),
-              ),
-              backgroundColor: const Color(0xFF28a745),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-      } else {
-        throw Exception('لا يمكن فتح تطبيق التلغرام');
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في فتح رابط التلغرام: $e');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'خطأ في فتح التلغرام. تأكد من تثبيت التطبيق أو جرب مرة أخرى.',
-              style: GoogleFonts.cairo(),
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
           ),
-        );
-      }
-    }
+        ),
+      ),
+    );
   }
 }

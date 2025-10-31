@@ -65,12 +65,22 @@ dependencies:
   google_fonts: ^6.2.1
   font_awesome_flutter: ^10.7.0
 
+  # شريط التنقل المنحني
+  curved_navigation_bar: ^1.0.6
+
   # التعامل مع الصور
   image_picker: ^1.1.2
   cached_network_image: ^3.4.1
 
   # دمج JavaScript
   flutter_js: ^0.8.5
+
+  # مكتبة الخرائط التفاعلية
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # مكتبة الرسوم البيانية
+  fl_chart: ^0.69.0
 
   # أدوات إضافية
   intl: ^0.20.2
@@ -90,8 +100,7 @@ dependencies:
   # Supabase
   supabase_flutter: ^2.8.2
 
-  # الرسوم البيانية
-  fl_chart: ^1.0.0
+
 
   # توليد UUID
   uuid: ^4.5.1
@@ -138,6 +147,10 @@ flutter:
   assets:
     - assets/images/
     - assets/fonts/
+    - assets/animations/
+    - assets/js/
+    - assets/data/
+    - assets/l10n/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

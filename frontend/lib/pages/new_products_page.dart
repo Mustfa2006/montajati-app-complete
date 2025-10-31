@@ -5,14 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/design_system.dart';
 import '../models/product.dart';
+import '../providers/theme_provider.dart';
 import '../services/cart_service.dart';
 import '../services/favorites_service.dart';
 import '../services/user_service.dart';
 import '../utils/font_helper.dart';
+import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 import '../widgets/curved_navigation_bar.dart';
 
@@ -304,8 +307,13 @@ class _NewProductsPageState extends State<NewProductsPage> {
         });
 
         // بدء التقليب التلقائي إذا كان هناك أكثر من بانر واحد
+        // تأخير قصير للتأكد من أن PageView تم بناؤه
         if (_banners.length > 1) {
-          _startAutoSlide();
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              _startAutoSlide();
+            }
+          });
         }
       }
 
@@ -329,7 +337,12 @@ class _NewProductsPageState extends State<NewProductsPage> {
         return;
       }
 
-      final currentPage = _bannerPageController.hasClients ? (_bannerPageController.page?.round() ?? 0) : 0;
+      // التأكد من أن PageController متصل بـ PageView قبل محاولة التحريك
+      if (!_bannerPageController.hasClients) {
+        return;
+      }
+
+      final currentPage = _bannerPageController.page?.round() ?? 0;
       final nextPage = (currentPage + 1) % _banners.length;
 
       _bannerPageController.animateToPage(
@@ -662,6 +675,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
 
   // بناء الشريط العلوي
   Widget _buildHeader() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
     // الحصول على التحية المناسبة
     final greetingData = UserService.getGreeting();
     final greeting = greetingData['greeting']!;
@@ -689,7 +703,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                           TextSpan(
                             text: '$greeting $_firstName ',
                             style: GoogleFonts.cairo(
-                              color: Colors.white,
+                              color: ThemeColors.textColor(isDark),
                               fontSize: 9, // تصغير من 11 إلى 9
                               fontWeight: FontWeight.w600,
                             ),
@@ -709,7 +723,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                     Text(
                       _phoneNumber,
                       style: GoogleFonts.cairo(
-                        color: Colors.white.withValues(alpha: 0.7),
+                        color: ThemeColors.secondaryTextColor(isDark),
                         fontSize: 7, // تصغير من 9 إلى 7
                         fontWeight: FontWeight.w400,
                       ),
@@ -857,25 +871,33 @@ class _NewProductsPageState extends State<NewProductsPage> {
 
   // بناء البانر الرئيسي
   Widget _buildMainBanner() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     if (_isLoadingBanners) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
         height: 180,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppDesignSystem.primaryBackground,
-              const Color(0xFF2D3748).withValues(alpha: 0.8),
-              const Color(0xFF1A202C).withValues(alpha: 0.9),
-            ],
-          ),
+          color: isDark ? null : Colors.white,
+          gradient: isDark
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppDesignSystem.primaryBackground,
+                    const Color(0xFF2D3748).withValues(alpha: 0.8),
+                    const Color(0xFF1A202C).withValues(alpha: 0.9),
+                  ],
+                )
+              : null,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1.5),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8)),
-          ],
+          border: Border.all(
+            color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.5),
+            width: isDark ? 1.5 : 2,
+          ),
+          boxShadow: isDark
+              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))]
+              : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Center(
           child: Column(
@@ -943,20 +965,26 @@ class _NewProductsPageState extends State<NewProductsPage> {
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
         height: 180,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppDesignSystem.primaryBackground,
-              const Color(0xFF2D3748).withValues(alpha: 0.8),
-              const Color(0xFF1A202C).withValues(alpha: 0.9),
-            ],
-          ),
+          color: isDark ? null : Colors.white,
+          gradient: isDark
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppDesignSystem.primaryBackground,
+                    const Color(0xFF2D3748).withValues(alpha: 0.8),
+                    const Color(0xFF1A202C).withValues(alpha: 0.9),
+                  ],
+                )
+              : null,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1.5),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8)),
-          ],
+          border: Border.all(
+            color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.5),
+            width: isDark ? 1.5 : 2,
+          ),
+          boxShadow: isDark
+              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))]
+              : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Center(
           child: Column(
@@ -1010,10 +1038,25 @@ class _NewProductsPageState extends State<NewProductsPage> {
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8)),
-                  ],
+                  border: Border.all(
+                    color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.5),
+                    width: isDark ? 1.5 : 2,
+                  ),
+                  boxShadow: isDark
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.grey.withValues(alpha: 0.15),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
@@ -1028,15 +1071,18 @@ class _NewProductsPageState extends State<NewProductsPage> {
                             if (loadingProgress == null) return child;
                             return Container(
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    AppDesignSystem.primaryBackground,
-                                    const Color(0xFF2D3748).withValues(alpha: 0.8),
-                                    const Color(0xFF1A202C).withValues(alpha: 0.9),
-                                  ],
-                                ),
+                                color: isDark ? null : Colors.white,
+                                gradient: isDark
+                                    ? LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          AppDesignSystem.primaryBackground,
+                                          const Color(0xFF2D3748).withValues(alpha: 0.8),
+                                          const Color(0xFF1A202C).withValues(alpha: 0.9),
+                                        ],
+                                      )
+                                    : null,
                               ),
                               child: Center(
                                 child: Stack(
@@ -1064,15 +1110,18 @@ class _NewProductsPageState extends State<NewProductsPage> {
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
                               decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    AppDesignSystem.primaryBackground,
-                                    const Color(0xFF2D3748).withValues(alpha: 0.8),
-                                    const Color(0xFF1A202C).withValues(alpha: 0.9),
-                                  ],
-                                ),
+                                color: isDark ? null : Colors.white,
+                                gradient: isDark
+                                    ? LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          AppDesignSystem.primaryBackground,
+                                          const Color(0xFF2D3748).withValues(alpha: 0.8),
+                                          const Color(0xFF1A202C).withValues(alpha: 0.9),
+                                        ],
+                                      )
+                                    : null,
                               ),
                               child: Center(
                                 child: Column(
@@ -1147,42 +1196,56 @@ class _NewProductsPageState extends State<NewProductsPage> {
 
   // شريط البحث الأصلي - التصميم الكامل
   Widget _buildOriginalSearchBar() {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return Container(
       height: 55,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppDesignSystem.bottomNavColor.withValues(alpha: 0.85),
-            AppDesignSystem.activeButtonColor.withValues(alpha: 0.9),
-            AppDesignSystem.primaryBackground.withValues(alpha: 0.95),
-          ],
-          stops: const [0.0, 0.5, 1.0],
-        ),
+        color: isDark ? null : Colors.white,
+        gradient: isDark
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppDesignSystem.bottomNavColor.withValues(alpha: 0.85),
+                  AppDesignSystem.activeButtonColor.withValues(alpha: 0.9),
+                  AppDesignSystem.primaryBackground.withValues(alpha: 0.95),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              )
+            : null,
         borderRadius: BorderRadius.circular(50),
-        border: Border.all(color: AppDesignSystem.goldColor.withValues(alpha: 0.4), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.25),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-            spreadRadius: 0.5,
-          ),
-          BoxShadow(
-            color: AppDesignSystem.goldColor.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 0),
-            spreadRadius: 1,
-          ),
-        ],
+        border: Border.all(
+          color: AppDesignSystem.goldColor.withValues(alpha: isDark ? 0.4 : 0.5),
+          width: isDark ? 1.2 : 2,
+        ),
+        boxShadow: isDark
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                  spreadRadius: 0.5,
+                ),
+                BoxShadow(
+                  color: AppDesignSystem.goldColor.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 0),
+                  spreadRadius: 1,
+                ),
+              ]
+            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(50),
         child: TextField(
           controller: _searchController,
           focusNode: _originalSearchFocus, // ربط FocusNode
-          style: GoogleFonts.cairo(color: AppDesignSystem.primaryTextColor, fontSize: 16, fontWeight: FontWeight.w500),
+          style: GoogleFonts.cairo(
+            color: isDark ? AppDesignSystem.primaryTextColor : Colors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
           textAlign: TextAlign.right,
           onTap: () {
             // وضع المؤشر في النهاية عند النقر لتجنب تحديد النص
@@ -1200,7 +1263,12 @@ class _NewProductsPageState extends State<NewProductsPage> {
           },
           decoration: InputDecoration(
             hintText: 'ابحث عن المنتجات...',
-            hintStyle: GoogleFonts.cairo(color: AppDesignSystem.primaryTextColor.withValues(alpha: 0.6), fontSize: 14),
+            hintStyle: GoogleFonts.cairo(
+              color: isDark
+                  ? AppDesignSystem.primaryTextColor.withValues(alpha: 0.6)
+                  : Colors.black.withValues(alpha: 0.5),
+              fontSize: 14,
+            ),
             prefixIcon: Container(
               padding: const EdgeInsets.all(14),
               child: Icon(
@@ -1219,7 +1287,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                       padding: const EdgeInsets.all(14),
                       child: Icon(
                         Icons.clear_rounded,
-                        color: AppDesignSystem.secondaryTextColor,
+                        color: isDark ? AppDesignSystem.secondaryTextColor : Colors.black.withValues(alpha: 0.6),
                         size: AppDesignSystem.mediumIconSize,
                       ),
                     ),
@@ -1269,10 +1337,8 @@ class _NewProductsPageState extends State<NewProductsPage> {
     int crossAxisCount;
     if (screenWidth > 600) {
       crossAxisCount = 3; // تابلت أو شاشات كبيرة
-    } else if (screenWidth > 480) {
-      crossAxisCount = 3; // شاشات كبيرة
     } else {
-      crossAxisCount = 2; // هواتف عادية
+      crossAxisCount = 2; // هواتف - بطاقتين فقط جنب بعض
     }
 
     return Container(
@@ -1306,65 +1372,51 @@ class _NewProductsPageState extends State<NewProductsPage> {
     );
   }
 
-  // 🧠 حساب النسبة المثلى للبطاقات بناءً على حجم الشاشة - نظام ذكي جداً
+  // 🧠 النظام الذكي القوي لحساب النسبة المثالية للبطاقة
+  // ✨ القياسات الثابتة للعناصر داخل البطاقة - لا تتغير أبداً
+  static const double _cardTopPadding = 22.0; // المسافة من الأعلى
+  static const double _imageHeight = 200.0; // ارتفاع الصورة ثابت
+  static const double _imageBottomSpacing = -5.0; // المسافة بين الصورة والاسم
+  static const double _nameHeight = 27.0; // ارتفاع شريط الاسم (padding + text)
+  static const double _nameBottomSpacing = 0.0; // المسافة بين الاسم والسعر
+  static const double _priceBarHeight = 40.0; // ارتفاع شريط السعر (vertical padding 3×2 + content 32 + border 1×2 = 40)
+  static const double _cardBottomPadding = 15.0; // المسافة من الأسفل (مسافة أكبر لمنع القطع)
+
+  // 🎯 حساب الارتفاع الكلي للبطاقة بذكاء - مجموع كل العناصر
+  double _calculateCardHeight() {
+    return _cardTopPadding +
+        _imageHeight +
+        _imageBottomSpacing +
+        _nameHeight +
+        _nameBottomSpacing +
+        _priceBarHeight +
+        _cardBottomPadding;
+  }
+
+  // 🧠 حساب النسبة المثالية للبطاقة بناءً على حجم الشاشة
   double _calculateOptimalAspectRatio(BuildContext context, [int? columns]) {
     final mediaQuery = MediaQuery.of(context);
     final screenWidth = mediaQuery.size.width;
-    final screenHeight = mediaQuery.size.height;
-    final devicePixelRatio = mediaQuery.devicePixelRatio;
 
-    // حساب النسبة الأساسية للشاشة
-    final screenAspectRatio = screenWidth / screenHeight;
+    // 🎯 حساب المسافات والأعمدة
+    final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
+    final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
 
-    // تصنيف الشاشات بناءً على العرض والكثافة
-    double baseRatio;
+    // 🧠 تحديد عدد الأعمدة
+    int actualColumns = columns ?? 2;
 
-    if (screenWidth <= 320) {
-      // شاشات صغيرة جداً (iPhone SE القديم) - نسبة أطول لإظهار كامل البطاقة
-      baseRatio = 0.55;
-    } else if (screenWidth <= 375) {
-      // شاشات صغيرة (iPhone 8, iPhone SE الجديد)
-      baseRatio = 0.58;
-    } else if (screenWidth <= 414) {
-      // شاشات متوسطة (iPhone 8 Plus, iPhone 11 Pro)
-      baseRatio = 0.60;
-    } else if (screenWidth <= 428) {
-      // شاشات كبيرة (iPhone 12 Pro Max, iPhone 13 Pro Max)
-      baseRatio = 0.62;
-    } else if (screenWidth <= 480) {
-      // شاشات كبيرة جداً أو تابلت صغير
-      baseRatio = 0.65;
-    } else {
-      // تابلت أو شاشات عريضة
-      baseRatio = 0.68;
-    }
+    // 🎯 حساب عرض البطاقة الواحدة
+    final availableWidth = screenWidth - (horizontalMargin * 2);
+    final totalSpacing = crossAxisSpacing * (actualColumns - 1);
+    final cardWidth = (availableWidth - totalSpacing) / actualColumns;
 
-    // تعديل النسبة بناءً على نسبة العرض إلى الارتفاع للشاشة
-    if (screenAspectRatio > 0.6) {
-      // شاشات عريضة (مناظر طبيعية أو تابلت) - نحتاج بطاقات أطول
-      baseRatio -= 0.05;
-    } else if (screenAspectRatio < 0.45) {
-      // شاشات طويلة جداً (هواتف حديثة) - نحتاج بطاقات أطول
-      baseRatio -= 0.08;
-    }
+    // 🎯 حساب ارتفاع البطاقة من النظام الذكي
+    final cardHeight = _calculateCardHeight();
 
-    // تعديل بناءً على كثافة البكسل
-    if (devicePixelRatio > 3.0) {
-      // شاشات عالية الدقة - نحتاج بطاقات أطول قليلاً
-      baseRatio -= 0.05;
-    } else if (devicePixelRatio < 2.0) {
-      // شاشات منخفضة الدقة
-      baseRatio -= 0.02;
-    }
+    // 🎯 النسبة = العرض / الارتفاع
+    final aspectRatio = cardWidth / cardHeight;
 
-    // تعديل بناءً على عدد الأعمدة
-    if (columns != null && columns > 2) {
-      // إذا كان لدينا 3 أعمدة أو أكثر، نحتاج بطاقات أطول
-      baseRatio -= 0.08;
-    }
-
-    // ضمان أن النسبة ضمن حدود معقولة لإظهار كامل البطاقة - أقصر للهواتف
-    return baseRatio.clamp(0.64, 0.64); // تقليل الارتفاع لجميع الهواتف
+    return aspectRatio;
   }
 
   // 🎯 بناء شريط التبليغات الذكي مع تأثير التقليب
@@ -1378,6 +1430,8 @@ class _NewProductsPageState extends State<NewProductsPage> {
 
   // بناء بطاقة المنتج - تصميم ملفت ومبهر 🎨✨
   Widget _buildProductCard(Product product) {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 800),
       tween: Tween(begin: 0.0, end: 1.0),
@@ -1402,26 +1456,37 @@ class _NewProductsPageState extends State<NewProductsPage> {
                     duration: Duration(milliseconds: 200),
                     curve: Curves.easeInOut,
                     // إزالة الأبعاد الثابتة لتتكيف مع النسبة الذكية
-                    margin: const EdgeInsets.only(right: 8, bottom: 16), // تقليل المسافة الجانبية
-                    clipBehavior: Clip.antiAlias, // قطع التضبيب داخل الحدود
+                    margin: const EdgeInsets.only(right: 5, bottom: 0), // تقليل المسافة الجانبية
+                    clipBehavior: Clip.none, // عدم قطع المحتوى - لضمان ظهور شريط السعر كاملاً
                     decoration: BoxDecoration(
-                      // 🔮 خلفية متناسقة مع الخلفية الخرافية
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.white.withValues(alpha: 0.06), // شفاف أكثر
-                          Colors.white.withValues(alpha: 0.03), // شفاف جداً
-                          const Color(0xFF1A1F2E).withValues(alpha: 0.2), // يتناسق مع الخلفية
-                        ],
-                        stops: [0.0, 0.5, 1.0],
-                      ),
+                      // خلفية بيضاء في الوضع النهاري
+                      color: isDark ? null : Colors.white,
+                      gradient: isDark
+                          ? LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.06), // شفاف أكثر
+                                Colors.white.withValues(alpha: 0.03), // شفاف جداً
+                                const Color(0xFF1A1F2E).withValues(alpha: 0.2), // يتناسق مع الخلفية
+                              ],
+                              stops: [0.0, 0.5, 1.0],
+                            )
+                          : null,
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.12), // حدود أخف
-                        width: 1.2,
+                        color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.2),
+                        width: isDark ? 1.2 : 2,
                       ),
-                      // بدون ظل
+                      boxShadow: isDark
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.15),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                     ),
                     child: Stack(
                       children: [
@@ -1507,13 +1572,13 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         if (product.notificationTags.isNotEmpty)
                           Positioned(right: 0, top: 0, child: _buildSmartNotificationBar(product)),
 
-                        // منطقة الصورة - موسعة لحد البطاقة مع رفع قليل
+                        // منطقة الصورة - القياس الأصلي مع مسافة مناسبة من الحواف
                         Positioned(
-                          left: 6, // توسيع للحد
-                          top: 22, // رفع قليل للوصول لشريط عدد القطع بمسافة بسيطة
-                          right: 6, // توسيع للحد
+                          left: 12, // مسافة مناسبة من الحواف - القياس الأصلي
+                          top: _cardTopPadding, // 🎯 من الثوابت
+                          right: 12, // مسافة مناسبة من الحواف - القياس الأصلي
                           child: Container(
-                            height: 160, // تقليل الارتفاع لتقليل طول البطاقة
+                            height: _imageHeight - 8, // 🎯 تقليل الارتفاع قليلاً للقياس الأصلي
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
@@ -1546,25 +1611,34 @@ class _NewProductsPageState extends State<NewProductsPage> {
                                     top: 0,
                                     left: 0,
                                     right: 0,
-                                    height: 160, // نفس الارتفاع الجديد
+                                    height: _imageHeight, // 🎯 من الثوابت
                                     child: product.images.isNotEmpty
-                                        ? ClipRRect(
-                                            borderRadius: BorderRadius.circular(16),
+                                        ? Container(
+                                            // 🎯 إزالة ClipRRect المزدوج لحل مشكلة الزاوية السوداء
+                                            width: double.infinity,
+                                            height: _imageHeight, // 🎯 من الثوابت
+                                            color: isDark
+                                                ? Colors.transparent
+                                                : Colors.white, // 🎯 خلفية بيضاء للصور الشفافة في الوضع النهاري
                                             child: Image.network(
                                               product.images.first,
-                                              fit: BoxFit.cover,
+                                              fit: BoxFit.contain, // 🎯 إظهار الصورة بالقياس الحقيقي بدون قطع
                                               width: double.infinity,
-                                              height: 140,
+                                              height: _imageHeight, // 🎯 من الثوابت
                                               errorBuilder: (context, error, stackTrace) {
                                                 return Container(
-                                                  height: 140,
+                                                  height: _imageHeight, // 🎯 من الثوابت
                                                   decoration: BoxDecoration(
-                                                    color: Colors.white.withValues(alpha: 0.05),
+                                                    color: isDark
+                                                        ? Colors.white.withValues(alpha: 0.05)
+                                                        : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
                                                     borderRadius: BorderRadius.circular(16),
                                                   ),
-                                                  child: const Icon(
+                                                  child: Icon(
                                                     Icons.camera_alt_outlined,
-                                                    color: Colors.white60,
+                                                    color: isDark
+                                                        ? Colors.white60
+                                                        : Colors.grey, // 🎯 لون واضح في الوضع النهاري
                                                     size: 50,
                                                   ),
                                                 );
@@ -1572,14 +1646,18 @@ class _NewProductsPageState extends State<NewProductsPage> {
                                             ),
                                           )
                                         : Container(
-                                            height: 140,
+                                            height: _imageHeight, // 🎯 من الثوابت
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: 0.05),
+                                              color: isDark
+                                                  ? Colors.white.withValues(alpha: 0.05)
+                                                  : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
                                               borderRadius: BorderRadius.circular(16),
                                             ),
-                                            child: const Icon(
+                                            child: Icon(
                                               Icons.camera_alt_outlined,
-                                              color: Colors.white60,
+                                              color: isDark
+                                                  ? Colors.white60
+                                                  : Colors.grey, // 🎯 لون واضح في الوضع النهاري
                                               size: 50,
                                             ),
                                           ),
@@ -1594,26 +1672,33 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         Positioned(
                           left: 6,
                           right: 6,
-                          top: 186, // أسفل الصورة مباشرة (22 + 160 + 4)
+                          top: _cardTopPadding + _imageHeight + _imageBottomSpacing, // 🎯 حساب ذكي من الثوابت
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // تقليل padding العمودي
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [
-                                  const Color(0xFF1A1F2E).withValues(alpha: 0.7), // متناسق مع الخلفية
-                                  const Color(0xFF0F1419).withValues(alpha: 0.4), // متناسق مع الخلفية
-                                ],
+                                colors: isDark
+                                    ? [
+                                        const Color(0xFF1A1F2E).withValues(alpha: 0.7), // متناسق مع الخلفية الليلية
+                                        const Color(0xFF0F1419).withValues(alpha: 0.4), // متناسق مع الخلفية الليلية
+                                      ]
+                                    : [
+                                        Colors.white.withValues(alpha: 0.95), // خلفية بيضاء في الوضع النهاري
+                                        Colors.white.withValues(alpha: 0.9), // خلفية بيضاء في الوضع النهاري
+                                      ],
                               ),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.08), // أخف
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.08)
+                                    : Colors.grey.withValues(alpha: 0.2), // حدود أوضح في الوضع النهاري
                                 width: 1,
                               ),
                             ),
                             child: Text(
                               product.name,
                               style: FontHelper.cairo(
-                                color: Colors.white,
+                                color: ThemeColors.textColor(isDark),
                                 fontSize: 12, // إرجاع الحجم الأصلي
                                 fontWeight: FontWeight.w700,
                                 height: 1.2, // إرجاع الارتفاع الأصلي
@@ -1629,15 +1714,33 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         Positioned(
                           left: 5,
                           right: 5,
-                          top: 213, // تقليل المسافة لمنع القطع (186 + 24)
+                          top:
+                              _cardTopPadding +
+                              _imageHeight +
+                              _imageBottomSpacing +
+                              _nameHeight +
+                              _nameBottomSpacing, // 🎯 حساب ذكي من الثوابت
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ), // تقليل الـ padding العمودي لتقليل ارتفاع الشريط
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
-                                colors: [Colors.black.withValues(alpha: 0.4), Colors.black.withValues(alpha: 0.2)],
+                                colors: isDark
+                                    ? [Colors.black.withValues(alpha: 0.4), Colors.black.withValues(alpha: 0.2)]
+                                    : [
+                                        Colors.white.withValues(alpha: 0.95), // خلفية بيضاء في الوضع النهاري
+                                        Colors.white.withValues(alpha: 0.9), // خلفية بيضاء في الوضع النهاري
+                                      ],
                               ),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.1)
+                                    : Colors.grey.withValues(alpha: 0.3), // حدود أوضح في الوضع النهاري
+                                width: 1,
+                              ),
                             ),
                             child: Row(
                               children: [
@@ -1664,7 +1767,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                                   child: Text(
                                     _formatPrice(product.wholesalePrice),
                                     style: FontHelper.cairo(
-                                      color: Colors.white,
+                                      color: isDark ? Colors.white : Colors.black,
                                       fontSize: 12, // أصغر قليلاً
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -1815,6 +1918,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
   Widget _buildHeartButton(Product product) {
     // تتبع حالة الإعجاب من FavoritesService
     bool isLiked = _favoritesService.isFavorite(product.id);
+    bool isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع من ThemeProvider
 
     return GestureDetector(
       onTap: () async {
@@ -1855,15 +1959,27 @@ class _NewProductsPageState extends State<NewProductsPage> {
         decoration: BoxDecoration(
           gradient: isLiked
               ? const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFF5252), Color(0xFFE91E63)])
-              : LinearGradient(colors: [Colors.white.withValues(alpha: 0.1), Colors.white.withValues(alpha: 0.05)]),
+              : (isDark
+                    ? LinearGradient(
+                        colors: [Colors.white.withValues(alpha: 0.1), Colors.white.withValues(alpha: 0.05)],
+                      )
+                    : LinearGradient(colors: [Colors.white, Colors.grey.shade50])), // 🎯 خلفية بيضاء في الوضع النهاري
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isLiked ? Colors.white.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.2),
+            color: isLiked
+                ? Colors.white.withValues(alpha: 0.3)
+                : (isDark
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : Colors.grey.withValues(alpha: 0.4)), // 🎯 إطار رمادي واضح في الوضع النهاري
             width: 1.5,
           ),
           boxShadow: [
             BoxShadow(
-              color: isLiked ? Colors.red.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.2),
+              color: isLiked
+                  ? Colors.red.withValues(alpha: 0.4)
+                  : (isDark
+                        ? Colors.black.withValues(alpha: 0.2)
+                        : Colors.grey.withValues(alpha: 0.3)), // 🎯 ظل رمادي في الوضع النهاري
               blurRadius: isLiked ? 15 : 8,
               offset: const Offset(0, 4),
             ),
@@ -1876,7 +1992,9 @@ class _NewProductsPageState extends State<NewProductsPage> {
           duration: const Duration(milliseconds: 200),
           child: Icon(
             isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            color: isLiked ? Colors.white : Colors.white70,
+            color: isLiked
+                ? Colors.white
+                : (isDark ? Colors.white70 : Colors.grey.shade600), // 🎯 لون رمادي واضح في الوضع النهاري
             size: isLiked ? 18 : 16,
           ),
         ),

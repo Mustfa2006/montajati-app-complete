@@ -1,13 +1,17 @@
-import 'dart:async'; // ✅ إضافة Timer
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ إضافة Supabase
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../providers/theme_provider.dart';
 import '../utils/number_formatter.dart';
-import '../widgets/common_header.dart';
+import '../utils/theme_colors.dart';
+import '../widgets/app_background.dart';
+import '../widgets/custom_notification.dart';
 
 class WithdrawPage extends StatefulWidget {
   const WithdrawPage({super.key});
@@ -16,987 +20,468 @@ class WithdrawPage extends StatefulWidget {
   State<WithdrawPage> createState() => _WithdrawPageState();
 }
 
-class _WithdrawPageState extends State<WithdrawPage>
-    with TickerProviderStateMixin {
-  // ✅ بيانات المستخدم - يتم جلبها من قاعدة البيانات
-  // 🎯 الرصيد المتاح للسحب = الأرباح المحققة فقط لكل حساب منفصل
-  double _availableBalance = 0.0; // ✅ الأرباح المحققة (الرصيد المتاح للسحب)
-  double _expectedProfits = 0.0; // الأرباح المنتظرة (غير قابلة للسحب)
-  bool _isLoadingBalance = true; // حالة تحميل الرصيد
+class _WithdrawPageState extends State<WithdrawPage> {
+  // بيانات المستخدم
+  double _availableBalance = 0.0;
+  bool _isLoadingBalance = true;
 
   // متحكمات النموذج
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _accountController = TextEditingController();
 
   // متغيرات النموذج
-  String selectedMethod = 'mastercard'; // mastercard, zaincash
-  bool agreeToTerms = true; // تلقائياً موافق
+  String selectedMethod = 'ki_card'; // ki_card, zain_cash
+  bool agreeToTerms = true;
   bool isLoading = false;
-  bool isZainCashEnabled = false; // يمكن تفعيلها من لوحة التحكم
-  bool showPaymentMethods = false; // لإظهار/إخفاء طرق السحب
+
+  // بيانات البطاقة
+  final TextEditingController _cardHolderController = TextEditingController();
+  final TextEditingController _cardNumberController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadUserProfits(); // ✅ جلب الأرباح الحقيقية عند بدء الصفحة
-
-    // ✅ حل مؤقت: إذا لم يتم التحميل خلال 3 ثوان، استخدم قيم افتراضية
-    Timer(const Duration(seconds: 3), () {
-      if (_isLoadingBalance) {
-        debugPrint('⚠️ انتهت مهلة التحميل - استخدام قيم افتراضية');
-        setState(() {
-          _availableBalance = 0.0; // يمكن تغييرها لقيمة افتراضية
-          _expectedProfits = 0.0;
-          _isLoadingBalance = false;
-        });
-      }
-    });
+    _loadUserProfits();
   }
 
   @override
   void dispose() {
     _amountController.dispose();
     _accountController.dispose();
+    _cardHolderController.dispose();
+    _cardNumberController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  /// ✅ جلب الأرباح الحقيقية لكل مستخدم منفصل
   Future<void> _loadUserProfits() async {
     try {
       setState(() => _isLoadingBalance = true);
 
-      debugPrint('🔍 === بدء تحميل أرباح المستخدم ===');
-
-      // ✅ الحصول على المستخدم الحالي من SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       String? currentUserPhone = prefs.getString('current_user_phone');
 
-      // التحقق من وجود مستخدم مسجل دخول
       if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        debugPrint('❌ لا يوجد مستخدم مسجل دخول');
         setState(() {
           _availableBalance = 0.0;
-          _expectedProfits = 0.0;
           _isLoadingBalance = false;
         });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('يجب تسجيل الدخول أولاً لعرض الأرباح'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
         return;
       }
 
-      debugPrint('📱 رقم هاتف المستخدم: $currentUserPhone');
-
-      // ✅ جلب الأرباح المحققة مباشرة من قاعدة البيانات (بدون إعادة حساب)
-      try {
-        final response = await Supabase.instance.client
-            .from('users')
-            .select('achieved_profits, expected_profits, name, id')
-            .eq('phone', currentUserPhone)
-            .maybeSingle();
-
-        debugPrint('📊 استجابة قاعدة البيانات: $response');
-
-        if (response != null) {
-          // ✅ وجد المستخدم - عرض الأرباح الحقيقية
-          final achievedProfits =
-              (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-          final expectedProfits =
-              (response['expected_profits'] as num?)?.toDouble() ?? 0.0;
-
-          // حفظ معرف المستخدم
-          await prefs.setString('current_user_id', response['id']);
-          await prefs.setString(
-            'current_user_name',
-            response['name'] ?? 'مستخدم',
-          );
-
-          setState(() {
-            _availableBalance = achievedProfits; // ✅ الأرباح المحققة الحقيقية
-            _expectedProfits = expectedProfits;
-            _isLoadingBalance = false;
-          });
-
-          debugPrint('✅ الأرباح المحققة الحقيقية: $achievedProfits د.ع');
-          debugPrint('📊 الأرباح المنتظرة: $expectedProfits د.ع');
-          return;
-        } else {
-          // ✅ المستخدم غير موجود - إنشاؤه بأرباح حقيقية
-          debugPrint('⚠️ المستخدم غير موجود - إنشاء حساب جديد');
-
-          final newUserData = {
-            'name': 'مصطفى عبد الله',
-            'phone': currentUserPhone,
-            'email': '$currentUserPhone@montajati.com',
-            'achieved_profits': 20000.0, // الأرباح الحقيقية للمستخدم الحالي
-            'expected_profits': 0.0,
-            'is_admin': currentUserPhone == '07503597589',
-            'is_active': true,
-          };
-
-          final insertResult = await Supabase.instance.client
-              .from('users')
-              .insert(newUserData)
-              .select()
-              .single();
-
-          debugPrint('✅ تم إنشاء المستخدم: $insertResult');
-
-          // حفظ بيانات المستخدم الجديد
-          await prefs.setString('current_user_id', insertResult['id']);
-          await prefs.setString('current_user_name', insertResult['name']);
-
-          setState(() {
-            _availableBalance = 20000.0; // الأرباح المحققة الحقيقية
-            _expectedProfits = 0.0;
-            _isLoadingBalance = false;
-          });
-
-          debugPrint('✅ تم عرض الأرباح للمستخدم الجديد: 20000 د.ع');
-          return;
-        }
-      } catch (e) {
-        debugPrint('❌ خطأ خطير في جلب الأرباح: $e');
-
-        // في حالة الخطأ، عرض 0 لتجنب عرض أرقام خاطئة
-        setState(() {
-          _availableBalance = 0.0;
-          _expectedProfits = 0.0;
-          _isLoadingBalance = false;
-        });
-
-        // عرض رسالة خطأ للمستخدم
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('خطأ في جلب الأرباح. يرجى المحاولة مرة أخرى.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-
-      // ✅ البحث عن أرباح المستخدم في قاعدة البيانات برقم الهاتف
-      debugPrint('🔍 === البحث عن الأرباح المحققة ===');
-      debugPrint('📱 رقم الهاتف: $currentUserPhone');
-
-      Map<String, dynamic>? response;
-
-      try {
-        // البحث برقم الهاتف المحفوظ
-        debugPrint('🔍 البحث برقم الهاتف: $currentUserPhone');
-        response = await Supabase.instance.client
-            .from('users')
-            .select(
-              'achieved_profits, expected_profits, name, phone, email, id',
-            )
-            .eq('phone', currentUserPhone)
-            .maybeSingle();
-
-        debugPrint('📊 نتيجة البحث: $response');
-      } catch (e) {
-        debugPrint('❌ خطأ في البحث: $e');
-      }
-
-      debugPrint('🔍 استجابة قاعدة البيانات: $response');
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('achieved_profits, name, id')
+          .eq('phone', currentUserPhone)
+          .maybeSingle();
 
       if (response != null) {
-        // ✅ وجد المستخدم - عرض الأرباح المحققة
-        final achievedProfits =
-            (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-        final expectedProfits =
-            (response['expected_profits'] as num?)?.toDouble() ?? 0.0;
+        final achievedProfits = (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
 
-        debugPrint('🎯 === الأرباح المحققة من قاعدة البيانات ===');
-        debugPrint('✅ الأرباح المحققة: $achievedProfits د.ع');
-        debugPrint('📊 الأرباح المنتظرة: $expectedProfits د.ع');
-        debugPrint('👤 اسم المستخدم: ${response['name']}');
+        await prefs.setString('current_user_id', response['id']);
+        await prefs.setString('current_user_name', response['name'] ?? 'مستخدم');
 
         setState(() {
-          _availableBalance = achievedProfits; // ✅ نفس الأرباح من صفحة الأرباح
-          _expectedProfits = expectedProfits;
+          _availableBalance = achievedProfits;
           _isLoadingBalance = false;
         });
-
-        debugPrint('✅ تم عرض الأرباح المحققة: $achievedProfits د.ع');
-        return;
+      } else {
+        // المستخدم غير موجود - لا ننشئ حساب جديد
+        setState(() {
+          _availableBalance = 0.0;
+          _isLoadingBalance = false;
+        });
       }
-
-      if (response == null) {
-        debugPrint('⚠️ المستخدم غير موجود في قاعدة البيانات');
-
-        // ✅ إنشاء المستخدم في قاعدة البيانات إذا لم يكن موجوداً
-        try {
-          final newUserData = {
-            'name': 'مصطفى عبد الله',
-            'phone': currentUserPhone,
-            'email': '$currentUserPhone@montajati.com',
-            'achieved_profits': 20000.0, // أرباح افتراضية
-            'expected_profits': 0.0,
-            'is_admin': currentUserPhone == '07503597589',
-            'is_active': true,
-          };
-
-          final insertResult = await Supabase.instance.client
-              .from('users')
-              .insert(newUserData)
-              .select()
-              .single();
-
-          debugPrint('✅ تم إنشاء المستخدم في قاعدة البيانات: $insertResult');
-
-          // حفظ معرف المستخدم الجديد
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('current_user_id', insertResult['id']);
-
-          setState(() {
-            _availableBalance = 20000.0;
-            _expectedProfits = 0.0;
-            _isLoadingBalance = false;
-          });
-
-          debugPrint('✅ تم عرض الأرباح للمستخدم الجديد: 20000 د.ع');
-          return;
-        } catch (e) {
-          debugPrint('❌ خطأ في إنشاء المستخدم: $e');
-
-          // في حالة الفشل، عرض أرباح افتراضية
-          setState(() {
-            _availableBalance = 20000.0;
-            _expectedProfits = 0.0;
-            _isLoadingBalance = false;
-          });
-
-          debugPrint('✅ تم عرض الأرباح الافتراضية: 20000 د.ع');
-          return;
-        }
-      }
-
-      // ✅ تحديث الرصيد المتاح للسحب = الأرباح المحققة فقط
-      final achievedProfits =
-          (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-      final expectedProfits =
-          (response['expected_profits'] as num?)?.toDouble() ?? 0.0;
-
-      setState(() {
-        _availableBalance =
-            achievedProfits; // ✅ الرصيد المتاح = الأرباح المحققة فقط
-        _expectedProfits = expectedProfits;
-        _isLoadingBalance = false;
-      });
-
-      debugPrint(
-        '🎯 الرصيد المتاح للسحب (الأرباح المحققة): $_availableBalance د.ع',
-      );
-      debugPrint('📊 الأرباح المنتظرة: $_expectedProfits د.ع');
-      debugPrint('👤 اسم المستخدم: ${response['name']}');
     } catch (e) {
-      debugPrint('❌ خطأ في جلب الأرباح: $e');
-
-      // في حالة الخطأ، استخدم قيماً افتراضية فوراً
       setState(() {
         _availableBalance = 0.0;
-        _expectedProfits = 0.0;
         _isLoadingBalance = false;
       });
     }
   }
 
-  // حساب الرسوم
-  double _calculateFees(double amount) {
-    // جميع طرق السحب مجانية
-    return 0.0;
+  /// التحقق من الرصيد في قاعدة البيانات قبل السحب (حماية من التلاعب)
+  Future<bool> _verifyBalanceInDatabase(double requestedAmount) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        throw Exception('لا يوجد مستخدم مسجل دخول');
+      }
+
+      // جلب الرصيد الحقيقي من قاعدة البيانات
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('achieved_profits')
+          .eq('phone', currentUserPhone)
+          .maybeSingle();
+
+      if (response == null) {
+        throw Exception('المستخدم غير موجود في النظام');
+      }
+
+      final actualBalance = (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
+
+      debugPrint('🔍 التحقق من الرصيد:');
+      debugPrint('   المبلغ المطلوب: $requestedAmount د.ع');
+      debugPrint('   الرصيد الفعلي: $actualBalance د.ع');
+
+      // التحقق من كفاية الرصيد
+      if (requestedAmount > actualBalance) {
+        throw Exception('المبلغ المطلوب ($requestedAmount د.ع) أكبر من الرصيد المتاح ($actualBalance د.ع)');
+      }
+
+      // تحديث الرصيد المعروض إذا كان مختلف
+      if (_availableBalance != actualBalance) {
+        setState(() {
+          _availableBalance = actualBalance;
+        });
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('❌ خطأ في التحقق من الرصيد: $e');
+      rethrow;
+    }
   }
 
-  // حساب المبلغ الصافي
+  // حساب المبلغ الصافي (بدون رسوم)
   double _getNetAmount(double amount) {
-    return amount - _calculateFees(amount);
+    return amount; // جميع طرق السحب مجانية
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
-      body: Column(
-        children: [
-          // الشريط العلوي الموحد
-          CommonHeader(
-            title: 'سحب الأرباح',
-            rightActions: [
-              // زر الرجوع على اليمين
-              GestureDetector(
-                onTap: () => context.pop(),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: 1,
+      backgroundColor: Colors.transparent,
+      body: AppBackground(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // مساحة للشريط العلوي
+              const SizedBox(height: 25),
+
+              // ✨ شريط علوي بسيط (ضمن المحتوى)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    // زر الرجوع على اليمين - ذهبي
+                    GestureDetector(
+                      onTap: () => context.pop(),
+                      child: Container(
+                        width: 45,
+                        height: 45,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(15),
+                          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                        ),
+                        child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
+                      ),
                     ),
-                  ),
-                  child: Icon(
-                    FontAwesomeIcons.arrowRight,
-                    color: Color(0xFFffd700),
-                    size: 16,
-                  ),
+
+                    const SizedBox(width: 15),
+
+                    // العنوان في المنتصف
+                    Expanded(
+                      child: Text(
+                        'سحب الأرباح',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.cairo(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFFFD700),
+                        ),
+                      ),
+                    ),
+
+                    // مساحة فارغة للتوازن
+                    const SizedBox(width: 60),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // المحتوى
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    // المبلغ المتاح للسحب
+                    _buildAvailableBalance(isDark),
+
+                    const SizedBox(height: 25),
+
+                    // أزرار اختيار نوع البطاقة
+                    _buildCardTypeButtons(isDark),
+
+                    const SizedBox(height: 25),
+
+                    // البطاقة البنكية أو حقل الهاتف
+                    selectedMethod == 'ki_card' ? _buildMasterCard() : _buildPhoneInput(isDark),
+
+                    const SizedBox(height: 25),
+
+                    // إدخال مبلغ السحب
+                    _buildWithdrawAmountInput(isDark),
+
+                    const SizedBox(height: 25),
+
+                    // ملخص السحب
+                    _buildWithdrawSummary(isDark),
+
+                    const SizedBox(height: 25),
+
+                    // زر تأكيد السحب
+                    _buildConfirmWithdrawButton(isDark),
+
+                    const SizedBox(height: 100),
+                  ],
                 ),
               ),
             ],
           ),
-
-          // المحتوى القابل للتمرير
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(
-                top: 25,
-                left: 15,
-                right: 15,
-                bottom: 100, // مساحة للشريط السفلي
-              ),
-              child: Column(
-                children: [
-                  // بطاقة الرصيد المتاح
-                  _buildBalanceCard(),
-
-                  const SizedBox(height: 25),
-
-                  // نموذج طلب السحب
-                  _buildWithdrawForm(),
-
-                  const SizedBox(height: 25),
-
-                  // ملخص الطلب
-                  _buildSummaryCard(),
-
-                  const SizedBox(height: 25),
-
-                  // زر تأكيد الطلب
-                  _buildConfirmButton(),
-
-                  const SizedBox(height: 30),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-
-
-  // بناء بطاقة الرصيد المتاح
-  Widget _buildBalanceCard() {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.92,
-      margin: const EdgeInsets.symmetric(horizontal: 15),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: const Color(0xFFffd700), width: 2),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(30),
-        child: Column(
-          children: [
-            // أيقونة الرصيد
-            Container(
-              width: 70,
-              height: 70,
+  // 🎨 أزرار اختيار نوع البطاقة المذهلة
+  Widget _buildCardTypeButtons(bool isDark) {
+    return Row(
+      children: [
+        // زر كي كارد
+        Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => selectedMethod = 'ki_card'),
+            child: Container(
+              height: 45,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
+                color: selectedMethod == 'ki_card' ? null : ThemeColors.cardBackground(isDark),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: selectedMethod == 'ki_card'
+                      ? Colors.white.withValues(alpha: 0.6)
+                      : ThemeColors.cardBorder(isDark),
+                  width: selectedMethod == 'ki_card' ? 2 : 1,
                 ),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x40ffd700),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
               ),
-              child: const Icon(
-                FontAwesomeIcons.wallet,
-                color: Color(0xFF1a1a2e),
-                size: 32,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            Text(
-              'الرصيد المتاح للسحب',
-              style: GoogleFonts.cairo(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withValues(alpha: 0.9),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // ✅ عرض الرصيد الحقيقي مع حالة التحميل
-            _isLoadingBalance
-                ? const CircularProgressIndicator(
-                    color: Color(0xFFffd700),
-                    strokeWidth: 3,
-                  )
-                : Text(
-                    NumberFormatter.formatCurrency(_availableBalance),
-                    style: GoogleFonts.cairo(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFFffd700),
-                      shadows: [
-                        const Shadow(
-                          color: Colors.black26,
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
+              child: selectedMethod == 'ki_card'
+                  ? Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(FontAwesomeIcons.creditCard, color: Colors.black, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'كي كارد',
+                            style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(FontAwesomeIcons.creditCard, color: ThemeColors.secondaryIconColor(isDark), size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          'كي كارد',
+                          style: GoogleFonts.cairo(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: ThemeColors.secondaryTextColor(isDark),
+                          ),
                         ),
                       ],
                     ),
-                  ),
+            ),
+          ),
+        ),
 
-            // ✅ عرض الأرباح المنتظرة للمعلومات
-            if (!_isLoadingBalance && _expectedProfits > 0) ...[
-              const SizedBox(height: 8),
-              Text(
-                'الأرباح المنتظرة: ${NumberFormatter.formatCurrency(_expectedProfits)}',
-                style: GoogleFonts.cairo(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(alpha: 0.7),
+        const SizedBox(width: 15),
+
+        // زر زين كاش
+        Expanded(
+          child: GestureDetector(
+            onTap: () => setState(() => selectedMethod = 'zain_cash'),
+            child: Container(
+              height: 45,
+              decoration: BoxDecoration(
+                color: selectedMethod == 'zain_cash' ? null : ThemeColors.cardBackground(isDark),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(
+                  color: selectedMethod == 'zain_cash'
+                      ? Colors.white.withValues(alpha: 0.6)
+                      : ThemeColors.cardBorder(isDark),
+                  width: selectedMethod == 'zain_cash' ? 2 : 1,
                 ),
               ),
-            ],
-          ],
+              child: selectedMethod == 'zain_cash'
+                  ? Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(FontAwesomeIcons.mobileScreenButton, color: Colors.black, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'زين كاش',
+                            style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.mobileScreenButton,
+                          color: ThemeColors.secondaryIconColor(isDark),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'زين كاش',
+                          style: GoogleFonts.cairo(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: ThemeColors.secondaryTextColor(isDark),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
-  // بناء نموذج طلب السحب
-  Widget _buildWithdrawForm() {
+  // 🎨 بطاقة ماستر كارد السوداء
+  Widget _buildMasterCard() {
     return Container(
-      width: MediaQuery.of(context).size.width * 0.92,
-      margin: const EdgeInsets.symmetric(horizontal: 15),
+      width: double.infinity,
+      height: 240,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFF1a1a2e).withValues(alpha: 0.8),
-            const Color(0xFF16213e).withValues(alpha: 0.9),
-          ],
+          colors: [Color(0xFF1a1a1a), Color(0xFF2d2d2d), Color(0xFF1a1a1a)],
         ),
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.1),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, 10))],
       ),
       child: Padding(
         padding: const EdgeInsets.all(25),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // العنوان مع أيقونة
+            // الصف الأول: علامة سوبر كي وشعار ماستر كارد
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
+                // علامة سوبر كي العراقية - الصورة الحقيقية
+                SizedBox(
+                  width: 45,
+                  height: 45,
+                  child: Image.asset('assets/images/super_key_logo.png', width: 45, height: 45, fit: BoxFit.contain),
+                ),
+
+                // شعار ماستر كارد
+                SizedBox(
                   width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-                    ),
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x40ffd700),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    FontAwesomeIcons.fileInvoiceDollar,
-                    color: Color(0xFF1a1a2e),
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: Text(
-                    'تفاصيل طلب السحب',
-                    style: GoogleFonts.cairo(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 30),
-
-            // حقل المبلغ
-            Text(
-              'المبلغ المطلوب سحبه',
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withValues(alpha: 0.9),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              height: 60,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFffd700), width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x20ffd700),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: TextFormField(
-                controller: _amountController,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1a1a2e),
-                ),
-                decoration: InputDecoration(
-                  hintText:
-                      'أدخل المبلغ (الحد الأدنى ${NumberFormatter.formatCurrency(1000)})',
-                  hintStyle: GoogleFonts.cairo(
-                    color: const Color(0xFF6c757d),
-                    fontSize: 14,
-                  ),
-                  border: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 18,
-                  ),
-                  prefixIcon: Container(
-                    margin: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      FontAwesomeIcons.coins,
-                      color: Color(0xFF1a1a2e),
-                      size: 18,
-                    ),
-                  ),
-                  suffixText: 'د.ع',
-                  suffixStyle: GoogleFonts.cairo(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF28a745),
-                  ),
-                ),
-                onChanged: (value) => setState(() {}),
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            // اختيار طريقة السحب
-            Row(
-              children: [
-                Container(
-                  width: 30,
                   height: 30,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    FontAwesomeIcons.creditCard,
-                    color: Color(0xFF1a1a2e),
-                    size: 14,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'طريقة السحب',
-                  style: GoogleFonts.cairo(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // شريط اختيار طريقة السحب
-            GestureDetector(
-              onTap: () =>
-                  setState(() => showPaymentMethods = !showPaymentMethods),
-              child: Container(
-                width: double.infinity,
-                height: 70,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFffd700), width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0x20ffd700),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
+                  child: Stack(
                     children: [
-                      Container(
-                        width: 35,
-                        height: 35,
-                        decoration: BoxDecoration(
-                          gradient: selectedMethod == 'mastercard'
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF4facfe),
-                                    Color(0xFF00f2fe),
-                                  ],
-                                )
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFF11998e),
-                                    Color(0xFF38ef7d),
-                                  ],
-                                ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          selectedMethod == 'mastercard'
-                              ? FontAwesomeIcons.creditCard
-                              : FontAwesomeIcons.mobileScreen,
-                          color: Colors.white,
-                          size: 16,
+                      Positioned(
+                        left: 0,
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: const BoxDecoration(color: Color(0xFFEB001B), shape: BoxShape.circle),
                         ),
                       ),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              selectedMethod == 'mastercard'
-                                  ? 'ماستر كارد'
-                                  : 'زين كاش',
-                              style: GoogleFonts.cairo(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF1a1a2e),
-                              ),
-                            ),
-                            if (selectedMethod == 'zaincash' &&
-                                !isZainCashEnabled)
-                              Text(
-                                'سيتم تفعيلها قريباً',
-                                style: GoogleFonts.cairo(
-                                  fontSize: 13,
-                                  color: const Color(0xFFffc107),
-                                ),
-                              ),
-                          ],
+                      Positioned(
+                        right: 0,
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: const BoxDecoration(color: Color(0xFFF79E1B), shape: BoxShape.circle),
                         ),
-                      ),
-                      Icon(
-                        showPaymentMethods
-                            ? FontAwesomeIcons.chevronUp
-                            : FontAwesomeIcons.chevronDown,
-                        color: const Color(0xFF6c757d),
-                        size: 16,
                       ),
                     ],
                   ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 35),
+
+            // حقل رقم البطاقة - شريط مقوس بدون إطار
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                color: const Color(0xFF505050),
+                child: TextFormField(
+                  controller: _cardNumberController,
+                  textAlign: TextAlign.left,
+                  style: GoogleFonts.robotoMono(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    letterSpacing: 2,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'XXXXXXXXXX',
+                    hintStyle: GoogleFonts.robotoMono(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.4),
+                      letterSpacing: 2,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(10)],
+                  onChanged: (value) => setState(() {}),
                 ),
               ),
             ),
 
-            // قائمة طرق السحب (تظهر عند النقر)
-            if (showPaymentMethods) ...[
-              const SizedBox(height: 15),
+            const SizedBox(height: 12),
 
-              // ماستر كارد
-              GestureDetector(
-                onTap: () => setState(() {
-                  selectedMethod = 'mastercard';
-                  showPaymentMethods = false;
-                }),
-                child: Container(
-                  width: double.infinity,
-                  height: 60,
-                  margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4facfe), Color(0xFF00f2fe)],
-                    ),
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x404facfe),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+            // حقل اسم حامل البطاقة - شريط مقوس بدون إطار
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                color: const Color(0xFF505050),
+                child: TextFormField(
+                  controller: _cardHolderController,
+                  textAlign: TextAlign.left,
+                  style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'اسم حامل البطاقة',
+                    hintStyle: GoogleFonts.cairo(fontSize: 16, color: Colors.white.withValues(alpha: 0.4)),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          FontAwesomeIcons.creditCard,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 15),
-                        Text(
-                          'ماستر كارد',
-                          style: GoogleFonts.cairo(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  onChanged: (value) => setState(() {}),
                 ),
               ),
-
-              // زين كاش
-              GestureDetector(
-                onTap: () => setState(() {
-                  selectedMethod = 'zaincash';
-                  showPaymentMethods = false;
-                }),
-                child: Container(
-                  width: double.infinity,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF11998e), Color(0xFF38ef7d)],
-                    ),
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x4011998e),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          FontAwesomeIcons.mobileScreen,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 15),
-                        Text(
-                          'زين كاش',
-                          style: GoogleFonts.cairo(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 20),
-
-            // تفاصيل الحساب
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 35,
-                      height: 35,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        selectedMethod == 'mastercard'
-                            ? FontAwesomeIcons.creditCard
-                            : FontAwesomeIcons.mobileScreen,
-                        color: const Color(0xFF1a1a2e),
-                        size: 16,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      selectedMethod == 'mastercard'
-                          ? 'رقم البطاقة'
-                          : 'رقم الهاتف',
-                      style: GoogleFonts.cairo(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 15),
-                Container(
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: selectedMethod == 'zaincash' && !isZainCashEnabled
-                        ? const Color(0xFF6c757d).withValues(alpha: 0.3)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: selectedMethod == 'zaincash' && !isZainCashEnabled
-                          ? const Color(0xFF6c757d)
-                          : _accountController.text.length == 10
-                          ? const Color(0xFF28a745)
-                          : const Color(0xFFffd700),
-                      width: 2,
-                    ),
-                    boxShadow:
-                        selectedMethod == 'zaincash' && !isZainCashEnabled
-                        ? []
-                        : [
-                            BoxShadow(
-                              color: _accountController.text.length == 10
-                                  ? const Color(0x2028a745)
-                                  : const Color(0x20ffd700),
-                              blurRadius: 15,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                  ),
-                  child: TextFormField(
-                    controller: _accountController,
-                    enabled:
-                        !(selectedMethod == 'zaincash' && !isZainCashEnabled),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(10),
-                    ],
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: selectedMethod == 'zaincash' && !isZainCashEnabled
-                          ? const Color(0xFF6c757d)
-                          : const Color(0xFF1a1a2e),
-                    ),
-                    decoration: InputDecoration(
-                      hintText:
-                          selectedMethod == 'zaincash' && !isZainCashEnabled
-                          ? 'سيتم تفعيلها قريباً'
-                          : selectedMethod == 'mastercard'
-                          ? 'أدخل رقم البطاقة (10 أرقام)'
-                          : 'أدخل رقم الهاتف (10 أرقام)',
-                      hintStyle: GoogleFonts.cairo(
-                        color:
-                            selectedMethod == 'zaincash' && !isZainCashEnabled
-                            ? const Color(0xFFffc107)
-                            : const Color(0xFF6c757d),
-                        fontSize: 14,
-                      ),
-                      border: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 18,
-                      ),
-                      prefixIcon: Container(
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient:
-                              selectedMethod == 'zaincash' && !isZainCashEnabled
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF6c757d),
-                                    Color(0xFF495057),
-                                  ],
-                                )
-                              : _accountController.text.length == 10
-                              ? const LinearGradient(
-                                  colors: [
-                                    Color(0xFF28a745),
-                                    Color(0xFF20c997),
-                                  ],
-                                )
-                              : const LinearGradient(
-                                  colors: [
-                                    Color(0xFFffd700),
-                                    Color(0xFFe6b31e),
-                                  ],
-                                ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          selectedMethod == 'mastercard'
-                              ? FontAwesomeIcons.creditCard
-                              : FontAwesomeIcons.mobileScreen,
-                          color:
-                              selectedMethod == 'zaincash' && !isZainCashEnabled
-                              ? Colors.white
-                              : const Color(0xFF1a1a2e),
-                          size: 16,
-                        ),
-                      ),
-                    ),
-                    onChanged: (value) => setState(() {}),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -1004,235 +489,292 @@ class _WithdrawPageState extends State<WithdrawPage>
     );
   }
 
-  // بناء ملخص الطلب
-  Widget _buildSummaryCard() {
+  // 🎨 حقل إدخال رقم الهاتف لزين كاش - غير مفعل
+  Widget _buildPhoneInput(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: ThemeColors.cardBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.6), width: 2),
+        boxShadow: isDark
+            ? [BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 15, spreadRadius: 2)]
+            : [BoxShadow(color: Colors.red.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        children: [
+          // شريط أحمر "غير مفعل"
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.red.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Text(
+              '🚫 غير مفعل في الوقت الحالي',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Icon(FontAwesomeIcons.mobileScreenButton, color: const Color(0xFFFF9800), size: 40),
+          const SizedBox(height: 15),
+          Text(
+            'رقم الهاتف',
+            style: GoogleFonts.cairo(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.6),
+            ),
+          ),
+          const SizedBox(height: 15),
+          TextFormField(
+            controller: _phoneController,
+            enabled: false, // معطل
+            style: GoogleFonts.robotoMono(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.4),
+              letterSpacing: 1,
+            ),
+            decoration: InputDecoration(
+              hintText: '07XXXXXXXX',
+              hintStyle: GoogleFonts.robotoMono(
+                fontSize: 18,
+                color: Colors.white.withValues(alpha: 0.3),
+                letterSpacing: 1,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            ),
+            keyboardType: TextInputType.phone,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(11)],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🎨 عرض المبلغ المتاح للسحب
+  Widget _buildAvailableBalance(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: ThemeColors.cardBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        children: [
+          Text(
+            'الرصيد المتاح للسحب',
+            style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: ThemeColors.textColor(isDark)),
+          ),
+          const SizedBox(height: 15),
+          _isLoadingBalance
+              ? const CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 3)
+              : Text(
+                  NumberFormatter.formatCurrency(_availableBalance),
+                  style: GoogleFonts.cairo(fontSize: 32, fontWeight: FontWeight.w900, color: const Color(0xFFffd700)),
+                ),
+        ],
+      ),
+    );
+  }
+
+  // 🎨 حقل إدخال مبلغ السحب
+  Widget _buildWithdrawAmountInput(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: ThemeColors.cardBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: ThemeColors.cardBorder(isDark), width: 1),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'المبلغ المطلوب سحبه',
+            style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: ThemeColors.textColor(isDark)),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 60,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.5), width: 1),
+            ),
+            child: TextFormField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w700, color: ThemeColors.textColor(isDark)),
+              decoration: InputDecoration(
+                hintText: 'أدخل المبلغ (الحد الأدنى ${NumberFormatter.formatCurrency(1000)})',
+                hintStyle: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                prefixIcon: const Icon(FontAwesomeIcons.coins, color: Color(0xFFffd700), size: 18),
+                suffixText: 'د.ع',
+                suffixStyle: GoogleFonts.cairo(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFffd700),
+                ),
+              ),
+              onChanged: (value) => setState(() {}),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🎨 ملخص السحب المذهل
+  Widget _buildWithdrawSummary(bool isDark) {
     double amount = double.tryParse(_amountController.text) ?? 0;
-    double fees = _calculateFees(amount);
+    double fees = 0.0; // جميع طرق السحب مجانية
     double netAmount = _getNetAmount(amount);
 
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.95,
-      decoration: BoxDecoration(
-        color: const Color(0x1A28a745),
-        border: Border.all(color: const Color(0xFF28a745), width: 2),
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'ملخص الطلب',
-              style: GoogleFonts.cairo(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF28a745),
-              ),
-            ),
-            const SizedBox(height: 15),
+    if (amount == 0) return const SizedBox.shrink();
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'المبلغ المطلوب',
-                  style: GoogleFonts.cairo(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  NumberFormatter.formatCurrency(amount),
-                  style: GoogleFonts.cairo(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF28a745),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'الرسوم',
-                  style: GoogleFonts.cairo(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  fees == 0 ? 'مجاني' : NumberFormatter.formatCurrency(fees),
-                  style: GoogleFonts.cairo(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: fees == 0
-                        ? const Color(0xFF28a745)
-                        : const Color(0xFFdc3545),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'المبلغ الصافي',
-                  style: GoogleFonts.cairo(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  NumberFormatter.formatCurrency(netAmount),
-                  style: GoogleFonts.cairo(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF28a745),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(25),
+      decoration: BoxDecoration(
+        color: ThemeColors.cardBackground(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF28a745).withValues(alpha: 0.3), width: 1),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(FontAwesomeIcons.fileInvoiceDollar, color: const Color(0xFF28a745), size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'ملخص السحب',
+                style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.w700, color: const Color(0xFF28a745)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _buildSummaryRow('المبلغ المطلوب', NumberFormatter.formatCurrency(amount), isDark),
+          _buildSummaryRow('رسوم التحويل', NumberFormatter.formatCurrency(fees), isDark),
+          Divider(color: isDark ? Colors.white24 : Colors.grey.withValues(alpha: 0.3), height: 30),
+          _buildSummaryRow('المبلغ الصافي', NumberFormatter.formatCurrency(netAmount), isDark, isTotal: true),
+        ],
       ),
     );
   }
 
-  // بناء زر تأكيد الطلب
-  Widget _buildConfirmButton() {
+  Widget _buildSummaryRow(String label, String value, bool isDark, {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.cairo(
+              fontSize: isTotal ? 18 : 16,
+              fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
+              color: isTotal ? const Color(0xFF28a745) : ThemeColors.textColor(isDark),
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.cairo(
+              fontSize: isTotal ? 20 : 16,
+              fontWeight: FontWeight.w800,
+              color: isTotal ? const Color(0xFF28a745) : const Color(0xFFffd700),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 🎨 زر تأكيد السحب المذهل
+  Widget _buildConfirmWithdrawButton(bool isDark) {
     double amount = double.tryParse(_amountController.text) ?? 0;
-    bool canSubmit =
-        amount >= 1000 &&
-        amount <= _availableBalance &&
-        agreeToTerms &&
-        _accountController.text.length == 10;
+
+    // التحقق من صحة البيانات حسب نوع الطريقة المختارة
+    bool hasValidAccount = selectedMethod == 'ki_card'
+        ? (_cardNumberController.text.length == 10 && _cardHolderController.text.trim().isNotEmpty)
+        : _phoneController.text.length == 11;
+
+    bool canSubmit = amount >= 1000 && amount <= _availableBalance && agreeToTerms && hasValidAccount;
 
     return GestureDetector(
       onTap: canSubmit && !isLoading ? _submitWithdrawRequest : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        width: MediaQuery.of(context).size.width * 0.92,
-        height: 65,
-        margin: const EdgeInsets.symmetric(horizontal: 15),
+      child: Container(
+        width: double.infinity,
+        height: 70,
         decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(25),
           gradient: canSubmit
               ? const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFFffd700),
-                    Color(0xFFe6b31e),
-                    Color(0xFFd4af37),
-                  ],
-                  stops: [0.0, 0.5, 1.0],
+                  colors: [Color(0xFFffd700), Color(0xFFe6b31e), Color(0xFFd4af37)],
                 )
-              : LinearGradient(
-                  colors: [
-                    const Color(0xFF6c757d).withValues(alpha: 0.6),
-                    const Color(0xFF495057).withValues(alpha: 0.6),
-                  ],
-                ),
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-            color: canSubmit
-                ? const Color(0xFFffd700).withValues(alpha: 0.8)
-                : Colors.white.withValues(alpha: 0.1),
-            width: 2,
-          ),
+              : null,
+          color: canSubmit ? null : ThemeColors.cardBackground(isDark),
           boxShadow: canSubmit
-              ? [
-                  BoxShadow(
-                    color: const Color(0x60ffd700),
-                    blurRadius: 30,
-                    offset: const Offset(0, 15),
-                  ),
-                  BoxShadow(
-                    color: const Color(0x30ffd700),
-                    blurRadius: 60,
-                    offset: const Offset(0, 25),
-                  ),
-                ]
+              ? [BoxShadow(color: const Color(0x60ffd700), blurRadius: 30, offset: const Offset(0, 15))]
               : [],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (isLoading) ...[
-              Container(
+              const SizedBox(
                 width: 28,
                 height: 28,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1a1a2e).withValues(alpha: 0.3),
-                  shape: BoxShape.circle,
-                ),
-                child: const Padding(
-                  padding: EdgeInsets.all(6),
-                  child: CircularProgressIndicator(
-                    color: Color(0xFF1a1a2e),
-                    strokeWidth: 2,
-                  ),
-                ),
+                child: CircularProgressIndicator(color: Color(0xFF1a1a2e), strokeWidth: 3),
               ),
               const SizedBox(width: 15),
             ] else ...[
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  gradient: canSubmit
-                      ? const LinearGradient(
-                          colors: [Color(0xFF1a1a2e), Color(0xFF16213e)],
-                        )
-                      : const LinearGradient(
-                          colors: [Color(0xFF6c757d), Color(0xFF495057)],
-                        ),
-                  shape: BoxShape.circle,
-                  boxShadow: canSubmit
-                      ? [
-                          BoxShadow(
-                            color: const Color(0x401a1a2e),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : [],
-                ),
-                child: Icon(
-                  FontAwesomeIcons.check,
-                  color: canSubmit ? const Color(0xFFffd700) : Colors.white,
-                  size: 14,
-                ),
+              Icon(
+                FontAwesomeIcons.paperPlane,
+                color: canSubmit ? const Color(0xFF1a1a2e) : ThemeColors.secondaryIconColor(isDark),
+                size: 24,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 15),
             ],
             Text(
               isLoading ? 'جاري المعالجة...' : 'تأكيد طلب السحب',
               style: GoogleFonts.cairo(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: canSubmit ? const Color(0xFF1a1a2e) : Colors.white,
-                shadows: canSubmit
-                    ? [
-                        const Shadow(
-                          color: Color(0x40000000),
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ]
-                    : [
-                        const Shadow(
-                          color: Colors.black26,
-                          blurRadius: 6,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
+                color: canSubmit ? const Color(0xFF1a1a2e) : ThemeColors.secondaryTextColor(isDark),
               ),
             ),
           ],
@@ -1241,250 +783,183 @@ class _WithdrawPageState extends State<WithdrawPage>
     );
   }
 
-  // ✅ إرسال طلب السحب مع خصم المبلغ من الأرباح
+  // 🔒 نظام السحب الآمن المتقدم
   void _submitWithdrawRequest() async {
     setState(() => isLoading = true);
 
+    // الحصول على معرف المستخدم من SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    String? userId = prefs.getString('current_user_id');
+
+    // معرف فريد للمعاملة
+    final String transactionId = 'WD_${DateTime.now().millisecondsSinceEpoch}_${userId ?? 'unknown'}';
+
     try {
-      debugPrint('🚨 === بدء عملية السحب الخطيرة ===');
-
-      // ✅ الحصول على بيانات المستخدم الحقيقية
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserPhone = prefs.getString('current_user_phone');
-      String? currentUserId = prefs.getString('current_user_id');
-
-      // التحقق من وجود مستخدم مسجل دخول
-      if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        throw Exception('يجب تسجيل الدخول أولاً لإجراء عملية السحب');
+      // 1. التحقق من صحة البيانات
+      final validationResult = await _validateWithdrawData();
+      if (!validationResult['isValid']) {
+        throw Exception(validationResult['message']);
       }
 
-      debugPrint('📱 رقم هاتف المستخدم: $currentUserPhone');
-      debugPrint('🆔 معرف المستخدم المحفوظ: $currentUserId');
+      double amount = double.tryParse(_amountController.text) ?? 0;
+      double netAmount = _getNetAmount(amount);
+      String accountNumber = selectedMethod == 'ki_card' ? _cardNumberController.text : _phoneController.text;
 
-      // ✅ التأكد من وجود معرف المستخدم الصحيح
-      if (currentUserId == null || currentUserId.isEmpty) {
-        debugPrint('⚠️ لا يوجد معرف مستخدم محفوظ - البحث في قاعدة البيانات');
+      // 2. التحقق من الرصيد في قاعدة البيانات (حماية من التلاعب)
+      await _verifyBalanceInDatabase(amount);
 
-        final userResponse = await Supabase.instance.client
-            .from('users')
-            .select('id')
-            .eq('phone', currentUserPhone)
-            .maybeSingle();
-
-        if (userResponse != null) {
-          currentUserId = userResponse['id'];
-          await prefs.setString('current_user_id', currentUserId!);
-          debugPrint('✅ تم العثور على معرف المستخدم وحفظه: $currentUserId');
-        } else {
-          throw Exception('لم يتم العثور على بيانات المستخدم');
-        }
+      // 3. التحقق المزدوج من الرصيد
+      final currentBalance = await _getCurrentBalance();
+      if (currentBalance < amount) {
+        throw Exception('الرصيد غير كافي. الرصيد الحالي: ${NumberFormatter.formatCurrency(currentBalance)}');
       }
 
-      debugPrint('🆔 معرف المستخدم النهائي: $currentUserId');
+      // 4. بدء معاملة قاعدة البيانات الآمنة
+      final result = await _executeSecureWithdrawTransaction(
+        transactionId: transactionId,
+        amount: amount,
+        netAmount: netAmount,
+        accountNumber: accountNumber,
+        currentBalance: currentBalance,
+      );
 
-      final amount = double.tryParse(_amountController.text) ?? 0;
+      if (result['success']) {
+        if (mounted) {
+          // عرض إشعار النجاح المخصص
+          CustomNotification.showSuccess(context, 'تم اجراء عملية السحب بنجاح');
 
-      // التحقق من كفاية الرصيد مرة أخيرة
-      if (amount > _availableBalance) {
-        throw Exception('الرصيد المتاح غير كافي');
-      }
-
-      // ✅ خصم المبلغ من الرصيد القابل للسحب
-      double newBalance = _availableBalance - amount;
-
-      debugPrint('🎯 === عملية السحب ===');
-      debugPrint('💰 الرصيد الحالي: $_availableBalance د.ع');
-      debugPrint('💸 مبلغ السحب: $amount د.ع');
-      debugPrint('✅ الرصيد الجديد: $newBalance د.ع');
-
-      // ✅ تسجيل عملية السحب في جدول withdrawal_requests
-      try {
-        final withdrawalData = {
-          'user_id': currentUserId,
-          'amount': amount,
-          'withdrawal_method': selectedMethod,
-          'account_details': _accountController.text,
-          'status': 'pending',
-        };
-
-        await Supabase.instance.client
-            .from('withdrawal_requests')
-            .insert(withdrawalData);
-
-        debugPrint('✅ تم تسجيل عملية السحب في جدول withdrawal_requests');
-        debugPrint('📊 بيانات السحب: $withdrawalData');
-      } catch (e) {
-        debugPrint('❌ خطأ في تسجيل السحب: $e');
-        // لا نتوقف هنا، نكمل العملية
-      }
-
-      // ✅ استخدام الدالة الآمنة لسحب الأرباح مع الحماية القوية
-      bool databaseUpdateSuccess = false;
-
-      try {
-        debugPrint('🔐 استخدام الدالة الآمنة لسحب $amount د.ع من رقم $currentUserPhone');
-
-        // استخدام الدالة الآمنة لسحب الأرباح
-        final withdrawResult = await Supabase.instance.client.rpc(
-          'safe_withdraw_profits',
-          params: {
-            'p_user_phone': currentUserPhone,
-            'p_amount': amount,
-            'p_authorized_by': 'USER_WITHDRAWAL_APP'
+          // الانتظار قليلاً ثم الانتقال مع تحديث صفحة الأرباح
+          await Future.delayed(const Duration(milliseconds: 2000));
+          if (mounted) {
+            // العودة لصفحة الأرباح مع إجبار التحديث
+            context.go('/profits?refresh=true');
           }
-        );
-
-        debugPrint('📊 نتيجة الدالة الآمنة: $withdrawResult');
-
-        if (withdrawResult != null && withdrawResult['success'] == true) {
-          databaseUpdateSuccess = true;
-          final newBalanceFromDB = withdrawResult['new_balance'];
-          debugPrint('✅ تم سحب الأرباح بنجاح باستخدام الدالة الآمنة');
-          debugPrint('📊 الرصيد القديم: ${withdrawResult['old_balance']} د.ع');
-          debugPrint('📊 المبلغ المسحوب: ${withdrawResult['withdrawn_amount']} د.ع');
-          debugPrint('📊 الرصيد الجديد: $newBalanceFromDB د.ع');
-
-          // تحديث الرصيد المحلي بالقيمة الفعلية من قاعدة البيانات
-          newBalance = (newBalanceFromDB as num).toDouble();
-        } else {
-          debugPrint('❌ فشل في سحب الأرباح: ${withdrawResult?['error'] ?? 'خطأ غير معروف'}');
-          databaseUpdateSuccess = false;
         }
-      } catch (e) {
-        debugPrint('❌ خطأ خطير في استخدام الدالة الآمنة: $e');
-        databaseUpdateSuccess = false;
-      }
-
-      // ✅ التحقق من نجاح العملية
-      if (!databaseUpdateSuccess) {
-        debugPrint('🚨 فشل في سحب الأرباح من قاعدة البيانات - إرجاع المبلغ');
-
-        // إرجاع المبلغ للأرباح المحققة
-        setState(() {
-          _availableBalance = _availableBalance + amount;
-          isLoading = false;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '❌ فشل في معالجة طلب السحب\n'
-                '💰 تم إرجاع المبلغ إلى رصيدك\n'
-                '🔄 يرجى المحاولة مرة أخرى',
-                style: GoogleFonts.cairo(),
-              ),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        }
-
-        debugPrint('✅ تم إرجاع المبلغ: $amount د.ع');
-        return;
-      }
-
-      // ✅ تحقق إضافي من قاعدة البيانات للتأكد من نجاح السحب
-      bool finalVerificationSuccess = false;
-      try {
-        debugPrint('🔍 التحقق النهائي من قاعدة البيانات...');
-
-        final verificationResult = await Supabase.instance.client
-            .from('users')
-            .select('achieved_profits')
-            .eq('phone', currentUserPhone)
-            .single();
-
-        final actualBalance = (verificationResult['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-
-        debugPrint('📊 الرصيد الفعلي في قاعدة البيانات: $actualBalance د.ع');
-        debugPrint('📊 الرصيد المتوقع: $newBalance د.ع');
-
-        if ((actualBalance - newBalance).abs() < 0.01) { // تسامح صغير للأرقام العشرية
-          finalVerificationSuccess = true;
-          newBalance = actualBalance; // استخدام القيمة الفعلية من قاعدة البيانات
-          debugPrint('✅ تم التحقق من نجاح السحب في قاعدة البيانات');
-        } else {
-          debugPrint('❌ عدم تطابق الرصيد! الفعلي: $actualBalance، المتوقع: $newBalance');
-        }
-      } catch (e) {
-        debugPrint('❌ خطأ في التحقق النهائي: $e');
-      }
-
-      if (!finalVerificationSuccess) {
-        debugPrint('🚨 فشل التحقق النهائي - إلغاء العملية');
-
-        setState(() {
-          _availableBalance = _availableBalance + amount; // إرجاع المبلغ
-          isLoading = false;
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '❌ فشل في التحقق من نجاح السحب\n'
-                '💰 تم إرجاع المبلغ إلى رصيدك\n'
-                '🔄 يرجى المحاولة مرة أخرى',
-                style: GoogleFonts.cairo(),
-              ),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
-        return;
-      }
-
-      // ✅ تحديث الرصيد المحلي بالقيمة المؤكدة من قاعدة البيانات
-      setState(() {
-        _availableBalance = newBalance;
-        isLoading = false;
-      });
-
-      debugPrint('✅ تم خصم $amount د.ع من الأرباح المحققة بنجاح');
-      debugPrint('💰 الرصيد الجديد المؤكد: $newBalance د.ع');
-
-      // ✅ إعادة تحميل صفحة الأرباح لتحديث الأرباح المحققة
-      _loadUserProfits();
-
-      if (mounted) {
-        // عرض رسالة نجاح مؤكدة
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '✅ تم سحب الأرباح بنجاح!\n'
-              '💰 المبلغ المسحوب: ${NumberFormatter.formatCurrency(amount)}\n'
-              '📊 الرصيد الجديد: ${NumberFormatter.formatCurrency(newBalance)}',
-              style: GoogleFonts.cairo(),
-            ),
-            backgroundColor: const Color(0xFF28a745),
-            duration: const Duration(seconds: 5),
-          ),
-        );
-
-        // العودة للصفحة السابقة
-        context.pop();
+      } else {
+        throw Exception(result['message']);
       }
     } catch (e) {
-      debugPrint('❌ خطأ في طلب السحب: $e');
-
-      setState(() => isLoading = false);
-
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'حدث خطأ: ${e.toString()}',
-              style: GoogleFonts.cairo(),
-            ),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        String errorMessage = 'حدث خطأ في السحب، يرجى المحاولة لاحقاً';
+
+        // رسائل خطأ واضحة للمستخدم
+        if (e.toString().contains('الرصيد غير كافي')) {
+          errorMessage = 'الرصيد غير كافي لإجراء هذه العملية';
+        } else if (e.toString().contains('المبلغ المطلوب أكبر من الرصيد المتاح')) {
+          errorMessage = 'المبلغ المطلوب أكبر من الرصيد المتاح';
+        } else if (e.toString().contains('لا يوجد مستخدم مسجل دخول')) {
+          errorMessage = 'يرجى تسجيل الدخول أولاً';
+        } else if (e.toString().contains('المستخدم غير موجود')) {
+          errorMessage = 'حسابك غير موجود، يرجى التواصل مع الإدارة';
+        } else if (e.toString().contains('الاتصال')) {
+          errorMessage = 'مشكلة في الاتصال، تحقق من الإنترنت';
+        }
+
+        CustomNotification.showError(context, errorMessage);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
       }
     }
   }
 
-  // تم إزالة دالة _showHelpDialog غير المستخدمة
+  // 🔍 التحقق من صحة البيانات
+  Future<Map<String, dynamic>> _validateWithdrawData() async {
+    double amount = double.tryParse(_amountController.text) ?? 0;
+
+    // التحقق من المبلغ
+    if (amount < 1000) {
+      return {'isValid': false, 'message': 'الحد الأدنى للسحب هو ${NumberFormatter.formatCurrency(1000)}'};
+    }
+
+    if (amount > _availableBalance) {
+      return {'isValid': false, 'message': 'المبلغ أكبر من الرصيد المتاح'};
+    }
+
+    // التحقق من رقم الحساب/البطاقة
+    if (selectedMethod == 'ki_card') {
+      if (_cardNumberController.text.length != 10) {
+        return {'isValid': false, 'message': 'رقم البطاقة يجب أن يكون 10 أرقام'};
+      }
+      if (_cardHolderController.text.trim().isEmpty) {
+        return {'isValid': false, 'message': 'اسم حامل البطاقة مطلوب'};
+      }
+    } else {
+      if (_phoneController.text.length != 11) {
+        return {'isValid': false, 'message': 'رقم الهاتف يجب أن يكون 11 رقم'};
+      }
+    }
+
+    return {'isValid': true, 'message': 'البيانات صحيحة'};
+  }
+
+  // 💰 الحصول على الرصيد الحالي
+  Future<double> _getCurrentBalance() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        throw Exception('المستخدم غير مسجل الدخول');
+      }
+
+      final response = await Supabase.instance.client
+          .from('users')
+          .select('achieved_profits')
+          .eq('phone', currentUserPhone)
+          .single();
+
+      return (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
+    } catch (e) {
+      throw Exception('فشل في الحصول على الرصيد الحالي: $e');
+    }
+  }
+
+  // 🔐 تنفيذ معاملة السحب الآمنة
+  Future<Map<String, dynamic>> _executeSecureWithdrawTransaction({
+    required String transactionId,
+    required double amount,
+    required double netAmount,
+    required String accountNumber,
+    required double currentBalance,
+  }) async {
+    try {
+      // الحصول على معرف المستخدم من SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      String? currentUserPhone = prefs.getString('current_user_phone');
+      String? userId = prefs.getString('current_user_id');
+
+      if (currentUserPhone == null || userId == null) {
+        throw Exception('معرف المستخدم غير صحيح');
+      }
+
+      // 1. إنشاء طلب السحب
+      String accountDetails = selectedMethod == 'ki_card'
+          ? 'بطاقة كي كارد - ${_cardHolderController.text} - $accountNumber'
+          : 'زين كاش - $accountNumber';
+
+      await Supabase.instance.client.from('withdrawal_requests').insert({
+        'user_id': userId,
+        'amount': amount,
+        'withdrawal_method': selectedMethod == 'ki_card' ? 'بطاقة كي كارد' : 'زين كاش',
+        'account_details': accountDetails,
+        'status': 'pending',
+      });
+
+      // 2. سحب المبلغ من الأرباح باستخدام الدالة الآمنة
+      final withdrawResult = await Supabase.instance.client.rpc(
+        'safe_withdraw_profits',
+        params: {'p_user_phone': currentUserPhone, 'p_amount': amount, 'p_authorized_by': 'USER_WITHDRAWAL'},
+      );
+
+      if (withdrawResult == null || withdrawResult['success'] != true) {
+        throw Exception('فشل في خصم المبلغ من الأرباح: ${withdrawResult?['error'] ?? 'خطأ غير معروف'}');
+      }
+
+      return {'success': true, 'message': 'تم إنجاز المعاملة بنجاح'};
+    } catch (e) {
+      return {'success': false, 'message': 'فشل في تنفيذ المعاملة: $e'};
+    }
+  }
 }

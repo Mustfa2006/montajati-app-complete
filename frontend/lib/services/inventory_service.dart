@@ -1,19 +1,15 @@
-
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'smart_inventory_manager.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'smart_inventory_manager.dart';
 
 /// خدمة إدارة المخزون والكميات
 class InventoryService {
   static final _supabase = Supabase.instance.client;
 
   /// تقليل الكمية المتاحة عند إجراء حجز باستخدام النظام الذكي
-  static Future<Map<String, dynamic>> reserveProduct({
-    required String productId,
-    required int reservedQuantity,
-  }) async {
+  static Future<Map<String, dynamic>> reserveProduct({required String productId, required int reservedQuantity}) async {
     try {
       debugPrint('🧠 بدء الحجز الذكي: $reservedQuantity قطعة من المنتج: $productId');
 
@@ -50,11 +46,7 @@ class InventoryService {
       }
     } catch (e) {
       debugPrint('❌ خطأ في الحجز الذكي: $e');
-      return {
-        'success': false,
-        'message': 'خطأ في النظام: $e',
-        'error': e.toString(),
-      };
+      return {'success': false, 'message': 'خطأ في النظام: $e', 'error': e.toString()};
     }
   }
 
@@ -68,7 +60,6 @@ class InventoryService {
 
       // إرسال طلب للخادم لمعالجة التنبيه
       _monitorProductStock(productId);
-
     } catch (e) {
       debugPrint('❌ خطأ في إرسال تنبيه المخزون المنخفض: $e');
     }
@@ -80,15 +71,10 @@ class InventoryService {
     required int returnedQuantity,
   }) async {
     try {
-      debugPrint(
-        '🧠 بدء إلغاء الحجز الذكي: $returnedQuantity قطعة من المنتج: $productId',
-      );
+      debugPrint('🧠 بدء إلغاء الحجز الذكي: $returnedQuantity قطعة من المنتج: $productId');
 
       // استخدام النظام الذكي لإضافة المخزون
-      final result = await SmartInventoryManager.addStock(
-        productId: productId,
-        addedQuantity: returnedQuantity,
-      );
+      final result = await SmartInventoryManager.addStock(productId: productId, addedQuantity: returnedQuantity);
 
       if (result['success']) {
         debugPrint('✅ تم إلغاء الحجز بالنظام الذكي بنجاح');
@@ -112,20 +98,41 @@ class InventoryService {
       }
     } catch (e) {
       debugPrint('❌ خطأ في إلغاء الحجز الذكي: $e');
-      return {
-        'success': false,
-        'message': 'خطأ في النظام: $e',
-        'error': e.toString(),
-      };
+      return {'success': false, 'message': 'خطأ في النظام: $e', 'error': e.toString()};
     }
   }
 
-  /// التحقق من توفر الكمية (يعتمد على العدد الإجمالي فقط)
+  /// التحقق من توفر الكمية (يعتمد على العدد الإجمالي أو اللون)
   static Future<Map<String, dynamic>> checkAvailability({
     required String productId,
     required int requestedQuantity,
+    String? colorId, // 🎨 معرف اللون (اختياري)
   }) async {
     try {
+      // 🎨 إذا تم تحديد لون، التحقق من توفر اللون
+      if (colorId != null && colorId != 'none') {
+        final colorResponse = await _supabase
+            .from('product_colors') // 🎯 الجدول الصحيح
+            .select('available_quantity, color_arabic_name')
+            .eq('id', colorId)
+            .single();
+
+        final int colorStock = colorResponse['available_quantity'] ?? 0;
+        final String colorName = colorResponse['color_arabic_name'] ?? 'لون غير معروف';
+
+        final bool isAvailable = requestedQuantity <= colorStock;
+
+        return {
+          'success': true,
+          'is_available': isAvailable,
+          'color_name': colorName,
+          'requested_quantity': requestedQuantity,
+          'stock': colorStock,
+          'max_available': colorStock,
+        };
+      }
+
+      // إذا لم يتم تحديد لون، التحقق من المخزون الإجمالي
       final productResponse = await _supabase
           .from('products')
           .select('available_quantity, name')
@@ -147,21 +154,14 @@ class InventoryService {
       };
     } catch (e) {
       debugPrint('❌ خطأ في التحقق من التوفر: $e');
-      return {
-        'success': false,
-        'message': 'خطأ في النظام',
-        'error': e.toString(),
-      };
+      return {'success': false, 'message': 'خطأ في النظام', 'error': e.toString()};
     }
   }
 
   /// جلب إحصائيات المخزون (يعتمد على العدد الإجمالي فقط)
   static Future<Map<String, dynamic>> getInventoryStats() async {
     try {
-      final response = await _supabase
-          .from('products')
-          .select('available_quantity')
-          .eq('is_active', true);
+      final response = await _supabase.from('products').select('available_quantity').eq('is_active', true);
 
       int totalStock = 0;
       int lowStockCount = 0;
@@ -188,11 +188,7 @@ class InventoryService {
       };
     } catch (e) {
       debugPrint('❌ خطأ في جلب إحصائيات المخزون: $e');
-      return {
-        'success': false,
-        'message': 'خطأ في النظام',
-        'error': e.toString(),
-      };
+      return {'success': false, 'message': 'خطأ في النظام', 'error': e.toString()};
     }
   }
 
@@ -202,20 +198,15 @@ class InventoryService {
     // استخدام الخادم الصحيح حسب البيئة
     const String baseUrl = kDebugMode
         ? 'http://localhost:3003'
-  : 'https://montajati-official-backend-production.up.railway.app';
+        : 'https://montajati-official-backend-production.up.railway.app';
 
     http
-        .post(
-          Uri.parse('$baseUrl/api/inventory/monitor/$productId'),
-          headers: {'Content-Type': 'application/json'},
-        )
+        .post(Uri.parse('$baseUrl/api/inventory/monitor/$productId'), headers: {'Content-Type': 'application/json'})
         .then((response) {
           if (response.statusCode == 200) {
             debugPrint('✅ تم إرسال طلب مراقبة المنتج: $productId');
           } else {
-            debugPrint(
-              '⚠️ فشل في إرسال طلب مراقبة المنتج: ${response.statusCode}',
-            );
+            debugPrint('⚠️ فشل في إرسال طلب مراقبة المنتج: ${response.statusCode}');
           }
         })
         .catchError((error) {
@@ -247,18 +238,12 @@ class InventoryService {
   }
 
   /// تقليل المخزون مباشرة (للطلبات المثبتة) باستخدام النظام الذكي
-  static Future<Map<String, dynamic>> reduceStock({
-    required String productId,
-    required int quantity,
-  }) async {
+  static Future<Map<String, dynamic>> reduceStock({required String productId, required int quantity}) async {
     try {
       debugPrint('🧠 بدء تقليل المخزون الذكي: $quantity قطعة من المنتج $productId');
 
       // استخدام النظام الذكي لتقليل المخزون (نفس منطق الحجز)
-      final result = await SmartInventoryManager.smartReserveProduct(
-        productId: productId,
-        requestedQuantity: quantity,
-      );
+      final result = await SmartInventoryManager.smartReserveProduct(productId: productId, requestedQuantity: quantity);
 
       if (result['success']) {
         debugPrint('✅ تم تقليل المخزون بالنظام الذكي بنجاح');

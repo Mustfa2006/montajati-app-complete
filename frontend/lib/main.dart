@@ -8,7 +8,9 @@ import 'package:provider/provider.dart';
 
 import 'config/api_config.dart';
 import 'config/supabase_config.dart';
+import 'l10n/app_localizations.dart';
 import 'providers/order_status_provider.dart';
+import 'providers/theme_provider.dart';
 import 'router.dart';
 import 'services/database_migration_service.dart';
 import 'services/fcm_service.dart';
@@ -80,7 +82,10 @@ void main() async {
     debugPrint('🚀 بدء تشغيل التطبيق...');
     runApp(
       MultiProvider(
-        providers: [ChangeNotifierProvider(create: (_) => OrderStatusProvider())],
+        providers: [
+          ChangeNotifierProvider(create: (_) => OrderStatusProvider()),
+          ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ],
         child: const MontajatiApp(),
       ),
     );
@@ -247,6 +252,27 @@ class MontajatiApp extends StatelessWidget {
       title: 'منتجاتي - نظام إدارة الدروب شيبنگ',
       debugShowCheckedModeBanner: false,
 
+      // دعم اللغة العربية فقط
+      locale: const Locale('ar'),
+      supportedLocales: const [Locale('ar')],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      localeResolutionCallback: (locale, supportedLocales) {
+        // للغات المدعومة، استخدم اللغة المطلوبة
+        for (var supportedLocale in supportedLocales) {
+          if (supportedLocale.languageCode == locale?.languageCode) {
+            return supportedLocale;
+          }
+        }
+
+        // إذا لم تكن مدعومة، استخدم العربية كافتراضي
+        return const Locale('ar');
+      },
+
       // إعدادات التطبيق
       routerConfig: AppRouter.router,
 
@@ -296,28 +322,15 @@ class MontajatiApp extends StatelessWidget {
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white.withValues(alpha: 0.1),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFffd700), width: 2),
-          ),
+          border: InputBorder.none, // ✅ إزالة جميع الحدود
+          enabledBorder: InputBorder.none, // ✅ إزالة حدود الحالة العادية
+          focusedBorder: InputBorder.none, // ✅ إزالة حدود التركيز
+          disabledBorder: InputBorder.none, // ✅ إزالة حدود التعطيل
+          errorBorder: InputBorder.none, // ✅ إزالة حدود الخطأ
+          focusedErrorBorder: InputBorder.none, // ✅ إزالة حدود الخطأ مع التركيز
           labelStyle: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7)),
         ),
       ),
-
-      // إعدادات اللغة والاتجاه
-      locale: const Locale('ar', 'SA'),
-      supportedLocales: const [
-        Locale('ar', 'SA'), // العربية
-        Locale('en', 'US'), // الإنجليزية
-      ],
-
-      // إعدادات الترجمة
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
 
       // اتجاه النص من اليمين لليسار + النمط الغامر
       builder: (context, child) {

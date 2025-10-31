@@ -512,6 +512,22 @@ class _ReportsPageState extends State<ReportsPage> {
       initialDate: isStartDate ? _startDate : _endDate,
       firstDate: DateTime(2020),
       lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFFffd700), // اللون الذهبي للعناصر المحددة
+              onPrimary: Color(0xFF0F1419), // لون النص على الذهبي
+              surface: Color(0xFF16213e), // خلفية النافذة - داكنة
+              onSurface: Colors.white, // لون النص
+              surfaceContainerHighest: Color(0xFF1a1a2e), // خلفية العناصر
+            ),
+            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF16213e)),
+            textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: const Color(0xFFffd700))),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (date != null) {

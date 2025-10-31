@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/order_summary.dart';
 import '../services/admin_service.dart';
 import '../utils/order_status_helper.dart';
@@ -10,13 +11,10 @@ class AdvancedOrdersManagementPage extends StatefulWidget {
   const AdvancedOrdersManagementPage({super.key});
 
   @override
-  State<AdvancedOrdersManagementPage> createState() =>
-      _AdvancedOrdersManagementPageState();
+  State<AdvancedOrdersManagementPage> createState() => _AdvancedOrdersManagementPageState();
 }
 
-class _AdvancedOrdersManagementPageState
-    extends State<AdvancedOrdersManagementPage>
-    with TickerProviderStateMixin {
+class _AdvancedOrdersManagementPageState extends State<AdvancedOrdersManagementPage> with TickerProviderStateMixin {
   // Controllers للرسوم المتحركة
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -72,24 +70,19 @@ class _AdvancedOrdersManagementPageState
   }
 
   void _initializeAnimations() {
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
+    _fadeController = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
 
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
+    _slideController = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut));
 
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
 
     _fadeController.forward();
     _slideController.forward();
@@ -97,8 +90,7 @@ class _AdvancedOrdersManagementPageState
 
   void _setupScrollListener() {
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels ==
-          _scrollController.position.maxScrollExtent) {
+      if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) {
         _loadMoreOrders();
       }
     });
@@ -190,19 +182,11 @@ class _AdvancedOrdersManagementPageState
         // فلتر البحث
         bool matchesSearch =
             _searchQuery.isEmpty ||
-            summary.orderNumber.toLowerCase().contains(
-              _searchQuery.toLowerCase(),
-            ) ||
-            summary.customerName.toLowerCase().contains(
-              _searchQuery.toLowerCase(),
-            ) ||
+            summary.orderNumber.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            summary.customerName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             summary.customerPhone.contains(_searchQuery) ||
-            summary.province.toLowerCase().contains(
-              _searchQuery.toLowerCase(),
-            ) ||
-            summary.city.toLowerCase().contains(
-              _searchQuery.toLowerCase(),
-            );
+            summary.province.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            summary.city.toLowerCase().contains(_searchQuery.toLowerCase());
 
         // فلتر الحالة مع تشخيص محسن
         bool matchesStatus = _selectedStatus == 'all';
@@ -221,7 +205,9 @@ class _AdvancedOrdersManagementPageState
             case 'active':
               // الطلبات النشطة - البحث عن حالة "active" تحديداً
               matchesStatus = summary.status.trim() == 'active';
-              debugPrint('🔍 فحص طلب ${summary.orderNumber}: status="${summary.status.trim()}", matches=$matchesStatus');
+              debugPrint(
+                '🔍 فحص طلب ${summary.orderNumber}: status="${summary.status.trim()}", matches=$matchesStatus',
+              );
               break;
             case 'in_delivery':
               // الطلبات قيد التوصيل - فقط "قيد التوصيل الى الزبون (في عهدة المندوب)"
@@ -244,21 +230,15 @@ class _AdvancedOrdersManagementPageState
         // إزالة الطباعة التشخيصية المفرطة لتحسين الأداء
 
         // فلتر التاريخ
-        bool matchesDate =
-            _selectedDateRange == 'all' || _isDateInRange(summary.createdAt);
+        bool matchesDate = _selectedDateRange == 'all' || _isDateInRange(summary.createdAt);
 
         // فلتر المبلغ
-        bool matchesAmount =
-            summary.totalAmount >= _minAmount && summary.totalAmount <= _maxAmount;
+        bool matchesAmount = summary.totalAmount >= _minAmount && summary.totalAmount <= _maxAmount;
 
         // فلتر المستخدم (تخطي لأنه غير متوفر في الملخص)
         bool matchesUser = true;
 
-        return matchesSearch &&
-            matchesStatus &&
-            matchesDate &&
-            matchesAmount &&
-            matchesUser;
+        return matchesSearch && matchesStatus && matchesDate && matchesAmount && matchesUser;
       }).toList();
 
       // تم تطبيق الفلاتر بنجاح
@@ -275,18 +255,14 @@ class _AdvancedOrdersManagementPageState
       case 'today':
         return _isSameDay(date, DateTime.now());
       case 'yesterday':
-        return _isSameDay(
-          date,
-          DateTime.now().subtract(const Duration(days: 1)),
-        );
+        return _isSameDay(date, DateTime.now().subtract(const Duration(days: 1)));
       case 'week':
         return date.isAfter(DateTime.now().subtract(const Duration(days: 7)));
       case 'month':
         return date.isAfter(DateTime.now().subtract(const Duration(days: 30)));
       case 'custom':
         if (_startDate != null && _endDate != null) {
-          return date.isAfter(_startDate!) &&
-              date.isBefore(_endDate!.add(const Duration(days: 1)));
+          return date.isAfter(_startDate!) && date.isBefore(_endDate!.add(const Duration(days: 1)));
         }
         return true;
       default:
@@ -295,9 +271,7 @@ class _AdvancedOrdersManagementPageState
   }
 
   bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
+    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
   }
 
   void _sortOrders() {
@@ -334,9 +308,7 @@ class _AdvancedOrdersManagementPageState
     // حساب الإحصائيات الحقيقية من قاعدة البيانات
     try {
       // جلب جميع الطلبات لحساب العدادات الحقيقية
-      final allOrdersResponse = await Supabase.instance.client
-          .from('orders')
-          .select('status, total');
+      final allOrdersResponse = await Supabase.instance.client.from('orders').select('status, total');
 
       if (allOrdersResponse.isEmpty) {
         setState(() {
@@ -354,13 +326,7 @@ class _AdvancedOrdersManagementPageState
       final totalProfit = 0.0; // الربح غير متوفر في الملخص
 
       // حساب عدد الطلبات لكل حالة من جميع الطلبات في قاعدة البيانات
-      final statusCounts = <String, int>{
-        'معالجات': 0,
-        'active': 0,
-        'قيد التوصيل': 0,
-        'تم التوصيل': 0,
-        'ملغي': 0,
-      };
+      final statusCounts = <String, int>{'معالجات': 0, 'active': 0, 'قيد التوصيل': 0, 'تم التوصيل': 0, 'ملغي': 0};
 
       for (final order in allOrdersResponse) {
         final status = order['status'] as String? ?? '';
@@ -377,15 +343,12 @@ class _AdvancedOrdersManagementPageState
             statusCounts['active'] = (statusCounts['active'] ?? 0) + 1;
             debugPrint('✅ طلب نشط: ${order['order_number']} - العدد الحالي: ${statusCounts['active']}');
           } else if (trimmedStatus == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
-                     trimmedStatus == 'قيد التوصيل' ||
-                     trimmedStatus == 'قيد التوصيل الى الزبون') {
+              trimmedStatus == 'قيد التوصيل' ||
+              trimmedStatus == 'قيد التوصيل الى الزبون') {
             statusCounts['قيد التوصيل'] = (statusCounts['قيد التوصيل'] ?? 0) + 1;
-          } else if (trimmedStatus == 'تم التسليم للزبون' ||
-                     trimmedStatus == 'delivered' ||
-                     trimmedStatus == 'مكتمل') {
+          } else if (trimmedStatus == 'تم التسليم للزبون' || trimmedStatus == 'delivered' || trimmedStatus == 'مكتمل') {
             statusCounts['تم التوصيل'] = (statusCounts['تم التوصيل'] ?? 0) + 1;
-          } else if (trimmedStatus == 'الغاء الطلب' ||
-                     trimmedStatus == 'رفض الطلب') {
+          } else if (trimmedStatus == 'الغاء الطلب' || trimmedStatus == 'رفض الطلب') {
             statusCounts['ملغي'] = (statusCounts['ملغي'] ?? 0) + 1;
           }
         }
@@ -443,18 +406,11 @@ class _AdvancedOrdersManagementPageState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
-              strokeWidth: 3,
-            ),
+            CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)), strokeWidth: 3),
             SizedBox(height: 20),
             Text(
               'جاري تحميل الطلبات...',
-              style: TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -482,9 +438,7 @@ class _AdvancedOrdersManagementPageState
               ),
             ),
             // محتوى الطلبات
-            SliverFillRemaining(
-              child: _buildOrdersContent(),
-            ),
+            SliverFillRemaining(child: _buildOrdersContent()),
           ],
         ),
       ),
@@ -495,16 +449,10 @@ class _AdvancedOrdersManagementPageState
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-        ),
+        gradient: const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]),
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFffd700).withValues(alpha: 0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: const Color(0xFFffd700).withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 5)),
         ],
       ),
       margin: const EdgeInsets.all(20),
@@ -512,15 +460,8 @@ class _AdvancedOrdersManagementPageState
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1a1a2e),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.shopping_cart_outlined,
-              color: Color(0xFFffd700),
-              size: 28,
-            ),
+            decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.shopping_cart_outlined, color: Color(0xFFffd700), size: 28),
           ),
           const SizedBox(width: 15),
           const Expanded(
@@ -529,11 +470,7 @@ class _AdvancedOrdersManagementPageState
               children: [
                 Text(
                   'إدارة الطلبات المتطورة',
-                  style: TextStyle(
-                    color: Color(0xFF1a1a2e),
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   'نظام إدارة شامل ومتقدم للطلبات والعملاء',
@@ -551,30 +488,13 @@ class _AdvancedOrdersManagementPageState
   Widget _buildHeaderActions() {
     return Row(
       children: [
-        _buildHeaderButton(
-          icon: Icons.refresh,
-          label: 'تحديث',
-          onPressed: _refreshOrders,
-          isLoading: _isRefreshing,
-        ),
+        _buildHeaderButton(icon: Icons.refresh, label: 'تحديث', onPressed: _refreshOrders, isLoading: _isRefreshing),
         const SizedBox(width: 10),
-        _buildHeaderButton(
-          icon: Icons.add,
-          label: 'طلب جديد',
-          onPressed: _createNewOrder,
-        ),
+        _buildHeaderButton(icon: Icons.add, label: 'طلب جديد', onPressed: _createNewOrder),
         const SizedBox(width: 10),
-        _buildHeaderButton(
-          icon: Icons.download,
-          label: 'تصدير',
-          onPressed: _showExportOptions,
-        ),
+        _buildHeaderButton(icon: Icons.download, label: 'تصدير', onPressed: _showExportOptions),
         const SizedBox(width: 10),
-        _buildHeaderButton(
-          icon: Icons.schedule,
-          label: 'الطلبات المجدولة',
-          onPressed: _showScheduledOrders,
-        ),
+        _buildHeaderButton(icon: Icons.schedule, label: 'الطلبات المجدولة', onPressed: _showScheduledOrders),
         const SizedBox(width: 10),
         _buildHeaderButton(
           icon: Icons.local_shipping,
@@ -596,10 +516,7 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Material(
         color: Colors.transparent,
@@ -617,9 +534,7 @@ class _AdvancedOrdersManagementPageState
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFFffd700),
-                      ),
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
                     ),
                   )
                 else
@@ -627,11 +542,7 @@ class _AdvancedOrdersManagementPageState
                 const SizedBox(width: 6),
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Color(0xFFffd700),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: const TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.w500),
                 ),
               ],
             ),
@@ -653,10 +564,7 @@ class _AdvancedOrdersManagementPageState
           _buildSortOptions(),
           const SizedBox(width: 15),
           _buildFilterButton(),
-          if (_isSelectMode) ...[
-            const SizedBox(width: 15),
-            _buildBulkActions(),
-          ],
+          if (_isSelectMode) ...[const SizedBox(width: 15), _buildBulkActions()],
         ],
       ),
     );
@@ -667,32 +575,18 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: TextField(
         controller: _searchController,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'البحث في الطلبات (رقم الطلب، اسم العميل، الهاتف...)',
-          hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
-            fontSize: 14,
-          ),
-          prefixIcon: const Icon(
-            Icons.search,
-            color: Color(0xFFffd700),
-            size: 20,
-          ),
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 14),
+          prefixIcon: const Icon(Icons.search, color: Color(0xFFffd700), size: 20),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(
-                    Icons.clear,
-                    color: Color(0xFFffd700),
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.clear, color: Color(0xFFffd700), size: 18),
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
@@ -701,10 +595,7 @@ class _AdvancedOrdersManagementPageState
                 )
               : null,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 15,
-            vertical: 12,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
         ),
         onChanged: (value) {
           setState(() => _searchQuery = value);
@@ -719,10 +610,7 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -746,13 +634,7 @@ class _AdvancedOrdersManagementPageState
           borderRadius: BorderRadius.circular(8),
         ),
         child: IconButton(
-          icon: Icon(
-            icon,
-            color: isSelected
-                ? const Color(0xFF1a1a2e)
-                : const Color(0xFFffd700),
-            size: 18,
-          ),
+          icon: Icon(icon, color: isSelected ? const Color(0xFF1a1a2e) : const Color(0xFFffd700), size: 18),
           onPressed: () {
             setState(() => _currentView = view);
           },
@@ -768,31 +650,21 @@ class _AdvancedOrdersManagementPageState
         decoration: BoxDecoration(
           color: const Color(0xFF16213e),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: const Color(0xFFffd700).withValues(alpha: 0.3),
-            width: 1,
-          ),
+          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.sort, color: Color(0xFFffd700), size: 18),
             const SizedBox(width: 4),
-            Icon(
-              _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-              color: const Color(0xFFffd700),
-              size: 14,
-            ),
+            Icon(_sortAscending ? Icons.arrow_upward : Icons.arrow_downward, color: const Color(0xFFffd700), size: 14),
           ],
         ),
       ),
       color: const Color(0xFF16213e),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        side: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       itemBuilder: (context) => [
         _buildSortMenuItem('created_at', 'تاريخ الإنشاء'),
@@ -845,10 +717,7 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: IconButton(
         icon: const Icon(Icons.filter_list, color: Color(0xFFffd700), size: 18),
@@ -864,29 +733,18 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             '${_selectedOrders.length} محدد',
-            style: const TextStyle(
-              color: Color(0xFFffd700),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.w500),
           ),
           const SizedBox(width: 8),
           PopupMenuButton<String>(
-            icon: const Icon(
-              Icons.more_vert,
-              color: Color(0xFFffd700),
-              size: 16,
-            ),
+            icon: const Icon(Icons.more_vert, color: Color(0xFFffd700), size: 16),
             color: const Color(0xFF16213e),
             itemBuilder: (context) => [
               const PopupMenuItem(
@@ -940,11 +798,7 @@ class _AdvancedOrdersManagementPageState
             const SizedBox(width: 8),
             _buildQuickFilterChip('نشط', 'active', Icons.check_circle),
             const SizedBox(width: 8),
-            _buildQuickFilterChip(
-              'قيد التوصيل',
-              'in_delivery',
-              Icons.local_shipping,
-            ),
+            _buildQuickFilterChip('قيد التوصيل', 'in_delivery', Icons.local_shipping),
             const SizedBox(width: 8),
             _buildQuickFilterChip('تم التوصيل', 'delivered', Icons.done_all),
             const SizedBox(width: 8),
@@ -957,17 +811,14 @@ class _AdvancedOrdersManagementPageState
 
   Widget _buildQuickFilterChip(String label, String value, IconData icon) {
     final isSelected = _selectedStatus == value;
-    final color = OrderStatusHelper.getStatusColor(
-      value == 'all' ? 'confirmed' : value,
-    );
+    final color = OrderStatusHelper.getStatusColor(value == 'all' ? 'confirmed' : value);
 
     // حساب عدد الطلبات لكل حالة
     int count = 0;
     if (value == 'all') {
       count = _orderSummaries.length;
     } else {
-      final statusCounts =
-          _statistics['statusCounts'] as Map<String, int>? ?? {};
+      final statusCounts = _statistics['statusCounts'] as Map<String, int>? ?? {};
       switch (value) {
         case 'processing':
           count = statusCounts['معالجات'] ?? 0;
@@ -1010,11 +861,7 @@ class _AdvancedOrdersManagementPageState
             ),
             child: Text(
               count.toString(),
-              style: TextStyle(
-                color: isSelected ? Colors.black : color,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: isSelected ? Colors.black : color, fontSize: 10, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -1043,10 +890,7 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Row(
         children: [
@@ -1082,12 +926,7 @@ class _AdvancedOrdersManagementPageState
     );
   }
 
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -1110,24 +949,14 @@ class _AdvancedOrdersManagementPageState
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 12,
-                    ),
-                  ),
+                  child: Text(title, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
               value,
-              style: TextStyle(
-                color: color,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -1160,45 +989,25 @@ class _AdvancedOrdersManagementPageState
             decoration: BoxDecoration(
               color: const Color(0xFF16213e),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                width: 1,
-              ),
+              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
             ),
-            child: const Icon(
-              Icons.inbox_outlined,
-              color: Color(0xFFffd700),
-              size: 64,
-            ),
+            child: const Icon(Icons.inbox_outlined, color: Color(0xFFffd700), size: 64),
           ),
           const SizedBox(height: 20),
           const Text(
             'لا توجد طلبات',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           Text(
-            _searchQuery.isNotEmpty
-                ? 'لم يتم العثور على طلبات تطابق البحث'
-                : 'لم يتم إنشاء أي طلبات بعد',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
-              fontSize: 14,
-            ),
+            _searchQuery.isNotEmpty ? 'لم يتم العثور على طلبات تطابق البحث' : 'لم يتم إنشاء أي طلبات بعد',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
           ),
           const SizedBox(height: 20),
           ElevatedButton.icon(
-            onPressed: _searchQuery.isNotEmpty
-                ? _clearFilters
-                : _createNewOrder,
+            onPressed: _searchQuery.isNotEmpty ? _clearFilters : _createNewOrder,
             icon: Icon(_searchQuery.isNotEmpty ? Icons.clear : Icons.add),
-            label: Text(
-              _searchQuery.isNotEmpty ? 'مسح الفلاتر' : 'إنشاء طلب جديد',
-            ),
+            label: Text(_searchQuery.isNotEmpty ? 'مسح الفلاتر' : 'إنشاء طلب جديد'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFffd700),
               foregroundColor: const Color(0xFF1a1a2e),
@@ -1234,10 +1043,7 @@ class _AdvancedOrdersManagementPageState
           decoration: BoxDecoration(
             color: const Color(0xFF16213e),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: const Color(0xFFffd700).withValues(alpha: 0.3),
-              width: 2,
-            ),
+            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 2),
           ),
           child: Column(
             children: [
@@ -1256,11 +1062,7 @@ class _AdvancedOrdersManagementPageState
       setState(() => _isBatchConverting = true);
 
       // جلب الطلبات النشطة (أول 20 طلب)
-      final activeOrders = await AdminService.getOrdersSummary(
-        statusFilter: 'active',
-        limit: 20,
-        offset: 0,
-      );
+      final activeOrders = await AdminService.getOrdersSummary(statusFilter: 'active', limit: 20, offset: 0);
 
       if (activeOrders.isEmpty) {
         _showInfoSnackBar('لا توجد طلبات نشطة للتحويل');
@@ -1296,14 +1098,11 @@ class _AdvancedOrdersManagementPageState
 
       // عرض النتيجة
       if (successCount > 0) {
-        _showSuccessSnackBar(
-          'تم تحويل $successCount طلب بنجاح${failCount > 0 ? ' (فشل $failCount طلب)' : ''}',
-        );
+        _showSuccessSnackBar('تم تحويل $successCount طلب بنجاح${failCount > 0 ? ' (فشل $failCount طلب)' : ''}');
         _refreshOrders(); // تحديث القائمة
       } else {
         _showErrorSnackBar('فشل في تحويل جميع الطلبات');
       }
-
     } catch (e) {
       debugPrint('❌ خطأ في التحويل المجمع: $e');
       _showErrorSnackBar('حدث خطأ أثناء تحويل الطلبات');
@@ -1315,36 +1114,28 @@ class _AdvancedOrdersManagementPageState
   // دالة مساعدة لعرض تأكيد
   Future<bool> _showConfirmationDialog(String title, String message) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF16213e),
-        title: Text(
-          title,
-          style: const TextStyle(color: Color(0xFFffd700)),
-        ),
-        content: Text(
-          message,
-          style: const TextStyle(color: Colors.white),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'إلغاء',
-              style: TextStyle(color: Colors.grey),
-            ),
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: const Color(0xFF16213e),
+            title: Text(title, style: const TextStyle(color: Color(0xFFffd700))),
+            content: Text(message, style: const TextStyle(color: Colors.white)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFffd700),
+                  foregroundColor: const Color(0xFF1a1a2e),
+                ),
+                child: const Text('تأكيد'),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-              foregroundColor: const Color(0xFF1a1a2e),
-            ),
-            child: const Text('تأكيد'),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   void _showAdvancedFilters() {
@@ -1352,10 +1143,7 @@ class _AdvancedOrdersManagementPageState
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF16213e),
-        title: const Text(
-          'فلاتر متقدمة',
-          style: TextStyle(color: Color(0xFFffd700)),
-        ),
+        title: const Text('فلاتر متقدمة', style: TextStyle(color: Color(0xFFffd700))),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1364,11 +1152,7 @@ class _AdvancedOrdersManagementPageState
               // فلتر الحالة
               const Text(
                 'حالة الطلب',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               _buildStatusFilter(),
@@ -1377,11 +1161,7 @@ class _AdvancedOrdersManagementPageState
               // فلتر التاريخ
               const Text(
                 'فترة زمنية',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               _buildDateFilter(),
@@ -1390,11 +1170,7 @@ class _AdvancedOrdersManagementPageState
               // فلتر المبلغ
               const Text(
                 'نطاق المبلغ',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               _buildAmountFilter(),
@@ -1408,19 +1184,14 @@ class _AdvancedOrdersManagementPageState
           ),
           TextButton(
             onPressed: _clearFilters,
-            child: const Text(
-              'مسح الكل',
-              style: TextStyle(color: Colors.orange),
-            ),
+            child: const Text('مسح الكل', style: TextStyle(color: Colors.orange)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               _applyFilters();
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFffd700)),
             child: const Text('تطبيق', style: TextStyle(color: Colors.black)),
           ),
         ],
@@ -1452,10 +1223,7 @@ class _AdvancedOrdersManagementPageState
         return FilterChip(
           label: Text(
             status['label'] as String,
-            style: TextStyle(
-              color: isSelected ? Colors.black : Colors.white,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: isSelected ? Colors.black : Colors.white, fontSize: 12),
           ),
           selected: isSelected,
           onSelected: (selected) {
@@ -1467,9 +1235,7 @@ class _AdvancedOrdersManagementPageState
           backgroundColor: const Color(0xFF1a1a2e),
           selectedColor: status['color'] as Color,
           checkmarkColor: Colors.black,
-          side: BorderSide(
-            color: (status['color'] as Color).withValues(alpha: 0.5),
-          ),
+          side: BorderSide(color: (status['color'] as Color).withValues(alpha: 0.5)),
         );
       }).toList(),
     );
@@ -1495,10 +1261,7 @@ class _AdvancedOrdersManagementPageState
             return FilterChip(
               label: Text(
                 range['label'] as String,
-                style: TextStyle(
-                  color: isSelected ? Colors.black : Colors.white,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: isSelected ? Colors.black : Colors.white, fontSize: 12),
               ),
               selected: isSelected,
               onSelected: (selected) {
@@ -1525,6 +1288,24 @@ class _AdvancedOrdersManagementPageState
                       initialDate: _startDate ?? DateTime.now(),
                       firstDate: DateTime(2020),
                       lastDate: DateTime.now(),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: Color(0xFFffd700), // اللون الذهبي للعناصر المحددة
+                              onPrimary: Color(0xFF0F1419), // لون النص على الذهبي
+                              surface: Color(0xFF16213e), // خلفية النافذة - داكنة
+                              onSurface: Colors.white, // لون النص
+                              surfaceContainerHighest: Color(0xFF1a1a2e), // خلفية العناصر
+                            ),
+                            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF16213e)),
+                            textButtonTheme: TextButtonThemeData(
+                              style: TextButton.styleFrom(foregroundColor: const Color(0xFFffd700)),
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
                     );
                     if (date != null) {
                       setState(() {
@@ -1533,9 +1314,7 @@ class _AdvancedOrdersManagementPageState
                     }
                   },
                   child: Text(
-                    _startDate != null
-                        ? DateFormat('yyyy/MM/dd').format(_startDate!)
-                        : 'من تاريخ',
+                    _startDate != null ? DateFormat('yyyy/MM/dd').format(_startDate!) : 'من تاريخ',
                     style: const TextStyle(color: Color(0xFFffd700)),
                   ),
                 ),
@@ -1549,6 +1328,24 @@ class _AdvancedOrdersManagementPageState
                       initialDate: _endDate ?? DateTime.now(),
                       firstDate: _startDate ?? DateTime(2020),
                       lastDate: DateTime.now(),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: Color(0xFFffd700), // اللون الذهبي للعناصر المحددة
+                              onPrimary: Color(0xFF0F1419), // لون النص على الذهبي
+                              surface: Color(0xFF16213e), // خلفية النافذة - داكنة
+                              onSurface: Colors.white, // لون النص
+                              surfaceContainerHighest: Color(0xFF1a1a2e), // خلفية العناصر
+                            ),
+                            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF16213e)),
+                            textButtonTheme: TextButtonThemeData(
+                              style: TextButton.styleFrom(foregroundColor: const Color(0xFFffd700)),
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
                     );
                     if (date != null) {
                       setState(() {
@@ -1557,9 +1354,7 @@ class _AdvancedOrdersManagementPageState
                     }
                   },
                   child: Text(
-                    _endDate != null
-                        ? DateFormat('yyyy/MM/dd').format(_endDate!)
-                        : 'إلى تاريخ',
+                    _endDate != null ? DateFormat('yyyy/MM/dd').format(_endDate!) : 'إلى تاريخ',
                     style: const TextStyle(color: Color(0xFFffd700)),
                   ),
                 ),
@@ -1582,12 +1377,8 @@ class _AdvancedOrdersManagementPageState
                 decoration: const InputDecoration(
                   labelText: 'الحد الأدنى',
                   labelStyle: TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white30),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFffd700)),
-                  ),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffd700))),
                   suffixText: 'د.ع',
                   suffixStyle: TextStyle(color: Colors.white70),
                 ),
@@ -1604,12 +1395,8 @@ class _AdvancedOrdersManagementPageState
                 decoration: const InputDecoration(
                   labelText: 'الحد الأعلى',
                   labelStyle: TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white30),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Color(0xFFffd700)),
-                  ),
+                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white30)),
+                  focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFffd700))),
                   suffixText: 'د.ع',
                   suffixStyle: TextStyle(color: Colors.white70),
                 ),
@@ -1644,58 +1431,45 @@ class _AdvancedOrdersManagementPageState
   bool _isProcessingStatus(String status) {
     final trimmedStatus = status.trim();
     return trimmedStatus == 'تم تغيير محافظة الزبون' ||
-           trimmedStatus == 'تغيير المندوب' ||
-           trimmedStatus == 'لا يرد' ||
-           trimmedStatus == 'لا يرد بعد الاتفاق' ||
-           trimmedStatus == 'مغلق' ||
-           trimmedStatus == 'مغلق بعد الاتفاق' ||
-           trimmedStatus == 'الرقم غير معرف' ||
-           trimmedStatus == 'الرقم غير داخل في الخدمة' ||
-           trimmedStatus == 'لا يمكن الاتصال بالرقم' ||
-           trimmedStatus == 'مؤجل' ||
-           trimmedStatus == 'مؤجل لحين اعادة الطلب لاحقا' ||
-           trimmedStatus == 'مفصول عن الخدمة' ||
-           trimmedStatus == 'طلب مكرر' ||
-           trimmedStatus == 'مستلم مسبقا' ||
-           trimmedStatus == 'العنوان غير دقيق' ||
-           trimmedStatus == 'لم يطلب' ||
-           trimmedStatus == 'حظر المندوب';
+        trimmedStatus == 'تغيير المندوب' ||
+        trimmedStatus == 'لا يرد' ||
+        trimmedStatus == 'لا يرد بعد الاتفاق' ||
+        trimmedStatus == 'مغلق' ||
+        trimmedStatus == 'مغلق بعد الاتفاق' ||
+        trimmedStatus == 'الرقم غير معرف' ||
+        trimmedStatus == 'الرقم غير داخل في الخدمة' ||
+        trimmedStatus == 'لا يمكن الاتصال بالرقم' ||
+        trimmedStatus == 'مؤجل' ||
+        trimmedStatus == 'مؤجل لحين اعادة الطلب لاحقا' ||
+        trimmedStatus == 'مفصول عن الخدمة' ||
+        trimmedStatus == 'طلب مكرر' ||
+        trimmedStatus == 'مستلم مسبقا' ||
+        trimmedStatus == 'العنوان غير دقيق' ||
+        trimmedStatus == 'لم يطلب' ||
+        trimmedStatus == 'حظر المندوب';
   }
 
   bool _isCancelledStatus(String status) {
     // فقط الحالات الملغية الأساسية
     final trimmedStatus = status.trim();
-    return trimmedStatus == 'الغاء الطلب' ||
-           trimmedStatus == 'رفض الطلب';
+    return trimmedStatus == 'الغاء الطلب' || trimmedStatus == 'رفض الطلب';
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.red, behavior: SnackBarBehavior.floating));
   }
 
   void _showInfoSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.blue,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.blue, behavior: SnackBarBehavior.floating));
   }
 
   void _showSuccessSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating),
     );
   }
 
@@ -1703,27 +1477,15 @@ class _AdvancedOrdersManagementPageState
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(18),
-          topRight: Radius.circular(18),
-        ),
+        gradient: const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(18), topRight: Radius.circular(18)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1a1a2e),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.schedule,
-              color: Color(0xFFffd700),
-              size: 24,
-            ),
+            decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.schedule, color: Color(0xFFffd700), size: 24),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -1732,16 +1494,9 @@ class _AdvancedOrdersManagementPageState
               children: [
                 Text(
                   'الطلبات المجدولة',
-                  style: TextStyle(
-                    color: Color(0xFF1a1a2e),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 20, fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  'الطلبات المؤجلة لتواريخ محددة',
-                  style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 14),
-                ),
+                Text('الطلبات المؤجلة لتواريخ محددة', style: TextStyle(color: Color(0xFF1a1a2e), fontSize: 14)),
               ],
             ),
           ),
@@ -1760,10 +1515,7 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         children: [
@@ -1783,9 +1535,7 @@ class _AdvancedOrdersManagementPageState
                     return Container(
                       padding: const EdgeInsets.all(20),
                       child: const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
-                        ),
+                        child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700))),
                       ),
                     );
                   }
@@ -1806,10 +1556,7 @@ class _AdvancedOrdersManagementPageState
       padding: const EdgeInsets.all(15),
       decoration: const BoxDecoration(
         color: Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(15),
-          topRight: Radius.circular(15),
-        ),
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
       ),
       child: Row(
         children: [
@@ -1823,61 +1570,37 @@ class _AdvancedOrdersManagementPageState
             flex: 2,
             child: Text(
               'معلومات الطلب',
-              style: TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
           const Expanded(
             child: Text(
               'العميل',
-              style: TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
           const Expanded(
             child: Text(
               'أقرب نقطة دالة',
-              style: TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
           const Expanded(
             child: Text(
               'المبلغ',
-              style: TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
           const Expanded(
             child: Text(
               'الحالة',
-              style: TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
           const Expanded(
             child: Text(
               'التاريخ',
-              style: TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ),
           Container(
@@ -1888,19 +1611,11 @@ class _AdvancedOrdersManagementPageState
               children: [
                 const Text(
                   'الإجراءات',
-                  style: TextStyle(
-                    color: Color(0xFFffd700),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: Icon(
-                    _isSelectMode ? Icons.close : Icons.checklist,
-                    color: const Color(0xFFffd700),
-                    size: 18,
-                  ),
+                  icon: Icon(_isSelectMode ? Icons.close : Icons.checklist, color: const Color(0xFFffd700), size: 18),
                   onPressed: () {
                     setState(() {
                       _isSelectMode = !_isSelectMode;
@@ -1935,9 +1650,7 @@ class _AdvancedOrdersManagementPageState
         context: context,
         barrierDismissible: false,
         builder: (context) => const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
-          ),
+          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700))),
         ),
       );
 
@@ -1966,12 +1679,7 @@ class _AdvancedOrdersManagementPageState
   }
 
   void _navigateToOrderDetails(AdminOrder order) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AdvancedOrderDetailsPage(orderId: order.id),
-      ),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedOrderDetailsPage(orderId: order.id)));
   }
 
   Color _getStatusColor(String status) {
@@ -1997,10 +1705,7 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.2),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.2), width: 1),
       ),
       child: Material(
         color: Colors.transparent,
@@ -2016,35 +1721,20 @@ class _AdvancedOrdersManagementPageState
                   flex: 2,
                   child: Text(
                     summary.orderNumber,
-                    style: const TextStyle(
-                      color: Color(0xFFffd700),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Color(0xFFffd700), fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
                 // اسم العميل
                 Expanded(
                   flex: 3,
-                  child: Text(
-                    summary.customerName,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                    ),
-                  ),
+                  child: Text(summary.customerName, style: const TextStyle(color: Colors.white, fontSize: 14)),
                 ),
                 // أقرب نقطة دالة (الملاحظات)
                 Expanded(
                   flex: 3,
                   child: Text(
-                    summary.notes?.isNotEmpty == true
-                        ? summary.notes!
-                        : 'لا توجد ملاحظات',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                    summary.notes?.isNotEmpty == true ? summary.notes! : 'لا توجد ملاحظات',
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2054,11 +1744,7 @@ class _AdvancedOrdersManagementPageState
                   flex: 2,
                   child: Text(
                     '${summary.totalAmount.toStringAsFixed(0)} د.ع',
-                    style: const TextStyle(
-                      color: Color(0xFF4CAF50),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Color(0xFF4CAF50), fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
                 // الحالة
@@ -2072,11 +1758,7 @@ class _AdvancedOrdersManagementPageState
                     ),
                     child: Text(
                       OrderStatusHelper.getArabicStatus(summary.status),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -2086,19 +1768,12 @@ class _AdvancedOrdersManagementPageState
                   flex: 2,
                   child: Text(
                     DateFormat('dd/MM/yyyy').format(summary.createdAt),
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ),
                 // أيقونة التحميل
                 const SizedBox(width: 10),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  color: Color(0xFFffd700),
-                  size: 16,
-                ),
+                const Icon(Icons.arrow_forward_ios, color: Color(0xFFffd700), size: 16),
               ],
             ),
           ),
@@ -2128,29 +1803,19 @@ class _AdvancedOrdersManagementPageState
       padding: const EdgeInsets.all(15),
       decoration: const BoxDecoration(
         color: Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(15),
-          bottomRight: Radius.circular(15),
-        ),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(15), bottomRight: Radius.circular(15)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             'عرض ${_filteredSummaries.length} من إجمالي ${_orderSummaries.length} طلب',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12),
           ),
           if (_selectedOrders.isNotEmpty)
             Text(
               '${_selectedOrders.length} محدد',
-              style: const TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.w500),
             ),
         ],
       ),
@@ -2192,14 +1857,10 @@ class _AdvancedOrdersManagementPageState
 
     return Container(
       decoration: BoxDecoration(
-        color: isSelected
-            ? const Color(0xFFffd700).withValues(alpha: 0.1)
-            : const Color(0xFF16213e),
+        color: isSelected ? const Color(0xFFffd700).withValues(alpha: 0.1) : const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected
-              ? const Color(0xFFffd700).withValues(alpha: 0.5)
-              : statusColor.withValues(alpha: 0.3),
+          color: isSelected ? const Color(0xFFffd700).withValues(alpha: 0.5) : statusColor.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -2218,21 +1879,14 @@ class _AdvancedOrdersManagementPageState
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: const Color(0xFFffd700).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         '#${order.orderNumber}',
-                        style: const TextStyle(
-                          color: Color(0xFFffd700),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(color: Color(0xFFffd700), fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ),
                     if (_isSelectMode)
@@ -2251,51 +1905,33 @@ class _AdvancedOrdersManagementPageState
                 const SizedBox(height: 8),
                 Text(
                   order.customerName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${order.totalAmount.toStringAsFixed(0)} د.ع',
-                  style: const TextStyle(
-                    color: Color(0xFFffd700),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         OrderStatusHelper.getArabicStatus(order.status),
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.w500),
                       ),
                     ),
                     Text(
                       DateFormat('dd/MM').format(order.createdAt),
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        fontSize: 10,
-                      ),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 10),
                     ),
                   ],
                 ),
@@ -2317,8 +1953,7 @@ class _AdvancedOrdersManagementPageState
       groupedOrders[dateKey] = (groupedOrders[dateKey] ?? [])..add(order);
     }
 
-    final sortedDates = groupedOrders.keys.toList()
-      ..sort((a, b) => b.compareTo(a)); // ترتيب تنازلي
+    final sortedDates = groupedOrders.keys.toList()..sort((a, b) => b.compareTo(a)); // ترتيب تنازلي
 
     return Container(
       margin: const EdgeInsets.all(20),
@@ -2353,44 +1988,26 @@ class _AdvancedOrdersManagementPageState
             decoration: BoxDecoration(
               color: const Color(0xFF16213e),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                width: 1,
-              ),
+              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
             ),
             child: Row(
               children: [
-                const Icon(
-                  Icons.calendar_today,
-                  color: Color(0xFFffd700),
-                  size: 16,
-                ),
+                const Icon(Icons.calendar_today, color: Color(0xFFffd700), size: 16),
                 const SizedBox(width: 8),
                 Text(
                   DateFormat('EEEE، dd MMMM yyyy', 'ar').format(date),
-                  style: const TextStyle(
-                    color: Color(0xFFffd700),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: const Color(0xFFffd700).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     '${orders.length} طلب',
-                    style: const TextStyle(
-                      color: Color(0xFFffd700),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: const TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
@@ -2411,14 +2028,10 @@ class _AdvancedOrdersManagementPageState
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isSelected
-            ? const Color(0xFFffd700).withValues(alpha: 0.1)
-            : const Color(0xFF16213e),
+        color: isSelected ? const Color(0xFFffd700).withValues(alpha: 0.1) : const Color(0xFF16213e),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isSelected
-              ? const Color(0xFFffd700).withValues(alpha: 0.5)
-              : statusColor.withValues(alpha: 0.3),
+          color: isSelected ? const Color(0xFFffd700).withValues(alpha: 0.5) : statusColor.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -2433,10 +2046,7 @@ class _AdvancedOrdersManagementPageState
               Container(
                 width: 4,
                 height: 40,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(2)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -2447,19 +2057,12 @@ class _AdvancedOrdersManagementPageState
                       children: [
                         Text(
                           '#${order.orderNumber}',
-                          style: const TextStyle(
-                            color: Color(0xFFffd700),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           DateFormat('HH:mm').format(order.createdAt),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
-                            fontSize: 11,
-                          ),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11),
                         ),
                         const Spacer(),
                         if (_isSelectMode)
@@ -2480,20 +2083,12 @@ class _AdvancedOrdersManagementPageState
                       children: [
                         Text(
                           order.customerName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
                         ),
                         const Spacer(),
                         Text(
                           '${order.totalAmount.toStringAsFixed(0)} د.ع',
-                          style: const TextStyle(
-                            color: Color(0xFFffd700),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Color(0xFFffd700), fontSize: 13, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -2529,12 +2124,9 @@ class _AdvancedOrdersManagementPageState
   }
 
   void _viewOrderDetails(AdminOrder order) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AdvancedOrderDetailsPage(orderId: order.id),
-      ),
-    ).then((_) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => AdvancedOrderDetailsPage(orderId: order.id))).then((
+      _,
+    ) {
       _refreshOrders();
     });
   }
@@ -2606,18 +2198,12 @@ class _AdvancedOrdersManagementPageState
             decoration: BoxDecoration(
               color: const Color(0xFF1a1a2e),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFFffd700).withValues(alpha: 0.3),
-              ),
+              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildScheduledStat(
-                  'العدد الكلي',
-                  '${scheduledOrders.length}',
-                  Icons.schedule,
-                ),
+                _buildScheduledStat('العدد الكلي', '${scheduledOrders.length}', Icons.schedule),
                 _buildScheduledStat(
                   'القيمة الإجمالية',
                   '${scheduledOrders.fold(0.0, (sum, order) => sum + (order['totalAmount'] as double)).toStringAsFixed(0)} د.ع',
@@ -2650,16 +2236,9 @@ class _AdvancedOrdersManagementPageState
         const SizedBox(height: 8),
         Text(
           value,
-          style: const TextStyle(
-            color: Color(0xFFffd700),
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(color: Color(0xFFffd700), fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
       ],
     );
   }
@@ -2674,9 +2253,7 @@ class _AdvancedOrdersManagementPageState
       decoration: BoxDecoration(
         color: const Color(0xFF1a1a2e),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.all(16),
@@ -2691,11 +2268,7 @@ class _AdvancedOrdersManagementPageState
         ),
         title: Text(
           order['orderNumber'] as String,
-          style: const TextStyle(
-            color: Color(0xFFffd700),
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(color: Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2703,17 +2276,10 @@ class _AdvancedOrdersManagementPageState
             const SizedBox(height: 4),
             Text(
               order['customerName'] as String,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 2),
-            Text(
-              order['customerPhone'] as String,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
+            Text(order['customerPhone'] as String, style: const TextStyle(color: Colors.white70, fontSize: 12)),
           ],
         ),
         trailing: Column(
@@ -2722,11 +2288,7 @@ class _AdvancedOrdersManagementPageState
           children: [
             Text(
               '${(order['totalAmount'] as double).toStringAsFixed(0)} د.ع',
-              style: const TextStyle(
-                color: Color(0xFFffd700),
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(color: Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
@@ -2738,10 +2300,7 @@ class _AdvancedOrdersManagementPageState
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF16213e),
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: const Color(0xFF16213e), borderRadius: BorderRadius.circular(8)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -2770,47 +2329,30 @@ class _AdvancedOrdersManagementPageState
                 // المنتجات
                 const Text(
                   'المنتجات:',
-                  style: TextStyle(
-                    color: Color(0xFFffd700),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 ...items.map(
                   (item) => Container(
                     margin: const EdgeInsets.only(bottom: 4),
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1a1a2e),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
+                    decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(6)),
                     child: Row(
                       children: [
                         Expanded(
                           child: Text(
                             item['name'] as String,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                            ),
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
                           ),
                         ),
                         Text(
                           'الكمية: ${item['quantity']}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '${(item['price'] as double).toStringAsFixed(0)} د.ع',
-                          style: const TextStyle(
-                            color: Color(0xFFffd700),
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(color: Color(0xFFffd700), fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -2820,31 +2362,17 @@ class _AdvancedOrdersManagementPageState
                 const SizedBox(height: 12),
 
                 // الملاحظات
-                if (order['notes'] != null &&
-                    (order['notes'] as String).isNotEmpty) ...[
+                if (order['notes'] != null && (order['notes'] as String).isNotEmpty) ...[
                   const Text(
                     'ملاحظات:',
-                    style: TextStyle(
-                      color: Color(0xFFffd700),
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 4),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1a1a2e),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      order['notes'] as String,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
+                    decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(6)),
+                    child: Text(order['notes'] as String, style: const TextStyle(color: Colors.white70, fontSize: 12)),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -2909,10 +2437,7 @@ class _AdvancedOrdersManagementPageState
   Widget _buildScheduledDetailItem(String label, String value, IconData icon) {
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1a1a2e),
-        borderRadius: BorderRadius.circular(6),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(6)),
       child: Row(
         children: [
           Icon(icon, color: const Color(0xFFffd700), size: 16),
@@ -2921,17 +2446,10 @@ class _AdvancedOrdersManagementPageState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(color: Colors.white70, fontSize: 10),
-                ),
+                Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
                 Text(
                   value,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
                 ),
               ],
             ),

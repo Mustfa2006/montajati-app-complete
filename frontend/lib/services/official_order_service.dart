@@ -5,14 +5,47 @@
 
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../config/api_config.dart';
 
 class OfficialOrderService {
   static String get _baseUrl => ApiConfig.apiUrl;
   static const Duration _timeout = Duration(seconds: 30);
+
+  // ===================================
+  // 🎨 حجز الألوان للطلب
+  // ===================================
+  static Future<void> _reserveColorsForOrder(String orderId, List<Map<String, dynamic>> items) async {
+    try {
+      final supabase = Supabase.instance.client;
+
+      // تحويل المنتجات إلى JSONB
+      final itemsJson = items.map((item) {
+        return {'productId': item['productId'], 'quantity': item['quantity'], 'colorId': item['colorId']};
+      }).toList();
+
+      debugPrint('🎨 استدعاء دالة حجز الألوان...');
+      debugPrint('📋 المنتجات: ${jsonEncode(itemsJson)}');
+
+      final response = await supabase.rpc(
+        'reserve_colors_for_order',
+        params: {'p_order_id': orderId, 'p_items': itemsJson},
+      );
+
+      debugPrint('📡 استجابة حجز الألوان: ${jsonEncode(response)}');
+
+      if (response != null && response['success'] == false) {
+        throw Exception(response['error'] ?? 'فشل في حجز الألوان');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في حجز الألوان: $e');
+      rethrow;
+    }
+  }
 
   // ===================================
   // إنشاء طلب جديد (رسمي)
@@ -75,10 +108,7 @@ class OfficialOrderService {
       final response = await http
           .post(
             Uri.parse('$_baseUrl/orders'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
             body: jsonEncode(requestBody),
           )
           .timeout(_timeout);
@@ -99,15 +129,24 @@ class OfficialOrderService {
           // التحقق من أن الاستجابة تبدأ بـ {
           if (!cleanBody.startsWith('{')) {
             debugPrint('⚠️ الاستجابة لا تبدأ بـ JSON صحيح');
-            debugPrint(
-              '📄 أول 100 حرف: ${cleanBody.substring(0, cleanBody.length > 100 ? 100 : cleanBody.length)}',
-            );
+            debugPrint('📄 أول 100 حرف: ${cleanBody.substring(0, cleanBody.length > 100 ? 100 : cleanBody.length)}');
             throw Exception('تنسيق استجابة غير صحيح من الخادم');
           }
 
           final result = jsonDecode(cleanBody);
           debugPrint('✅ تم إنشاء الطلب بنجاح');
           debugPrint('📋 تفاصيل الاستجابة: ${jsonEncode(result)}');
+
+          // 🎨 حجز الألوان للطلب
+          try {
+            debugPrint('🎨 حجز الألوان للطلب...');
+            await _reserveColorsForOrder(orderId, items);
+            debugPrint('✅ تم حجز الألوان بنجاح');
+          } catch (e) {
+            debugPrint('⚠️ خطأ في حجز الألوان: $e');
+            // لا نوقف العملية، فقط نسجل الخطأ
+          }
+
           return result;
         } catch (e) {
           debugPrint('❌ خطأ في تحليل JSON: $e');
@@ -129,35 +168,19 @@ class OfficialOrderService {
   // ===================================
   // جلب جميع الطلبات
   // ===================================
-  static Future<Map<String, dynamic>> getOrders({
-    String? status,
-    int page = 1,
-    int limit = 20,
-    String? search,
-  }) async {
+  static Future<Map<String, dynamic>> getOrders({String? status, int page = 1, int limit = 20, String? search}) async {
     try {
       debugPrint('📋 جلب الطلبات...');
 
-      final queryParams = <String, String>{
-        'page': page.toString(),
-        'limit': limit.toString(),
-      };
+      final queryParams = <String, String>{'page': page.toString(), 'limit': limit.toString()};
 
       if (status != null) queryParams['status'] = status;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
-      final uri = Uri.parse(
-        '$_baseUrl/orders',
-      ).replace(queryParameters: queryParams);
+      final uri = Uri.parse('$_baseUrl/orders').replace(queryParameters: queryParams);
 
       final response = await http
-          .get(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-          )
+          .get(uri, headers: {'Content-Type': 'application/json', 'Accept': 'application/json'})
           .timeout(_timeout);
 
       if (response.statusCode == 200) {
@@ -183,10 +206,7 @@ class OfficialOrderService {
       final response = await http
           .get(
             Uri.parse('$_baseUrl/orders/$orderId'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
           )
           .timeout(_timeout);
 
@@ -221,11 +241,7 @@ class OfficialOrderService {
       debugPrint('👤 تم التغيير بواسطة: $changedBy');
       debugPrint('🔄 تحديث حالة الطلب $orderId إلى $status');
 
-      final requestBody = {
-        'status': status,
-        'reason': reason,
-        'changedBy': changedBy,
-      };
+      final requestBody = {'status': status, 'reason': reason, 'changedBy': changedBy};
 
       debugPrint('📦 البيانات المرسلة: ${jsonEncode(requestBody)}');
       debugPrint('🌐 URL: $_baseUrl/orders/$orderId/status');
@@ -234,10 +250,7 @@ class OfficialOrderService {
       final response = await http
           .put(
             Uri.parse('$_baseUrl/orders/$orderId/status'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
             body: jsonEncode(requestBody),
           )
           .timeout(_timeout);
@@ -289,10 +302,7 @@ class OfficialOrderService {
       final response = await http
           .get(
             Uri.parse('$_baseUrl/health'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
+            headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
           )
           .timeout(_timeout);
 
@@ -333,12 +343,7 @@ class OfficialOrderService {
       regionId: regionId,
       deliveryAddress: location,
       items: [
-        {
-          'name': 'منتج عام',
-          'quantity': itemsNumber,
-          'price': price / itemsNumber,
-          'sku': 'GENERAL_PRODUCT',
-        },
+        {'name': 'منتج عام', 'quantity': itemsNumber, 'price': price / itemsNumber, 'sku': 'GENERAL_PRODUCT'},
       ],
       subtotal: price,
     );

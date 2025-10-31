@@ -1,19 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/scheduled_order.dart';
+import 'api_service.dart'; // ✅ استخدام ApiService للتواصل مع الباك إند
 import 'simple_orders_service.dart';
 
 class ScheduledOrdersService extends ChangeNotifier {
-  static final ScheduledOrdersService _instance =
-      ScheduledOrdersService._internal();
+  static final ScheduledOrdersService _instance = ScheduledOrdersService._internal();
   factory ScheduledOrdersService() => _instance;
   ScheduledOrdersService._internal();
 
   final List<ScheduledOrder> _scheduledOrders = [];
   bool _isLoading = false;
 
-  List<ScheduledOrder> get scheduledOrders =>
-      List.unmodifiable(_scheduledOrders);
+  List<ScheduledOrder> get scheduledOrders => List.unmodifiable(_scheduledOrders);
   bool get isLoading => _isLoading;
 
   // تحميل الطلبات المجدولة من قاعدة البيانات
@@ -65,16 +67,14 @@ class ScheduledOrdersService extends ChangeNotifier {
                       price: (item['price'] ?? 0.0).toDouble(),
                       notes: item['notes'] ?? '',
                       productId: item['product_id'], // ✅ إضافة معرف المنتج
-                      productImage:
-                          item['product_image'], // ✅ إضافة صورة المنتج
+                      productImage: item['product_image'], // ✅ إضافة صورة المنتج
                     ),
                   )
                   .toList() ??
               [];
 
           // استخدام أسماء المحافظة والمدينة مباشرة من الأعمدة الجديدة (نفس نظام الطلبات العادية)
-          String? provinceName =
-              orderData['province'] ?? orderData['customer_province'];
+          String? provinceName = orderData['province'] ?? orderData['customer_province'];
           String? cityName = orderData['city'] ?? orderData['customer_city'];
 
           debugPrint('🏛️ اسم المحافظة: $provinceName');
@@ -94,9 +94,7 @@ class ScheduledOrdersService extends ChangeNotifier {
             provinceId: orderData['province_id'],
             cityId: orderData['city_id'],
             customerNotes: orderData['customer_notes'],
-            totalAmount:
-                (orderData['total_amount'] ?? orderData['total'] ?? 0.0)
-                    .toDouble(),
+            totalAmount: (orderData['total_amount'] ?? orderData['total'] ?? 0.0).toDouble(),
             scheduledDate: DateTime.parse(orderData['scheduled_date']),
             createdAt: DateTime.parse(orderData['created_at']),
             notes: orderData['notes'] ?? '',
@@ -189,11 +187,7 @@ class ScheduledOrdersService extends ChangeNotifier {
 
       if (cityId != null) {
         try {
-          final cityResponse = await Supabase.instance.client
-              .from('cities')
-              .select('name')
-              .eq('id', cityId)
-              .single();
+          final cityResponse = await Supabase.instance.client.from('cities').select('name').eq('id', cityId).single();
           cityName = cityResponse['name'];
           debugPrint('✅ تم جلب اسم المدينة: $cityName');
         } catch (e) {
@@ -201,80 +195,58 @@ class ScheduledOrdersService extends ChangeNotifier {
         }
       }
 
-      // إنشاء الطلب المجدول
-      debugPrint('💾 حفظ الطلب المجدول مع البيانات التالية:');
+      // ✅ إرسال الطلب المجدول إلى الباك إند
+      debugPrint('🚀 إرسال الطلب المجدول إلى الباك إند...');
       debugPrint('🏛️ المحافظة: ${provinceName ?? customerProvince}');
       debugPrint('🏙️ المدينة: ${cityName ?? customerCity}');
 
-      final orderResponse = await Supabase.instance.client
-          .from('scheduled_orders')
-          .insert({
-            'order_number': orderNumber,
-            'customer_name': customerName,
-            'customer_phone': customerPhone,
-            'customer_alternate_phone': customerAlternatePhone,
-            'customer_province':
-                customerProvince, // للتوافق مع البيانات القديمة
-            'customer_city': customerCity, // للتوافق مع البيانات القديمة
-            'province':
-                provinceName ??
-                customerProvince, // الاسم المباشر (نفس نظام الطلبات العادية)
-            'city':
-                cityName ??
-                customerCity, // الاسم المباشر (نفس نظام الطلبات العادية)
-            'province_id': provinceId, // معرف المحافظة الجديد
-            'city_id': cityId, // معرف المدينة الجديد
-            'customer_address': customerAddress,
-            'customer_notes': customerNotes,
-            'total_amount':
-                totalAmount, // ✅ استخدام total_amount بدلاً من total
-            'delivery_cost': deliveryCost ?? 0,
-            'profit_amount':
-                profitAmount ?? 0, // ✅ استخدام profit_amount بدلاً من profit
-            'scheduled_date': scheduledDate.toIso8601String().split('T')[0],
-            'priority': priority,
-            'notes': notes,
-            'reminder_sent': false,
-            'is_converted': false,
-            'user_phone': userPhone, // ✅ إضافة رقم هاتف المستخدم
-          })
-          .select()
-          .single();
+      // تحضير بيانات الطلب
+      final orderData = {
+        'order_number': orderNumber,
+        'customer_name': customerName,
+        'customer_phone': customerPhone,
+        'customer_alternate_phone': customerAlternatePhone,
+        'customer_province': customerProvince,
+        'customer_city': customerCity,
+        'province': provinceName ?? customerProvince,
+        'city': cityName ?? customerCity,
+        'province_id': provinceId,
+        'city_id': cityId,
+        'customer_address': customerAddress,
+        'customer_notes': customerNotes,
+        'total_amount': totalAmount,
+        'delivery_cost': deliveryCost ?? 0,
+        'profit_amount': profitAmount ?? 0,
+        'scheduled_date': scheduledDate.toIso8601String().split('T')[0],
+        'priority': priority,
+        'notes': notes,
+        'reminder_sent': false,
+        'is_converted': false,
+        'user_phone': userPhone,
+      };
 
-      final orderId = orderResponse['id'];
+      // تحضير بيانات العناصر
+      final itemsData = items
+          .where((item) => item.name.isNotEmpty && item.quantity > 0)
+          .map(
+            (item) => {
+              'product_name': item.name.trim(),
+              'quantity': item.quantity,
+              'price': item.price,
+              'notes': item.notes.trim(),
+              'product_id': item.productId,
+              'product_image': item.productImage,
+            },
+          )
+          .toList();
 
-      // إضافة عناصر الطلب
-      if (items.isNotEmpty) {
-        debugPrint('📦 إضافة ${items.length} عنصر للطلب المجدول...');
+      // إرسال الطلب عبر ApiService
+      final orderId = await ApiService.createScheduledOrder(orderData: orderData, items: itemsData);
 
-        final itemsData = items
-            .where((item) => item.name.isNotEmpty && item.quantity > 0)
-            .map(
-              (item) => {
-                'scheduled_order_id': orderId,
-                'product_name': item.name.trim(),
-                'quantity': item.quantity,
-                'price': item.price,
-                'notes': item.notes.trim(),
-                'product_id': item.productId, // ✅ إضافة معرف المنتج
-                'product_image': item.productImage, // ✅ إضافة صورة المنتج
-              },
-            )
-            .toList();
+      debugPrint('✅ تم إنشاء الطلب المجدول عبر الباك إند - ID: $orderId');
 
-        if (itemsData.isEmpty) {
-          throw Exception('لا توجد عناصر صالحة لإضافتها للطلب');
-        }
-
-        await Supabase.instance.client
-            .from('scheduled_order_items')
-            .insert(itemsData);
-
-        debugPrint('✅ تم إضافة ${itemsData.length} عنصر بنجاح');
-      }
-
-      // ✅ الأرباح ستُضاف تلقائياً بواسطة Database Trigger
-      debugPrint('💰 سيتم إضافة الأرباح تلقائياً بواسطة Database Trigger');
+      // ✅ الباك إند يتولى حفظ العناصر والأرباح تلقائياً
+      debugPrint('✅ الباك إند يتولى حفظ العناصر والأرباح');
 
       // إضافة الطلب للقائمة المحلية
       final newOrder = ScheduledOrder(
@@ -312,10 +284,7 @@ class ScheduledOrdersService extends ChangeNotifier {
       };
     } catch (e) {
       debugPrint('❌ خطأ في إنشاء الطلب المجدول: $e');
-      return {
-        'success': false,
-        'message': 'فشل في إنشاء الطلب المجدول: ${e.toString()}',
-      };
+      return {'success': false, 'message': 'فشل في إنشاء الطلب المجدول: ${e.toString()}'};
     }
   }
 
@@ -325,9 +294,7 @@ class ScheduledOrdersService extends ChangeNotifier {
       debugPrint('🔄 بدء التحويل التلقائي للطلبات المجدولة...');
 
       // تعطيل التحويل التلقائي مؤقتاً بسبب مشكلة في قاعدة البيانات
-      debugPrint(
-        '⚠️ التحويل التلقائي معطل مؤقتاً - يتطلب إصلاح قاعدة البيانات',
-      );
+      debugPrint('⚠️ التحويل التلقائي معطل مؤقتاً - يتطلب إصلاح قاعدة البيانات');
       return 0;
 
       // الكود الأصلي معطل مؤقتاً
@@ -356,10 +323,7 @@ class ScheduledOrdersService extends ChangeNotifier {
   // حذف طلب مجدول
   Future<bool> deleteScheduledOrder(String orderId) async {
     try {
-      await Supabase.instance.client
-          .from('scheduled_orders')
-          .delete()
-          .eq('id', orderId);
+      await Supabase.instance.client.from('scheduled_orders').delete().eq('id', orderId);
 
       _scheduledOrders.removeWhere((order) => order.id == orderId);
       notifyListeners();
@@ -375,10 +339,7 @@ class ScheduledOrdersService extends ChangeNotifier {
   // تحديث حالة إرسال التذكير
   Future<bool> updateReminderStatus(String orderId, bool sent) async {
     try {
-      await Supabase.instance.client
-          .from('scheduled_orders')
-          .update({'reminder_sent': sent})
-          .eq('id', orderId);
+      await Supabase.instance.client.from('scheduled_orders').update({'reminder_sent': sent}).eq('id', orderId);
 
       final index = _scheduledOrders.indexWhere((order) => order.id == orderId);
       if (index != -1) {
@@ -422,8 +383,7 @@ class ScheduledOrdersService extends ChangeNotifier {
   List<ScheduledOrder> getOverdueOrders() {
     final now = DateTime.now();
     return _scheduledOrders.where((order) {
-      return order.scheduledDate.isBefore(now) &&
-          !_isSameDay(order.scheduledDate, now);
+      return order.scheduledDate.isBefore(now) && !_isSameDay(order.scheduledDate, now);
     }).toList();
   }
 
@@ -439,9 +399,7 @@ class ScheduledOrdersService extends ChangeNotifier {
   }
 
   bool _isSameDay(DateTime date1, DateTime date2) {
-    return date1.year == date2.year &&
-        date1.month == date2.month &&
-        date1.day == date2.day;
+    return date1.year == date2.year && date1.month == date2.month && date1.day == date2.day;
   }
 
   // تشغيل التحويل التلقائي دورياً (يمكن استدعاؤها من التطبيق)
@@ -451,9 +409,7 @@ class ScheduledOrdersService extends ChangeNotifier {
   }
 
   // تحويل طلب مجدول محدد إلى طلب نشط يدوياً
-  Future<Map<String, dynamic>> convertScheduledOrderToActive(
-    String scheduledOrderId,
-  ) async {
+  Future<Map<String, dynamic>> convertScheduledOrderToActive(String scheduledOrderId) async {
     try {
       debugPrint('🔄 بدء تحويل الطلب المجدول $scheduledOrderId إلى طلب نشط...');
 
@@ -476,14 +432,11 @@ class ScheduledOrdersService extends ChangeNotifier {
           .eq('is_converted', false)
           .single();
 
-      debugPrint(
-        '📋 تم جلب الطلب المجدول: ${scheduledOrderResponse['order_number']}',
-      );
+      debugPrint('📋 تم جلب الطلب المجدول: ${scheduledOrderResponse['order_number']}');
 
       // توليد رقم طلب جديد
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final newOrderNumber =
-          'ORD-$timestamp-${(1000 + (scheduledOrderResponse['order_number'].hashCode % 9000))}';
+      final newOrderNumber = 'ORD-$timestamp-${(1000 + (scheduledOrderResponse['order_number'].hashCode % 9000))}';
 
       // الحصول على بيانات المستخدم الحالي
       final user = Supabase.instance.client.auth.currentUser;
@@ -496,29 +449,17 @@ class ScheduledOrdersService extends ChangeNotifier {
         'id': newOrderId, // ✅ تحديد معرف صريح للطلب
         'order_number': newOrderNumber,
         'customer_name': scheduledOrderResponse['customer_name'] ?? 'غير محدد',
-        'primary_phone':
-            scheduledOrderResponse['customer_phone'] ?? '07xxxxxxxx',
-        'secondary_phone':
-            scheduledOrderResponse['customer_alternate_phone'] ?? '',
-        'province':
-            scheduledOrderResponse['province'] ??
-            scheduledOrderResponse['customer_province'] ??
-            'بغداد',
-        'city':
-            scheduledOrderResponse['city'] ??
-            scheduledOrderResponse['customer_city'] ??
-            'الكرخ',
+        'primary_phone': scheduledOrderResponse['customer_phone'] ?? '07xxxxxxxx',
+        'secondary_phone': scheduledOrderResponse['customer_alternate_phone'] ?? '',
+        'province': scheduledOrderResponse['province'] ?? scheduledOrderResponse['customer_province'] ?? 'بغداد',
+        'city': scheduledOrderResponse['city'] ?? scheduledOrderResponse['customer_city'] ?? 'الكرخ',
         'customer_address': scheduledOrderResponse['customer_address'] ?? '',
-        'customer_notes':
-            scheduledOrderResponse['customer_notes'] ??
-            scheduledOrderResponse['notes'] ??
-            '',
+        'customer_notes': scheduledOrderResponse['customer_notes'] ?? scheduledOrderResponse['notes'] ?? '',
         'subtotal':
             (scheduledOrderResponse['total_amount'] as num?)?.toInt() ??
             (scheduledOrderResponse['total'] as num?)?.toInt() ??
             0,
-        'delivery_fee':
-            (scheduledOrderResponse['delivery_cost'] as num?)?.toInt() ?? 0,
+        'delivery_fee': (scheduledOrderResponse['delivery_cost'] as num?)?.toInt() ?? 0,
         'total':
             (scheduledOrderResponse['total_amount'] as num?)?.toInt() ??
             (scheduledOrderResponse['total'] as num?)?.toInt() ??
@@ -530,26 +471,18 @@ class ScheduledOrdersService extends ChangeNotifier {
         'status': 'active',
         'user_id': user?.id, // ✅ إضافة معرف المستخدم (UUID أو null)
         'customer_id': null, // ✅ تعيين null صراحة لتجنب مشاكل القيود
-        'user_phone':
-            scheduledOrderResponse['user_phone'], // ✅ إضافة رقم هاتف المستخدم
-        'notes':
-            scheduledOrderResponse['customer_notes'] ??
-            '', // نسخ الملاحظات الأصلية
+        'user_phone': scheduledOrderResponse['user_phone'], // ✅ إضافة رقم هاتف المستخدم
+        'notes': scheduledOrderResponse['customer_notes'] ?? '', // نسخ الملاحظات الأصلية
         'created_at': DateTime.now().toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
       };
 
-      final newOrderResponse = await Supabase.instance.client
-          .from('orders')
-          .insert(orderData)
-          .select()
-          .single();
+      final newOrderResponse = await Supabase.instance.client.from('orders').insert(orderData).select().single();
 
       debugPrint('✅ تم إنشاء الطلب النشط: ${newOrderResponse['order_number']}');
 
       // نسخ عناصر الطلب وتقليل المخزون
-      final scheduledItems =
-          scheduledOrderResponse['scheduled_order_items'] as List? ?? [];
+      final scheduledItems = scheduledOrderResponse['scheduled_order_items'] as List? ?? [];
 
       if (scheduledItems.isNotEmpty) {
         for (final item in scheduledItems) {
@@ -576,13 +509,9 @@ class ScheduledOrdersService extends ChangeNotifier {
 
             // 📝 ملاحظة: تقليل المخزون سيتم في صفحة ملخص الطلب عند النقر على "إتمام الطلب"
             // مثل الطلبات العادية تماماً - لا نقلل المخزون هنا
-            debugPrint(
-              '📋 تم تحضير عنصر الطلب: ${item['product_name']} (الكمية: $quantity)',
-            );
+            debugPrint('📋 تم تحضير عنصر الطلب: ${item['product_name']} (الكمية: $quantity)');
           } catch (itemError) {
-            debugPrint(
-              '❌ خطأ في نسخ العنصر ${item['product_name']}: $itemError',
-            );
+            debugPrint('❌ خطأ في نسخ العنصر ${item['product_name']}: $itemError');
             // نستمر في نسخ باقي العناصر حتى لو فشل عنصر واحد
           }
         }
@@ -592,9 +521,7 @@ class ScheduledOrdersService extends ChangeNotifier {
 
       // 📝 ملاحظة: تقليل المخزون تم بالفعل في صفحة ملخص الطلب عند النقر على "إتمام الطلب"
       // مثل الطلبات العادية تماماً - لا نقلل المخزون مرة أخرى هنا
-      debugPrint(
-        '📋 تثبيت الطلب المجدول - المخزون تم تقليله مسبقاً في ملخص الطلب',
-      );
+      debugPrint('📋 تثبيت الطلب المجدول - المخزون تم تقليله مسبقاً في ملخص الطلب');
 
       // تحديث الطلب المجدول كمحول
       await Supabase.instance.client

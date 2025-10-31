@@ -1,16 +1,19 @@
 // 🏛️ خدمة الطلبات الرسمية والمنظمة
 // تطبيق منتجاتي - نظام إدارة الدروب شيبنگ
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/order_item.dart';
+import 'api_service.dart'; // ✅ استخدام ApiService للتواصل مع الباك إند
 import 'inventory_service.dart';
 // تم حذف Smart Cache
 
 /// خدمة رسمية لإدارة الطلبات مع هيكل قاعدة بيانات موحد
 class OfficialOrdersService extends ChangeNotifier {
-  static final OfficialOrdersService _instance =
-      OfficialOrdersService._internal();
+  static final OfficialOrdersService _instance = OfficialOrdersService._internal();
   factory OfficialOrdersService() => _instance;
   OfficialOrdersService._internal();
 
@@ -40,8 +43,7 @@ class OfficialOrdersService extends ChangeNotifier {
 
       // 1. توليد معرف طلب فريد
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final orderId =
-          'order_${timestamp}_${primaryPhone.substring(primaryPhone.length - 4)}';
+      final orderId = 'order_${timestamp}_${primaryPhone.substring(primaryPhone.length - 4)}';
       final orderNumber = 'ORD-$timestamp';
 
       debugPrint('🆔 معرف الطلب: $orderId');
@@ -59,9 +61,7 @@ class OfficialOrdersService extends ChangeNotifier {
 
       int finalProfit = totals['profit'] ?? 0;
 
-      debugPrint(
-        '💰 الربح النهائي من ملخص الطلب (بعد خصم التوصيل): $finalProfit د.ع',
-      );
+      debugPrint('💰 الربح النهائي من ملخص الطلب (بعد خصم التوصيل): $finalProfit د.ع');
 
       // ✅ استخدام الربح النهائي من ملخص الطلب دائماً (يشمل خصم التوصيل)
       debugPrint('✅ تم استلام الربح النهائي من ملخص الطلب: $finalProfit د.ع');
@@ -88,11 +88,7 @@ class OfficialOrdersService extends ChangeNotifier {
       String? userId;
       if (userPhone != null) {
         try {
-          final userResponse = await _supabase
-              .from('users')
-              .select('id')
-              .eq('phone', userPhone)
-              .maybeSingle();
+          final userResponse = await _supabase.from('users').select('id').eq('phone', userPhone).maybeSingle();
 
           if (userResponse != null) {
             userId = userResponse['id'];
@@ -130,82 +126,40 @@ class OfficialOrdersService extends ChangeNotifier {
 
       debugPrint('📋 بيانات الطلب: $orderData');
 
-      // 4. حفظ الطلب في قاعدة البيانات
-      debugPrint('💾 حفظ الطلب في قاعدة البيانات...');
-      debugPrint('🔗 محاولة الاتصال بـ Supabase...');
+      // 4. ✅ إرسال الطلب إلى الباك إند (آمن وسريع)
+      debugPrint('🚀 إرسال الطلب إلى الباك إند...');
 
-      // اختبار الاتصال أولاً
-      try {
-        debugPrint('🧪 اختبار الاتصال بـ Supabase...');
-        final testResponse = await _supabase
-            .from('orders')
-            .select('id')
-            .limit(1);
-        debugPrint('✅ الاتصال بـ Supabase يعمل، عدد السجلات: ${testResponse.length}');
-      } catch (testError) {
-        debugPrint('❌ فشل اختبار الاتصال بـ Supabase: $testError');
-        throw Exception('فشل في الاتصال بقاعدة البيانات: $testError');
-      }
+      // تحضير بيانات العناصر
+      final itemsData = items
+          .map(
+            (item) => {
+              'product_id': item.productId,
+              'product_name': item.name,
+              'product_image': item.image,
+              'wholesale_price': item.wholesalePrice.toInt(),
+              'customer_price': item.customerPrice.toInt(),
+              'quantity': item.quantity,
+              'total_price': (item.customerPrice * item.quantity).toInt(),
+              'profit_per_item': ((item.customerPrice - item.wholesalePrice) * item.quantity).toInt(),
+            },
+          )
+          .toList();
 
-      debugPrint('📤 إرسال بيانات الطلب إلى قاعدة البيانات...');
-      final orderResponse = await _supabase
-          .from('orders')
-          .insert(orderData)
-          .select()
-          .single();
+      // إرسال الطلب عبر ApiService
+      final createdOrderId = await ApiService.createOrder(orderData: orderData, items: itemsData);
 
-      debugPrint('✅ تم حفظ الطلب: ${orderResponse['id']}');
-      debugPrint('📊 استجابة كاملة: $orderResponse');
+      debugPrint('✅ تم إنشاء الطلب عبر الباك إند - ID: $createdOrderId');
 
-      // 5. حفظ عناصر الطلب
-      debugPrint('📦 حفظ عناصر الطلب...');
-      debugPrint('📊 عدد العناصر للحفظ: ${items.length}');
-      final orderItemsData = items.map((item) {
-        final itemTotalPrice = item.customerPrice * item.quantity;
-
-        // ✅ حساب ربح العنصر بناءً على الأسعار النهائية من ملخص الطلب
-        final itemProfit =
-            (item.customerPrice - item.wholesalePrice) * item.quantity;
-
-        return {
-          'order_id': orderId,
-          'product_id': item.productId,
-          'product_name': item.name,
-          'product_image': item.image,
-          'wholesale_price': item.wholesalePrice.toInt(), // ✅ تحويل إلى integer
-          'customer_price': item.customerPrice.toInt(), // ✅ تحويل إلى integer
-          'quantity': item.quantity,
-          'total_price': itemTotalPrice.toInt(), // ✅ تحويل إلى integer
-          'profit_per_item': itemProfit.toInt(), // ✅ تحويل إلى integer
-          'created_at': DateTime.now().toIso8601String(),
-        };
-      }).toList();
-
-      debugPrint('📋 بيانات عناصر الطلب: $orderItemsData');
-
-      final itemsResponse = await _supabase
-          .from('order_items')
-          .insert(orderItemsData)
-          .select();
-
-      debugPrint('✅ تم حفظ ${itemsResponse.length} عنصر');
-      debugPrint('📊 استجابة عناصر الطلب: $itemsResponse');
-
-      // 6. الأرباح ستُضاف تلقائياً بواسطة Database Trigger
-      debugPrint('💰 سيتم إضافة الأرباح تلقائياً بواسطة Database Trigger');
+      // ✅ الباك إند يتولى حفظ العناصر والأرباح تلقائياً
+      debugPrint('✅ الباك إند يتولى حفظ العناصر والأرباح');
 
       // 7. 🔔 تقليل كمية المنتجات ومراقبة المخزون
       for (final item in items) {
         try {
           // تقليل الكمية المتاحة
-          await InventoryService.reserveProduct(
-            productId: item.productId,
-            reservedQuantity: item.quantity,
-          );
+          await InventoryService.reserveProduct(productId: item.productId, reservedQuantity: item.quantity);
 
-          debugPrint(
-            '✅ تم تقليل كمية المنتج ${item.productId} بمقدار ${item.quantity}',
-          );
+          debugPrint('✅ تم تقليل كمية المنتج ${item.productId} بمقدار ${item.quantity}');
         } catch (e) {
           debugPrint('⚠️ خطأ في تقليل كمية المنتج ${item.productId}: $e');
         }
@@ -230,7 +184,7 @@ class OfficialOrdersService extends ChangeNotifier {
       return {
         'success': true,
         'message': 'تم إنشاء الطلب بنجاح',
-        'orderId': orderId,
+        'orderId': createdOrderId, // ✅ معرف الطلب من الباك إند
         'orderNumber': orderNumber,
         'totalProfit': finalProfit, // ✅ الربح النهائي
       };
@@ -253,12 +207,7 @@ class OfficialOrdersService extends ChangeNotifier {
         errorMessage = 'فشل في إنشاء الطلب: ${e.toString()}';
       }
 
-      return {
-        'success': false,
-        'message': errorMessage,
-        'error': e.toString(),
-        'errorType': e.runtimeType.toString(),
-      };
+      return {'success': false, 'message': errorMessage, 'error': e.toString(), 'errorType': e.runtimeType.toString()};
     }
   }
 
@@ -301,10 +250,7 @@ class OfficialOrdersService extends ChangeNotifier {
 
       await _supabase
           .from('orders')
-          .update({
-            'status': newStatus,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+          .update({'status': newStatus, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', orderId);
 
       debugPrint('✅ تم تحديث حالة الطلب');

@@ -10,14 +10,21 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart'; // 🎯 إضافة Provider
 import 'package:saver_gallery/saver_gallery.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:url_launcher/url_launcher.dart'; // 🎯 إضافة url_launcher
 
 import '../core/design_system.dart';
 import '../models/product.dart';
+import '../models/product_color.dart'; // 🎯 إضافة ProductColor
+import '../providers/theme_provider.dart'; // 🎯 إضافة ThemeProvider
+import '../services/cart_service.dart'; // 🎯 إضافة CartService
 import '../services/favorites_service.dart';
+import '../services/smart_colors_service.dart'; // 🎯 إضافة SmartColorsService
 import '../utils/number_formatter.dart';
+import 'cart_page.dart'; // 🎯 إضافة صفحة السلة
 
 class ModernProductDetailsPage extends StatefulWidget {
   final String productId;
@@ -41,6 +48,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
   // Services
   final FavoritesService _favoritesService = FavoritesService.instance;
+  final CartService _cartService = CartService(); // 🎯 تهيئة CartService مباشرة
 
   // State Variables
   Map<String, dynamic>? _productData;
@@ -48,7 +56,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
   int _currentImageIndex = 0;
   double _customerPrice = 0;
   bool _isPriceValid = false;
-  String? _selectedColor;
+  String? _selectedColorId; // 🎯 تغيير من String إلى String? لتخزين معرف اللون
   int _selectedQuantity = 1;
   bool _isFavorite = false;
   bool _isDescriptionExpanded = false;
@@ -63,14 +71,8 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
   final List<double> _pinnedPrices = []; // قائمة الأسعار المثبتة
   bool _isHandlingAction = false; // حارس لمنع تنفيذ مضاعف للنقرات
 
-  // Colors for product variants
-  final List<Map<String, dynamic>> _productColors = [
-    {'name': 'أسود', 'color': Colors.black, 'code': '#000000'},
-    {'name': 'برتقالي', 'color': Colors.orange, 'code': '#FF9500'},
-    {'name': 'أبيض', 'color': Colors.white, 'code': '#FFFFFF'},
-    {'name': 'أزرق فيروزي', 'color': Colors.teal, 'code': '#009688'},
-    {'name': 'أحمر', 'color': Colors.red, 'code': '#F44336'},
-  ];
+  // 🎨 ألوان المنتج من قاعدة البيانات
+  List<ProductColor> _productColors = [];
 
   @override
   void initState() {
@@ -78,7 +80,26 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
     _initializeAnimations();
     _loadProductData();
     _loadFavorites();
-    _selectedColor = _productColors.first['name'];
+    _loadProductColors(); // 🎯 جلب الألوان من قاعدة البيانات
+    _selectedColorId = 'none'; // 🎯 اختيار "لا شيء" افتراضياً
+  }
+
+  // 🎨 جلب ألوان المنتج من قاعدة البيانات
+  Future<void> _loadProductColors() async {
+    try {
+      final colors = await SmartColorsService.getProductColors(
+        productId: widget.productId,
+        includeUnavailable: false, // فقط الألوان المتاحة
+      );
+
+      if (mounted) {
+        setState(() {
+          _productColors = colors;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في جلب ألوان المنتج: $e');
+    }
   }
 
   // تحميل المفضلة
@@ -182,20 +203,79 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
     HapticFeedback.mediumImpact();
 
-    // Add to cart logic here
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('تم إضافة المنتج للسلة بنجاح!', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+    try {
+      // 🎨 الحصول على معلومات اللون المختار
+      String? colorName;
+      String? colorHex;
+
+      if (_selectedColorId != null && _selectedColorId != 'none') {
+        try {
+          final selectedColor = _productColors.firstWhere((color) => color.id == _selectedColorId);
+          colorName = selectedColor.colorArabicName; // 🎨 استخدام الاسم العربي
+          colorHex = selectedColor.colorCode; // 🎨 استخدام colorCode
+        } catch (e) {
+          debugPrint('⚠️ لم يتم العثور على اللون المختار');
+        }
+      }
+
+      // 🎯 إضافة المنتج للسلة
+      final result = await _cartService.addItem(
+        productId: widget.productId,
+        name: _productData!['name'] ?? '',
+        image: _getImagesList().isNotEmpty ? _getImagesList().first : '',
+        wholesalePrice: (_productData!['wholesale_price'] ?? 0).toInt(),
+        minPrice: (_productData!['min_price'] ?? 0).toInt(),
+        maxPrice: (_productData!['max_price'] ?? 0).toInt(),
+        customerPrice: _customerPrice.toInt(),
+        quantity: _selectedQuantity,
+        colorId: _selectedColorId != 'none' ? _selectedColorId : null, // 🎨 تمرير معرف اللون
+        colorName: colorName, // 🎨 تمرير اسم اللون
+        colorHex: colorHex, // 🎨 تمرير كود اللون
+      );
+
+      if (result['success']) {
+        // 🎯 الانتقال إلى صفحة السلة مباشرة بدون رسالة
+        if (mounted) {
+          Navigator.of(context).push(MaterialPageRoute(builder: (context) => const CartPage()));
+        }
+      } else {
+        // 🎯 إظهار رسالة خطأ
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result['message'] ?? 'فشل في إضافة المنتج للسلة',
+                style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في إضافة المنتج للسلة: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء إضافة المنتج للسلة', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    }
   }
 
   void _copyDescription() {
     if (_productData != null && _productData!['description'] != null) {
-      Clipboard.setData(ClipboardData(text: _productData!['description']));
+      // 🎯 نسخ الوصف بدون الروابط
+      final originalDescription = _productData!['description'];
+      final cleanDescription = _removeLinksFromText(originalDescription);
+
+      Clipboard.setData(ClipboardData(text: cleanDescription));
       HapticFeedback.lightImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -221,16 +301,24 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع من ThemeProvider
+
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: AppDesignSystem.primaryBackground,
+        backgroundColor: isDark ? AppDesignSystem.primaryBackground : Colors.white, // 🎯 خلفية متكيفة
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(color: AppDesignSystem.goldColor),
               const SizedBox(height: 20),
-              Text('جاري تحميل المنتج...', style: GoogleFonts.cairo(color: Colors.white, fontSize: 16)),
+              Text(
+                'جاري تحميل المنتج...',
+                style: GoogleFonts.cairo(
+                  color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
+                  fontSize: 16,
+                ),
+              ),
             ],
           ),
         ),
@@ -238,57 +326,57 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
     }
 
     return Scaffold(
-      backgroundColor: Colors.black, // خلفية سوداء للتأثير ثلاثي الأبعاد
+      backgroundColor: isDark ? Colors.black : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
       extendBody: true, // إزالة الشريط الأسود
       body: Stack(
         children: [
           // المحتوى الرئيسي
           SafeArea(
             bottom: false, // إزالة SafeArea من الأسفل
-            child: Column(
-              children: [
-                // المحتوى الرئيسي
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 10), // تقليل المسافة العلوية
-                          // منطقة الصورة الأنيقة
-                          _buildElegantImageSection(),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 80), // 🎯 مساحة للزر الثابت
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 10), // تقليل المسافة العلوية
+                    // منطقة الصورة الأنيقة
+                    _buildElegantImageSection(),
 
-                          // فاصل بسيط بدون كرة
-                          const SizedBox(height: 10),
+                    // فاصل بسيط بدون كرة
+                    const SizedBox(height: 10),
 
-                          // تفاصيل المنتج في container أنيق (بدون مسافة)
-                          _buildProductDetailsCard(),
+                    // تفاصيل المنتج في container أنيق (بدون مسافة)
+                    _buildProductDetailsCard(),
 
-                          const SizedBox(height: 20),
-                        ],
-                      ),
-                    ),
-                  ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
 
-          // زر الرجوع في الزاوية
+          // 🛒 زر إضافة للسلة الثابت في الأسفل - خارج المحتوى
           Positioned(
-            top: 25,
-            right: 20,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
               child: Container(
-                width: 40,
-                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      (isDark ? Colors.black : Colors.white).withValues(alpha: 0.0),
+                      (isDark ? Colors.black : Colors.white).withValues(alpha: 0.95),
+                      (isDark ? Colors.black : Colors.white),
+                    ],
+                  ),
                 ),
-                child: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 18),
+                child: _buildAddToCartButton(),
               ),
             ),
           ),
@@ -299,6 +387,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
   // 🎨 منطقة الصورة النظيفة بدون مربع
   Widget _buildElegantImageSection() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
     final images = _getImagesList();
 
     return Container(
@@ -405,6 +494,40 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
                 ),
               ),
             ),
+
+          // زر الرجوع في الأعلى على اليمين
+          Positioned(
+            top: 10,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.arrow_back_ios_new,
+                  color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -414,6 +537,8 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
   // 🎨 العرض البصري للكرة فقط (بدون منطق النقر)
   Widget _buildActionBallVisual(IconData icon, {Key? widgetKey}) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
+
     // تحديد خصائص كرة القلب حسب حالة المفضلة
     bool isHeartBall = icon == Icons.favorite;
     bool isActive = isHeartBall ? _isFavorite : false;
@@ -425,17 +550,19 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
     if (isHeartBall) {
       // كرة القلب - تمييز واضح حسب الحالة
-      ballColor = isActive ? Colors.red.withValues(alpha: 0.9) : const Color(0xFF2A2A2A);
+      ballColor = isActive
+          ? Colors.red.withValues(alpha: 0.9)
+          : (isDark ? const Color(0xFF2A2A2A) : Colors.white); // 🎯 خلفية بيضاء في الوضع النهاري
       iconColor = isActive ? Colors.white : Colors.red;
       borderColor = isActive ? Colors.red : Colors.red.withValues(alpha: 0.5);
     } else if (icon == Icons.photo_camera) {
       // كرة الكاميرا
-      ballColor = const Color(0xFF2A2A2A);
+      ballColor = isDark ? const Color(0xFF2A2A2A) : Colors.white; // 🎯 خلفية بيضاء في الوضع النهاري
       iconColor = Colors.blue;
       borderColor = const Color(0xFFFFD700);
     } else {
       // كرة المعرض
-      ballColor = const Color(0xFF2A2A2A);
+      ballColor = isDark ? const Color(0xFF2A2A2A) : Colors.white; // 🎯 خلفية بيضاء في الوضع النهاري
       iconColor = Colors.green;
       borderColor = const Color(0xFFFFD700);
     }
@@ -452,16 +579,21 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
             width: 45,
             height: 45,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [ballColor, ballColor.withValues(alpha: 0.8)],
-              ),
+              color: isDark ? null : ballColor, // 🎯 لون صلب في الوضع النهاري
+              gradient: isDark
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [ballColor, ballColor.withValues(alpha: 0.8)],
+                    )
+                  : null, // 🎯 بدون تدرج في الوضع النهاري
               shape: BoxShape.circle,
               border: Border.all(color: borderColor, width: isActive ? 3.0 : 2.0),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
+                  color: isDark
+                      ? Colors.black.withValues(alpha: 0.2)
+                      : Colors.grey.withValues(alpha: 0.3), // 🎯 ظل أخف في الوضع النهاري
                   blurRadius: 8,
                   offset: const Offset(0, 3),
                   spreadRadius: 1,
@@ -775,6 +907,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
   // 📋 كارت تفاصيل المنتج الشفاف والمضبب
   Widget _buildProductDetailsCard() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -790,12 +923,19 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
               margin: const EdgeInsets.symmetric(horizontal: 0),
               padding: const EdgeInsets.fromLTRB(24, 40, 24, 0), // زيادة المسافة العلوية
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.01), // شفافية خفيفة جداً لإظهار الخلفية الخرافية
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.01)
+                    : Colors.white.withValues(alpha: 0.95), // 🎯 خلفية بيضاء في الوضع النهاري
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(50), // قوس عميق
                   topRight: Radius.circular(50), // قوس عميق
                 ),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : Colors.grey.withValues(alpha: 0.3), // 🎯 حدود رمادية في الوضع النهاري
+                  width: 1,
+                ),
                 // إضافة ظل للتأثير ثلاثي الأبعاد
                 boxShadow: [
                   BoxShadow(
@@ -816,7 +956,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
                     style: GoogleFonts.cairo(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
                       height: 1.3,
                     ),
                   ),
@@ -837,9 +977,6 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
                   _buildDescription(),
 
                   const SizedBox(height: 24),
-
-                  // زر إضافة إلى السلة
-                  _buildAddToCartButton(),
 
                   // مساحة إضافية لتجنب تداخل الزر العائم
                   const SizedBox(height: 30), // تقليل المسافة من 100 إلى 30
@@ -873,6 +1010,8 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
   // 🎯 الكرة الرئيسية والكرات المنبثقة - قسم منفصل
   Widget _buildMainFloatingBall() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
+
     return Positioned(
       top: -29,
       right: 50, // تصحيح الموضع ليظهر داخل الشاشة
@@ -897,16 +1036,24 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
               width: 50,
               height: 60,
               decoration: BoxDecoration(
-                color: Colors.orange, // إبقاء نفس الإعدادات كما كانت
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF363940), Color(0xFF2D3748), Color(0xFF1A202C)],
-                ),
+                color: isDark ? Colors.orange : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
+                gradient: isDark
+                    ? const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFF363940), Color(0xFF2D3748), Color(0xFF1A202C)],
+                      )
+                    : null, // 🎯 بدون تدرج في الوضع النهاري
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xFFFFD700), width: 3.0),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, 8)),
+                  BoxShadow(
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.5)
+                        : Colors.grey.withValues(alpha: 0.3), // 🎯 ظل أخف في الوضع النهاري
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
                   BoxShadow(
                     color: const Color(0xFFFFD700).withValues(alpha: 0.5),
                     blurRadius: 5,
@@ -932,7 +1079,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
               right: 60, // تصحيح الموضع ليظهر داخل الشاشة
               child: _buildActionBall(
                 icon: Icons.favorite,
-                color: const Color(0xFF2A2A2A),
+                color: isDark ? const Color(0xFF2A2A2A) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
                 onTap: _toggleFavorite,
                 widgetKey: _heartBallKey,
               ),
@@ -944,7 +1091,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
               right: 10,
               child: _buildActionBall(
                 icon: Icons.photo_camera,
-                color: const Color(0xFF2A2A2A),
+                color: isDark ? const Color(0xFF2A2A2A) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
                 onTap: _saveCurrentImage,
                 widgetKey: _cameraBallKey,
               ),
@@ -956,7 +1103,7 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
               right: 65, // تصحيح الموضع ليظهر داخل الشاشة
               child: _buildActionBall(
                 icon: Icons.photo_library,
-                color: const Color(0xFF2A2A2A),
+                color: isDark ? const Color(0xFF2A2A2A) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
                 onTap: _saveAllImages,
                 widgetKey: _galleryBallKey,
               ),
@@ -1030,183 +1177,269 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
   // 🎨🔢 شريط الألوان والكمية المدمج - متناسق مع الخلفية الخرافية
   Widget _buildColorAndQuantityBar() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05), // شفافية خفيفة
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFFFFD700).withValues(alpha: 0.2), // حدود ذهبية خفيفة
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
-                blurRadius: 10,
-                spreadRadius: 1,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.2)
+                : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
+            blurRadius: 8,
+            spreadRadius: 0,
+            offset: const Offset(0, 2),
           ),
-          child: Row(
-            children: [
-              // قسم الألوان
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Row(
+        children: [
+          // قسم الألوان
+          Expanded(
+            flex: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Icon(Icons.palette, color: const Color(0xFFD4AF37), size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          'اللون',
-                          style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 32,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _productColors.length,
-                        itemBuilder: (context, index) {
-                          final colorData = _productColors[index];
-                          final isSelected = _selectedColor == colorData['name'];
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() => _selectedColor = colorData['name']);
-                              HapticFeedback.selectionClick();
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 8),
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: colorData['color'],
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected ? const Color(0xFFD4AF37) : Colors.white.withValues(alpha: 0.2),
-                                  width: isSelected ? 2.5 : 1,
-                                ),
-                              ),
-                              child: isSelected
-                                  ? Icon(
-                                      Icons.check,
-                                      color: colorData['color'] == Colors.white ? Colors.black : Colors.white,
-                                      size: 16,
-                                    )
-                                  : null,
-                            ),
-                          );
-                        },
+                    Icon(Icons.palette, color: const Color(0xFFD4AF37), size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'اللون',
+                      style: GoogleFonts.cairo(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
                       ),
                     ),
                   ],
                 ),
-              ),
-
-              // خط فاصل رفيع
-              Container(
-                width: 1,
-                height: 60,
-                color: Colors.white.withValues(alpha: 0.2),
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-              ),
-
-              // قسم الكمية
-              Expanded(
-                flex: 1,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.inventory_2, color: const Color(0xFFD4AF37), size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          'الكمية',
-                          style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            if (_selectedQuantity > 1) {
-                              setState(() => _selectedQuantity--);
-                              HapticFeedback.selectionClick();
-                            }
-                          },
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: _selectedQuantity > 1
-                                  ? const Color(0xFFFFD700).withValues(alpha: 0.15)
-                                  : Colors.white.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 32,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      // 🎯 خيار "لا شيء" كأول خيار
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedColorId = 'none');
+                          HapticFeedback.selectionClick();
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _selectedColorId == 'none'
+                                  ? const Color(0xFFD4AF37)
+                                  : Colors.grey.withValues(alpha: 0.5),
+                              width: _selectedColorId == 'none' ? 2.5 : 1.5,
                             ),
-                            child: Icon(
-                              Icons.remove,
-                              color: _selectedQuantity > 1 ? Colors.white : Colors.white.withValues(alpha: 0.3),
-                              size: 16,
-                            ),
+                            boxShadow: !isDark
+                                ? [BoxShadow(color: Colors.grey.withValues(alpha: 0.3), blurRadius: 4, spreadRadius: 0)]
+                                : null,
+                          ),
+                          child: Stack(
+                            children: [
+                              // دائرة حمراء في الوسط
+                              Center(
+                                child: Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.red, width: 2),
+                                  ),
+                                ),
+                              ),
+                              // خط أحمر قطري
+                              Center(
+                                child: Transform.rotate(
+                                  angle: -0.785398, // -45 degrees
+                                  child: Container(width: 20, height: 2, color: Colors.red),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        SizedBox(
-                          width: 40,
-                          child: Text(
-                            '$_selectedQuantity',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.cairo(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFFD4AF37),
-                            ),
-                          ),
-                        ),
-                        GestureDetector(
+                      ),
+
+                      // 🎨 الألوان من قاعدة البيانات
+                      ..._productColors.map((colorData) {
+                        final isSelected = _selectedColorId == colorData.id;
+                        final color = colorData.flutterColor;
+
+                        return GestureDetector(
                           onTap: () {
-                            setState(() => _selectedQuantity++);
+                            setState(() => _selectedColorId = colorData.id);
                             HapticFeedback.selectionClick();
                           },
                           child: Container(
-                            width: 28,
-                            height: 28,
+                            margin: const EdgeInsets.only(right: 8),
+                            width: 32,
+                            height: 32,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFD700).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? const Color(0xFFD4AF37)
+                                    : (color == Colors.white
+                                          ? Colors.grey.withValues(alpha: 0.5)
+                                          : Colors.white.withValues(alpha: 0.2)),
+                                width: isSelected ? 2.5 : 1.5,
+                              ),
+                              boxShadow: color == Colors.white && !isDark
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.grey.withValues(alpha: 0.3),
+                                        blurRadius: 4,
+                                        spreadRadius: 0,
+                                      ),
+                                    ]
+                                  : null,
                             ),
-                            child: const Icon(Icons.add, color: Colors.white, size: 16),
+                            child: isSelected ? Icon(Icons.check, color: colorData.textColor, size: 16) : null,
                           ),
-                        ),
-                      ],
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // خط فاصل رفيع
+          Container(
+            width: 1,
+            height: 60,
+            color: Colors.white.withValues(alpha: 0.2),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+
+          // قسم الكمية
+          Expanded(
+            flex: 1,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.inventory_2, color: const Color(0xFFD4AF37), size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'الكمية',
+                      style: GoogleFonts.cairo(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // 🎯 زر النقصان - سريع الاستجابة
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          if (_selectedQuantity > 1) {
+                            setState(() => _selectedQuantity--);
+                            HapticFeedback.selectionClick();
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: _selectedQuantity > 1
+                                ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                                : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1)),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                          ),
+                          child: Icon(
+                            Icons.remove,
+                            color: _selectedQuantity > 1
+                                ? (isDark ? Colors.white : Colors.black)
+                                : (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.5)),
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 40,
+                      child: Text(
+                        '$_selectedQuantity',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.cairo(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFD4AF37),
+                        ),
+                      ),
+                    ),
+                    // 🎯 زر الزيادة - سريع الاستجابة
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          if (_selectedQuantity < 10) {
+                            setState(() => _selectedQuantity++);
+                            HapticFeedback.selectionClick();
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: _selectedQuantity < 10
+                                ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                                : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1)),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                          ),
+                          child: Icon(
+                            Icons.add,
+                            color: _selectedQuantity < 10
+                                ? (isDark ? Colors.white : Colors.black)
+                                : (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.5)),
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
   // 💰 عرض السعر الأنيق مع إمكانية التعديل
   Widget _buildPriceDisplay() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
     final minPrice = _productData?['min_price']?.toDouble() ?? 0;
     final maxPrice = _productData?['max_price']?.toDouble() ?? 0;
 
@@ -1214,136 +1447,136 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // نطاق الأسعار المسموح - متناسق مع الخلفية الخرافية
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.2), width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // سعر الجملة في الأعلى
-                  Row(
-                    children: [
-                      Icon(Icons.inventory_2, color: const Color(0xFF4CAF50), size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'سعر الجملة: ',
-                        style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.7)),
-                      ),
-                      Text(
-                        NumberFormatter.formatCurrency((_productData?['wholesale_price'] ?? 0).toDouble()),
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF4CAF50),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      // الحد الأدنى
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700).withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.arrow_downward, color: const Color(0xFFFFD700), size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'الحد الأدنى',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 12,
-                                      color: const Color(0xFFFFD700),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                NumberFormatter.formatCurrency(minPrice),
-                                style: GoogleFonts.cairo(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      // الحد الأعلى
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF4A90E2).withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF4A90E2).withValues(alpha: 0.3), width: 1),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.arrow_upward, color: const Color(0xFF4A90E2), size: 16),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'الحد الأعلى',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 12,
-                                      color: const Color(0xFF4A90E2),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                NumberFormatter.formatCurrency(maxPrice),
-                                style: GoogleFonts.cairo(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
+              width: 1,
             ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.2)
+                    : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
+                blurRadius: 8,
+                spreadRadius: 0,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // سعر الجملة في الأعلى
+              Row(
+                children: [
+                  Icon(Icons.inventory_2, color: const Color(0xFF4CAF50), size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'سعر الجملة: ',
+                    style: GoogleFonts.cairo(
+                      fontSize: 14,
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : Colors.black.withValues(alpha: 0.7), // 🎯 لون متكيف
+                    ),
+                  ),
+                  Text(
+                    NumberFormatter.formatCurrency((_productData?['wholesale_price'] ?? 0).toDouble()),
+                    style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF4CAF50)),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  // الحد الأدنى
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFD700).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.arrow_downward, color: const Color(0xFFFFD700), size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                'الحد الأدنى',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 12,
+                                  color: const Color(0xFFFFD700),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            NumberFormatter.formatCurrency(minPrice),
+                            style: GoogleFonts.cairo(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // الحد الأعلى
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4A90E2).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF4A90E2).withValues(alpha: 0.3), width: 1),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.arrow_upward, color: const Color(0xFF4A90E2), size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                'الحد الأعلى',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 12,
+                                  color: const Color(0xFF4A90E2),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            NumberFormatter.formatCurrency(maxPrice),
+                            style: GoogleFonts.cairo(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
 
@@ -1351,7 +1584,11 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
         Text(
           'سعر البيع للزبون',
-          style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+          style: GoogleFonts.cairo(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
+          ),
         ),
         const SizedBox(height: 12),
 
@@ -1359,56 +1596,68 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
         Row(
           children: [
             Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _customerPrice == 0
-                            ? const Color(0xFFFFD700).withValues(alpha: 0.2)
-                            : _isPriceValid
-                            ? const Color(0xFF4CAF50)
-                            : const Color(0xFFE53E3E),
-                        width: 2.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: TextField(
-                      controller: _priceController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                      decoration: InputDecoration(
-                        hintText: 'أدخل سعر البيع',
-                        hintStyle: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.5), fontSize: 16),
-                        prefixIcon: Icon(Icons.attach_money, color: const Color(0xFFD4AF37), size: 20),
-                        suffixText: 'د.ع',
-                        suffixStyle: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7), fontSize: 14),
-                        border: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.all(16),
-                      ),
-                      onChanged: (value) {
-                        final price = double.tryParse(value) ?? 0;
-                        setState(() {
-                          _customerPrice = price;
-                          _validatePrice();
-                        });
-                      },
-                    ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _customerPrice == 0
+                        ? const Color(0xFFFFD700).withValues(alpha: 0.3) // 🎯 ذهبي خفيف
+                        : _isPriceValid
+                        ? const Color(0xFF4CAF50)
+                        : const Color(0xFFE53E3E),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark
+                          ? Colors.black.withValues(alpha: 0.2)
+                          : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
+                      blurRadius: 8,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _priceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  style: GoogleFonts.cairo(
+                    color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'أدخل سعر البيع',
+                    hintStyle: GoogleFonts.cairo(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.5)
+                          : Colors.grey.withValues(alpha: 0.6), // 🎯 لون متكيف
+                      fontSize: 16,
+                    ),
+                    prefixIcon: Icon(Icons.attach_money, color: const Color(0xFFD4AF37), size: 20),
+                    suffixText: 'د.ع',
+                    suffixStyle: GoogleFonts.cairo(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.7)
+                          : Colors.black.withValues(alpha: 0.7), // 🎯 لون متكيف
+                      fontSize: 14,
+                    ),
+                    border: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.all(16),
+                  ),
+                  onChanged: (value) {
+                    final price = double.tryParse(value) ?? 0;
+                    setState(() {
+                      _customerPrice = price;
+                      _validatePrice();
+                    });
+                  },
                 ),
               ),
             ),
@@ -1420,14 +1669,21 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: _isPriceValid ? const Color(0xFFFFD700) : Colors.white.withValues(alpha: 0.05),
+                color: _isPriceValid
+                    ? const Color(0xFFFFD700)
+                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white), // 🎯 خلفية بيضاء في الوضع النهاري
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.2), width: 1),
+                border: Border.all(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
+                  width: 1,
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.2)
+                        : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
                     blurRadius: 8,
-                    spreadRadius: 1,
+                    spreadRadius: 0,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -1440,7 +1696,11 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
                   child: Center(
                     child: Icon(
                       Icons.push_pin,
-                      color: _isPriceValid ? Colors.black : Colors.white.withValues(alpha: 0.3),
+                      color: _isPriceValid
+                          ? Colors.black
+                          : (isDark
+                                ? Colors.white.withValues(alpha: 0.3)
+                                : Colors.grey.withValues(alpha: 0.5)), // 🎯 لون متكيف
                       size: 20,
                     ),
                   ),
@@ -1571,14 +1831,33 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
   // 🛒 زر إضافة للسلة الأنيق
   Widget _buildAddToCartButton() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
     final isEnabled = _isPriceValid && _customerPrice > 0;
 
     return Container(
       width: double.infinity,
-      height: 52,
+      height: 48, // 🎯 حجم أصغر
       decoration: BoxDecoration(
-        color: isEnabled ? const Color(0xFFFFD700) : const Color(0xFF4A90E2).withValues(alpha: 0.3),
+        color: isEnabled
+            ? const Color(0xFFFFD700)
+            : (isDark
+                  ? const Color(0xFF4A90E2).withValues(alpha: 0.3)
+                  : Colors.white), // 🎯 خلفية بيضاء في الوضع النهاري
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.2)
+                : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
+            blurRadius: 8,
+            spreadRadius: 0,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -1596,7 +1875,11 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
               children: [
                 Icon(
                   Icons.shopping_cart_outlined,
-                  color: isEnabled ? Colors.black : Colors.white.withValues(alpha: 0.5),
+                  color: isEnabled
+                      ? Colors.black
+                      : (isDark
+                            ? Colors.white.withValues(alpha: 0.5)
+                            : Colors.grey.withValues(alpha: 0.6)), // 🎯 لون متكيف
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -1605,7 +1888,11 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
                   style: GoogleFonts.cairo(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: isEnabled ? Colors.black : Colors.white.withValues(alpha: 0.5),
+                    color: isEnabled
+                        ? Colors.black
+                        : (isDark
+                              ? Colors.white.withValues(alpha: 0.5)
+                              : Colors.grey.withValues(alpha: 0.6)), // 🎯 لون متكيف
                   ),
                 ),
               ],
@@ -1616,17 +1903,97 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
     );
   }
 
+  // 🔗 استخراج الروابط من النص مع تسمية تلقائية ذكية
+  List<Map<String, String>> _extractLinks(String text) {
+    final List<Map<String, String>> links = [];
+    final RegExp urlPattern = RegExp(r'(https?://[^\s]+)', caseSensitive: false);
+
+    final matches = urlPattern.allMatches(text);
+    int linkCounter = 1;
+
+    for (final match in matches) {
+      final url = match.group(0)!;
+
+      // تسمية تلقائية: "رابط الفيديو الأول"، "رابط الفيديو الثاني"، إلخ
+      String label;
+      if (linkCounter == 1) {
+        label = 'رابط الفيديو الأول';
+      } else if (linkCounter == 2) {
+        label = 'رابط الفيديو الثاني';
+      } else if (linkCounter == 3) {
+        label = 'رابط الفيديو الثالث';
+      } else if (linkCounter == 4) {
+        label = 'رابط الفيديو الرابع';
+      } else if (linkCounter == 5) {
+        label = 'رابط الفيديو الخامس';
+      } else {
+        label = 'رابط الفيديو $linkCounter';
+      }
+
+      links.add({'url': url, 'label': label});
+      linkCounter++;
+    }
+
+    return links;
+  }
+
+  // 🔗 إزالة الروابط من النص لإظهار الوصف نظيفاً
+  String _removeLinksFromText(String text) {
+    final RegExp urlPattern = RegExp(r'(https?://[^\s]+)', caseSensitive: false);
+
+    // إزالة الروابط والسطر الذي يحتوي عليها
+    String cleanText = text;
+    final lines = text.split('\n');
+    final cleanLines = <String>[];
+
+    for (final line in lines) {
+      // إذا كان السطر يحتوي على رابط، نتجاهله
+      if (!urlPattern.hasMatch(line)) {
+        cleanLines.add(line);
+      }
+    }
+
+    cleanText = cleanLines.join('\n').trim();
+
+    return cleanText;
+  }
+
+  // 🔗 فتح الرابط
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('لا يمكن فتح الرابط', style: GoogleFonts.cairo()),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   // 📝 الوصف المنعزل مع انيميشن
   Widget _buildDescription() {
-    final description = _productData?['description'] ?? 'وصف المنتج هنا...';
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
+    final originalDescription = _productData?['description'] ?? 'وصف المنتج هنا...';
+    final links = _extractLinks(originalDescription); // 🎯 استخراج الروابط
+    final description = _removeLinksFromText(originalDescription); // 🎯 إزالة الروابط من النص
     final shortDescription = description.length > 80 ? '${description.substring(0, 80)}...' : description;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 0),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2A2A),
+        color: isDark ? const Color(0xFF2A2A2A) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.1)
+              : Colors.grey.withValues(alpha: 0.3), // 🎯 حدود رمادية في الوضع النهاري
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
@@ -1647,7 +2014,11 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
                   Expanded(
                     child: Text(
                       'الوصف',
-                      style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                      style: GoogleFonts.cairo(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
+                      ),
                     ),
                   ),
                   // زر النسخ
@@ -1656,14 +2027,21 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.05)
+                            : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.2), width: 1),
+                        border: Border.all(
+                          color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
+                          width: 1,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
+                            color: isDark
+                                ? Colors.black.withValues(alpha: 0.2)
+                                : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
                             blurRadius: 8,
-                            spreadRadius: 1,
+                            spreadRadius: 0,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -1673,10 +2051,31 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
                   ),
                   const SizedBox(width: 8),
                   // زر التوسيع
-                  AnimatedRotation(
-                    turns: _isDescriptionExpanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 300),
-                    child: Icon(Icons.keyboard_arrow_down, color: Colors.white.withValues(alpha: 0.7), size: 24),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : Colors.grey.withValues(alpha: 0.1), // 🎯 خلفية خفيفة
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.2)
+                            : Colors.grey.withValues(alpha: 0.3), // 🎯 حدود واضحة
+                        width: 1,
+                      ),
+                    ),
+                    child: AnimatedRotation(
+                      turns: _isDescriptionExpanded ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.7)
+                            : Colors.black.withValues(alpha: 0.7), // 🎯 لون متكيف
+                        size: 20,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -1693,21 +2092,211 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
               opacity: _isDescriptionExpanded ? 1.0 : 0.0,
               child: Container(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Text(
-                  description,
-                  style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.8), height: 1.6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // الروابط في الأعلى
+                    if (links.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : const Color(0xFFFFF9E6), // 🎯 خلفية صفراء خفيفة
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.link, color: const Color(0xFFD4AF37), size: 16),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'الروابط',
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? Colors.white : Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...links.map(
+                              (link) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: GestureDetector(
+                                  onTap: () => _openUrl(link['url']!),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: const Color(0xFFFFD700).withValues(alpha: 0.4),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.open_in_new, color: const Color(0xFFD4AF37), size: 14),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            link['label']!,
+                                            style: GoogleFonts.cairo(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              color: isDark ? Colors.white : Colors.black,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // نص الوصف
+                    Text(
+                      description,
+                      style: GoogleFonts.cairo(
+                        fontSize: 14,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.8)
+                            : Colors.black.withValues(alpha: 0.8), // 🎯 لون متكيف
+                        height: 1.6,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
 
-          // معاينة الوصف عندما يكون مطوياً
-          if (!_isDescriptionExpanded)
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Text(
-                shortDescription,
-                style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.6), height: 1.5),
+          // معاينة الروابط فقط عندما يكون مطوياً - قابل للنقر
+          if (!_isDescriptionExpanded && links.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isDescriptionExpanded = true;
+                });
+                HapticFeedback.selectionClick();
+              },
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : const Color(0xFFFFF9E6), // 🎯 خلفية صفراء خفيفة
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.link, color: const Color(0xFFD4AF37), size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            'الروابط',
+                            style: GoogleFonts.cairo(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.black,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${links.length} ${links.length == 1 ? 'رابط' : 'روابط'}',
+                            style: GoogleFonts.cairo(
+                              fontSize: 12,
+                              color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...links
+                          .take(2)
+                          .map(
+                            (link) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: GestureDetector(
+                                onTap: () => _openUrl(link['url']!),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.4), width: 1),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.open_in_new, color: const Color(0xFFD4AF37), size: 14),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          link['label']!,
+                                          style: GoogleFonts.cairo(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            color: isDark ? Colors.white : Colors.black,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      if (links.length > 2)
+                        Text(
+                          '... و ${links.length - 2} ${links.length - 2 == 1 ? 'رابط آخر' : 'روابط أخرى'}',
+                          style: GoogleFonts.cairo(
+                            fontSize: 12,
+                            color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // معاينة الوصف عندما يكون مطوياً ولا توجد روابط
+          if (!_isDescriptionExpanded && links.isEmpty)
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isDescriptionExpanded = true;
+                });
+                HapticFeedback.selectionClick();
+              },
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Text(
+                  shortDescription,
+                  style: GoogleFonts.cairo(
+                    fontSize: 14,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.6)
+                        : Colors.black.withValues(alpha: 0.6), // 🎯 لون متكيف
+                    height: 1.5,
+                  ),
+                ),
               ),
             ),
         ],

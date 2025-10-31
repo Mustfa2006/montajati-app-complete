@@ -1,17 +1,22 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:async';
-// تم إزالة استيراد dart:math غير المستخدم
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../providers/theme_provider.dart';
+import '../services/lazy_loading_service.dart';
 import '../services/simple_orders_service.dart';
 import '../utils/number_formatter.dart';
+import '../utils/theme_colors.dart';
+import '../widgets/app_background.dart';
 import '../widgets/curved_navigation_bar.dart';
-import '../widgets/common_header.dart';
-// تم إزالة استيراد smart_profits_manager غير المستخدم
-import '../services/lazy_loading_service.dart';
 
 class ProfitsPage extends StatefulWidget {
   const ProfitsPage({super.key});
@@ -20,22 +25,15 @@ class ProfitsPage extends StatefulWidget {
   State<ProfitsPage> createState() => _ProfitsPageState();
 }
 
-class _ProfitsPageState extends State<ProfitsPage>
-    with TickerProviderStateMixin {
-  // متحكمات الحركة
-  late AnimationController _crownAnimationController;
-  late AnimationController _pulseAnimationController;
+class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin {
+  // متحكم الحركة للتحديث فقط
   late AnimationController _refreshAnimationController;
-  // تم إزالة _crownRotation غير المستخدم
-  late Animation<double> _pulseAnimation;
-  // تم إزالة _refreshRotation غير المستخدم
 
   // بيانات الأرباح
   double _realizedProfits = 0.0;
   double _pendingProfits = 0.0;
   int _completedOrders = 0;
   int _activeOrders = 0;
-  int _deliveryOrders = 0;
   bool _isRefreshing = false;
   bool _isLoadingCounts = false;
 
@@ -50,6 +48,7 @@ class _ProfitsPageState extends State<ProfitsPage>
     // تهيئة الصفحة بشكل صحيح
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeProfitsPage();
+      _checkForRefreshParameter(); // التحقق من parameter التحديث
     });
 
     // تحميل فوري للأرباح كخطة احتياطية
@@ -58,11 +57,45 @@ class _ProfitsPageState extends State<ProfitsPage>
         debugPrint('🔄 تحميل احتياطي للأرباح...');
         _loadProfitsFromDatabase();
       }
+    }).catchError((error) {
+      debugPrint('❌ خطأ في التحميل الاحتياطي: $error');
     });
+  }
 
-    // 🛡️ تم إزالة الاستماع لتغييرات الطلبات لمنع الحلقة اللا نهائية
-    // الأرباح تُحدث فقط عند فتح الصفحة أو السحب للتحديث
-    // _ordersService.addListener(_onOrdersChanged);
+  /// التحقق من parameter التحديث وتحديث البيانات إذا لزم الأمر
+  void _checkForRefreshParameter() {
+    try {
+      final uri = Uri.base;
+      if (uri.queryParameters.containsKey('refresh')) {
+        debugPrint('🔄 تم طلب تحديث صفحة الأرباح من parameter');
+        // تحديث البيانات فوراً بدون تأخير
+        if (mounted) {
+          refreshProfits();
+        }
+        // تحديث إضافي للتأكد
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            _loadProfitsFromDatabase();
+          }
+        });
+      } else {
+        // حتى لو لم يكن هناك parameter، قم بالتحديث للتأكد
+        debugPrint('🔄 تحديث تلقائي للأرباح عند دخول الصفحة');
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted) {
+            _loadProfitsFromDatabase();
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في التحقق من parameter التحديث: $e');
+      // في حالة الخطأ، قم بالتحديث على أي حال
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _loadProfitsFromDatabase();
+        }
+      });
+    }
   }
 
   /// تهيئة صفحة الأرباح مع التحميل التدريجي
@@ -78,10 +111,7 @@ class _ProfitsPageState extends State<ProfitsPage>
       debugPrint('🔄 بدء تحميل بيانات الأرباح...');
       await _loadAndCalculateProfits();
 
-
-
       debugPrint('✅ تم الانتهاء من تهيئة صفحة الأرباح');
-
     } catch (e) {
       debugPrint('❌ خطأ في تهيئة صفحة الأرباح: $e');
       // في حالة الخطأ، حاول تحميل البيانات مباشرة
@@ -93,42 +123,9 @@ class _ProfitsPageState extends State<ProfitsPage>
     }
   }
 
-  // دالة تحديث البيانات
-  Future<void> _refreshData() async {
-    debugPrint('🔄 === تحديث بيانات الأرباح والعدادات ===');
-    await _loadAndCalculateProfits();
-  }
-
-  // 🛡️ تم إزالة دالة _onOrdersChanged لمنع الحلقة اللا نهائية
-
   void _initializeAnimations() {
-    // حركة التيجان
-    _crownAnimationController = AnimationController(
-      duration: const Duration(seconds: 8),
-      vsync: this,
-    );
-    // تم إزالة تعريف _crownRotation غير المستخدم
-    _crownAnimationController.repeat();
-
-    // حركة النبض
-    _pulseAnimationController = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    );
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _pulseAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
-    _pulseAnimationController.repeat(reverse: true);
-
-    // حركة التحديث
-    _refreshAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    // تم إزالة تعريف _refreshRotation غير المستخدم
+    // حركة التحديث فقط
+    _refreshAnimationController = AnimationController(duration: const Duration(milliseconds: 1000), vsync: this);
   }
 
   // تحميل وحساب الأرباح من الطلبات الفعلية
@@ -137,19 +134,14 @@ class _ProfitsPageState extends State<ProfitsPage>
       // تحميل الطلبات من قاعدة البيانات
       await _ordersService.loadOrders();
 
-      // ✅ جلب الأرباح من قاعدة البيانات
       await _loadProfitsFromDatabase();
     } catch (e) {
       debugPrint('خطأ في تحميل الطلبات: $e');
     }
   }
 
-
-
   // 🛡️ جلب الأرباح مباشرة من قاعدة البيانات (مع حماية من التكرار)
   bool _isLoadingProfits = false;
-
-  // تم إزالة دالة _smartRecalculateProfits غير المستخدمة
 
   Future<void> _loadProfitsFromDatabase() async {
     // منع التحميل المتكرر
@@ -188,18 +180,12 @@ class _ProfitsPageState extends State<ProfitsPage>
           .maybeSingle();
 
       if (response != null) {
-        final dbAchievedProfits =
-            (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-        final dbExpectedProfits =
-            (response['expected_profits'] as num?)?.toDouble() ?? 0.0;
+        final dbAchievedProfits = (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
+        final dbExpectedProfits = (response['expected_profits'] as num?)?.toDouble() ?? 0.0;
         final userName = response['name'] ?? 'مستخدم';
 
-        debugPrint(
-          '📊 الأرباح المحققة من قاعدة البيانات: $dbAchievedProfits د.ع',
-        );
-        debugPrint(
-          '📊 الأرباح المنتظرة من قاعدة البيانات: $dbExpectedProfits د.ع',
-        );
+        debugPrint('📊 الأرباح المحققة من قاعدة البيانات: $dbAchievedProfits د.ع');
+        debugPrint('📊 الأرباح المنتظرة من قاعدة البيانات: $dbExpectedProfits د.ع');
         debugPrint('👤 المستخدم: $userName');
 
         // حساب عدادات الطلبات
@@ -217,7 +203,6 @@ class _ProfitsPageState extends State<ProfitsPage>
           debugPrint('   _pendingProfits = $_pendingProfits');
           debugPrint('   _completedOrders = $_completedOrders');
           debugPrint('   _activeOrders = $_activeOrders');
-          debugPrint('   _deliveryOrders = $_deliveryOrders');
         }
       } else {
         debugPrint('❌ لم يتم العثور على المستخدم في قاعدة البيانات');
@@ -241,10 +226,6 @@ class _ProfitsPageState extends State<ProfitsPage>
     }
   }
 
-
-
-
-
   // حساب عدادات الطلبات
   Future<void> _calculateOrderCounts(String userPhone) async {
     if (_isLoadingCounts) return;
@@ -261,13 +242,9 @@ class _ProfitsPageState extends State<ProfitsPage>
       debugPrint('🔍 البحث عن الطلبات برقم الهاتف: $userPhone');
 
       // أولاً: فحص إجمالي الطلبات في قاعدة البيانات
-      final totalOrdersResponse = await Supabase.instance.client
-          .from('orders')
-          .select('id');
+      final totalOrdersResponse = await Supabase.instance.client.from('orders').select('id');
 
-      debugPrint(
-        '📊 إجمالي الطلبات في قاعدة البيانات: ${totalOrdersResponse.length}',
-      );
+      debugPrint('📊 إجمالي الطلبات في قاعدة البيانات: ${totalOrdersResponse.length}');
 
       // ثانياً: فحص الطلبات لهذا الرقم
       final response = await Supabase.instance.client
@@ -288,9 +265,7 @@ class _ProfitsPageState extends State<ProfitsPage>
 
         debugPrint('📋 عينة من أرقام الهواتف في قاعدة البيانات:');
         for (var order in allOrders) {
-          debugPrint(
-            '   ${order['primary_phone']} - ${order['customer_name']}',
-          );
+          debugPrint('   ${order['primary_phone']} - ${order['customer_name']}');
         }
       }
 
@@ -343,7 +318,6 @@ class _ProfitsPageState extends State<ProfitsPage>
         setState(() {
           _completedOrders = completed;
           _activeOrders = active;
-          _deliveryOrders = delivery;
           _isLoadingCounts = false;
         });
 
@@ -360,21 +334,30 @@ class _ProfitsPageState extends State<ProfitsPage>
   }
 
   void refreshProfits() async {
-    if (_isRefreshing) return;
+    if (_isRefreshing || !mounted) return;
 
     setState(() {
       _isRefreshing = true;
     });
 
-    _refreshAnimationController.forward().then((_) {
-      _refreshAnimationController.reset();
-    });
+    _refreshAnimationController
+        .forward()
+        .then((_) {
+          if (mounted) {
+            _refreshAnimationController.reset();
+          }
+        })
+        .catchError((error) {
+          debugPrint('❌ خطأ في animation: $error');
+        });
 
     // محاكاة تحديث البيانات
     await Future.delayed(const Duration(seconds: 1));
 
     // ✅ إعادة جلب الأرباح من قاعدة البيانات
-    await _loadProfitsFromDatabase();
+    if (mounted) {
+      await _loadProfitsFromDatabase();
+    }
 
     if (mounted) {
       setState(() {
@@ -385,28 +368,21 @@ class _ProfitsPageState extends State<ProfitsPage>
 
   @override
   void dispose() {
-    // ✅ إزالة المستمع عند إغلاق الصفحة
-    _ordersService.removeListener(_onOrdersChanged);
+    // إيقاف animation controller بأمان
+    try {
+      _refreshAnimationController.stop();
+      _refreshAnimationController.dispose();
+    } catch (e) {
+      debugPrint('❌ خطأ في dispose refresh animation: $e');
+    }
 
-    _crownAnimationController.dispose();
-    _pulseAnimationController.dispose();
-    _refreshAnimationController.dispose();
     super.dispose();
-  }
-
-  // ✅ دالة تحديث الأرباح عند تغيير الطلبات
-  void _onOrdersChanged() {
-    debugPrint('🔄 تم تغيير الطلبات - تحديث الأرباح...');
-    // تأخير قصير للسماح لقاعدة البيانات بالتحديث
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        _loadProfitsFromDatabase();
-      }
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
     // 🔍 طباعة القيم المعروضة في الواجهة
     debugPrint('🖥️ === عرض الواجهة ===');
     debugPrint('   الأرباح المحققة المعروضة: $_realizedProfits');
@@ -419,98 +395,101 @@ class _ProfitsPageState extends State<ProfitsPage>
     // 3. تغيير الطلبات (listener)
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a2e),
-      extendBody: true, // السماح للمحتوى بالظهور خلف الشريط السفلي
-      body: Column(
-        children: [
-          // الشريط العلوي الموحد
-          CommonHeader(
-            title: 'الأرباح',
-            rightActions: [
-              // زر الرجوع على اليمين
-              GestureDetector(
-                onTap: () => context.go('/products'),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(
-                    FontAwesomeIcons.arrowRight,
-                    color: Color(0xFFffd700),
-                    size: 16,
-                  ),
-                ),
-              ),
-            ],
-          ),
+      backgroundColor: Colors.transparent,
+      extendBody: true,
+      body: AppBackground(
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // مساحة للشريط العلوي
+              const SizedBox(height: 25),
 
-          // المحتوى القابل للتمرير مع Pull-to-refresh
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _refreshData,
-              color: const Color(0xFFffd700),
-              backgroundColor: const Color(0xFF16213e),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(
-                  top: 25,
-                  left: 15,
-                  right: 15,
-                  bottom: 100,
-                ),
-                child: Column(
+              // ✨ شريط علوي بسيط (ضمن المحتوى)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
                   children: [
-                    // بطاقة الأرباح المحققة
-                    buildRealizedProfitsCard(),
+                    // زر الرجوع
+                    GestureDetector(
+                      onTap: () => context.go('/'),
+                      child: Container(
+                        width: 45,
+                        height: 45,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Colors.white.withValues(alpha: 0.1), Colors.white.withValues(alpha: 0.05)],
+                          ),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                            child: Icon(Icons.arrow_back_ios_new, color: Colors.white.withValues(alpha: 0.9), size: 20),
+                          ),
+                        ),
+                      ),
+                    ),
 
-                    const SizedBox(height: 20),
+                    // العنوان في المنتصف
+                    Expanded(
+                      child: Text(
+                        'الأرباح',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.cairo(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFFFFD700),
+                        ),
+                      ),
+                    ),
 
-                    // بطاقة الأرباح
-                    buildPendingProfitsCard(),
-
-                    const SizedBox(height: 30),
-
-                    // زر سحب الأرباح
-                    buildWithdrawButton(),
-
-                    const SizedBox(height: 15),
-
-                    // زر سجل السحب
-                    buildWithdrawalHistoryButton(),
-
-                    const SizedBox(height: 15),
-
-                    // زر الإحصائيات
-                    buildStatisticsButton(),
-
-                    const SizedBox(height: 30),
+                    // مساحة فارغة للتوازن
+                    const SizedBox(width: 45),
                   ],
                 ),
               ),
-            ),
-          ),
-        ],
-      ),
 
-      // شريط التنقل السفلي المنحني
+              const SizedBox(height: 20),
+
+              // بطاقة الأرباح المحققة
+              buildRealizedProfitsCard(isDark),
+
+              const SizedBox(height: 20),
+
+              // بطاقة الأرباح المنتظرة
+              buildPendingProfitsCard(isDark),
+
+              const SizedBox(height: 30),
+
+              // زر سحب الأرباح
+              buildWithdrawButton(isDark),
+
+              const SizedBox(height: 20),
+
+              // أزرار سجل السحب والإحصائيات جنب بعض
+              buildBottomButtonsRow(isDark),
+
+              // مساحة إضافية للشريط السفلي
+              const SizedBox(height: 160),
+            ],
+          ),
+        ),
+      ),
       bottomNavigationBar: CurvedNavigationBar(
         index: 2, // الأرباح
         items: <Widget>[
-          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
+          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)),
+          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)),
+          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)),
+          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)),
         ],
-        color: const Color(0xFF2D3748), // لون الشريط أغمق أكثر
-        buttonBackgroundColor: const Color(0xFF1A202C), // لون الكرة أغمق جداً
-        backgroundColor: Colors.transparent, // خلفية شفافة
+        color: const Color(0xFF2D3748),
+        buttonBackgroundColor: const Color(0xFF1A202C),
+        backgroundColor: Colors.transparent,
         animationCurve: Curves.easeInOut,
         animationDuration: Duration(milliseconds: 600),
         onTap: (index) {
@@ -534,348 +513,258 @@ class _ProfitsPageState extends State<ProfitsPage>
     );
   }
 
-
-
   // بناء بطاقة الأرباح المحققة
-  Widget buildRealizedProfitsCard() {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: 0.98 + (0.02 * _pulseAnimation.value),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.95,
-            height: 140,
-            clipBehavior: Clip.hardEdge,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              border: Border.all(color: const Color(0xFF06d6a0), width: 2),
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF06d6a0).withValues(alpha: 0.2),
-                  blurRadius: 25,
-                  offset: const Offset(0, 10),
+  Widget buildRealizedProfitsCard(bool isDark) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: ThemeColors.cardBackground(isDark),
+        border: Border.all(color: const Color(0xFF06d6a0).withValues(alpha: 0.3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(25),
+        child: Row(
+          children: [
+            // الأيقونة المتحركة للأرباح المحققة (مكبرة بدون مربع)
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Lottie.asset(
+                  'assets/animations/wallet_animation.json',
+                  width: 70,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  repeat: true,
+                  animate: true,
                 ),
-                BoxShadow(
-                  color: const Color(0xFF06d6a0).withValues(alpha: 0.1),
-                  blurRadius: 50,
-                  offset: const Offset(0, 0),
-                ),
-              ],
+              ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
+
+            const SizedBox(width: 20),
+
+            // المحتوى النصي
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // الأيقونة
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF06d6a0), Color(0xFF05a57a)],
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF06d6a0).withValues(alpha: 0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      FontAwesomeIcons.circleCheck,
-                      color: Colors.white,
-                      size: 22,
+                  // العنوان
+                  Text(
+                    'الأرباح المحققة',
+                    style: GoogleFonts.cairo(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: ThemeColors.textColor(isDark),
+                      letterSpacing: 0.5,
                     ),
                   ),
 
-                  const SizedBox(width: 16),
+                  const SizedBox(height: 8),
 
-                  // المحتوى النصي
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // العنوان
-                        Text(
-                          'الأرباح المحققة',
-                          style: GoogleFonts.cairo(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                  // المبلغ
+                  Text(
+                    NumberFormatter.formatCurrency(_realizedProfits),
+                    style: GoogleFonts.cairo(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF06d6a0),
+                      height: 1.2,
+                    ),
+                  ),
 
-                        const SizedBox(height: 6),
+                  const SizedBox(height: 5),
 
-                        // المبلغ
-                        Text(
-                          NumberFormatter.formatCurrency(_realizedProfits),
-                          style: GoogleFonts.cairo(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF06d6a0),
-                            shadows: [
-                              Shadow(
-                                color: const Color(
-                                  0xFF06d6a0,
-                                ).withValues(alpha: 0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 3),
-
-                        // الوصف
-                        Row(
-                          children: [
-                            const Icon(
-                              FontAwesomeIcons.circleInfo,
-                              color: Color(0xFF17a2b8),
-                              size: 12,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'من الطلبات المكتملة',
-                              style: GoogleFonts.cairo(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF6c757d),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  // الوصف
+                  Text(
+                    'من الطلبات المكتملة',
+                    style: GoogleFonts.cairo(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: ThemeColors.secondaryTextColor(isDark),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
-  // بناء بطاقة الأرباح
-  Widget buildPendingProfitsCard() {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: 0.98 + (0.02 * (1 - _pulseAnimation.value)),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.95,
-            height: 140,
-            clipBehavior: Clip.hardEdge,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              border: Border.all(color: const Color(0xFFf72585), width: 2),
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFf72585).withValues(alpha: 0.2),
-                  blurRadius: 25,
-                  offset: const Offset(0, 10),
+  // بناء بطاقة الأرباح المنتظرة
+  Widget buildPendingProfitsCard(bool isDark) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: ThemeColors.cardBackground(isDark),
+        border: Border.all(color: const Color(0xFFf72585).withValues(alpha: 0.3), width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            // الأيقونة المتحركة للأرباح المنتظرة (مكبرة)
+            Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Lottie.asset(
+                  'assets/animations/shipping_truck.json',
+                  width: 70,
+                  height: 70,
+                  fit: BoxFit.cover,
+                  repeat: true,
+                  animate: true,
                 ),
-                BoxShadow(
-                  color: const Color(0xFFf72585).withValues(alpha: 0.1),
-                  blurRadius: 50,
-                  offset: const Offset(0, 0),
-                ),
-              ],
+              ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
+
+            const SizedBox(width: 16),
+
+            // المحتوى النصي
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // الأيقونة
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFf72585), Color(0xFFc9184a)],
-                      ),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.3),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFf72585).withValues(alpha: 0.4),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      FontAwesomeIcons.clock,
-                      color: Colors.white,
-                      size: 22,
+                  // العنوان
+                  Text(
+                    'الأرباح المتوقعة',
+                    style: GoogleFonts.cairo(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: ThemeColors.textColor(isDark),
+                      letterSpacing: 0.5,
                     ),
                   ),
 
-                  const SizedBox(width: 16),
+                  const SizedBox(height: 8),
 
-                  // المحتوى النصي
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // العنوان
-                        Text(
-                          'الأرباح المتوقعة',
-                          style: GoogleFonts.cairo(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        // المبلغ
-                        Text(
-                          NumberFormatter.formatCurrency(_pendingProfits),
-                          style: GoogleFonts.cairo(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFFf72585),
-                            shadows: [
-                              Shadow(
-                                color: const Color(
-                                  0xFFf72585,
-                                ).withValues(alpha: 0.3),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 3),
-                      ],
+                  // المبلغ
+                  Text(
+                    NumberFormatter.formatCurrency(_pendingProfits),
+                    style: GoogleFonts.cairo(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFFf72585),
+                      height: 1.2,
                     ),
                   ),
 
-                  // تفصيل الطلبات
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // الطلبات النشطة
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            const Icon(
-                              FontAwesomeIcons.clock,
-                              color: Color(0xFFffc107),
-                              size: 10,
-                            ),
-                          ],
-                        ),
+                  const SizedBox(height: 5),
 
-                        const SizedBox(height: 6),
-
-                        // قيد التوصيل
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            const Icon(
-                              FontAwesomeIcons.truck,
-                              color: Color(0xFF007bff),
-                              size: 10,
-                            ),
-                          ],
-                        ),
-                      ],
+                  // الوصف
+                  Text(
+                    'من الطلبات قيد التوصيل و النشط',
+                    style: GoogleFonts.cairo(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: ThemeColors.secondaryTextColor(isDark),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
-  // بناء زر سحب الأرباح
-  Widget buildWithdrawButton() {
+  // ✨ زر سحب الأرباح المحدث
+  Widget buildWithdrawButton(bool isDark) {
     bool canWithdraw = _realizedProfits >= 1000;
 
     return GestureDetector(
       onTap: canWithdraw ? () => context.push('/withdraw') : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: 55,
+      child: Container(
+        width: double.infinity,
+        height: 65,
+        margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          gradient: canWithdraw
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFe6b31e), Color(0xFFffd700)],
-                )
-              : const LinearGradient(
-                  colors: [Color(0xFF6c757d), Color(0xFF6c757d)],
-                ),
-          borderRadius: BorderRadius.circular(27),
+          borderRadius: BorderRadius.circular(20),
+          color: ThemeColors.cardBackground(isDark),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.3),
-            width: 2,
+            color: canWithdraw ? const Color(0xFF28a745).withValues(alpha: 0.4) : ThemeColors.cardBorder(isDark),
+            width: 1.5,
           ),
-          boxShadow: canWithdraw
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFFe6b31e).withValues(alpha: 0.25),
-                    blurRadius: 25,
-                    offset: const Offset(0, 10),
-                  ),
-                ]
-              : [],
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              FontAwesomeIcons.moneyBillWave,
-              color: const Color(0xFF1a1a2e),
-              size: 20,
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: canWithdraw
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [const Color(0xFFFFD700), const Color(0xFFFFA500), const Color(0xFFFF8C00)],
+                      )
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.grey.withValues(alpha: 0.6),
+                          Colors.grey.withValues(alpha: 0.4),
+                          Colors.grey.withValues(alpha: 0.3),
+                        ],
+                      ),
+                boxShadow: canWithdraw
+                    ? [
+                        BoxShadow(
+                          color: const Color(0xFFFFD700).withValues(alpha: 0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                          spreadRadius: 2,
+                        ),
+                        BoxShadow(
+                          color: const Color(0xFFFFA500).withValues(alpha: 0.3),
+                          blurRadius: 25,
+                          offset: const Offset(0, 15),
+                          spreadRadius: 5,
+                        ),
+                      ]
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+              ),
+              child: Icon(
+                FontAwesomeIcons.wallet,
+                color: canWithdraw
+                    ? const Color(0xFF1a1a2e)
+                    : (isDark ? Colors.white.withValues(alpha: 0.7) : Colors.black54),
+                size: 20,
+              ),
             ),
-            const SizedBox(width: 12),
-            Text(
-              canWithdraw
-                  ? 'سحب الأرباح (${NumberFormatter.formatCurrency(_realizedProfits)} متاحة)'
-                  : 'الحد الأدنى للسحب ${NumberFormatter.formatCurrency(1000)}',
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1a1a2e),
+            const SizedBox(width: 15),
+            Flexible(
+              child: Text(
+                canWithdraw
+                    ? 'سحب الأرباح (${NumberFormatter.formatCurrency(_realizedProfits)} )'
+                    : 'الحد الأدنى للسحب ${NumberFormatter.formatCurrency(1000)}',
+                style: GoogleFonts.cairo(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: canWithdraw ? const Color(0xFFFFD700) : ThemeColors.secondaryTextColor(isDark),
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ],
@@ -884,37 +773,43 @@ class _ProfitsPageState extends State<ProfitsPage>
     );
   }
 
-  // بناء زر سجل السحب
-  Widget buildWithdrawalHistoryButton() {
+  // ✨ صف الأزرار السفلية (سجل السحب والإحصائيات)
+  Widget buildBottomButtonsRow(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          // زر سجل السحب
+          Expanded(child: buildCompactWithdrawalHistoryButton(isDark)),
+          const SizedBox(width: 15),
+          // زر الإحصائيات
+          Expanded(child: buildCompactStatisticsButton(isDark)),
+        ],
+      ),
+    );
+  }
+
+  // ✨ زر سجل السحب المدمج
+  Widget buildCompactWithdrawalHistoryButton(bool isDark) {
     return GestureDetector(
       onTap: () {
-        // الانتقال لصفحة سجل السحب
         context.push('/profits/withdrawal-history');
       },
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: 50,
+        height: 55,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.1),
-          border: Border.all(color: const Color(0xFF17a2b8), width: 2),
-          borderRadius: BorderRadius.circular(25),
+          borderRadius: BorderRadius.circular(16),
+          color: ThemeColors.cardBackground(isDark),
+          border: Border.all(color: const Color(0xFF17a2b8).withValues(alpha: 0.4), width: 1),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              FontAwesomeIcons.clockRotateLeft,
-              color: Color(0xFF17a2b8),
-              size: 18,
-            ),
+            Icon(FontAwesomeIcons.clockRotateLeft, color: const Color(0xFF17a2b8), size: 18),
             const SizedBox(width: 10),
             Text(
               'سجل السحب',
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF17a2b8),
-              ),
+              style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF17a2b8)),
             ),
           ],
         ),
@@ -922,51 +817,27 @@ class _ProfitsPageState extends State<ProfitsPage>
     );
   }
 
-  // بناء زر الإحصائيات
-  Widget buildStatisticsButton() {
+  // ✨ زر الإحصائيات المدمج
+  Widget buildCompactStatisticsButton(bool isDark) {
     return GestureDetector(
       onTap: () {
-        // الانتقال لصفحة الإحصائيات
         context.go('/statistics');
       },
       child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
         height: 55,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF6f42c1), Color(0xFF5a2d91)],
-          ),
-          borderRadius: BorderRadius.circular(27),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.3),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF6f42c1).withValues(alpha: 0.4),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(16),
+          color: ThemeColors.cardBackground(isDark),
+          border: Border.all(color: const Color(0xFF6f42c1).withValues(alpha: 0.4), width: 1),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              FontAwesomeIcons.chartBar,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
+            Icon(FontAwesomeIcons.chartLine, color: const Color(0xFF6f42c1), size: 18),
+            const SizedBox(width: 10),
             Text(
-              'الإحصائيات التفصيلية',
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
+              'الإحصائيات',
+              style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF6f42c1)),
             ),
           ],
         ),

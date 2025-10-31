@@ -7074,10 +7074,47 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with Ti
       initialDate: DateTime.now().add(const Duration(hours: 1)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 30)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: Color(0xFFffd700), // اللون الذهبي للعناصر المحددة
+              onPrimary: Color(0xFF0F1419), // لون النص على الذهبي
+              surface: Color(0xFF16213e), // خلفية النافذة - داكنة
+              onSurface: Colors.white, // لون النص
+              surfaceContainerHighest: Color(0xFF1a1a2e), // خلفية العناصر
+            ),
+            dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF16213e)),
+            textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: const Color(0xFFffd700))),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (date != null && mounted) {
-      final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+      final time = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.dark(
+                primary: Color(0xFFffd700),
+                onPrimary: Color(0xFF0F1419),
+                surface: Color(0xFF16213e),
+                onSurface: Colors.white,
+                surfaceContainerHighest: Color(0xFF1a1a2e),
+              ),
+              dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF16213e)),
+              textButtonTheme: TextButtonThemeData(
+                style: TextButton.styleFrom(foregroundColor: const Color(0xFFffd700)),
+              ),
+            ),
+            child: child!,
+          );
+        },
+      );
 
       if (time != null) {
         setState(() {
