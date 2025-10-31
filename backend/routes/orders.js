@@ -72,7 +72,7 @@ router.get('/debug-waseet', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { status, page = 1, limit = 50, search } = req.query;
-    
+
     let query = supabase
       .from('orders')
       .select('*')
@@ -650,50 +650,167 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // ===================================
-// POST /api/orders - إنشاء طلب جديد
+// POST /api/orders - إنشاء طلب جديد (مع العناصر)
 // ===================================
 router.post('/', async (req, res) => {
   try {
-    const orderData = req.body;
-    
+    const { items, ...orderData } = req.body; // ✅ فصل العناصر عن بيانات الطلب
+
+    console.log('📦 إنشاء طلب جديد عبر الباك إند...');
+    console.log('📋 عدد العناصر:', items ? items.length : 0);
+
     // إضافة معرف فريد وتاريخ الإنشاء
+    const orderId = orderData.id || `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const newOrder = {
       ...orderData,
-      id: orderData.id || `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: orderId,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       status: orderData.status || 'active'
     };
 
-    const { data, error } = await supabase
+    // ✅ حفظ الطلب في قاعدة البيانات
+    const { data: orderResult, error: orderError } = await supabase
       .from('orders')
       .insert(newOrder)
       .select()
       .single();
 
-    if (error) {
-      console.error('❌ خطأ في إنشاء الطلب:', error);
-      console.error('📋 تفاصيل الخطأ:', error.message);
-      console.error('📋 كود الخطأ:', error.code);
-      console.error('📋 البيانات المرسلة:', JSON.stringify(newOrder, null, 2));
+    if (orderError) {
+      console.error('❌ خطأ في إنشاء الطلب:', orderError);
+      console.error('📋 تفاصيل الخطأ:', orderError.message);
+      console.error('📋 كود الخطأ:', orderError.code);
       return res.status(500).json({
         success: false,
         error: 'فشل في إنشاء الطلب',
-        details: error.message,
-        code: error.code
+        details: orderError.message,
+        code: orderError.code
       });
     }
 
-    console.log(`✅ تم إنشاء طلب جديد: ${data.id}`);
+    console.log(`✅ تم إنشاء الطلب: ${orderResult.id}`);
+
+    // ✅ حفظ عناصر الطلب إذا كانت موجودة
+    if (items && items.length > 0) {
+      console.log(`📦 حفظ ${items.length} عنصر للطلب...`);
+
+      const orderItems = items.map(item => ({
+        order_id: orderId,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        product_image: item.product_image,
+        wholesale_price: item.wholesale_price,
+        customer_price: item.customer_price,
+        quantity: item.quantity,
+        total_price: item.total_price,
+        profit_per_item: item.profit_per_item,
+        created_at: new Date().toISOString()
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('⚠️ خطأ في حفظ عناصر الطلب:', itemsError);
+        // لا نوقف العملية، الطلب تم حفظه بنجاح
+      } else {
+        console.log(`✅ تم حفظ ${items.length} عنصر بنجاح`);
+      }
+    }
 
     res.status(201).json({
       success: true,
       message: 'تم إنشاء الطلب بنجاح',
-      data: data
+      data: orderResult,
+      orderId: orderResult.id
     });
 
   } catch (error) {
     console.error('❌ خطأ في API إنشاء الطلب:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===================================
+// POST /api/scheduled-orders - إنشاء طلب مجدول جديد (مع العناصر)
+// ===================================
+router.post('/scheduled-orders', async (req, res) => {
+  try {
+    const { items, ...orderData } = req.body; // ✅ فصل العناصر عن بيانات الطلب
+
+    console.log('📅 إنشاء طلب مجدول جديد عبر الباك إند...');
+    console.log('📋 عدد العناصر:', items ? items.length : 0);
+
+    // إضافة معرف فريد وتاريخ الإنشاء
+    const orderId = orderData.id || `scheduled_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newOrder = {
+      ...orderData,
+      id: orderId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // ✅ حفظ الطلب المجدول في قاعدة البيانات
+    const { data: orderResult, error: orderError } = await supabase
+      .from('scheduled_orders')
+      .insert(newOrder)
+      .select()
+      .single();
+
+    if (orderError) {
+      console.error('❌ خطأ في إنشاء الطلب المجدول:', orderError);
+      console.error('📋 تفاصيل الخطأ:', orderError.message);
+      console.error('📋 كود الخطأ:', orderError.code);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في إنشاء الطلب المجدول',
+        details: orderError.message,
+        code: orderError.code
+      });
+    }
+
+    console.log(`✅ تم إنشاء الطلب المجدول: ${orderResult.id}`);
+
+    // ✅ حفظ عناصر الطلب المجدول إذا كانت موجودة
+    if (items && items.length > 0) {
+      console.log(`📦 حفظ ${items.length} عنصر للطلب المجدول...`);
+
+      const orderItems = items.map(item => ({
+        scheduled_order_id: orderId,
+        product_id: item.product_id,
+        product_name: item.product_name,
+        product_image: item.product_image,
+        quantity: item.quantity,
+        price: item.price,
+        notes: item.notes || '',
+        created_at: new Date().toISOString()
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('scheduled_order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('⚠️ خطأ في حفظ عناصر الطلب المجدول:', itemsError);
+        // لا نوقف العملية، الطلب تم حفظه بنجاح
+      } else {
+        console.log(`✅ تم حفظ ${items.length} عنصر بنجاح`);
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'تم إنشاء الطلب المجدول بنجاح',
+      data: orderResult,
+      orderId: orderResult.id
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في API إنشاء الطلب المجدول:', error);
     res.status(500).json({
       success: false,
       error: error.message
