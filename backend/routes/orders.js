@@ -238,6 +238,79 @@ router.get('/waseet-sync-status', async (req, res) => {
 });
 
 // ===================================
+// GET /api/orders/user/:userPhone - جلب طلبات المستخدم بـ Pagination
+// ===================================
+router.get('/user/:userPhone', async (req, res) => {
+  try {
+    const { userPhone } = req.params;
+    const { page = 0, limit = 10 } = req.query;
+
+    if (!userPhone) {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    console.log(`📱 جلب طلبات المستخدم: ${userPhone} - الصفحة: ${page}, الحد: ${limit}`);
+
+    const offset = parseInt(page) * parseInt(limit);
+
+    // جلب الطلبات مع العناصر المرتبطة
+    const { data, error, count } = await supabase
+      .from('orders')
+      .select(
+        `
+        *,
+        order_items (
+          id,
+          product_id,
+          product_name,
+          product_image,
+          wholesale_price,
+          customer_price,
+          quantity,
+          total_price,
+          profit_per_item
+        )
+        `,
+        { count: 'exact' }
+      )
+      .eq('user_phone', userPhone)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + parseInt(limit) - 1);
+
+    if (error) {
+      console.error('❌ خطأ في جلب طلبات المستخدم:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'خطأ في جلب الطلبات'
+      });
+    }
+
+    console.log(`✅ تم جلب ${data?.length || 0} طلب من أصل ${count} طلب`);
+
+    res.json({
+      success: true,
+      data: data || [],
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: count || 0,
+        hasMore: offset + parseInt(limit) < (count || 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في API جلب طلبات المستخدم:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ===================================
 // GET /api/orders/:id - جلب طلب محدد
 // ===================================
 router.get('/:id', async (req, res) => {

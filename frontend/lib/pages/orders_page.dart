@@ -41,7 +41,7 @@ class _OrdersPageState extends State<OrdersPage> {
   bool _isLoadingMore = false;
   bool _hasMoreData = true;
   int _currentPage = 0;
-  final int _pageSize = 25;
+  final int _pageSize = 10;
   final ScrollController _scrollController = ScrollController();
 
   Map<String, int> _orderCounts = {
@@ -258,57 +258,57 @@ class _OrdersPageState extends State<OrdersPage> {
         return;
       }
 
-      final offset = _currentPage * _pageSize;
-      debugPrint(
-        '🔍 جلب طلبات المستخدم: $currentUserPhone - الصفحة: $_currentPage ($offset-${offset + _pageSize - 1})',
+      debugPrint('🔍 جلب طلبات المستخدم من Backend: $currentUserPhone - الصفحة: $_currentPage');
+
+      // جلب من Backend API بدلاً من Supabase مباشرة
+      final url = Uri.parse(
+        'https://api.muntgati.app/api/orders/user/$currentUserPhone?page=$_currentPage&limit=$_pageSize',
       );
 
-      final response = await _supabase
-          .from('orders')
-          .select('''
-            *,
-            order_items (
-              id,
-              product_id,
-              product_name,
-              product_image,
-              wholesale_price,
-              customer_price,
-              quantity,
-              total_price,
-              profit_per_item
-            )
-          ''')
-          .eq('user_phone', currentUserPhone)
-          .order('created_at', ascending: false)
-          .range(offset, offset + _pageSize - 1);
+      final response = await http
+          .get(url)
+          .timeout(const Duration(seconds: 10), onTimeout: () => throw Exception('انتهت مهلة الانتظار'));
 
-      debugPrint('📡 تم جلب ${response.length} طلب من قاعدة البيانات');
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body);
 
-      final List<Order> newOrders = [];
-      for (final orderData in response) {
-        try {
-          final order = Order.fromJson(orderData);
-          newOrders.add(order);
-        } catch (e) {
-          debugPrint('❌ خطأ في تحويل طلب ${orderData['id']}: $e');
-        }
-      }
+        if (json['success'] == true) {
+          final List<dynamic> ordersData = json['data'] ?? [];
+          final pagination = json['pagination'] ?? {};
 
-      setState(() {
-        if (isLoadMore) {
-          _orders.addAll(newOrders);
+          final List<Order> newOrders = [];
+          for (final orderData in ordersData) {
+            try {
+              final order = Order.fromJson(orderData);
+              newOrders.add(order);
+            } catch (e) {
+              debugPrint('❌ خطأ في تحويل طلب ${orderData['id']}: $e');
+            }
+          }
+
+          setState(() {
+            if (isLoadMore) {
+              _orders.addAll(newOrders);
+            } else {
+              _orders = newOrders;
+            }
+
+            _hasMoreData = (pagination['hasMore'] as bool?) ?? false;
+            _currentPage++;
+          });
+
+          debugPrint('✅ تم تحميل ${newOrders.length} طلب جديد - المجموع: ${_orders.length}');
         } else {
-          _orders = newOrders;
+          throw Exception(json['error'] ?? 'خطأ في جلب الطلبات');
         }
-
-        _hasMoreData = newOrders.length == _pageSize;
-        _currentPage++;
-      });
-
-      debugPrint('✅ تم تحميل ${newOrders.length} طلب جديد - المجموع: ${_orders.length}');
+      } else {
+        throw Exception('خطأ في الخادم: ${response.statusCode}');
+      }
     } catch (e) {
       debugPrint('❌ خطأ في تحميل الطلبات: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في تحميل الطلبات: $e')));
+      }
     } finally {
       setState(() {
         _isLoading = false;

@@ -473,29 +473,22 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
                           const SizedBox(height: 6),
 
-                          // الأسعار في صف واحد
-                          Row(
-                            children: [
-                              // سعر الجملة
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFdc3545).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'جملة: ${_cartService.formatPrice(item.wholesalePrice)}',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: const Color(0xFFdc3545),
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
+                          // سعر الجملة - صغير ومتناسق
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFdc3545).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFdc3545).withValues(alpha: 0.3), width: 1),
+                            ),
+                            child: Text(
+                              'جملة: ${_cartService.formatPrice(item.wholesalePrice)}',
+                              style: GoogleFonts.cairo(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFFdc3545),
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ),
@@ -507,22 +500,31 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
                 // الجزء السفلي - التحكم في السعر والكمية
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.3),
-                      width: 1,
+                      color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.15),
+                      width: 1.5,
                     ),
+                    boxShadow: isDark
+                        ? []
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 6,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                   ),
                   child: Row(
                     children: [
-                      // تعديل سعر الزبون
+                      // تعديل سعر الزبون - أصغر وأنظف
                       Expanded(
-                        flex: 3,
+                        flex: 2,
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             // ✅ نص الخطأ فوق الشريط (إن وجد)
                             Builder(
@@ -531,13 +533,13 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                                 return validation['isValid']
                                     ? const SizedBox.shrink()
                                     : Padding(
-                                        padding: const EdgeInsets.only(bottom: 4),
+                                        padding: const EdgeInsets.only(bottom: 3),
                                         child: Text(
                                           validation['error'] ?? '',
                                           style: GoogleFonts.cairo(
-                                            fontSize: 11,
+                                            fontSize: 10,
                                             fontWeight: FontWeight.w600,
-                                            color: const Color(0xFFdc3545), // أحمر
+                                            color: const Color(0xFFdc3545),
                                           ),
                                           textAlign: TextAlign.center,
                                         ),
@@ -545,27 +547,29 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                               },
                             ),
                             Container(
-                              height: 32,
+                              height: 28,
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.08)
+                                    : Colors.grey.withValues(alpha: 0.05),
                                 border: Border.all(
                                   color: _validatePrice(item.customerPrice, item)['isValid']
-                                      ? const Color(0xFF28a745) // أخضر
-                                      : const Color(0xFFdc3545), // أحمر
-                                  width: 2,
+                                      ? Colors.green.withValues(alpha: 0.5)
+                                      : Colors.red.withValues(alpha: 0.5),
+                                  width: 1.5,
                                 ),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: TextFormField(
-                                controller: _getOrCreateController(item), // ✅ استخدام controller ثابت
-                                keyboardType: TextInputType.number, // ✅ كيبورد أرقام فقط
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly], // ✅ قبول أرقام فقط
+                                controller: _getOrCreateController(item),
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                 textAlign: TextAlign.center,
                                 textAlignVertical: TextAlignVertical.center,
                                 style: GoogleFonts.cairo(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.black,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? Colors.white : Colors.black,
                                   height: 1.0,
                                 ),
                                 decoration: InputDecoration(
@@ -574,11 +578,11 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                                   enabledBorder: InputBorder.none,
                                   errorBorder: InputBorder.none,
                                   disabledBorder: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 2),
                                   isDense: true,
-                                  hintText: 'أدخل السعر',
+                                  hintText: 'السعر',
                                   hintStyle: GoogleFonts.cairo(
-                                    fontSize: 12,
+                                    fontSize: 11,
                                     color: Colors.grey,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -592,50 +596,49 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
                                   final newPrice = int.tryParse(value);
                                   if (newPrice != null) {
-                                    // ✅ نقبل أي رقم ونحدث السعر مباشرة (السماح بالكتابة بحرية)
                                     _cartService.updatePrice(item.id, newPrice);
-                                    setState(() {}); // ✅ لتحديث لون الإطار فقط
+                                    setState(() {});
                                   }
                                 },
                               ),
                             ),
-                            const SizedBox(height: 6),
-                            // ✅ الحد الأدنى والأقصى منفصلين أفقياً
+                            const SizedBox(height: 5),
+                            // ✅ الحد الأدنى والأقصى تحت السعر
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 // الحد الأدنى
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.green.withValues(alpha: 0.4), width: 1),
+                                    color: Colors.green.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: Colors.green.withValues(alpha: 0.3), width: 1),
                                   ),
                                   child: Text(
                                     'أدنى: ${_cartService.formatPrice(item.minPrice)}',
                                     style: GoogleFonts.cairo(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.green,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.green[700],
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 4),
                                 // الحد الأقصى
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: Colors.red.withValues(alpha: 0.4), width: 1),
+                                    color: Colors.red.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(5),
+                                    border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
                                   ),
                                   child: Text(
                                     'أقصى: ${_cartService.formatPrice(item.maxPrice)}',
                                     style: GoogleFonts.cairo(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.red,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.red[700],
                                     ),
                                   ),
                                 ),
@@ -645,7 +648,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                         ),
                       ),
 
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
 
                       // ✅ الكمية في أقصى اليسار (عمودي: + ثم العدد ثم -)
                       Column(
@@ -654,11 +657,10 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                           // زر زيادة (+) في الأعلى
                           GestureDetector(
                             onTap: () {
-                              // ✅ زيادة فورية بدون انتظار
                               if (item.quantity >= 10) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('الحد الأقصى 10 قطع', style: GoogleFonts.cairo(fontSize: 13)),
+                                    content: Text('الحد الأقصى 10 قطع', style: GoogleFonts.cairo(fontSize: 12)),
                                     backgroundColor: const Color(0xFFdc3545),
                                     duration: const Duration(seconds: 1),
                                   ),
@@ -666,17 +668,14 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                                 return;
                               }
 
-                              // ✅ تحديث فوري
                               _cartService.updateQuantity(item.id, item.quantity + 1);
 
-                              // ✅ التحقق من المخزون في الخلفية (بدون انتظار)
                               InventoryService.checkAvailability(
                                 productId: item.productId,
                                 requestedQuantity: item.quantity + 1,
                                 colorId: item.colorId,
                               ).then((availabilityCheck) {
                                 if (!availabilityCheck['success'] || !availabilityCheck['is_available']) {
-                                  // إذا لم يكن متوفر، نرجع الكمية
                                   _cartService.updateQuantity(item.id, item.quantity);
                                   final maxAvailable = availabilityCheck['max_available'] ?? 0;
                                   if (mounted) {
@@ -697,40 +696,40 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                               });
                             },
                             child: Container(
-                              width: 26,
-                              height: 26,
+                              width: 24,
+                              height: 24,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF28a745),
-                                borderRadius: BorderRadius.circular(13),
+                                color: Colors.green.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(FontAwesomeIcons.plus, color: Colors.white, size: 11),
+                              child: const Icon(FontAwesomeIcons.plus, color: Colors.white, size: 10),
                             ),
                           ),
 
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 5),
 
                           // عرض الكمية في الوسط
                           Container(
-                            width: 36,
-                            height: 28,
+                            width: 32,
+                            height: 26,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFf8f9fa),
-                              border: Border.all(color: const Color(0xFF007bff), width: 2),
+                              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.08),
+                              border: Border.all(color: const Color(0xFF007bff).withValues(alpha: 0.6), width: 1.5),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Center(
                               child: Text(
                                 '${item.quantity}',
                                 style: GoogleFonts.cairo(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.black,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? Colors.white : Colors.black,
                                 ),
                               ),
                             ),
                           ),
 
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 5),
 
                           // زر تقليل (-) في الأسفل
                           GestureDetector(
@@ -740,13 +739,13 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                               }
                             },
                             child: Container(
-                              width: 26,
-                              height: 26,
+                              width: 24,
+                              height: 24,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFdc3545),
-                                borderRadius: BorderRadius.circular(13),
+                                color: Colors.red.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(FontAwesomeIcons.minus, color: Colors.white, size: 11),
+                              child: const Icon(FontAwesomeIcons.minus, color: Colors.white, size: 10),
                             ),
                           ),
                         ],
@@ -863,26 +862,28 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                         child: GestureDetector(
                           onTap: () => completeOrder(totals),
                           child: Container(
-                            height: 48,
+                            height: 44,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF28a745), Color(0xFF20c997)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.green.withValues(alpha: 0.3), width: 1),
+                              color: Colors.green,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.green.withValues(alpha: 0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Center(
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(FontAwesomeIcons.check, color: Colors.white, size: 16),
-                                  const SizedBox(width: 8),
+                                  const Icon(FontAwesomeIcons.check, color: Colors.white, size: 14),
+                                  const SizedBox(width: 6),
                                   Text(
                                     'إتمام الطلب',
                                     style: GoogleFonts.cairo(
-                                      fontSize: 15,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.white,
                                     ),
@@ -894,7 +895,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                         ),
                       ),
 
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
 
                       // زر جدولة الطلب
                       Expanded(
@@ -902,28 +903,30 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                         child: GestureDetector(
                           onTap: () => _showScheduleDialog(totals),
                           child: Container(
-                            height: 48,
+                            height: 44,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.5), width: 1),
+                              color: const Color(0xFFffd700),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Center(
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Icon(FontAwesomeIcons.calendar, color: Color(0xFF1a1a2e), size: 14),
-                                  const SizedBox(width: 6),
+                                  const Icon(FontAwesomeIcons.calendar, color: Colors.black, size: 13),
+                                  const SizedBox(width: 5),
                                   Text(
                                     'جدولة',
                                     style: GoogleFonts.cairo(
-                                      fontSize: 14,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF1a1a2e),
+                                      color: Colors.black,
                                     ),
                                   ),
                                 ],

@@ -19,13 +19,6 @@ import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 import '../widgets/curved_navigation_bar.dart';
 
-// 🧠 حالات شريط البحث الذكي
-enum SearchBarState {
-  hidden, // مخفي تماماً
-  buttonOnly, // زر البحث فقط
-  expanded, // شريط البحث مفتوح
-}
-
 // كلاس مساعد لترتيب نتائج البحث
 class ProductMatch {
   final Product product;
@@ -63,18 +56,16 @@ class _NewProductsPageState extends State<NewProductsPage> {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  // 🧠 نظام ذكي موحد لإدارة شريط البحث
-  SearchBarState _searchBarState = SearchBarState.hidden;
-  final FocusNode _originalSearchFocus = FocusNode(); // للشريط الأصلي
-  final FocusNode _expandedSearchFocus = FocusNode(); // للشريط المفتوح - منفصل
-
   // البحث والـ hints
   List<Product> _filteredProducts = [];
-  Timer? _hintTimer;
   Timer? _searchDebounceTimer;
-  int _currentHintIndex = 0;
-  List<String> _productHints = [];
-  int _currentNavIndex = 0; // للشريط السفلي المنحني
+  int _currentNavIndex = 0;
+
+  // 📄 نظام Pagination
+  int _currentPage = 1;
+  final int _itemsPerPage = 10;
+  bool _isLoadingMore = false;
+  bool _hasMoreProducts = true;
 
   @override
   void initState() {
@@ -84,28 +75,19 @@ class _NewProductsPageState extends State<NewProductsPage> {
     _loadBanners();
     _setupScrollListener();
     _setupProductHints();
-    _loadFavorites(); // تحميل المفضلة
+    _loadFavorites();
   }
 
-  // 🧠 نظام ذكي لإدارة شريط البحث حسب التمرير مع حماية من الـ crash
+  // 📄 إعداد listener للـ scroll لتحميل المزيد من المنتجات
   void _setupScrollListener() {
     _scrollController.addListener(() {
-      if (!mounted) return; // حماية أساسية
+      if (!mounted) return;
 
       try {
-        const double threshold = 150.0;
-        final currentOffset = _scrollController.offset;
-
-        // منطق ذكي لإدارة حالات الشريط
-        if (currentOffset >= threshold) {
-          // المستخدم مرر للأسفل - إظهار زر البحث فقط إذا لم يكن في حالة expanded
-          if (_searchBarState == SearchBarState.hidden) {
-            _updateSearchBarState(SearchBarState.buttonOnly);
-          }
-        } else {
-          // المستخدم في أعلى الصفحة - إخفاء كل شيء مع انتقال ذكي
-          if (_searchBarState != SearchBarState.hidden) {
-            _smartTransitionToOriginal();
+        // التحقق من الوصول للنهاية
+        if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 500) {
+          if (!_isLoadingMore && _hasMoreProducts) {
+            _loadMoreProducts();
           }
         }
       } catch (e) {
@@ -114,122 +96,17 @@ class _NewProductsPageState extends State<NewProductsPage> {
     });
   }
 
-  // 🎯 انتقال ذكي للشريط الأصلي مع حماية من الـ crash
-  void _smartTransitionToOriginal() {
-    if (!mounted) return; // حماية أساسية
-
-    try {
-      // حفظ النص الحالي
-      final currentText = _searchController.text;
-      final wasTyping = currentText.isNotEmpty;
-
-      // إخفاء الشريط الثانوي فوراً
-      setState(() {
-        _searchBarState = SearchBarState.hidden;
-      });
-
-      // إزالة التركيز من أي حقل نشط
-      if (mounted && context.mounted) {
-        FocusScope.of(context).unfocus();
-      }
-
-      // إذا كان المستخدم يكتب - انتقال سلس للشريط الأصلي
-      if (wasTyping) {
-        // وضع النص فوراً
-        _searchController.text = currentText;
-
-        // استخدام Timer قصير لضمان وضع المؤشر بشكل صحيح
-        Timer(const Duration(milliseconds: 10), () {
-          if (mounted) {
-            try {
-              // وضع المؤشر في النهاية بدون تحديد النص
-              _searchController.selection = TextSelection.collapsed(offset: currentText.length);
-
-              // تحديث الواجهة لضمان ظهور التغييرات
-              setState(() {});
-            } catch (e) {
-              debugPrint('❌ خطأ في وضع المؤشر: $e');
-            }
-          }
-        });
-      } else {
-        // إذا لم يكن يكتب - تنظيف فقط
-        _searchController.clear();
-        _searchProducts('');
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في الانتقال الذكي: $e');
-    }
-  }
-
-  // 🔍 مراقبة الانتقال المفاجئ للبداية مع حماية من الـ crash
-  void _checkForSuddenJumpToTop() {
-    if (!mounted) return; // حماية أساسية
-
-    try {
-      // تأخير قصير للسماح للشاشة بالتحديث
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (mounted && _scrollController.hasClients) {
-          try {
-            final currentPosition = _scrollController.offset;
-
-            // إذا كان المستخدم في البداية والشريط ظاهر
-            if (currentPosition <= 100 && _searchBarState != SearchBarState.hidden) {
-              debugPrint('🔍 انتقال مفاجئ للبداية - إخفاء الشريط الثانوي');
-              _smartTransitionToOriginal();
-            }
-          } catch (e) {
-            debugPrint('❌ خطأ في فحص موضع التمرير: $e');
-          }
-        }
-      });
-    } catch (e) {
-      debugPrint('❌ خطأ في إعداد فحص الانتقال: $e');
-    }
-  }
-
-  // 🎯 دالة ذكية لتحديث حالة الشريط مع حماية من الـ crash
-  void _updateSearchBarState(SearchBarState newState) {
-    if (!mounted) return; // حماية من الـ crash
-
-    if (_searchBarState != newState) {
-      try {
-        // إزالة التركيز من أي FocusNode نشط قبل التغيير
-        _originalSearchFocus.unfocus();
-        _expandedSearchFocus.unfocus();
-
-        setState(() {
-          _searchBarState = newState;
-        });
-
-        // إضافة تأخير صغير قبل التركيز الجديد
-        if (newState == SearchBarState.expanded) {
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (mounted && _expandedSearchFocus.canRequestFocus) {
-              _expandedSearchFocus.requestFocus();
-            }
-          });
-        }
-      } catch (e) {
-        debugPrint('❌ خطأ في تحديث حالة شريط البحث: $e');
-      }
-    }
-  }
-
   @override
   void dispose() {
     try {
       // إلغاء جميع المؤقتات
       _bannerTimer?.cancel();
-      _hintTimer?.cancel();
       _searchDebounceTimer?.cancel();
 
       // تنظيف الـ controllers
       _bannerPageController.dispose();
       _searchController.dispose();
       _scrollController.dispose();
-      _originalSearchFocus.dispose(); // تنظيف FocusNode الأصلي
-      _expandedSearchFocus.dispose(); // تنظيف FocusNode المفتوح
     } catch (e) {
       debugPrint('❌ خطأ في تنظيف الموارد: $e');
     }
@@ -370,44 +247,83 @@ class _NewProductsPageState extends State<NewProductsPage> {
     return formatter.format(price.toInt());
   }
 
+  // 📄 تحميل المنتجات الأولى (10 منتجات فقط)
   Future<void> _loadProducts() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoadingProducts = true;
+      _currentPage = 1;
+      _products = [];
+      _filteredProducts = [];
+      _hasMoreProducts = true;
     });
 
     try {
+      // تحميل أول 10 منتجات من الباك إند
       final response = await _supabase
           .from('products')
           .select()
-          .eq('is_active', true) // فقط المنتجات النشطة
-          .order('created_at', ascending: false);
+          .eq('is_active', true)
+          .order('created_at', ascending: false)
+          .range(0, 9); // أول 10 منتجات
 
-      final allProducts = (response as List).map((json) => Product.fromJson(json)).toList();
-
-      // 🎯 فلترة المنتجات المتاحة فقط (عدد القطع > 0)
-      final availableProducts = allProducts.where((product) => product.availableQuantity > 0).toList();
+      final products = (response as List).map((json) => Product.fromJson(json)).toList();
+      final availableProducts = products.where((product) => product.availableQuantity > 0).toList();
 
       if (mounted) {
-        // تحديث تدريجي لتجنب التقطيع
         setState(() {
-          _products = availableProducts; // فقط المنتجات المتاحة
+          _products = availableProducts;
+          _filteredProducts = List.from(availableProducts);
           _isLoadingProducts = false;
-        });
-
-        // تأخير صغير لضمان السلاسة
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            setState(() {
-              _filteredProducts = List.from(availableProducts); // نسخة منفصلة
-            });
-            _updateProductHints(); // تحديث hints البحث
-          }
+          _hasMoreProducts = availableProducts.length >= 10;
         });
       }
     } catch (e) {
+      debugPrint('❌ خطأ في تحميل المنتجات: $e');
       if (mounted) {
         setState(() {
           _isLoadingProducts = false;
+        });
+      }
+    }
+  }
+
+  // 📄 تحميل المزيد من المنتجات
+  Future<void> _loadMoreProducts() async {
+    if (!mounted || _isLoadingMore || !_hasMoreProducts) return;
+
+    setState(() {
+      _isLoadingMore = true;
+    });
+
+    try {
+      _currentPage++;
+      final offset = (_currentPage - 1) * _itemsPerPage;
+
+      final response = await _supabase
+          .from('products')
+          .select()
+          .eq('is_active', true)
+          .order('created_at', ascending: false)
+          .range(offset, offset + _itemsPerPage - 1);
+
+      final newProducts = (response as List).map((json) => Product.fromJson(json)).toList();
+      final availableProducts = newProducts.where((product) => product.availableQuantity > 0).toList();
+
+      if (mounted) {
+        setState(() {
+          _products.addAll(availableProducts);
+          _filteredProducts = List.from(_products);
+          _isLoadingMore = false;
+          _hasMoreProducts = availableProducts.length >= _itemsPerPage;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تحميل المزيد من المنتجات: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingMore = false;
         });
       }
     }
@@ -415,190 +331,53 @@ class _NewProductsPageState extends State<NewProductsPage> {
 
   // إعداد hints المنتجات
   void _setupProductHints() {
-    _updateProductHints();
-    _startHintRotation();
+    // لا يوجد hints الآن - تم حذف شريط البحث الثانوي
   }
 
-  // تحديث قائمة hints من أسماء المنتجات
-  void _updateProductHints() {
-    if (_products.isNotEmpty) {
-      _productHints = _products.map((product) => product.name).take(10).toList();
-      if (_productHints.isEmpty) {
-        _productHints = ['ابحث عن المنتجات...'];
-      }
-    } else {
-      _productHints = ['ابحث عن المنتجات...'];
-    }
-  }
-
-  // بدء تقليب الـ hints
-  void _startHintRotation() {
-    _hintTimer?.cancel();
-    _hintTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (!mounted || _productHints.isEmpty) {
-        timer.cancel();
-        return;
-      }
-
-      setState(() {
-        _currentHintIndex = (_currentHintIndex + 1) % _productHints.length;
-      });
-    });
-  }
-
-  // البحث في المنتجات مع debouncing وحماية من الـ crash
+  // 🔍 البحث البسيط في المنتجات
   void _searchProducts(String query) {
-    if (!mounted) return; // حماية أساسية
-
-    try {
-      // إلغاء البحث السابق
-      _searchDebounceTimer?.cancel();
-
-      // تأخير البحث لتقليل الضغط
-      _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          _performSearch(query);
-        }
-      });
-    } catch (e) {
-      debugPrint('❌ خطأ في إعداد البحث: $e');
-    }
-  }
-
-  // تنفيذ البحث الفعلي مع خوارزمية محسنة وحماية من الـ crash
-  void _performSearch(String query) {
     if (!mounted) return;
 
     try {
-      // تأخير صغير لضمان السلاسة
-      Future.delayed(const Duration(milliseconds: 50), () {
+      _searchDebounceTimer?.cancel();
+      _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
         if (!mounted) return;
 
         List<Product> filtered;
+        if (query.isEmpty) {
+          filtered = List.from(_products);
+        } else {
+          final searchQuery = query.toLowerCase().trim();
+          filtered = _products.where((product) => product.name.toLowerCase().contains(searchQuery)).toList();
+        }
 
-        try {
-          if (query.isEmpty) {
-            filtered = List.from(_products);
-          } else {
-            filtered = _smartSearch(query);
-          }
-
-          if (mounted) {
-            setState(() {
-              _filteredProducts = filtered;
-            });
-
-            // 🔍 مراقبة الانتقال المفاجئ للبداية
-            _checkForSuddenJumpToTop();
-          }
-        } catch (e) {
-          debugPrint('❌ خطأ في تنفيذ البحث: $e');
-          // في حالة الخطأ، عرض جميع المنتجات
-          if (mounted) {
-            setState(() {
-              _filteredProducts = List.from(_products);
-            });
-          }
+        if (mounted) {
+          setState(() {
+            _filteredProducts = filtered;
+          });
         }
       });
     } catch (e) {
-      debugPrint('❌ خطأ في إعداد البحث: $e');
+      debugPrint('❌ خطأ في البحث: $e');
     }
-  }
-
-  // بحث دقيق في اسم المنتج فقط
-  List<Product> _smartSearch(String query) {
-    final searchQuery = query.toLowerCase().trim();
-    final searchWords = _expandSearchWords(searchQuery);
-
-    List<ProductMatch> matches = [];
-
-    for (final product in _products) {
-      final productName = product.name.toLowerCase();
-
-      int score = 0;
-      bool hasMatch = false;
-
-      // البحث في اسم المنتج فقط
-      for (final word in searchWords) {
-        if (productName.contains(word)) {
-          hasMatch = true;
-
-          // مطابقة كاملة للاسم
-          if (productName == word) {
-            score += 200;
-          }
-          // يبدأ بالكلمة
-          else if (productName.startsWith(word)) {
-            score += 150;
-          }
-          // كلمة في الاسم تبدأ بالكلمة المبحوث عنها
-          else if (productName.split(' ').any((nameWord) => nameWord.startsWith(word))) {
-            score += 120;
-          }
-          // يحتوي على الكلمة
-          else {
-            score += 80;
-          }
-        }
-      }
-
-      // البحث الجزئي فقط للكلمات الطويلة وإذا لم نجد مطابقة
-      if (!hasMatch && searchQuery.length >= 3) {
-        if (productName.contains(searchQuery)) {
-          hasMatch = true;
-          score += 15;
-        }
-      }
-
-      if (hasMatch) {
-        matches.add(ProductMatch(product, score));
-      }
-    }
-
-    // ترتيب النتائج حسب النقاط (الأعلى أولاً)
-    matches.sort((a, b) => b.score.compareTo(a.score));
-
-    return matches.map((match) => match.product).toList();
-  }
-
-  // توسيع كلمات البحث بالمرادفات
-  List<String> _expandSearchWords(String query) {
-    final words = query.split(' ').where((word) => word.isNotEmpty).toList();
-    final expandedWords = <String>[];
-
-    // قاموس المرادفات للكلمات الشائعة
-    final synonyms = {
-      'ستائر': ['ستارة', 'ستار'],
-      'ستارة': ['ستائر', 'ستار'],
-      'ستار': ['ستائر', 'ستارة'],
-      'خزانة': ['خزان', 'دولاب'],
-      'خزان': ['خزانة', 'دولاب'],
-      'دولاب': ['خزانة', 'خزان'],
-      'طاولة': ['منضدة'],
-      'منضدة': ['طاولة'],
-      'كرسي': ['مقعد'],
-      'مقعد': ['كرسي'],
-    };
-
-    for (final word in words) {
-      expandedWords.add(word);
-      if (synonyms.containsKey(word)) {
-        expandedWords.addAll(synonyms[word]!);
-      }
-    }
-
-    return expandedWords.toSet().toList(); // إزالة التكرار
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+
     return Scaffold(
+      // 🎨 خلفية شفافة تماماً للوضع النهاري - لإظهار البطاقات بوضوح
       backgroundColor: Colors.transparent,
       extendBody: true,
       body: AppBackground(
         child: Stack(
           children: [
+            // 🎨 الخلفية البيضاء الفاتحة جداً مع ظل خفيف للسواد
+            if (!isDark)
+              Container(
+                color: const Color(0xFFFAFAFA), // أبيض فاتح جداً يميل للسواد قليلاً
+              ),
             // المحتوى الرئيسي
             SingleChildScrollView(
               controller: _scrollController,
@@ -619,19 +398,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
                 ],
               ),
             ),
-
-            // 🧠 شريط البحث الذكي - يظهر حسب الحالة
-            if (_searchBarState != SearchBarState.hidden)
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(12, 40, 12, 10),
-                  color: Colors.transparent, // بدون خلفية
-                  child: _buildAnimatedSearchBar(),
-                ),
-              ),
           ],
         ),
       ),
@@ -735,59 +501,27 @@ class _NewProductsPageState extends State<NewProductsPage> {
               Expanded(
                 flex: 3,
                 child: Center(
-                  child: Stack(
-                    children: [
-                      // الظل الخلفي للنص
-                      Text(
-                        'منتجاتي',
-                        style: GoogleFonts.amiri(
-                          fontSize: 20, // تصغير من 25 إلى 20
-                          fontWeight: FontWeight.bold,
-                          foreground: Paint()
-                            ..style = PaintingStyle.stroke
-                            ..strokeWidth =
-                                1.2 // تصغير من 1.5 إلى 1.2
-                            ..color = Colors.black.withValues(alpha: 0.3),
-                        ),
+                  child: ShaderMask(
+                    shaderCallback: (bounds) => LinearGradient(
+                      colors: [
+                        const Color(0xFFFFD700), // ذهبي فاتح
+                        const Color(0xFFFFA500), // برتقالي ذهبي
+                        const Color(0xFFB8860B), // ذهبي داكن
+                        const Color(0xFFDAA520), // ذهبي متوسط
+                      ],
+                      stops: [0.0, 0.3, 0.7, 1.0],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(bounds),
+                    child: Text(
+                      'منتجاتي',
+                      style: GoogleFonts.amiri(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.8,
                       ),
-                      // النص الذهبي الرئيسي
-                      ShaderMask(
-                        shaderCallback: (bounds) => LinearGradient(
-                          colors: [
-                            const Color(0xFFFFD700), // ذهبي فاتح
-                            const Color(0xFFFFA500), // برتقالي ذهبي
-                            const Color(0xFFB8860B), // ذهبي داكن
-                            const Color(0xFFDAA520), // ذهبي متوسط
-                          ],
-                          stops: [0.0, 0.3, 0.7, 1.0],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ).createShader(bounds),
-                        child: Text(
-                          'منتجاتي',
-                          style: GoogleFonts.amiri(
-                            fontSize: 24, // تصغير من 30 إلى 24
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 0.8, // تصغير من 1.0 إلى 0.8
-                            shadows: [
-                              // ظل ذهبي مضيء
-                              Shadow(
-                                color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                                offset: const Offset(0, 0),
-                                blurRadius: 6,
-                              ),
-                              // ظل أسود للعمق
-                              Shadow(
-                                color: Colors.black.withValues(alpha: 0.3),
-                                offset: const Offset(1, 1),
-                                blurRadius: 2,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -976,15 +710,27 @@ class _NewProductsPageState extends State<NewProductsPage> {
                     const Color(0xFF1A202C).withValues(alpha: 0.9),
                   ],
                 )
-              : null,
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white, const Color(0xFFF8F8F8)],
+                  stops: const [0.0, 1.0],
+                ),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.5),
-            width: isDark ? 1.5 : 2,
+            color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.3), // إطار ذهبي أقوى
+            width: isDark ? 1.5 : 1.5,
           ),
           boxShadow: isDark
               ? [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))]
-              : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
+              : [
+                  BoxShadow(
+                    color: Colors.grey.withValues(alpha: 0.18),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                    spreadRadius: 2,
+                  ),
+                ],
         ),
         child: Center(
           child: Column(
@@ -1039,8 +785,8 @@ class _NewProductsPageState extends State<NewProductsPage> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.5),
-                    width: isDark ? 1.5 : 2,
+                    color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.3), // إطار ذهبي أقوى
+                    width: isDark ? 1.5 : 1.5,
                   ),
                   boxShadow: isDark
                       ? [
@@ -1052,9 +798,10 @@ class _NewProductsPageState extends State<NewProductsPage> {
                         ]
                       : [
                           BoxShadow(
-                            color: Colors.grey.withValues(alpha: 0.15),
-                            blurRadius: 12,
+                            color: Colors.grey.withValues(alpha: 0.18),
+                            blurRadius: 16,
                             offset: const Offset(0, 4),
+                            spreadRadius: 2,
                           ),
                         ],
                 ),
@@ -1213,11 +960,16 @@ class _NewProductsPageState extends State<NewProductsPage> {
                 ],
                 stops: const [0.0, 0.5, 1.0],
               )
-            : null,
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.white, const Color(0xFFF8F8F8)],
+                stops: const [0.0, 1.0],
+              ),
         borderRadius: BorderRadius.circular(50),
         border: Border.all(
-          color: AppDesignSystem.goldColor.withValues(alpha: isDark ? 0.4 : 0.5),
-          width: isDark ? 1.2 : 2,
+          color: AppDesignSystem.goldColor.withValues(alpha: isDark ? 0.4 : 0.3), // إطار ذهبي أقوى
+          width: isDark ? 1.2 : 1.5,
         ),
         boxShadow: isDark
             ? [
@@ -1234,13 +986,19 @@ class _NewProductsPageState extends State<NewProductsPage> {
                   spreadRadius: 1,
                 ),
               ]
-            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
+            : [
+                BoxShadow(
+                  color: Colors.grey.withValues(alpha: 0.18),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                  spreadRadius: 2,
+                ),
+              ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(50),
         child: TextField(
           controller: _searchController,
-          focusNode: _originalSearchFocus, // ربط FocusNode
           style: GoogleFonts.cairo(
             color: isDark ? AppDesignSystem.primaryTextColor : Colors.black,
             fontSize: 16,
@@ -1305,10 +1063,30 @@ class _NewProductsPageState extends State<NewProductsPage> {
 
   // بناء شبكة المنتجات
   Widget _buildProductsGrid() {
-    if (_isLoadingProducts) {
-      return const SizedBox(
-        height: 200,
-        child: Center(child: CircularProgressIndicator(color: Color(0xFF6B7180))),
+    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
+    final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
+    final mainAxisSpacing = screenWidth > 400 ? 20.0 : (screenWidth > 350 ? 18.0 : 16.0);
+
+    int crossAxisCount = screenWidth > 600 ? 3 : 2;
+
+    // 📦 عند التحميل الأول - عرض skeleton loaders
+    if (_isLoadingProducts && _filteredProducts.isEmpty) {
+      return Container(
+        margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
+        child: GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: crossAxisSpacing,
+            mainAxisSpacing: mainAxisSpacing,
+            childAspectRatio: _calculateOptimalAspectRatio(context, crossAxisCount),
+          ),
+          itemCount: 10,
+          itemBuilder: (context, index) => _buildSkeletonLoader(isDark),
+        ),
       );
     }
 
@@ -1320,54 +1098,130 @@ class _NewProductsPageState extends State<NewProductsPage> {
             _searchController.text.isNotEmpty
                 ? 'لا توجد نتائج للبحث "${_searchController.text}"'
                 : 'لا توجد منتجات متاحة',
-            style: GoogleFonts.cairo(color: Colors.white70, fontSize: 16),
+            style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.grey, fontSize: 16),
             textAlign: TextAlign.center,
           ),
         ),
       );
     }
 
-    // 🎯 حساب المسافات والأعمدة الذكية بناءً على حجم الشاشة
-    final screenWidth = MediaQuery.of(context).size.width;
-    final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
-    final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
-    final mainAxisSpacing = screenWidth > 400 ? 20.0 : (screenWidth > 350 ? 18.0 : 16.0);
-
-    // 🧠 تحديد عدد الأعمدة بناءً على عرض الشاشة
-    int crossAxisCount;
-    if (screenWidth > 600) {
-      crossAxisCount = 3; // تابلت أو شاشات كبيرة
-    } else {
-      crossAxisCount = 2; // هواتف - بطاقتين فقط جنب بعض
-    }
-
     return Container(
       margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-        child: GridView.builder(
-          key: ValueKey(_filteredProducts.length), // مفتاح للتحكم في الانيميشن
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount, // 🧠 عدد أعمدة ذكي
-            crossAxisSpacing: crossAxisSpacing, // 🎯 مسافة ذكية أفقية
-            mainAxisSpacing: mainAxisSpacing, // 🎯 مسافة ذكية عمودية
-            childAspectRatio: _calculateOptimalAspectRatio(context, crossAxisCount), // 🧠 نسبة ذكية متكيفة
+      child: Column(
+        children: [
+          GridView.builder(
+            key: ValueKey(_filteredProducts.length),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: crossAxisSpacing,
+              mainAxisSpacing: mainAxisSpacing,
+              childAspectRatio: _calculateOptimalAspectRatio(context, crossAxisCount),
+            ),
+            itemCount: _filteredProducts.length,
+            itemBuilder: (context, index) {
+              final product = _filteredProducts[index];
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                child: _buildProductCard(product),
+              );
+            },
           ),
-          itemCount: _filteredProducts.length,
-          itemBuilder: (context, index) {
-            final product = _filteredProducts[index];
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeOut,
-              child: _buildProductCard(product),
-            );
-          },
+          if (_isLoadingMore)
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: CircularProgressIndicator(color: const Color(0xFFffd700), strokeWidth: 2),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // 📦 بناء skeleton loader
+  Widget _buildSkeletonLoader(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.12)
+              : const Color(0xFFffd700).withValues(alpha: 0.3), // إطار ذهبي أقوى
+          width: isDark ? 1.2 : 1.5,
         ),
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+        gradient: isDark
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.white, const Color(0xFFF8F8F8)],
+                stops: const [0.0, 1.0],
+              ),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.grey.withValues(alpha: 0.18),
+                  blurRadius: 16,
+                  offset: const Offset(0, 4),
+                  spreadRadius: 2,
+                ),
+              ],
+      ),
+      child: Column(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.grey.withValues(alpha: 0.08), // لون أفتح قليلاً
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+              ),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                  strokeWidth: 1.5,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Container(
+                    height: 12,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.grey.withValues(alpha: 0.12), // لون أفتح قليلاً
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  Container(
+                    height: 10,
+                    width: 100,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.grey.withValues(alpha: 0.12), // لون أفتح قليلاً
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1459,7 +1313,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                     margin: const EdgeInsets.only(right: 5, bottom: 0), // تقليل المسافة الجانبية
                     clipBehavior: Clip.none, // عدم قطع المحتوى - لضمان ظهور شريط السعر كاملاً
                     decoration: BoxDecoration(
-                      // خلفية بيضاء في الوضع النهاري
+                      // 🎨 بطاقة بتدرج من أبيض إلى رمادي فاتح
                       color: isDark ? null : Colors.white,
                       gradient: isDark
                           ? LinearGradient(
@@ -1472,79 +1326,48 @@ class _NewProductsPageState extends State<NewProductsPage> {
                               ],
                               stops: [0.0, 0.5, 1.0],
                             )
-                          : null,
+                          : LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.white, // أبيض من الأعلى اليسار
+                                const Color(0xFFF8F8F8), // رمادي فاتح جداً من الأسفل اليمين
+                              ],
+                              stops: const [0.0, 1.0],
+                            ),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.2),
-                        width: isDark ? 1.2 : 2,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.12)
+                            : const Color(0xFFffd700).withValues(alpha: 0.3), // إطار ذهبي أقوى قليلاً
+                        width: isDark ? 1.2 : 1.5,
                       ),
                       boxShadow: isDark
                           ? []
                           : [
+                              // ظل أقوى قليلاً للبروز الواضح
                               BoxShadow(
-                                color: Colors.grey.withValues(alpha: 0.15),
-                                blurRadius: 12,
+                                color: Colors.grey.withValues(alpha: 0.18),
+                                blurRadius: 16,
                                 offset: const Offset(0, 4),
+                                spreadRadius: 2,
                               ),
                             ],
                     ),
                     child: Stack(
                       children: [
-                        // تأثير الإضاءة المتحركة
-                        Positioned(
-                          right: -40,
-                          top: -40,
-                          child: Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              gradient: RadialGradient(
-                                colors: [
-                                  const Color(0xFF6B7180).withValues(alpha: 0.2),
-                                  const Color(0xFF4A5568).withValues(alpha: 0.1),
-                                  Colors.transparent,
-                                ],
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-
-                        // تأثير إضاءة من الأسفل
-                        Positioned(
-                          left: -20,
-                          bottom: -20,
-                          child: Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              gradient: RadialGradient(
-                                colors: [Colors.blue.withValues(alpha: 0.15), Colors.transparent],
-                              ),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-
                         // شريط عدد القطع - تصميم بسيط وجميل في الزاوية
                         Positioned(
                           left: 0,
                           top: 0,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3), // أصغر قليلاً
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppDesignSystem.goldColor.withValues(alpha: 0.9), // إرجاع الأصفر لعدد القطع
+                              color: AppDesignSystem.goldColor.withValues(alpha: 0.9),
                               borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(24), // يتبع زاوية البطاقة
+                                topLeft: Radius.circular(24),
                                 bottomRight: Radius.circular(16),
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.2),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -1574,38 +1397,16 @@ class _NewProductsPageState extends State<NewProductsPage> {
 
                         // منطقة الصورة - القياس الأصلي مع مسافة مناسبة من الحواف
                         Positioned(
-                          left: 12, // مسافة مناسبة من الحواف - القياس الأصلي
-                          top: _cardTopPadding, // 🎯 من الثوابت
-                          right: 12, // مسافة مناسبة من الحواف - القياس الأصلي
+                          left: 12,
+                          top: _cardTopPadding,
+                          right: 12,
                           child: Container(
-                            height: _imageHeight - 8, // 🎯 تقليل الارتفاع قليلاً للقياس الأصلي
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.2),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
+                            height: _imageHeight - 8,
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(20)),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(20),
                               child: Stack(
                                 children: [
-                                  // 🖼️ خلفية شفافة تماماً لإظهار الخلفية الخرافية
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.transparent, // شفاف تماماً
-                                          Colors.transparent, // شفاف تماماً
-                                        ],
-                                      ),
-                                    ),
-                                  ),
                                   // منطقة الصورة موسعة لحد البطاقة
                                   Positioned(
                                     top: 0,
@@ -2047,236 +1848,6 @@ class _NewProductsPageState extends State<NewProductsPage> {
         );
       }
     }
-  }
-
-  // 🧠 شريط البحث الذكي - يتكيف مع جميع الحالات
-  Widget _buildAnimatedSearchBar() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 600),
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInBack,
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(-1.0, 0.0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutBack)),
-          child: FadeTransition(opacity: animation, child: child),
-        );
-      },
-      child: _buildSearchBarContent(),
-    );
-  }
-
-  // 🎯 محتوى الشريط حسب الحالة
-  Widget _buildSearchBarContent() {
-    switch (_searchBarState) {
-      case SearchBarState.hidden:
-        return const SizedBox.shrink(); // اختفاء كامل
-
-      case SearchBarState.buttonOnly:
-        return _buildSearchButton();
-
-      case SearchBarState.expanded:
-        return _buildExpandedSearchBar();
-    }
-  }
-
-  // 🔍 زر البحث الصغير
-  Widget _buildSearchButton() {
-    return TweenAnimationBuilder<double>(
-      key: const ValueKey('search_button'),
-      duration: const Duration(milliseconds: 800),
-      tween: Tween(begin: 0.0, end: 1.0),
-      curve: Curves.elasticOut,
-      builder: (context, scale, child) {
-        return Transform.scale(
-          scale: scale,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              width: 50,
-              height: 50,
-              margin: const EdgeInsets.only(left: 0),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFFD4AF37), Color(0xFFB8941F)]),
-                borderRadius: const BorderRadius.only(topRight: Radius.circular(25), bottomRight: Radius.circular(25)),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(2, 4)),
-                ],
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.search_rounded, color: Colors.white, size: 22),
-                onPressed: () {
-                  // حماية شاملة من النقرات المتعددة والحالات الخاطئة
-                  if (!mounted || _searchBarState == SearchBarState.expanded || !context.mounted) return;
-
-                  try {
-                    // إزالة أي تركيز نشط
-                    FocusScope.of(context).unfocus();
-
-                    // تحديث الحالة مباشرة بدون async
-                    _updateSearchBarState(SearchBarState.expanded);
-                  } catch (e) {
-                    debugPrint('❌ خطأ في فتح شريط البحث: $e');
-                    // في حالة الخطأ، إعادة تعيين الحالة
-                    if (mounted) {
-                      setState(() {
-                        _searchBarState = SearchBarState.buttonOnly;
-                      });
-                    }
-                  }
-                },
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // 📝 شريط البحث المفتوح - نفس التصميم الأصلي بالضبط!
-  Widget _buildExpandedSearchBar() {
-    return Container(
-      key: const ValueKey('expanded_search'),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppDesignSystem.primaryBackground.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 2))],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 55, // نفس ارتفاع الشريط الأصلي
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppDesignSystem.bottomNavColor.withValues(alpha: 0.85),
-                    AppDesignSystem.activeButtonColor.withValues(alpha: 0.9),
-                    AppDesignSystem.primaryBackground.withValues(alpha: 0.95),
-                  ],
-                  stops: const [0.0, 0.5, 1.0],
-                ),
-                borderRadius: BorderRadius.circular(50), // نفس الشكل الأصلي
-                border: Border.all(
-                  color: AppDesignSystem.goldColor.withValues(alpha: 0.4), // نفس اللون
-                  width: 1.2, // نفس السماكة
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                    spreadRadius: 0.5,
-                  ),
-                  BoxShadow(
-                    color: AppDesignSystem.goldColor.withValues(alpha: 0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 0),
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(50),
-                child: TextField(
-                  controller: _searchController,
-                  // بدون autofocus لتجنب التداخل مع الانتقال الذكي
-                  style: GoogleFonts.cairo(
-                    color: AppDesignSystem.primaryTextColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.right,
-                  onChanged: (value) {
-                    if (mounted) {
-                      try {
-                        // البحث بدون تغيير الحالة
-                        _searchProducts(value);
-                      } catch (e) {
-                        debugPrint('❌ خطأ في البحث من الشريط الموسع: $e');
-                      }
-                    }
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'ابحث عن المنتجات...',
-                    hintStyle: GoogleFonts.cairo(
-                      color: AppDesignSystem.primaryTextColor.withValues(alpha: 0.6),
-                      fontSize: 14,
-                    ),
-                    prefixIcon: Container(
-                      padding: const EdgeInsets.all(14), // نفس الحشو الأصلي
-                      child: Icon(
-                        Icons.search_rounded,
-                        color: AppDesignSystem.goldColor.withValues(alpha: 0.9),
-                        size: AppDesignSystem.largeIconSize, // نفس الحجم الأصلي
-                      ),
-                    ),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? GestureDetector(
-                            onTap: () {
-                              _searchController.clear();
-                              _searchProducts('');
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(14),
-                              child: Icon(
-                                Icons.clear_rounded,
-                                color: AppDesignSystem.secondaryTextColor,
-                                size: AppDesignSystem.mediumIconSize,
-                              ),
-                            ),
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20, // نفس الحشو الأصلي
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // زر X ذكي
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.red.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: [
-                BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 3)),
-              ],
-            ),
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              onPressed: () {
-                // حماية من النقرات المتعددة السريعة
-                if (!mounted || _searchBarState != SearchBarState.expanded) return;
-
-                try {
-                  // إغلاق ذكي - العودة لزر البحث فقط
-                  _searchController.clear();
-                  _searchProducts('');
-                  _updateSearchBarState(SearchBarState.buttonOnly);
-                } catch (e) {
-                  debugPrint('❌ خطأ في إغلاق شريط البحث: $e');
-                }
-              },
-              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
