@@ -79,31 +79,19 @@ class OrderStatusMonitor {
       debugPrint('   💰 الربح: $profit د.ع');
       debugPrint('   🔄 الحالة: "$oldStatus" → "$newStatus"');
 
-      // نقل ربح الطلب بذكاء
+      // ✅ النظام الجديد: الأرباح تُحدث تلقائياً في قاعدة البيانات!
+      // ✅ Database Trigger (auto_update_profits_on_status_change) يتولى كل شيء
+      // ✅ Frontend فقط يرسل إشعار للمستخدم
+
+      debugPrint('✅ الأرباح تُحدث تلقائياً في قاعدة البيانات عبر Database Trigger');
+      debugPrint('ℹ️ Frontend لا يتدخل في حساب الأرباح - كل شيء آمن في قاعدة البيانات');
+
+      // إرسال إشعار للمستخدم إذا تحول الربح إلى محقق
       if (userPhone != null && profit > 0) {
-        debugPrint('🧠 نقل ربح الطلب بذكاء...');
-
-        final success = await SmartProfitTransfer.transferOrderProfit(
-          userPhone: userPhone,
-          orderProfit: profit,
-          oldStatus: oldStatus,
-          newStatus: newStatus,
-          orderId: orderId,
-          orderNumber: orderNumber,
-        );
-
-        if (success) {
-          debugPrint('✅ تم نقل ربح الطلب تلقائياً');
-
-          // إرسال إشعار للمستخدم إذا تحول الربح إلى محقق
-          if (newStatus == 'تم التسليم للزبون' && oldStatus != 'تم التسليم للزبون') {
-            await _notifyProfitAchieved(userPhone, orderNumber, customerName, profit);
-          }
-        } else {
-          debugPrint('❌ فشل في نقل ربح الطلب');
+        if (newStatus == 'تم التسليم للزبون' && oldStatus != 'تم التسليم للزبون') {
+          debugPrint('🎉 تم تسليم الطلب - إرسال إشعار للمستخدم');
+          await _notifyProfitAchieved(userPhone, orderNumber, customerName, profit);
         }
-      } else {
-        debugPrint('ℹ️ لا يوجد رقم هاتف أو ربح للطلب');
       }
     } catch (e) {
       debugPrint('❌ خطأ في معالجة تغيير حالة الطلب: $e');
