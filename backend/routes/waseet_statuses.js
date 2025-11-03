@@ -14,7 +14,7 @@ const { supabase } = require('../config/supabase');
 router.get('/approved', async (req, res) => {
   try {
     const statuses = waseetStatusManager.exportStatusesForApp();
-    
+
     res.json({
       success: true,
       message: 'تم جلب الحالات المعتمدة بنجاح',
@@ -38,7 +38,7 @@ router.get('/category/:category', async (req, res) => {
   try {
     const { category } = req.params;
     const statuses = waseetStatusManager.getStatusesByCategory(category);
-    
+
     res.json({
       success: true,
       message: `تم جلب حالات فئة ${category} بنجاح`,
@@ -68,7 +68,7 @@ router.post('/update-order-status', async (req, res) => {
 
     // التحقق من صحة البيانات
     const validation = waseetStatusManager.validateStatusUpdate(orderId, waseetStatusId, waseetStatusText);
-    
+
     if (!validation.isValid) {
       return res.status(400).json({
         success: false,
@@ -93,17 +93,47 @@ router.post('/update-order-status', async (req, res) => {
           .single();
 
         if (orderData && orderData.customer_phone) {
-          console.log(`📱 إرسال إشعار تحديث حالة الطلب ${orderId} للعميل ${orderData.customer_name}`);
+          const newStatus = result.newStatus || waseetStatusText;
 
-          await targetedNotificationService.sendOrderStatusNotification(
-            orderData.customer_phone, // userPhone - المعامل الأول
-            orderId,                   // orderId - المعامل الثاني
-            result.newStatus || waseetStatusText, // newStatus - المعامل الثالث
-            orderData.customer_name || 'عميل',   // customerName - المعامل الرابع
-            'تم تحديث حالة الطلب من الوسيط'      // notes - المعامل الخامس
-          );
+          // 🎯 قائمة الحالات المسموحة للإشعارات (فقط الحالات المهمة للمستخدم)
+          const allowedNotificationStatuses = [
+            // الحالات الأساسية
+            'تم التسليم للزبون',
+            'قيد التوصيل الى الزبون (في عهدة المندوب)',
 
-          console.log(`✅ تم إرسال إشعار تحديث الحالة بنجاح`);
+            // حالات التعديل
+            'تم تغيير محافظة الزبون',
+            'تغيير المندوب',
+
+            // حالات عدم الرد
+            'لا يرد',
+            'لا يرد بعد الاتفاق',
+
+            // حالات الإغلاق
+            'مغلق',
+            'مغلق بعد الاتفاق',
+
+            // حالات مشاكل الاتصال
+            'الرقم غير معرف',
+            'الرقم غير داخل في الخدمة'
+          ];
+
+          // 🚫 فلترة الإشعارات - فقط الحالات المسموحة
+          if (!allowedNotificationStatuses.includes(newStatus)) {
+            console.log(`🚫 تم تجاهل إشعار الحالة "${newStatus}" - غير مدرجة في القائمة المسموحة`);
+          } else {
+            console.log(`📱 إرسال إشعار تحديث حالة الطلب ${orderId} للعميل ${orderData.customer_name}`);
+
+            await targetedNotificationService.sendOrderStatusNotification(
+              orderData.customer_phone, // userPhone - المعامل الأول
+              orderId,                   // orderId - المعامل الثاني
+              newStatus,                 // newStatus - المعامل الثالث
+              orderData.customer_name || 'عميل',   // customerName - المعامل الرابع
+              'تم تحديث حالة الطلب من الوسيط'      // notes - المعامل الخامس
+            );
+
+            console.log(`✅ تم إرسال إشعار تحديث الحالة بنجاح`);
+          }
         }
       } catch (notificationError) {
         console.error('⚠️ خطأ في إرسال إشعار تحديث الحالة:', notificationError.message);
@@ -151,11 +181,11 @@ router.post('/update-multiple-orders', async (req, res) => {
     const validationErrors = [];
     updates.forEach((update, index) => {
       const validation = waseetStatusManager.validateStatusUpdate(
-        update.orderId, 
-        update.waseetStatusId, 
+        update.orderId,
+        update.waseetStatusId,
         update.waseetStatusText
       );
-      
+
       if (!validation.isValid) {
         validationErrors.push({
           index: index,
@@ -175,7 +205,7 @@ router.post('/update-multiple-orders', async (req, res) => {
 
     // تنفيذ التحديثات
     const results = await waseetStatusManager.updateMultipleOrderStatuses(updates);
-    
+
     const successCount = results.filter(r => r.success).length;
     const failureCount = results.filter(r => !r.success).length;
 
@@ -206,7 +236,7 @@ router.post('/update-multiple-orders', async (req, res) => {
 router.get('/statistics', async (req, res) => {
   try {
     const stats = await waseetStatusManager.getStatusStatistics();
-    
+
     res.json({
       success: true,
       message: 'تم جلب إحصائيات الحالات بنجاح',
@@ -232,7 +262,7 @@ router.get('/statistics', async (req, res) => {
 router.post('/sync', async (req, res) => {
   try {
     const result = await waseetStatusManager.syncStatusesToDatabase();
-    
+
     if (result) {
       res.json({
         success: true,
@@ -261,10 +291,10 @@ router.post('/sync', async (req, res) => {
 router.post('/validate', async (req, res) => {
   try {
     const { waseetStatusId } = req.body;
-    
+
     const isValid = waseetStatusManager.isValidWaseetStatus(waseetStatusId);
     const statusInfo = waseetStatusManager.getStatusById(waseetStatusId);
-    
+
     res.json({
       success: true,
       data: {
@@ -291,7 +321,7 @@ router.get('/status/:statusId', async (req, res) => {
   try {
     const { statusId } = req.params;
     const statusInfo = waseetStatusManager.getStatusById(parseInt(statusId));
-    
+
     if (statusInfo) {
       res.json({
         success: true,

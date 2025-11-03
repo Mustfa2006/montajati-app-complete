@@ -880,31 +880,59 @@ router.put('/:id/status', async (req, res) => {
         const customerName = orderData.customer_name || 'عميل';
 
         if (userPhone) {
-          console.log(`📤 إرسال إشعار للمستخدم: ${userPhone}`);
-          console.log(`👤 اسم العميل: ${customerName}`);
-          console.log(`🔄 الحالة الجديدة: ${normalizedStatus}`);
+          // 🎯 قائمة الحالات المسموحة للإشعارات (فقط الحالات المهمة للمستخدم)
+          const allowedNotificationStatuses = [
+            // الحالات الأساسية
+            'تم التسليم للزبون',
+            'قيد التوصيل الى الزبون (في عهدة المندوب)',
 
-          // استدعاء خدمة الإشعارات المستهدفة
-          const targetedNotificationService = require('../services/targeted_notification_service');
+            // حالات التعديل
+            'تم تغيير محافظة الزبون',
+            'تغيير المندوب',
 
-          // تهيئة الخدمة إذا لم تكن مُهيأة
-          if (!targetedNotificationService.initialized) {
-            await targetedNotificationService.initialize();
-          }
+            // حالات عدم الرد
+            'لا يرد',
+            'لا يرد بعد الاتفاق',
 
-          // إرسال الإشعار
-          const notificationResult = await targetedNotificationService.sendOrderStatusNotification(
-            userPhone,
-            id,
-            normalizedStatus,
-            customerName,
-            notes || 'تم تحديث حالة الطلب'
-          );
+            // حالات الإغلاق
+            'مغلق',
+            'مغلق بعد الاتفاق',
 
-          if (notificationResult.success) {
-            console.log('✅ تم إرسال إشعار تحديث الحالة بنجاح');
+            // حالات مشاكل الاتصال
+            'الرقم غير معرف',
+            'الرقم غير داخل في الخدمة'
+          ];
+
+          // 🚫 فلترة الإشعارات - فقط الحالات المسموحة
+          if (!allowedNotificationStatuses.includes(normalizedStatus)) {
+            console.log(`🚫 تم تجاهل إشعار الحالة "${normalizedStatus}" - غير مدرجة في القائمة المسموحة`);
           } else {
-            console.log('⚠️ فشل في إرسال الإشعار:', notificationResult.error);
+            console.log(`📤 إرسال إشعار للمستخدم: ${userPhone}`);
+            console.log(`👤 اسم العميل: ${customerName}`);
+            console.log(`🔄 الحالة الجديدة: ${normalizedStatus}`);
+
+            // استدعاء خدمة الإشعارات المستهدفة
+            const targetedNotificationService = require('../services/targeted_notification_service');
+
+            // تهيئة الخدمة إذا لم تكن مُهيأة
+            if (!targetedNotificationService.initialized) {
+              await targetedNotificationService.initialize();
+            }
+
+            // إرسال الإشعار
+            const notificationResult = await targetedNotificationService.sendOrderStatusNotification(
+              userPhone,
+              id,
+              normalizedStatus,
+              customerName,
+              notes || 'تم تحديث حالة الطلب'
+            );
+
+            if (notificationResult.success) {
+              console.log('✅ تم إرسال إشعار تحديث الحالة بنجاح');
+            } else {
+              console.log('⚠️ فشل في إرسال الإشعار:', notificationResult.error);
+            }
           }
         } else {
           console.log('⚠️ لا يوجد رقم هاتف للمستخدم - لن يتم إرسال إشعار');
