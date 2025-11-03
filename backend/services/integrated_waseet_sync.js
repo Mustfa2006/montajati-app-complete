@@ -282,7 +282,8 @@ class IntegratedWaseetSync extends EventEmitter {
 
         // ✅ فقط إضافة waseet_status_id إذا كان موجوداً في جدول waseet_statuses
         if (statusExists) {
-          updateData.waseet_status_id = waseetStatusId;
+          // @ts-ignore - إضافة الحقل ديناميكياً
+          updateData['waseet_status_id'] = waseetStatusId;
         } else {
           console.warn(`⚠️ تحذير: waseet_status_id=${waseetStatusId} غير موجود في جدول waseet_statuses - سيتم تجاهله`);
         }
