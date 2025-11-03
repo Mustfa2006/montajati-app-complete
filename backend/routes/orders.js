@@ -679,77 +679,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// ===================================
-// GET /api/orders/:id - جلب طلب محدد مع العناصر (عادي أو مجدول)
-// ===================================
-router.get('/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
 
-    // ✅ محاولة جلب الطلب العادي أولاً
-    let { data: orderData, error: orderError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    let isScheduledOrder = false;
-
-    // إذا لم يوجد، جرب الطلبات المجدولة
-    if (orderError) {
-      console.log('🔄 لم يوجد في الطلبات العادية، جرب الطلبات المجدولة...');
-
-      const { data: scheduledData, error: scheduledError } = await supabase
-        .from('scheduled_orders')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (scheduledError) {
-        console.error('❌ خطأ في جلب الطلب:', scheduledError);
-        return res.status(404).json({
-          success: false,
-          error: 'الطلب غير موجود'
-        });
-      }
-
-      orderData = scheduledData;
-      isScheduledOrder = true;
-    }
-
-    // ✅ جلب عناصر الطلب
-    const itemsTableName = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
-    const { data: itemsData, error: itemsError } = await supabase
-      .from(itemsTableName)
-      .select('*')
-      .eq(isScheduledOrder ? 'scheduled_order_id' : 'order_id', id);
-
-    if (itemsError) {
-      console.error('⚠️ تحذير: خطأ في جلب عناصر الطلب:', itemsError);
-      // لا نرجع خطأ، فقط نرسل الطلب بدون عناصر
-    }
-
-    // ✅ دمج البيانات
-    const itemsKey = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
-    const responseData = {
-      ...orderData,
-      [itemsKey]: itemsData || []
-    };
-
-    res.json({
-      success: true,
-      data: responseData,
-      isScheduledOrder: isScheduledOrder
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في API جلب الطلب:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
 
 // ===================================
 // PUT /api/orders/:id/status - تحديث حالة الطلب
@@ -1899,6 +1829,83 @@ router.post('/start-waseet-sync', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'خطأ في بدء النظام'
+    });
+  }
+});
+
+// ===================================
+// GET /api/orders/:id - جلب طلب محدد مع العناصر (عادي أو مجدول)
+// ⚠️ يجب أن يكون هذا المسار في النهاية لتجنب التعارض مع المسارات الأخرى
+// ===================================
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`📥 جلب تفاصيل الطلب: ${id}`);
+
+    // ✅ محاولة جلب الطلب العادي أولاً
+    let { data: orderData, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    let isScheduledOrder = false;
+
+    // إذا لم يوجد، جرب الطلبات المجدولة
+    if (orderError) {
+      console.log('🔄 لم يوجد في الطلبات العادية، جرب الطلبات المجدولة...');
+
+      const { data: scheduledData, error: scheduledError } = await supabase
+        .from('scheduled_orders')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (scheduledError) {
+        console.error('❌ خطأ في جلب الطلب:', scheduledError);
+        return res.status(404).json({
+          success: false,
+          error: 'الطلب غير موجود'
+        });
+      }
+
+      orderData = scheduledData;
+      isScheduledOrder = true;
+    }
+
+    // ✅ جلب عناصر الطلب
+    const itemsTableName = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
+    const { data: itemsData, error: itemsError } = await supabase
+      .from(itemsTableName)
+      .select('*')
+      .eq(isScheduledOrder ? 'scheduled_order_id' : 'order_id', id);
+
+    if (itemsError) {
+      console.error('⚠️ تحذير: خطأ في جلب عناصر الطلب:', itemsError);
+      // لا نرجع خطأ، فقط نرسل الطلب بدون عناصر
+    }
+
+    // ✅ دمج البيانات
+    const itemsKey = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
+    const responseData = {
+      ...orderData,
+      [itemsKey]: itemsData || []
+    };
+
+    console.log(`✅ تم جلب الطلب بنجاح: ${id}`);
+
+    res.json({
+      success: true,
+      data: responseData,
+      isScheduledOrder: isScheduledOrder
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في API جلب الطلب:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
