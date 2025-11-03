@@ -85,9 +85,6 @@ class _OrdersPageState extends State<OrdersPage> {
   /// موضع التمرير السابق لاكتشاف التمرير للأعلى
   double _previousScrollPosition = 0.0;
 
-  /// هل تم الوصول لأعلى الصفحة
-  bool _isAtTop = true;
-
   // ===================================
   // عدادات الطلبات حسب الحالة
   // ===================================
@@ -129,11 +126,8 @@ class _OrdersPageState extends State<OrdersPage> {
 
     // اكتشاف التمرير للأعلى عند الوصول لأعلى الصفحة
     if (currentPosition <= 0 && _previousScrollPosition > 0 && !_isRefreshing) {
-      _isAtTop = true;
       // تفعيل التحديث عند السحب للأعلى
       _refreshData();
-    } else if (currentPosition > 0) {
-      _isAtTop = false;
     }
 
     _previousScrollPosition = currentPosition;
@@ -1106,8 +1100,8 @@ class _OrdersPageState extends State<OrdersPage> {
               border: Border.all(
                 color: isDark
                     ? cardColors['borderColor'].withValues(alpha: 0.6)
-                    : cardColors['borderColor'].withValues(alpha: 0.3),
-                width: isDark ? 2 : 1.5,
+                    : cardColors['borderColor'].withValues(alpha: 0.4),
+                width: isDark ? 2.5 : 2.7, // ✅ تثخين الإطار لإظهار اللون بوضوح
               ),
               // ظلال محسّنة
               boxShadow: isDark
@@ -1322,23 +1316,10 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  // دالة مساعدة لتقصير النص في البطاقة فقط (بدون تأثير على الوسيط)
-  String _getShortStatusTextForCard(String originalStatus) {
-    // إذا كان النص "قيد التوصيل في عهد المندوب" نقصره إلى "قيد التوصيل"
-    if (originalStatus.contains('قيد التوصيل في عهد المندوب') ||
-        originalStatus.contains('قيد التوصيل الى الزبون في عهد المندوب')) {
-      return 'قيد التوصيل';
-    }
-    // باقي النصوص تبقى كما هي
-    return originalStatus;
-  }
-
-  // بناء شارة الحالة باستخدام OrderStatusHelper والنص المقصر للبطاقة
+  // بناء شارة الحالة باستخدام OrderStatusHelper
   Widget _buildStatusBadge(Order order) {
-    // استخدام النص الأصلي من قاعدة البيانات
-    final originalStatusText = OrderStatusHelper.getArabicStatus(order.rawStatus);
-    // تقصير النص للعرض في البطاقة فقط
-    final displayStatusText = _getShortStatusTextForCard(originalStatusText);
+    // ✅ OrderStatusHelper يقوم بتقصير النص تلقائياً
+    final displayStatusText = OrderStatusHelper.getArabicStatus(order.rawStatus);
     final backgroundColor = OrderStatusHelper.getStatusColor(order.rawStatus);
 
     // تحديد لون النص بناءً على الحالة

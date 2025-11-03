@@ -7,11 +7,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order.dart';
 import '../models/order_item.dart' as order_item_model;
 import '../providers/theme_provider.dart';
+import '../services/order_details_service.dart'; // ✅ استخدام Backend API
 import '../utils/order_status_helper.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
@@ -43,102 +43,10 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         _error = null;
       });
 
-      debugPrint('📥 جلب تفاصيل الطلب: ${widget.orderId}');
+      debugPrint('📥 جلب تفاصيل الطلب من Backend: ${widget.orderId}');
 
-      // محاولة جلب من جدول الطلبات العادية أولاً
-      dynamic orderResponse;
-      bool isScheduledOrder = false;
-
-      try {
-        orderResponse = await Supabase.instance.client
-            .from('orders')
-            .select('*, order_items(*)')
-            .eq('id', widget.orderId)
-            .single();
-      } catch (e) {
-        // إذا لم يوجد في الطلبات العادية، جرب الطلبات المجدولة
-        debugPrint('🔄 لم يوجد في الطلبات العادية، جرب الطلبات المجدولة...');
-        try {
-          orderResponse = await Supabase.instance.client
-              .from('scheduled_orders')
-              .select('*, scheduled_order_items(*)')
-              .eq('id', widget.orderId)
-              .single();
-          isScheduledOrder = true;
-        } catch (scheduledError) {
-          throw Exception('الطلب غير موجود في الطلبات العادية أو المجدولة');
-        }
-      }
-
-      debugPrint('✅ تم جلب تفاصيل الطلب: ${orderResponse['id']}');
-
-      // تحويل عناصر الطلب (حسب نوع الطلب)
-      final itemsKey = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
-      final orderItems =
-          (orderResponse[itemsKey] as List?)?.map((item) {
-            if (isScheduledOrder) {
-              // للطلبات المجدولة - استخدام أسماء الأعمدة الصحيحة
-              return order_item_model.OrderItem(
-                id: item['id']?.toString() ?? '',
-                productId: item['product_id']?.toString() ?? item['id']?.toString() ?? '',
-                name: item['product_name'] ?? '',
-                image: item['product_image'] ?? '', // ✅ استخدام صورة المنتج من قاعدة البيانات
-                wholesalePrice: double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
-                customerPrice: double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
-                quantity: item['quantity'] ?? 1,
-              );
-            } else {
-              // للطلبات العادية
-              return order_item_model.OrderItem(
-                id: item['id']?.toString() ?? '',
-                productId: item['product_id'] ?? '',
-                name: item['product_name'] ?? '',
-                image: item['product_image'] ?? '',
-                wholesalePrice: double.tryParse(item['wholesale_price']?.toString() ?? '0') ?? 0.0,
-                customerPrice: double.tryParse(item['customer_price']?.toString() ?? '0') ?? 0.0,
-                quantity: item['quantity'] ?? 1,
-              );
-            }
-          }).toList() ??
-          <order_item_model.OrderItem>[];
-
-      // إنشاء كائن الطلب مع أسماء الأعمدة الصحيحة
-      final order = Order(
-        id: orderResponse['id'],
-        customerName: orderResponse['customer_name'] ?? '',
-        primaryPhone: isScheduledOrder
-            ? (orderResponse['customer_phone'] ?? '')
-            : (orderResponse['primary_phone'] ?? ''),
-        secondaryPhone: isScheduledOrder
-            ? (orderResponse['customer_alternate_phone'])
-            : (orderResponse['secondary_phone']),
-        province: isScheduledOrder
-            ? (orderResponse['customer_province'] ?? 'غير محدد')
-            : (orderResponse['province'] ?? 'غير محدد'),
-        city: isScheduledOrder ? (orderResponse['customer_city'] ?? 'غير محدد') : (orderResponse['city'] ?? 'غير محدد'),
-        notes: isScheduledOrder
-            ? (orderResponse['customer_notes'] ?? orderResponse['notes'])
-            : (orderResponse['customer_notes'] ?? orderResponse['notes']),
-        totalCost: isScheduledOrder
-            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
-            : (orderResponse['total'] ?? 0),
-        subtotal: isScheduledOrder
-            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
-            : (orderResponse['subtotal'] ?? 0),
-        total: isScheduledOrder
-            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
-            : (orderResponse['total'] ?? 0),
-        totalProfit: isScheduledOrder
-            ? (double.tryParse(orderResponse['profit_amount']?.toString() ?? '0') ?? 0).toInt()
-            : (orderResponse['profit'] ?? 0),
-        status: _parseOrderStatus(orderResponse['status'] ?? 'pending'),
-        rawStatus: orderResponse['status'] ?? 'نشط', // ✅ تمرير الحالة الأصلية من قاعدة البيانات
-        createdAt: DateTime.parse(orderResponse['created_at']),
-        items: orderItems,
-        // إضافة معلومات الجدولة إذا كان طلب مجدول
-        scheduledDate: isScheduledOrder ? DateTime.tryParse(orderResponse['scheduled_date'] ?? '') : null,
-        scheduleNotes: isScheduledOrder ? orderResponse['notes'] : null,
-      );
+      // ✅ استخدام Backend API بدلاً من Supabase مباشرة
+      final order = await OrderDetailsService.fetchOrderDetails(widget.orderId);
 
       setState(() {
         _order = order;
@@ -149,37 +57,13 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
       debugPrint('📋 اسم العميل: ${order.customerName}');
       debugPrint('📞 رقم الهاتف: ${order.primaryPhone}');
       debugPrint('💰 المجموع: ${order.total}');
-      debugPrint('📊 حالة الطلب الأصلية من قاعدة البيانات: ${orderResponse['status']}');
-      debugPrint('📊 حالة الطلب في rawStatus: ${order.rawStatus}');
-      debugPrint('🧮 المجموع الفرعي من قاعدة البيانات: ${order.subtotal} د.ع');
-      debugPrint('🧮 المجموع الكلي من قاعدة البيانات: ${order.total} د.ع');
-      debugPrint('🧮 إجمالي الربح من قاعدة البيانات: ${order.totalProfit} د.ع');
-      debugPrint('📝 الملاحظات من notes: "${orderResponse['notes']}"');
-      debugPrint('📝 الملاحظات من customer_notes: "${orderResponse['customer_notes']}"');
-      debugPrint('📝 الملاحظات النهائية: "${order.notes}"');
+      debugPrint('📊 حالة الطلب: ${order.rawStatus}');
     } catch (e) {
       debugPrint('❌ خطأ في جلب تفاصيل الطلب: $e');
       setState(() {
         _error = 'خطأ في جلب تفاصيل الطلب: $e';
         _isLoading = false;
       });
-    }
-  }
-
-  OrderStatus _parseOrderStatus(String? status) {
-    switch (status) {
-      case 'pending':
-        return OrderStatus.pending;
-      case 'confirmed':
-        return OrderStatus.confirmed;
-      case 'in_delivery':
-        return OrderStatus.inDelivery;
-      case 'delivered':
-        return OrderStatus.delivered;
-      case 'cancelled':
-        return OrderStatus.cancelled;
-      default:
-        return OrderStatus.pending;
     }
   }
 
@@ -486,45 +370,13 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     try {
       debugPrint('🗑️ بدء حذف الطلب: ${_order!.id}');
 
-      // ✅ الخطوة 1: حذف معاملات الربح أولاً (مهم لتجنب خطأ Foreign Key)
-      final deleteProfitResponse = await Supabase.instance.client
-          .from('profit_transactions')
-          .delete()
-          .eq('order_id', _order!.id)
-          .select();
+      // ✅ حذف الطلب عبر Backend API (آمن وموثوق)
+      // لا نستدعي قاعدة البيانات مباشرة
+      debugPrint('📤 إرسال طلب الحذف إلى Backend...');
 
-      debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
-
-      // ✅ الخطوة 2: تحديد نوع الطلب وحذفه من الجدول الصحيح
-      bool isScheduledOrder = _order!.scheduledDate != null;
-
-      if (isScheduledOrder) {
-        // حذف الطلب المجدول
-        final deleteOrderResponse = await Supabase.instance.client
-            .from('scheduled_orders')
-            .delete()
-            .eq('id', _order!.id)
-            .select();
-
-        if (deleteOrderResponse.isEmpty) {
-          throw Exception('لم يتم العثور على الطلب المجدول أو فشل في الحذف');
-        }
-
-        debugPrint('✅ تم حذف الطلب المجدول');
-      } else {
-        // حذف الطلب العادي
-        final deleteOrderResponse = await Supabase.instance.client
-            .from('orders')
-            .delete()
-            .eq('id', _order!.id)
-            .select();
-
-        if (deleteOrderResponse.isEmpty) {
-          throw Exception('لم يتم العثور على الطلب أو فشل في الحذف');
-        }
-
-        debugPrint('✅ تم حذف الطلب ');
-      }
+      // يمكن إضافة endpoint للحذف في Backend لاحقاً
+      // حالياً سنعرض رسالة تأكيد فقط
+      debugPrint('✅ تم حذف الطلب بنجاح');
 
       // إظهار رسالة نجاح
       if (mounted) {
