@@ -15,12 +15,12 @@ class IntegratedWaseetSync extends EventEmitter {
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
-    
+
     this.waseetAPI = new OfficialWaseetAPI(
       process.env.WASEET_USERNAME || 'mustfaabd',
       process.env.WASEET_PASSWORD || '65888304'
     );
-    
+
     // إعدادات المزامنة
     this.isRunning = false;
     this.syncInterval = 5 * 60 * 1000; // كل 5 دقائق
@@ -48,12 +48,12 @@ class IntegratedWaseetSync extends EventEmitter {
   async autoStart() {
     try {
       console.log('🚀 بدء نظام المزامنة التلقائي مع الخادم...');
-      
+
       // انتظار 10 ثواني لضمان استقرار الخادم
       setTimeout(async () => {
         await this.start();
       }, 10000);
-      
+
     } catch (error) {
       console.error('❌ فشل البدء التلقائي:', error.message);
       this.emit('error', error);
@@ -84,7 +84,7 @@ class IntegratedWaseetSync extends EventEmitter {
 
       this.isRunning = true;
       this.stats.startTime = Date.now();
-      
+
       // مزامنة فورية أولى
       await this.performSync();
 
@@ -108,14 +108,14 @@ class IntegratedWaseetSync extends EventEmitter {
       console.log(`✅ نظام المزامنة يعمل - كل ${intervalMinutes} دقيقة (timeout-loop)`);
 
       return { success: true, message: 'تم بدء النظام بنجاح', nextRunAt: this.nextRunAt };
-      
+
     } catch (error) {
       console.error('❌ فشل بدء النظام:', error.message);
       this.stats.lastError = error.message;
-      
+
       // إعادة المحاولة بعد دقيقة
       setTimeout(() => this.start(), 60000);
-      
+
       return { success: false, error: error.message };
     }
   }
@@ -153,13 +153,13 @@ class IntegratedWaseetSync extends EventEmitter {
         .from('orders')
         .select('id')
         .limit(1);
-        
+
       if (error) {
         throw new Error(`فشل الاتصال بقاعدة البيانات: ${error.message}`);
       }
 
       return { success: true };
-      
+
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -175,11 +175,11 @@ class IntegratedWaseetSync extends EventEmitter {
 
     this.isCurrentlySyncing = true;
     this.stats.totalSyncs++;
-    
+
     try {
       // جلب الطلبات من الوسيط
       const waseetResult = await this.waseetAPI.getAllMerchantOrders();
-      
+
       if (!waseetResult.success) {
         throw new Error(waseetResult.error);
       }
@@ -208,7 +208,7 @@ class IntegratedWaseetSync extends EventEmitter {
 
       // مزامنة الطلبات
       let updatedCount = 0;
-      
+
       for (const waseetOrder of waseetResult.orders) {
         const dbOrder = dbOrders?.find(order =>
           order.waseet_order_id === waseetOrder.id ||
@@ -221,24 +221,24 @@ class IntegratedWaseetSync extends EventEmitter {
         const waseetStatusId = parseInt(waseetOrder.status_id);
         const waseetStatusText = waseetOrder.status;
 
-        // 🚫 تجاهل حالة "فعال" من الوسيط - لا نريد تغيير status إلى فعال أبداً
-        if (waseetStatusText === 'فعال' || waseetStatusId === 1) {
-          console.log(`🚫 تم تجاهل حالة "فعال" للطلب ${dbOrder.id} - لا نريد تحديث status إلى فعال`);
+        // 🚫 تجاهل الحالات غير المهمة من الوسيط
+        const ignoredStatusIds = [1, 5, 7]; // 1=فعال, 5=في موقع فرز بغداد, 7=في الطريق الى مكتب المحافظة
+        const ignoredStatusTexts = ['فعال', 'في موقع فرز بغداد', 'في الطريق الى مكتب المحافظة'];
 
-          // فقط تحديث بيانات الوسيط بدون تغيير status
+        if (ignoredStatusIds.includes(waseetStatusId) || ignoredStatusTexts.includes(waseetStatusText)) {
+          const statusName = waseetStatusText || `ID=${waseetStatusId}`;
+          console.log(`🚫 تم تجاهل حالة "${statusName}" للطلب ${dbOrder.id} - حالة غير مهمة للمستخدم`);
+
+          // فقط تحديث وقت آخر فحص بدون تغيير أي شيء آخر
           const { error: updateError } = await this.supabase
             .from('orders')
             .update({
-              // لا نغير status - نتركه كما هو
-              waseet_status_id: waseetStatusId,
-              waseet_status_text: waseetStatusText,
               last_status_check: new Date().toISOString()
-              // لا نغير status_updated_at لأننا لم نغير status
             })
             .eq('id', dbOrder.id);
 
           if (!updateError) {
-            console.log(`✅ تم تحديث بيانات الوسيط فقط للطلب ${dbOrder.id} (تجاهل حالة فعال)`);
+            console.log(`✅ تم تحديث وقت الفحص فقط للطلب ${dbOrder.id} (تجاهل حالة ${statusName})`);
           }
           continue;
         }
@@ -253,8 +253,8 @@ class IntegratedWaseetSync extends EventEmitter {
         console.log(`   🔍 مقارنة - status_id: ${dbOrder.waseet_status_id === waseetStatusId}, status_text: ${dbOrder.waseet_status_text === waseetStatusText}, status: ${dbOrder.status === appStatus}`);
 
         if (dbOrder.waseet_status_id === waseetStatusId &&
-            dbOrder.waseet_status_text === waseetStatusText &&
-            dbOrder.status === appStatus) {
+          dbOrder.waseet_status_text === waseetStatusText &&
+          dbOrder.status === appStatus) {
           console.log(`   ⏭️ تخطي الطلب ${dbOrder.id} - لا يوجد تغيير`);
           continue;
         }
@@ -263,18 +263,33 @@ class IntegratedWaseetSync extends EventEmitter {
         console.log(`   الحالة من الوسيط: "${waseetStatusText}" (ID=${waseetStatusId})`);
         console.log(`   الحالة بعد التحويل: "${appStatus}"`);
 
+        // ✅ التحقق من وجود waseet_status_id في جدول waseet_statuses قبل التحديث
+        const { data: statusExists } = await this.supabase
+          .from('waseet_statuses')
+          .select('id')
+          .eq('id', waseetStatusId)
+          .maybeSingle();
+
         // تحديث الطلب بالحالة المعيارية + حفظ حالة الوسيط كما هي
+        const updateData = {
+          status: appStatus,
+          // اجعل waseet_status يعكس الحالة القياسية للتطبيق لضمان عرض صحيح في الواجهة
+          waseet_status: appStatus,
+          waseet_status_text: waseetStatusText,
+          last_status_check: new Date().toISOString(),
+          status_updated_at: new Date().toISOString()
+        };
+
+        // ✅ فقط إضافة waseet_status_id إذا كان موجوداً في جدول waseet_statuses
+        if (statusExists) {
+          updateData.waseet_status_id = waseetStatusId;
+        } else {
+          console.warn(`⚠️ تحذير: waseet_status_id=${waseetStatusId} غير موجود في جدول waseet_statuses - سيتم تجاهله`);
+        }
+
         const { error: updateError } = await this.supabase
           .from('orders')
-          .update({
-            status: appStatus,
-            // اجعل waseet_status يعكس الحالة القياسية للتطبيق لضمان عرض صحيح في الواجهة
-            waseet_status: appStatus,
-            waseet_status_id: waseetStatusId,
-            waseet_status_text: waseetStatusText,
-            last_status_check: new Date().toISOString(),
-            status_updated_at: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('id', dbOrder.id);
 
         if (!updateError) {
@@ -291,11 +306,11 @@ class IntegratedWaseetSync extends EventEmitter {
       this.stats.successfulSyncs++;
       this.stats.ordersUpdated += updatedCount;
       this.lastSyncTime = new Date();
-      
+
       if (updatedCount > 0) {
         console.log(`✅ تم تحديث ${updatedCount} طلب`);
       }
-      
+
     } catch (error) {
       console.error('❌ فشل المزامنة:', error.message);
       this.stats.failedSyncs++;
@@ -319,7 +334,7 @@ class IntegratedWaseetSync extends EventEmitter {
     const startTime = Date.now();
     await this.performSync();
     const duration = Date.now() - startTime;
-    
+
     return {
       success: true,
       message: 'تم تنفيذ المزامنة الفورية',
@@ -341,7 +356,7 @@ class IntegratedWaseetSync extends EventEmitter {
       isCurrentlySyncing: this.isCurrentlySyncing,
       syncIntervalMinutes: this.syncInterval / (60 * 1000),
       lastSyncTime: this.lastSyncTime,
-      nextSyncIn: this.isRunning && this.lastSyncTime ? 
+      nextSyncIn: this.isRunning && this.lastSyncTime ?
         Math.max(0, this.syncInterval - (Date.now() - this.lastSyncTime.getTime())) : null,
       uptime: `${uptimeHours}:${uptimeMinutes.toString().padStart(2, '0')}`,
       totalSyncs: this.stats.totalSyncs,

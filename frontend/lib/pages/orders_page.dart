@@ -73,7 +73,7 @@ class _OrdersPageState extends State<OrdersPage> {
   /// عدد الطلبات في كل صفحة
   final int _pageSize = 10;
 
-  /// متحكم التمرير للـ Infinite Scroll
+  /// متحكم التمرير للـ Infinite Scroll و Scroll-to-Refresh
   final ScrollController _scrollController = ScrollController();
 
   /// مؤقت لـ Debouncing التمرير
@@ -81,6 +81,12 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// حالة التحديث (Pull-to-Refresh)
   bool _isRefreshing = false;
+
+  /// موضع التمرير السابق لاكتشاف التمرير للأعلى
+  double _previousScrollPosition = 0.0;
+
+  /// هل تم الوصول لأعلى الصفحة
+  bool _isAtTop = true;
 
   // ===================================
   // عدادات الطلبات حسب الحالة
@@ -116,13 +122,26 @@ class _OrdersPageState extends State<OrdersPage> {
     selectedFilter = 'all';
   }
 
-  /// مراقبة التمرير للتحميل التدريجي (Infinite Scroll)
+  /// مراقبة التمرير للتحميل التدريجي (Infinite Scroll) و Scroll-to-Refresh
   /// مع Debouncing لمنع الطلبات المتعددة المتزامنة
   void _onScroll() {
+    final currentPosition = _scrollController.position.pixels;
+
+    // اكتشاف التمرير للأعلى عند الوصول لأعلى الصفحة
+    if (currentPosition <= 0 && _previousScrollPosition > 0 && !_isRefreshing) {
+      _isAtTop = true;
+      // تفعيل التحديث عند السحب للأعلى
+      _refreshData();
+    } else if (currentPosition > 0) {
+      _isAtTop = false;
+    }
+
+    _previousScrollPosition = currentPosition;
+
     // إلغاء المؤقت السابق إن وجد
     _scrollDebounceTimer?.cancel();
 
-    // إنشاء مؤقت جديد
+    // إنشاء مؤقت جديد للتحميل التدريجي
     _scrollDebounceTimer = Timer(Duration(milliseconds: AppConfig.scrollDebounceDuration), () {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - AppConfig.scrollLoadThreshold) {
@@ -704,9 +723,7 @@ class _OrdersPageState extends State<OrdersPage> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _buildScrollableContent(isDark), // المحتوى مباشرة بدون شريط ثابت
+        body: _buildScrollableContent(isDark), // المحتوى دائماً (مع skeleton عند التحميل)
         bottomNavigationBar: CurvedNavigationBar(
           index: 1, // الطلبات
           items: <Widget>[
@@ -921,34 +938,39 @@ class _OrdersPageState extends State<OrdersPage> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
         width: width,
-        height: 60, // تقصير الأزرار
+        height: 60,
         decoration: BoxDecoration(
-          // شفافية تامة مع تأثير زجاجي أنيق
-          color: Colors.transparent,
+          // خلفية بيضاء في الوضع النهاري، شفافة في الوضع الليلي
+          color: isDark ? Colors.transparent : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? color // إطار عامق للحالة المختارة
-                : color.withValues(alpha: 0.4),
-            width: isSelected ? 3 : 1.5, // إطار أعمق للمحدد
-          ),
-          // بدون توهج - فقط إطار
-          boxShadow: [],
+          border: Border.all(color: isSelected ? color : color.withValues(alpha: 0.4), width: isSelected ? 3 : 1.5),
+          // ظلال في الوضع النهاري
+          boxShadow: isDark
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.grey.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                    spreadRadius: 1,
+                  ),
+                ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            filter: ImageFilter.blur(sigmaX: isDark ? 10 : 0, sigmaY: isDark ? 10 : 0),
             child: Container(
               decoration: BoxDecoration(
-                // تدرج شفاف أنيق
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isSelected
-                      ? [color.withValues(alpha: 0.15), color.withValues(alpha: 0.08), Colors.transparent]
-                      : [Colors.white.withValues(alpha: 0.05), Colors.transparent],
-                ),
+                gradient: isDark
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isSelected
+                            ? [color.withValues(alpha: 0.15), color.withValues(alpha: 0.08), Colors.transparent]
+                            : [Colors.white.withValues(alpha: 0.05), Colors.transparent],
+                      )
+                    : null, // لا تدرج في الوضع النهاري
               ),
               child: Padding(
                 padding: const EdgeInsets.all(6), // تقليل الـ padding لتجنب overflow
@@ -1079,39 +1101,37 @@ class _OrdersPageState extends State<OrdersPage> {
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               // خلفية بيضاء في الوضع النهاري، شفافة في الوضع الليلي
-              color: isDark ? const Color.fromARGB(0, 0, 0, 0) : Colors.white,
+              color: isDark ? Colors.transparent : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDark ? cardColors['borderColor'].withValues(alpha: 0.6) : cardColors['borderColor'],
-                width: isDark ? 2 : 1,
+                color: isDark
+                    ? cardColors['borderColor'].withValues(alpha: 0.6)
+                    : cardColors['borderColor'].withValues(alpha: 0.3),
+                width: isDark ? 2 : 1.5,
               ),
-              // ظل وتوهج مناسب للوضع
+              // ظلال محسّنة
               boxShadow: isDark
                   ? [
                       BoxShadow(
-                        color: cardColors['shadowColor'].withValues(alpha: 0.150),
+                        color: cardColors['shadowColor'].withValues(alpha: 0.15),
                         blurRadius: 0,
                         offset: const Offset(0, 2),
                         spreadRadius: 0,
                       ),
                     ]
                   : [
-                      // توهج خفيف بلون الحالة في الوضع النهاري
+                      // ظل رمادي ناعم في الوضع النهاري
                       BoxShadow(
-                        color: cardColors['shadowColor'].withValues(alpha: 0.15),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                        spreadRadius: 0,
+                        color: Colors.grey.withValues(alpha: 0.12),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                        spreadRadius: 1,
                       ),
-                      BoxShadow(color: Colors.grey.withValues(alpha: 0.50), blurRadius: 8, offset: const Offset(0, 2)),
                     ],
             ),
             child: Container(
-              // توهج للبطاقة بالكامل بلون حالة الطلب
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: isDark ? Colors.transparent : cardColors['shadowColor'].withValues(alpha: 0.2),
-              ),
+              // بدون توهج في الوضع النهاري
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), color: Colors.transparent),
               padding: const EdgeInsets.all(2),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1183,7 +1203,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     style: GoogleFonts.cairo(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: ThemeColors.textColor(isDark),
+                      color: isDark ? ThemeColors.textColor(isDark) : Colors.black,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1386,7 +1406,7 @@ class _OrdersPageState extends State<OrdersPage> {
               style: GoogleFonts.cairo(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFFd4af37),
+                color: isDark ? const Color(0xFFd4af37) : Colors.black,
                 shadows: isDark
                     ? [
                         Shadow(
@@ -1528,8 +1548,8 @@ class _OrdersPageState extends State<OrdersPage> {
                     isScheduled ? _formatDate(order.scheduledDate!) : _formatDate(order.createdAt),
                     style: GoogleFonts.cairo(
                       fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.white : Colors.black.withValues(alpha: 0.7),
+                      fontWeight: FontWeight.w700, // تثخين الخط
+                      color: isDark ? Colors.white : Colors.black.withValues(alpha: 0.8),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
