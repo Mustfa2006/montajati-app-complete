@@ -229,17 +229,9 @@ class IntegratedWaseetSync extends EventEmitter {
           const statusName = waseetStatusText || `ID=${waseetStatusId}`;
           console.log(`🚫 تم تجاهل حالة "${statusName}" للطلب ${dbOrder.id} - حالة غير مهمة للمستخدم`);
 
-          // فقط تحديث وقت آخر فحص بدون تغيير أي شيء آخر
-          const { error: updateError } = await this.supabase
-            .from('orders')
-            .update({
-              last_status_check: new Date().toISOString()
-            })
-            .eq('id', dbOrder.id);
-
-          if (!updateError) {
-            console.log(`✅ تم تحديث وقت الفحص فقط للطلب ${dbOrder.id} (تجاهل حالة ${statusName})`);
-          }
+          // ⚠️ لا نحدث أي شيء في قاعدة البيانات لتجنب إطلاق realtime events
+          // أي UPDATE على جدول orders سيطلق event ويسبب تحديث الأرباح!
+          console.log(`⏭️ تخطي الطلب ${dbOrder.id} بالكامل - لا تحديث في قاعدة البيانات`);
           continue;
         }
 

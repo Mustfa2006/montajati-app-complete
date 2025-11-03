@@ -72,18 +72,9 @@ class InstantStatusUpdater {
       if (isIgnoredStatus) {
         console.log(`🚫 تم تجاهل حالة "${newWaseetStatus}" للطلب ${orderId} - حالة غير مهمة للمستخدم`);
 
-        // فقط تحديث وقت آخر فحص بدون تغيير أي شيء آخر
-        const { error: updateError } = await this.supabase
-          .from('orders')
-          .update({
-            last_status_check: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', orderId);
-
-        if (updateError) {
-          throw new Error(`خطأ في تحديث الطلب: ${updateError.message}`);
-        }
+        // ⚠️ لا نحدث أي شيء في قاعدة البيانات لتجنب إطلاق realtime events
+        // أي UPDATE على جدول orders سيطلق event في Frontend ويسبب تحديث الأرباح!
+        console.log(`⏭️ تخطي الطلب ${orderId} بالكامل - لا تحديث في قاعدة البيانات`);
 
         return {
           success: true,
