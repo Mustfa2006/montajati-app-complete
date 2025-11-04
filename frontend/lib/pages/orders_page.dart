@@ -569,7 +569,18 @@ class _OrdersPageState extends State<OrdersPage> {
   static const Set<String> _deliveredStatuses = {'تم التسليم للزبون', 'delivered'};
 
   /// حالات الملغاة - طلبات ملغاة أو مرفوضة
-  static const Set<String> _cancelledStatuses = {'الغاء الطلب', 'رفض الطلب', 'تم الارجاع الى التاجر', 'cancelled'};
+  static const Set<String> _cancelledStatuses = {
+    'الغاء الطلب',
+    'رفض الطلب',
+    'مفصول عن الخدمة',
+    'طلب مكرر',
+    'مستلم مسبقا',
+    'لم يطلب',
+    'حظر المندوب',
+    'ارسال الى مخزن الارجاعات',
+    'تم الارجاع الى التاجر',
+    'cancelled',
+  };
 
   // ===================================
   // دوال فحص الحالات (Status Checkers)
