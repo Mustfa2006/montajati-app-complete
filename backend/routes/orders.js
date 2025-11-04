@@ -305,7 +305,6 @@ router.get('/user/:userPhone', async (req, res) => {
         'active': ['active', 'فعال', 'نشط'],
         'in_delivery': [
           'قيد التوصيل الى الزبون (في عهدة المندوب)',
-          'in_delivery',
           'تم الاستلام من قبل المندوب'
         ],
         'delivered': ['تم التسليم للزبون', 'delivered'],
@@ -417,7 +416,6 @@ router.get('/user/:userPhone/counts', async (req, res) => {
     const activeStatuses = ['active', 'فعال', 'نشط'];
     const inDeliveryStatuses = [
       'قيد التوصيل الى الزبون (في عهدة المندوب)',
-      'in_delivery',
       'تم الاستلام من قبل المندوب'
     ];
     const deliveredStatuses = ['تم التسليم للزبون', 'delivered'];
