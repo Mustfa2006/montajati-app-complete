@@ -272,6 +272,12 @@ class IntegratedWaseetSync extends EventEmitter {
           status_updated_at: new Date().toISOString()
         };
 
+        // 🛡️ PROTECTION: فحص إذا تغيرت الحالة فعلياً قبل التحديث
+        if (dbOrder.status === appStatus) {
+          console.log(`⏭️ تخطي الطلب ${dbOrder.id}: الحالة لم تتغير (${appStatus})`);
+          continue;
+        }
+
         // ✅ فقط إضافة waseet_status_id إذا كان موجوداً في جدول waseet_statuses
         if (statusExists) {
           // @ts-ignore - إضافة الحقل ديناميكياً
@@ -287,7 +293,7 @@ class IntegratedWaseetSync extends EventEmitter {
 
         if (!updateError) {
           updatedCount++;
-          console.log(`✅ تم تحديث الطلب ${dbOrder.id} بنجاح: ${waseetStatusText} → ${appStatus}`);
+          console.log(`✅ تم تحديث الطلب ${dbOrder.id} بنجاح: ${dbOrder.status} → ${appStatus}`);
 
           // إرسال إشعار للمستخدم عند تغيير الحالة
           await this.sendStatusChangeNotification(dbOrder, appStatus, waseetStatusText);

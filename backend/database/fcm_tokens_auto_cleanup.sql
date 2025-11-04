@@ -14,70 +14,56 @@ DECLARE
   deleted_count INTEGER := 0;
   total_users_cleaned INTEGER := 0;
 BEGIN
-  -- جلب جميع المستخدمين الذين لديهم أكثر من token واحد نشط
+  -- جلب جميع المستخدمين الذين لديهم أكثر من token واحد (نشط أو غير نشط)
   FOR user_record IN
-    SELECT 
+    SELECT
       user_phone,
       COUNT(*) as token_count
     FROM fcm_tokens
-    WHERE is_active = true
     GROUP BY user_phone
     HAVING COUNT(*) > 1
   LOOP
-    -- حذف جميع الـ tokens القديمة والاحتفاظ بالأحدث فقط
+    -- حذف جميع الـ tokens القديمة والاحتفاظ بالأحدث فقط (بغض النظر عن is_active)
     WITH latest_token AS (
       SELECT id
       FROM fcm_tokens
       WHERE user_phone = user_record.user_phone
-        AND is_active = true
-      ORDER BY 
+      ORDER BY
         COALESCE(last_used_at, created_at) DESC,
         created_at DESC
       LIMIT 1
     )
     DELETE FROM fcm_tokens
     WHERE user_phone = user_record.user_phone
-      AND is_active = true
       AND id NOT IN (SELECT id FROM latest_token);
-    
+
     -- حساب عدد الـ tokens المحذوفة
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
-    
+
     -- إرجاع النتيجة
     user_phone_cleaned := user_record.user_phone;
     tokens_deleted := deleted_count;
     total_users_cleaned := total_users_cleaned + 1;
-    
+
     RETURN NEXT;
-    
+
     RAISE NOTICE '🧹 تم تنظيف % tokens للمستخدم: %', deleted_count, user_record.user_phone;
   END LOOP;
-  
+
   RAISE NOTICE '✅ تم تنظيف FCM Tokens لـ % مستخدم', total_users_cleaned;
-  
+
   RETURN;
 END;
 $$ LANGUAGE plpgsql;
 
--- 2. إنشاء دالة لحذف FCM Tokens القديمة جداً (غير مستخدمة لأكثر من 30 يوم)
+-- 2. دالة لحذف FCM Tokens القديمة جداً - تم تعطيلها
+-- ملاحظة: لا نحذف الـ tokens القديمة، فقط نحتفظ بأحدث token لكل مستخدم
 CREATE OR REPLACE FUNCTION cleanup_old_fcm_tokens()
 RETURNS INTEGER AS $$
-DECLARE
-  deleted_count INTEGER := 0;
 BEGIN
-  -- حذف tokens لم تُستخدم لأكثر من 30 يوم
-  DELETE FROM fcm_tokens
-  WHERE is_active = true
-    AND (
-      last_used_at < NOW() - INTERVAL '30 days'
-      OR (last_used_at IS NULL AND created_at < NOW() - INTERVAL '30 days')
-    );
-  
-  GET DIAGNOSTICS deleted_count = ROW_COUNT;
-  
-  RAISE NOTICE '🗑️ تم حذف % FCM token قديم (أكثر من 30 يوم)', deleted_count;
-  
-  RETURN deleted_count;
+  -- تم تعطيل هذه الميزة - لا نحذف tokens قديمة
+  RAISE NOTICE '⚠️ ميزة حذف الـ tokens القديمة معطلة - نحتفظ بأحدث token فقط';
+  RETURN 0;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -86,7 +72,6 @@ CREATE OR REPLACE FUNCTION run_fcm_tokens_cleanup()
 RETURNS JSON AS $$
 DECLARE
   duplicate_cleanup_result RECORD;
-  old_tokens_deleted INTEGER;
   total_duplicates_deleted INTEGER := 0;
   total_users_cleaned INTEGER := 0;
   result JSON;
@@ -95,36 +80,30 @@ BEGIN
   RAISE NOTICE '🧹 بدء تنظيف FCM Tokens التلقائي';
   RAISE NOTICE '🧹 الوقت: %', NOW();
   RAISE NOTICE '🧹 ========================================';
-  
-  -- 1. تنظيف الـ tokens المكررة
+
+  -- تنظيف الـ tokens المكررة فقط (بدون حذف القديمة)
   FOR duplicate_cleanup_result IN
     SELECT * FROM cleanup_duplicate_fcm_tokens()
   LOOP
     total_duplicates_deleted := total_duplicates_deleted + duplicate_cleanup_result.tokens_deleted;
     total_users_cleaned := total_users_cleaned + 1;
   END LOOP;
-  
-  -- 2. حذف الـ tokens القديمة جداً
-  old_tokens_deleted := cleanup_old_fcm_tokens();
-  
+
   -- إنشاء نتيجة JSON
   result := json_build_object(
     'success', true,
     'timestamp', NOW(),
     'users_cleaned', total_users_cleaned,
     'duplicate_tokens_deleted', total_duplicates_deleted,
-    'old_tokens_deleted', old_tokens_deleted,
-    'total_tokens_deleted', total_duplicates_deleted + old_tokens_deleted
+    'total_tokens_deleted', total_duplicates_deleted
   );
-  
+
   RAISE NOTICE '✅ ========================================';
   RAISE NOTICE '✅ اكتمل تنظيف FCM Tokens';
   RAISE NOTICE '✅ المستخدمين المنظفين: %', total_users_cleaned;
   RAISE NOTICE '✅ Tokens المكررة المحذوفة: %', total_duplicates_deleted;
-  RAISE NOTICE '✅ Tokens القديمة المحذوفة: %', old_tokens_deleted;
-  RAISE NOTICE '✅ إجمالي Tokens المحذوفة: %', total_duplicates_deleted + old_tokens_deleted;
   RAISE NOTICE '✅ ========================================';
-  
+
   RETURN result;
 END;
 $$ LANGUAGE plpgsql;
@@ -159,7 +138,6 @@ CREATE OR REPLACE FUNCTION run_fcm_tokens_cleanup()
 RETURNS JSON AS $$
 DECLARE
   duplicate_cleanup_result RECORD;
-  old_tokens_deleted INTEGER;
   total_duplicates_deleted INTEGER := 0;
   total_users_cleaned INTEGER := 0;
   result JSON;
@@ -168,28 +146,24 @@ BEGIN
   RAISE NOTICE '🧹 بدء تنظيف FCM Tokens التلقائي';
   RAISE NOTICE '🧹 الوقت: %', NOW();
   RAISE NOTICE '🧹 ========================================';
-  
-  -- 1. تنظيف الـ tokens المكررة
+
+  -- تنظيف الـ tokens المكررة فقط
   FOR duplicate_cleanup_result IN
     SELECT * FROM cleanup_duplicate_fcm_tokens()
   LOOP
     total_duplicates_deleted := total_duplicates_deleted + duplicate_cleanup_result.tokens_deleted;
     total_users_cleaned := total_users_cleaned + 1;
   END LOOP;
-  
-  -- 2. حذف الـ tokens القديمة جداً
-  old_tokens_deleted := cleanup_old_fcm_tokens();
-  
+
   -- إنشاء نتيجة JSON
   result := json_build_object(
     'success', true,
     'timestamp', NOW(),
     'users_cleaned', total_users_cleaned,
     'duplicate_tokens_deleted', total_duplicates_deleted,
-    'old_tokens_deleted', old_tokens_deleted,
-    'total_tokens_deleted', total_duplicates_deleted + old_tokens_deleted
+    'total_tokens_deleted', total_duplicates_deleted
   );
-  
+
   -- حفظ السجل في الجدول
   INSERT INTO fcm_cleanup_logs (
     users_cleaned,
@@ -200,19 +174,17 @@ BEGIN
   ) VALUES (
     total_users_cleaned,
     total_duplicates_deleted,
-    old_tokens_deleted,
-    total_duplicates_deleted + old_tokens_deleted,
+    0,  -- لا نحذف tokens قديمة
+    total_duplicates_deleted,
     result
   );
-  
+
   RAISE NOTICE '✅ ========================================';
   RAISE NOTICE '✅ اكتمل تنظيف FCM Tokens';
   RAISE NOTICE '✅ المستخدمين المنظفين: %', total_users_cleaned;
   RAISE NOTICE '✅ Tokens المكررة المحذوفة: %', total_duplicates_deleted;
-  RAISE NOTICE '✅ Tokens القديمة المحذوفة: %', old_tokens_deleted;
-  RAISE NOTICE '✅ إجمالي Tokens المحذوفة: %', total_duplicates_deleted + old_tokens_deleted;
   RAISE NOTICE '✅ ========================================';
-  
+
   RETURN result;
 END;
 $$ LANGUAGE plpgsql;
