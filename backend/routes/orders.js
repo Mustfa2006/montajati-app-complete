@@ -243,7 +243,7 @@ router.get('/waseet-sync-status', async (req, res) => {
 router.get('/user/:userPhone', async (req, res) => {
   try {
     const { userPhone } = req.params;
-    const { page = 0, limit = 10 } = req.query;
+    const { page = 0, limit = 10, statusFilter } = req.query;
 
     if (!userPhone) {
       return res.status(400).json({
@@ -252,12 +252,12 @@ router.get('/user/:userPhone', async (req, res) => {
       });
     }
 
-    console.log(`📱 جلب طلبات المستخدم: ${userPhone} - الصفحة: ${page}, الحد: ${limit}`);
+    console.log(`📱 جلب طلبات المستخدم: ${userPhone} - الصفحة: ${page}, الحد: ${limit}, الفلتر: ${statusFilter || 'الكل'}`);
 
     const offset = parseInt(page) * parseInt(limit);
 
-    // جلب الطلبات مع العناصر المرتبطة
-    const { data, error, count } = await supabase
+    // بناء الاستعلام الأساسي
+    let query = supabase
       .from('orders')
       .select(
         `
@@ -276,9 +276,54 @@ router.get('/user/:userPhone', async (req, res) => {
         `,
         { count: 'exact' }
       )
-      .eq('user_phone', userPhone)
+      .eq('user_phone', userPhone);
+
+    // ✅ فلترة حسب الحالة
+    if (statusFilter) {
+      // تعريف مجموعات الحالات لكل فلتر
+      const statusGroups = {
+        'processing': [
+          'لا يرد',
+          'لا يرد بعد الاتفاق',
+          'مغلق',
+          'مغلق بعد الاتفاق',
+          'الرقم غير معرف',
+          'الرقم غير داخل في الخدمة',
+          'لا يمكن الاتصال بالرقم',
+          'العنوان غير دقيق'
+        ],
+        'active': ['active', 'فعال', 'نشط'],
+        'in_delivery': ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'],
+        'delivered': ['تم التسليم للزبون', 'delivered'],
+        'cancelled': [
+          'الغاء الطلب',
+          'رفض الطلب',
+          'مفصول عن الخدمة',
+          'طلب مكرر',
+          'مستلم مسبقا',
+          'لم يطلب',
+          'حظر المندوب',
+          'ارسال الى مخزن الارجاعات',
+          'تم الارجاع الى التاجر',
+          'cancelled'
+        ]
+      };
+
+      const statuses = statusGroups[statusFilter];
+      if (statuses && statuses.length > 0) {
+        // استخدام OR للبحث عن أي من الحالات
+        const orConditions = statuses.map(s => `status.eq.${s}`).join(',');
+        query = query.or(orConditions);
+        console.log(`🔍 فلترة بالحالات: ${statuses.join(', ')}`);
+      }
+    }
+
+    // ترتيب وتحديد النطاق
+    query = query
       .order('created_at', { ascending: false })
       .range(offset, offset + parseInt(limit) - 1);
+
+    const { data, error, count } = await query;
 
     if (error) {
       console.error('❌ خطأ في جلب طلبات المستخدم:', error);

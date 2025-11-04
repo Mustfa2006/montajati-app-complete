@@ -59,7 +59,7 @@ class Order {
       subtotal: (json['subtotal'] ?? 0),
       total: (json['total'] ?? 0),
       status: _parseOrderStatus(json['status']),
-      rawStatus: json['waseet_status_text'] ?? json['status'] ?? 'نشط', // الأولوية لـ waseet_status_text
+      rawStatus: json['status'] ?? 'نشط', // الاحتفاظ بالنص الأصلي
       createdAt: DateTime.parse(json['created_at']),
       items: (json['order_items'] as List?)?.map((item) => OrderItem.fromJson(item)).toList() ?? [],
       scheduledDate: json['scheduled_date'] != null ? DateTime.parse(json['scheduled_date']) : null,

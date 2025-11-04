@@ -370,10 +370,18 @@ class _OrdersPageState extends State<OrdersPage> {
         return;
       }
 
-      debugPrint('🔍 جلب طلبات المستخدم من Backend API - الصفحة: $_currentPage');
+      // تحديد الفلتر المطلوب (إذا لم يكن 'all' أو 'scheduled')
+      String? statusFilter;
+      if (selectedFilter != 'all' && selectedFilter != 'scheduled') {
+        statusFilter = selectedFilter;
+      }
 
-      // بناء URL للـ Backend API
-      final url = Uri.parse(AppConfig.getUserOrdersUrl(currentUserPhone, page: _currentPage, limit: _pageSize));
+      debugPrint('🔍 جلب طلبات المستخدم من Backend API - الصفحة: $_currentPage, الفلتر: ${statusFilter ?? 'الكل'}');
+
+      // بناء URL للـ Backend API مع الفلتر
+      final url = Uri.parse(
+        AppConfig.getUserOrdersUrl(currentUserPhone, page: _currentPage, limit: _pageSize, statusFilter: statusFilter),
+      );
 
       // إرسال الطلب إلى Backend
       final response = await http
@@ -569,18 +577,7 @@ class _OrdersPageState extends State<OrdersPage> {
   static const Set<String> _deliveredStatuses = {'تم التسليم للزبون', 'delivered'};
 
   /// حالات الملغاة - طلبات ملغاة أو مرفوضة
-  static const Set<String> _cancelledStatuses = {
-    'الغاء الطلب',
-    'رفض الطلب',
-    'مفصول عن الخدمة',
-    'طلب مكرر',
-    'مستلم مسبقا',
-    'لم يطلب',
-    'حظر المندوب',
-    'ارسال الى مخزن الارجاعات',
-    'تم الارجاع الى التاجر',
-    'cancelled',
-  };
+  static const Set<String> _cancelledStatuses = {'الغاء الطلب', 'رفض الطلب', 'تم الارجاع الى التاجر', 'cancelled'};
 
   // ===================================
   // دوال فحص الحالات (Status Checkers)
@@ -674,38 +671,19 @@ class _OrdersPageState extends State<OrdersPage> {
   };
 
   List<Order> get filteredOrders {
-    List<Order> baseOrders = _orders;
-
-    if (selectedFilter != 'all') {
-      switch (selectedFilter) {
-        case 'processing':
-          baseOrders = _orders.where((order) => _isProcessingStatus(order.rawStatus)).toList();
-          break;
-        case 'active':
-          baseOrders = _orders.where((order) => _isActiveStatus(order.rawStatus)).toList();
-          break;
-        case 'in_delivery':
-          baseOrders = _orders.where((order) => _isInDeliveryStatus(order.rawStatus)).toList();
-          break;
-        case 'delivered':
-          baseOrders = _orders.where((order) => _isDeliveredStatus(order.rawStatus)).toList();
-          break;
-        case 'cancelled':
-          baseOrders = _orders.where((order) => _isCancelledStatus(order.rawStatus)).toList();
-          break;
-      }
-    }
-
-    baseOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    List<Order> statusFiltered = baseOrders;
+    // ✅ Backend الآن يقوم بالفلترة حسب الحالة
+    // لذلك نستخدم الطلبات المجلوبة مباشرة بدون فلترة محلية
+    List<Order> statusFiltered;
 
     if (selectedFilter == 'scheduled') {
+      // الطلبات المجدولة تُجلب من endpoint منفصل
       statusFiltered = _scheduledOrders;
     } else {
-      statusFiltered = baseOrders;
+      // جميع الطلبات الأخرى تأتي مفلترة من Backend
+      statusFiltered = _orders;
     }
 
+    // فلترة البحث فقط (محلياً)
     if (searchQuery.isNotEmpty) {
       statusFiltered = statusFiltered.where((order) {
         final customerName = order.customerName.toLowerCase();
