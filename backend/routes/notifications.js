@@ -274,7 +274,7 @@ router.post('/test', async (req, res) => {
 router.get('/status', async (req, res) => {
   try {
     const serviceInfo = targetedNotificationService.getServiceInfo();
-    
+
     res.json({
       success: true,
       message: 'معلومات خدمة الإشعارات',
@@ -315,43 +315,6 @@ router.get('/tokens/stats', async (req, res) => {
 
   } catch (error) {
     console.error('❌ خطأ في API إحصائيات الرموز:', error.message);
-    res.status(500).json({
-      success: false,
-      message: 'خطأ في الخادم',
-      error: error.message
-    });
-  }
-});
-
-/**
- * تنظيف FCM Tokens القديمة
- * POST /api/notifications/tokens/cleanup
- */
-router.post('/tokens/cleanup', async (req, res) => {
-  try {
-    console.log('🧹 طلب تنظيف FCM Tokens القديمة');
-
-    const result = await tokenManagementService.cleanupOldTokens();
-
-    if (result.success) {
-      res.json({
-        success: true,
-        message: `تم حذف ${result.deletedCount} رمز قديم`,
-        data: {
-          deletedCount: result.deletedCount,
-          timestamp: result.timestamp
-        }
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'فشل في تنظيف الرموز',
-        error: result.error
-      });
-    }
-
-  } catch (error) {
-    console.error('❌ خطأ في API تنظيف الرموز:', error.message);
     res.status(500).json({
       success: false,
       message: 'خطأ في الخادم',

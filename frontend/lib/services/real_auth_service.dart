@@ -216,7 +216,7 @@ class AuthService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // ✅ حذف جميع FCM Tokens للمستخدم الحالي قبل تسجيل الخروج
+    // ✅ حذف جميع FCM Tokens للمستخدم من قاعدة البيانات قبل تسجيل الخروج
     try {
       final currentUserPhone = prefs.getString('current_user_phone');
       if (currentUserPhone != null && currentUserPhone.isNotEmpty) {

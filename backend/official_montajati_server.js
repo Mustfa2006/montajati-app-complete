@@ -47,7 +47,6 @@ const {
 // استيراد الخدمات الرسمية
 const OfficialNotificationManager = require('./services/official_notification_manager');
 const IntegratedWaseetSync = require('./services/integrated_waseet_sync');
-const FCMCleanupService = require('./services/fcm_cleanup_service');
 
 // نظام المزامنة المدمج مع الوسيط (سيتم إنشاؤه في الـ constructor)
 
@@ -66,7 +65,7 @@ class OfficialMontajatiServer {
       console.error('❌ خطأ في constructor:', error);
       throw error;
     }
-    
+
     // حالة النظام
     this.state = {
       isRunning: false,
@@ -84,7 +83,6 @@ class OfficialMontajatiServer {
     // إعداد الخدمات
     this.notificationManager = new OfficialNotificationManager();
     this.syncManager = new IntegratedWaseetSync();
-    this.fcmCleanupService = FCMCleanupService;
 
     this.setupExpress();
     this.setupRoutes();
@@ -142,10 +140,10 @@ class OfficialMontajatiServer {
         }
       }
     }));
-    
-    this.app.use(express.urlencoded({ 
-      extended: true, 
-      limit: '10mb' 
+
+    this.app.use(express.urlencoded({
+      extended: true,
+      limit: '10mb'
     }));
 
     // تسجيل الطلبات
@@ -154,13 +152,13 @@ class OfficialMontajatiServer {
       const method = req.method;
       const url = req.originalUrl;
       const ip = req.ip || req.connection.remoteAddress;
-      
+
       console.log(`📡 ${timestamp} - ${method} ${url} - ${ip}`);
-      
+
       // إضافة معرف فريد للطلب
       req.requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       res.setHeader('X-Request-ID', req.requestId);
-      
+
       next();
     });
 
@@ -327,7 +325,7 @@ class OfficialMontajatiServer {
     this.app.post('/api/notifications/send', async (req, res) => {
       try {
         const { orderData, statusChange } = req.body;
-        
+
         if (!orderData || !statusChange) {
           return res.status(400).json({
             success: false,
@@ -336,7 +334,7 @@ class OfficialMontajatiServer {
         }
 
         const notification = await this.notificationManager.addNotification(orderData, statusChange);
-        
+
         res.json({
           success: true,
           message: 'تم إضافة الإشعار بنجاح',
@@ -356,7 +354,7 @@ class OfficialMontajatiServer {
     this.app.post('/api/sync/trigger', async (req, res) => {
       try {
         await this.syncManager.performSync();
-        
+
         res.json({
           success: true,
           message: 'تم تشغيل المزامنة بنجاح'
@@ -683,14 +681,6 @@ class OfficialMontajatiServer {
         this.state.services.sync = null;
       }
 
-      // تهيئة خدمة تنظيف FCM
-      try {
-        this.fcmCleanupService.start();
-        this.state.services.fcmCleanup = this.fcmCleanupService;
-      } catch (error) {
-        this.state.services.fcmCleanup = null;
-      }
-
       this.state.isInitialized = true;
       console.log('✅ تم تهيئة جميع الخدمات بنجاح');
 
@@ -731,7 +721,7 @@ class OfficialMontajatiServer {
         this.state.startedAt = new Date();
 
         console.log('🎉 الخادم الرسمي لنظام منتجاتي يعمل بنجاح!');
-  console.log(`🌐 الرابط: https://montajati-official-backend-production.up.railway.app`);
+        console.log(`🌐 الرابط: https://montajati-official-backend-production.up.railway.app`);
 
         // بدء المراقبة الدورية للمخزون (بشكل آمن)
         try {
@@ -846,7 +836,7 @@ class OfficialMontajatiServer {
   // ===================================
   async gracefulShutdown(signal) {
     console.log(`\n🛑 تلقي إشارة ${signal} - بدء الإغلاق الآمن...`);
-    
+
     this.state.isRunning = false;
 
     try {
@@ -874,7 +864,7 @@ class OfficialMontajatiServer {
 
       console.log('✅ تم إيقاف جميع الخدمات بأمان');
       console.log('👋 وداعاً!');
-      
+
       process.exit(0);
 
     } catch (error) {
