@@ -311,10 +311,11 @@ router.get('/user/:userPhone', async (req, res) => {
 
       const statuses = statusGroups[statusFilter];
       if (statuses && statuses.length > 0) {
-        // استخدام OR للبحث عن أي من الحالات
-        const orConditions = statuses.map(s => `status.eq.${s}`).join(',');
-        query = query.or(orConditions);
-        console.log(`🔍 فلترة بالحالات: ${statuses.join(', ')}`);
+        // ✅ البحث في كلا العمودين: status و waseet_status_text
+        const statusConditions = statuses.map(s => `status.eq.${s}`).join(',');
+        const waseetConditions = statuses.map(s => `waseet_status_text.eq.${s}`).join(',');
+        query = query.or(`${statusConditions},${waseetConditions}`);
+        console.log(`🔍 فلترة بالحالات (status + waseet_status_text): ${statuses.join(', ')}`);
       }
     }
 

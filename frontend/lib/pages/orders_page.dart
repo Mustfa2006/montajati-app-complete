@@ -967,7 +967,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         Icon(
                           icon,
                           color: isSelected
-                              ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
+                              ? (isDark ? Colors.white : color)
                               : isDark
                               ? color.withValues(alpha: 0.9)
                               : (status == 'all' ? Colors.black.withValues(alpha: 0.7) : color),
@@ -983,7 +983,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   : 10,
                               fontWeight: FontWeight.w700,
                               color: isSelected
-                                  ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
+                                  ? (isDark ? Colors.white : color)
                                   : isDark
                                   ? color.withValues(alpha: 0.9)
                                   : (status == 'all' ? Colors.black.withValues(alpha: 0.7) : color),
@@ -1012,7 +1012,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: isSelected
-                              ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
+                              ? (isDark ? Colors.white : color)
                               : isDark
                               ? color
                               : (status == 'all' ? Colors.black.withValues(alpha: 0.8) : color),
