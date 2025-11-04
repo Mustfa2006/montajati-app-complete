@@ -283,7 +283,6 @@ router.get('/user/:userPhone', async (req, res) => {
       // ✅ تعريف مجموعات الحالات لكل فلتر (متطابقة 100% مع /counts endpoint)
       const statusGroups = {
         'processing': [
-          // جميع الحالات ما عدا: نشط، قيد التوصيل، تم التسليم، ملغي (الغاء/رفض فقط)، مجدول
           'تم تغيير محافظة الزبون',
           'تغيير المندوب',
           'لا يرد',
@@ -317,16 +316,14 @@ router.get('/user/:userPhone', async (req, res) => {
 
       const statuses = statusGroups[statusFilter];
       if (statuses && statuses.length > 0) {
-        // ✅ البحث في كلا العمودين: status و waseet_status_text
-        // بناء OR query صحيح: (status.eq.val1 OR status.eq.val2 OR waseet_status_text.eq.val1 OR waseet_status_text.eq.val2)
-        const conditions = [];
-        for (const status of statuses) {
-          conditions.push(`status.eq.${status}`);
-          conditions.push(`waseet_status_text.eq.${status}`);
-        }
-        query = query.or(conditions.join(','));
+        // ✅ استخدام .in() للبحث في كلا العمودين
+        // بناء قائمة الحالات بشكل صحيح للـ Supabase
+        const statusArray = statuses.map(s => `"${s.replace(/"/g, '\\"')}"`).join(',');
+        query = query.or(`status.in.(${statusArray}),waseet_status_text.in.(${statusArray})`);
+
         console.log(`🔍 فلترة بالحالات (status + waseet_status_text): ${statuses.join(', ')}`);
-        console.log(`📋 عدد الشروط: ${conditions.length}`);
+        console.log(`📋 عدد الحالات: ${statuses.length}`);
+        console.log(`📋 Status Array: ${statusArray.substring(0, 100)}...`);
       }
     }
 
