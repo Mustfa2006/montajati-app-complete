@@ -283,6 +283,9 @@ router.get('/user/:userPhone', async (req, res) => {
       // ✅ تعريف مجموعات الحالات لكل فلتر (متطابقة 100% مع /counts endpoint)
       const statusGroups = {
         'processing': [
+          // جميع الحالات ما عدا: نشط، قيد التوصيل، تم التسليم، ملغي (الغاء/رفض فقط)، مجدول
+          'تم تغيير محافظة الزبون',
+          'تغيير المندوب',
           'لا يرد',
           'لا يرد بعد الاتفاق',
           'مغلق',
@@ -290,7 +293,16 @@ router.get('/user/:userPhone', async (req, res) => {
           'الرقم غير معرف',
           'الرقم غير داخل في الخدمة',
           'لا يمكن الاتصال بالرقم',
-          'العنوان غير دقيق'
+          'مؤجل',
+          'مؤجل لحين اعادة الطلب لاحقا',
+          'مفصول عن الخدمة',
+          'طلب مكرر',
+          'مستلم مسبقا',
+          'العنوان غير دقيق',
+          'لم يطلب',
+          'حظر المندوب',
+          'ارسال الى مخزن الارجاعات',
+          'تم الارجاع الى التاجر'
         ],
         'active': ['active', 'فعال', 'نشط'],
         'in_delivery': ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'],
@@ -298,13 +310,6 @@ router.get('/user/:userPhone', async (req, res) => {
         'cancelled': [
           'الغاء الطلب',
           'رفض الطلب',
-          'مفصول عن الخدمة',
-          'طلب مكرر',
-          'مستلم مسبقا',
-          'لم يطلب',
-          'حظر المندوب',
-          'ارسال الى مخزن الارجاعات',
-          'تم الارجاع الى التاجر',
           'cancelled'
         ]
       };
@@ -386,8 +391,10 @@ router.get('/user/:userPhone/counts', async (req, res) => {
       });
     }
 
-    // ✅ حالات المعالجة (contact_issue + address_issue = 8 حالات)
+    // ✅ حالات المعالجة (جميع الحالات ما عدا: نشط، قيد التوصيل، تم التسليم، ملغي، مجدول)
     const processingStatuses = [
+      'تم تغيير محافظة الزبون',
+      'تغيير المندوب',
       'لا يرد',
       'لا يرد بعد الاتفاق',
       'مغلق',
@@ -395,23 +402,26 @@ router.get('/user/:userPhone/counts', async (req, res) => {
       'الرقم غير معرف',
       'الرقم غير داخل في الخدمة',
       'لا يمكن الاتصال بالرقم',
-      'العنوان غير دقيق'
-    ];
-
-    const inDeliveryStatuses = ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'];
-    const deliveredStatuses = ['تم التسليم للزبون', 'delivered'];
-
-    // ✅ حالات الملغي (cancelled category = 9 حالات)
-    const cancelledStatuses = [
-      'الغاء الطلب',
-      'رفض الطلب',
+      'مؤجل',
+      'مؤجل لحين اعادة الطلب لاحقا',
       'مفصول عن الخدمة',
       'طلب مكرر',
       'مستلم مسبقا',
+      'العنوان غير دقيق',
       'لم يطلب',
       'حظر المندوب',
       'ارسال الى مخزن الارجاعات',
-      'تم الارجاع الى التاجر',
+      'تم الارجاع الى التاجر'
+    ];
+
+    const activeStatuses = ['active', 'فعال', 'نشط'];
+    const inDeliveryStatuses = ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'];
+    const deliveredStatuses = ['تم التسليم للزبون', 'delivered'];
+
+    // ✅ حالات الملغي (فقط الغاء الطلب و رفض الطلب)
+    const cancelledStatuses = [
+      'الغاء الطلب',
+      'رفض الطلب',
       'cancelled'
     ];
 
@@ -421,7 +431,9 @@ router.get('/user/:userPhone/counts', async (req, res) => {
       processing: allOrders.filter(o =>
         processingStatuses.includes(o.status) || processingStatuses.includes(o.waseet_status_text)
       ).length,
-      active: allOrders.filter(o => o.status === 'active' || o.status === 'فعال' || o.status === 'نشط').length,
+      active: allOrders.filter(o =>
+        activeStatuses.includes(o.status) || activeStatuses.includes(o.waseet_status_text)
+      ).length,
       in_delivery: allOrders.filter(o =>
         inDeliveryStatuses.includes(o.status) || inDeliveryStatuses.includes(o.waseet_status_text)
       ).length,
