@@ -97,7 +97,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// عدد محاولات إعادة الطلب
   int _retryCount = 0;
-  final int _maxRetries = 3;
+  final int _maxRetries = 5;
 
   // ===================================
   // عدادات الطلبات حسب الحالة
@@ -403,10 +403,10 @@ class _OrdersPageState extends State<OrdersPage> {
         AppConfig.getUserOrdersUrl(currentUserPhone, page: _currentPage, limit: _pageSize, statusFilter: statusFilter),
       );
 
-      // إرسال الطلب إلى Backend مع timeout أطول
+      // إرسال الطلب إلى Backend مع timeout أطول (30 ثانية)
       final response = await http
           .get(url)
-          .timeout(const Duration(seconds: 15), onTimeout: () => throw TimeoutException('انتهت مهلة الانتظار'));
+          .timeout(const Duration(seconds: 30), onTimeout: () => throw TimeoutException('انتهت مهلة الانتظار'));
 
       // ✅ فحص إذا تم إلغاء هذا الطلب (طلب جديد تم إنشاؤه)
       if (requestId != _currentRequestId) {
@@ -472,28 +472,34 @@ class _OrdersPageState extends State<OrdersPage> {
     } on TimeoutException {
       debugPrint('❌ انتهت مهلة الانتظار (محاولة ${retryAttempt + 1}/$_maxRetries)');
 
-      // ✅ إعادة المحاولة تلقائياً
+      // ✅ إعادة المحاولة تلقائياً مع Exponential Backoff
       if (retryAttempt < _maxRetries && requestId == _currentRequestId) {
-        debugPrint('🔄 إعادة المحاولة...');
-        await Future.delayed(Duration(seconds: 2));
+        final waitSeconds = 2 * (retryAttempt + 1); // 2s, 4s, 6s, 8s, 10s
+        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
+        await Future.delayed(Duration(seconds: waitSeconds));
         if (requestId == _currentRequestId) {
           return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
         }
       } else {
-        if (mounted) _showErrorMessage('انتهت مهلة الانتظار. يرجى المحاولة مرة أخرى');
+        if (mounted && requestId == _currentRequestId) {
+          _showErrorMessage('انتهت مهلة الانتظار. يرجى المحاولة مرة أخرى');
+        }
       }
     } on http.ClientException {
       debugPrint('❌ فشل الاتصال بالخادم (محاولة ${retryAttempt + 1}/$_maxRetries)');
 
-      // ✅ إعادة المحاولة تلقائياً
+      // ✅ إعادة المحاولة تلقائياً مع Exponential Backoff
       if (retryAttempt < _maxRetries && requestId == _currentRequestId) {
-        debugPrint('🔄 إعادة المحاولة...');
-        await Future.delayed(Duration(seconds: 2));
+        final waitSeconds = 2 * (retryAttempt + 1); // 2s, 4s, 6s, 8s, 10s
+        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
+        await Future.delayed(Duration(seconds: waitSeconds));
         if (requestId == _currentRequestId) {
           return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
         }
       } else {
-        if (mounted) _showErrorMessage('فشل الاتصال بالخادم. تحقق من الإنترنت');
+        if (mounted && requestId == _currentRequestId) {
+          _showErrorMessage('فشل الاتصال بالخادم. تحقق من الإنترنت');
+        }
       }
     } catch (e) {
       debugPrint('❌ خطأ في تحميل الطلبات: $e');
@@ -968,8 +974,8 @@ class _OrdersPageState extends State<OrdersPage> {
           selectedFilter = status;
         });
 
-        // ✅ Debouncing: انتظار 300ms قبل جلب البيانات
-        _filterDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+        // ✅ Debouncing: انتظار 50ms قبل جلب البيانات (تفاعل سريع جداً)
+        _filterDebounceTimer = Timer(const Duration(milliseconds: 50), () {
           _loadOrdersFromDatabase();
         });
       },

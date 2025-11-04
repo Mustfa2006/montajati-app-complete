@@ -303,7 +303,11 @@ router.get('/user/:userPhone', async (req, res) => {
           'حظر المندوب'
         ],
         'active': ['active', 'فعال', 'نشط'],
-        'in_delivery': ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'],
+        'in_delivery': [
+          'قيد التوصيل الى الزبون (في عهدة المندوب)',
+          'in_delivery',
+          'تم الاستلام من قبل المندوب'
+        ],
         'delivered': ['تم التسليم للزبون', 'delivered'],
         'cancelled': [
           'الغاء الطلب',
@@ -411,7 +415,11 @@ router.get('/user/:userPhone/counts', async (req, res) => {
     ];
 
     const activeStatuses = ['active', 'فعال', 'نشط'];
-    const inDeliveryStatuses = ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'];
+    const inDeliveryStatuses = [
+      'قيد التوصيل الى الزبون (في عهدة المندوب)',
+      'in_delivery',
+      'تم الاستلام من قبل المندوب'
+    ];
     const deliveredStatuses = ['تم التسليم للزبون', 'delivered'];
 
     // ✅ حالات الملغي (فقط الغاء الطلب و رفض الطلب)

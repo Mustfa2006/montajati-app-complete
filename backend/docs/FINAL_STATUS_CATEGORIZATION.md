@@ -15,11 +15,19 @@
 
 ### **2️⃣ قسم قيد التوصيل (In Delivery):**
 ```javascript
-['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery']
+[
+  'قيد التوصيل الى الزبون (في عهدة المندوب)',
+  'in_delivery',
+  'تم الاستلام من قبل المندوب'
+]
 ```
-**عدد الحالات:** 2
+**عدد الحالات:** 3
 
-**ملاحظة:** حالة "تم الاستلام من قبل المندوب" تتحول تلقائياً إلى "قيد التوصيل الى الزبون (في عهدة المندوب)"
+**ملاحظة مهمة:** عندما يأتي طلب من Waseet بحالة "تم الاستلام من قبل المندوب"، يتم تحويله إلى:
+- `status` = "قيد التوصيل الى الزبون (في عهدة المندوب)"
+- `waseet_status_text` = "تم الاستلام من قبل المندوب"
+
+لذلك يجب البحث في كلا العمودين (`status` و `waseet_status_text`) لضمان جلب جميع الطلبات.
 
 ---
 
@@ -167,13 +175,14 @@ const counts = {
 
 ### **بعد الإصلاح:**
 - ✅ قسم المعالجات: العداد = المعروض (17 حالة)
-- ✅ قسم قيد التوصيل: العداد = المعروض
+- ✅ قسم قيد التوصيل: العداد = المعروض (3 حالات - تم إضافة "تم الاستلام من قبل المندوب")
 - ✅ قسم الملغي: يعرض فقط "الغاء الطلب" و "رفض الطلب"
 - ✅ قسم النشط: يعرض فقط "نشط" و "active" و "فعال"
 - ✅ قسم تم التسليم: يعرض فقط "تم التسليم للزبون"
 - ✅ نظام ذكي لمنع Race Condition عند التبديل السريع
-- ✅ Retry Mechanism تلقائي عند فشل الاتصال
-- ✅ Debouncing للتبديل بين الحالات (300ms)
+- ✅ Retry Mechanism تلقائي عند فشل الاتصال (5 محاولات مع Exponential Backoff)
+- ✅ Debouncing للتبديل بين الحالات (50ms - تفاعل سريع جداً)
+- ✅ Timeout أطول (30 ثانية بدلاً من 15 ثانية)
 
 ---
 
@@ -265,7 +274,7 @@ Future<void> _loadOrdersFromDatabase() async {
 }
 ```
 
-#### **2. Debouncing (300ms):**
+#### **2. Debouncing (50ms - تفاعل سريع جداً):**
 ```dart
 Timer? _filterDebounceTimer;
 
@@ -276,39 +285,51 @@ onTap: () {
   // تحديث UI فوراً
   setState(() { selectedFilter = status; });
 
-  // انتظار 300ms قبل جلب البيانات
-  _filterDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+  // انتظار 50ms فقط قبل جلب البيانات (تفاعل سريع جداً)
+  _filterDebounceTimer = Timer(const Duration(milliseconds: 50), () {
     _loadOrdersFromDatabase();
   });
 }
 ```
 
-#### **3. Retry Mechanism (3 محاولات):**
+#### **3. Retry Mechanism (5 محاولات مع Exponential Backoff):**
 ```dart
+final int _maxRetries = 5;
+
 Future<void> _loadOrdersFromDatabase({int retryAttempt = 0}) async {
   try {
     // ... إرسال الطلب ...
   } on TimeoutException {
     if (retryAttempt < _maxRetries && requestId == _currentRequestId) {
-      await Future.delayed(Duration(seconds: 2));
+      final waitSeconds = 2 * (retryAttempt + 1); // 2s, 4s, 6s, 8s, 10s
+      await Future.delayed(Duration(seconds: waitSeconds));
       return _loadOrdersFromDatabase(retryAttempt: retryAttempt + 1);
     }
   }
 }
 ```
 
-#### **4. Timeout أطول (15 ثانية):**
+**Exponential Backoff:** الانتظار يزداد مع كل محاولة:
+- المحاولة 1: انتظار 2 ثانية
+- المحاولة 2: انتظار 4 ثواني
+- المحاولة 3: انتظار 6 ثواني
+- المحاولة 4: انتظار 8 ثواني
+- المحاولة 5: انتظار 10 ثواني
+
+#### **4. Timeout أطول (30 ثانية):**
 ```dart
 final response = await http
     .get(url)
-    .timeout(const Duration(seconds: 15)); // بدلاً من 10 ثواني
+    .timeout(const Duration(seconds: 30)); // بدلاً من 15 ثانية
 ```
 
 ### **النتيجة:**
-- ✅ لا توجد مشاكل عند التبديل السريع بين الحالات
-- ✅ إعادة محاولة تلقائية عند فشل الاتصال (3 مرات)
-- ✅ تجربة مستخدم سلسة حتى مع إنترنت ضعيف
-- ✅ إلغاء تلقائي للطلبات القديمة
+- ✅ لا توجد مشاكل عند التبديل السريع بين الحالات (Debouncing 50ms)
+- ✅ إعادة محاولة تلقائية عند فشل الاتصال (5 مرات مع Exponential Backoff)
+- ✅ تجربة مستخدم سلسة حتى مع إنترنت ضعيف (Timeout 30 ثانية)
+- ✅ إلغاء تلقائي للطلبات القديمة (Request ID System)
+- ✅ تفاعل سريع جداً عند اختيار الحالات (50ms فقط)
+- ✅ مهلة كافية للتحميل قبل إظهار خطأ (30 ثانية + 5 محاولات)
 
 ---
 
