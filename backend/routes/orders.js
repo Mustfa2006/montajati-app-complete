@@ -318,10 +318,15 @@ router.get('/user/:userPhone', async (req, res) => {
       const statuses = statusGroups[statusFilter];
       if (statuses && statuses.length > 0) {
         // ✅ البحث في كلا العمودين: status و waseet_status_text
-        const statusConditions = statuses.map(s => `status.eq.${s}`).join(',');
-        const waseetConditions = statuses.map(s => `waseet_status_text.eq.${s}`).join(',');
-        query = query.or(`${statusConditions},${waseetConditions}`);
+        // بناء OR query صحيح: (status.eq.val1 OR status.eq.val2 OR waseet_status_text.eq.val1 OR waseet_status_text.eq.val2)
+        const conditions = [];
+        for (const status of statuses) {
+          conditions.push(`status.eq.${status}`);
+          conditions.push(`waseet_status_text.eq.${status}`);
+        }
+        query = query.or(conditions.join(','));
         console.log(`🔍 فلترة بالحالات (status + waseet_status_text): ${statuses.join(', ')}`);
+        console.log(`📋 عدد الشروط: ${conditions.length}`);
       }
     }
 
