@@ -280,7 +280,7 @@ router.get('/user/:userPhone', async (req, res) => {
 
     // ✅ فلترة حسب الحالة
     if (statusFilter) {
-      // تعريف مجموعات الحالات لكل فلتر
+      // ✅ تعريف مجموعات الحالات لكل فلتر (متطابقة 100% مع /counts endpoint)
       const statusGroups = {
         'processing': [
           'لا يرد',
@@ -372,10 +372,10 @@ router.get('/user/:userPhone/counts', async (req, res) => {
 
     console.log(`📊 جلب عدادات الطلبات للمستخدم: ${userPhone}`);
 
-    // استعلام واحد لجلب جميع الطلبات
+    // ✅ استعلام واحد لجلب جميع الطلبات (مع status و waseet_status_text)
     const { data: allOrders, error } = await supabase
       .from('orders')
-      .select('status')
+      .select('status, waseet_status_text')
       .eq('user_phone', userPhone);
 
     if (error) {
@@ -386,10 +386,8 @@ router.get('/user/:userPhone/counts', async (req, res) => {
       });
     }
 
-    // حالات المعالجة
+    // ✅ حالات المعالجة (contact_issue + address_issue = 8 حالات)
     const processingStatuses = [
-      'تم تغيير محافظة الزبون',
-      'تغيير المندوب',
       'لا يرد',
       'لا يرد بعد الاتفاق',
       'مغلق',
@@ -397,28 +395,42 @@ router.get('/user/:userPhone/counts', async (req, res) => {
       'الرقم غير معرف',
       'الرقم غير داخل في الخدمة',
       'لا يمكن الاتصال بالرقم',
-      'مؤجل',
-      'مؤجل لحين اعادة الطلب لاحقا',
-      'مفصول عن الخدمة',
-      'طلب مكرر',
-      'مستلم مسبقا',
-      'العنوان غير دقيق',
-      'لم يطلب',
-      'حظر المندوب'
+      'العنوان غير دقيق'
     ];
 
     const inDeliveryStatuses = ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'];
     const deliveredStatuses = ['تم التسليم للزبون', 'delivered'];
-    const cancelledStatuses = ['الغاء الطلب', 'رفض الطلب', 'تم الارجاع الى التاجر', 'cancelled'];
 
-    // حساب العدادات
+    // ✅ حالات الملغي (cancelled category = 9 حالات)
+    const cancelledStatuses = [
+      'الغاء الطلب',
+      'رفض الطلب',
+      'مفصول عن الخدمة',
+      'طلب مكرر',
+      'مستلم مسبقا',
+      'لم يطلب',
+      'حظر المندوب',
+      'ارسال الى مخزن الارجاعات',
+      'تم الارجاع الى التاجر',
+      'cancelled'
+    ];
+
+    // ✅ حساب العدادات (البحث في كلا العمودين: status و waseet_status_text)
     const counts = {
       all: allOrders.length,
-      processing: allOrders.filter(o => processingStatuses.includes(o.status)).length,
-      active: allOrders.filter(o => o.status === 'active').length,
-      in_delivery: allOrders.filter(o => inDeliveryStatuses.includes(o.status)).length,
-      delivered: allOrders.filter(o => deliveredStatuses.includes(o.status)).length,
-      cancelled: allOrders.filter(o => cancelledStatuses.includes(o.status)).length
+      processing: allOrders.filter(o =>
+        processingStatuses.includes(o.status) || processingStatuses.includes(o.waseet_status_text)
+      ).length,
+      active: allOrders.filter(o => o.status === 'active' || o.status === 'فعال' || o.status === 'نشط').length,
+      in_delivery: allOrders.filter(o =>
+        inDeliveryStatuses.includes(o.status) || inDeliveryStatuses.includes(o.waseet_status_text)
+      ).length,
+      delivered: allOrders.filter(o =>
+        deliveredStatuses.includes(o.status) || deliveredStatuses.includes(o.waseet_status_text)
+      ).length,
+      cancelled: allOrders.filter(o =>
+        cancelledStatuses.includes(o.status) || cancelledStatuses.includes(o.waseet_status_text)
+      ).length
     };
 
     // جلب عدد الطلبات المجدولة
