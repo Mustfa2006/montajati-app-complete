@@ -86,6 +86,20 @@ class _OrdersPageState extends State<OrdersPage> {
   double _previousScrollPosition = 0.0;
 
   // ===================================
+  // نظام ذكي لمنع Race Condition
+  // ===================================
+
+  /// معرف فريد للطلب الحالي (لإلغاء الطلبات القديمة)
+  int _currentRequestId = 0;
+
+  /// مؤقت لـ Debouncing تغيير الفلتر
+  Timer? _filterDebounceTimer;
+
+  /// عدد محاولات إعادة الطلب
+  int _retryCount = 0;
+  final int _maxRetries = 3;
+
+  // ===================================
   // عدادات الطلبات حسب الحالة
   // ===================================
 
@@ -329,8 +343,9 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   void dispose() {
-    // إلغاء المؤقت
+    // إلغاء المؤقتات
     _scrollDebounceTimer?.cancel();
+    _filterDebounceTimer?.cancel();
 
     // إلغاء المتحكمات
     _scrollController.dispose();
@@ -341,11 +356,16 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// جلب طلبات المستخدم من Backend API
   /// يدعم Pagination و Infinite Scroll
-  Future<void> _loadOrdersFromDatabase({bool isLoadMore = false}) async {
+  /// ✅ نظام ذكي لمنع Race Condition و Retry Mechanism
+  Future<void> _loadOrdersFromDatabase({bool isLoadMore = false, int retryAttempt = 0}) async {
     // منع الطلبات المتعددة المتزامنة
     if (_isLoading || (isLoadMore && _isLoadingMore) || (isLoadMore && !_hasMoreData)) {
       return;
     }
+
+    // ✅ إنشاء معرف فريد لهذا الطلب
+    final requestId = ++_currentRequestId;
+    debugPrint('🆔 معرف الطلب: $requestId');
 
     // تحديث حالة التحميل
     setState(() {
@@ -366,7 +386,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
       if (currentUserPhone == null || currentUserPhone.isEmpty) {
         debugPrint('❌ رقم هاتف المستخدم غير متوفر');
-        _showErrorMessage('رقم الهاتف غير متوفر');
+        if (mounted) _showErrorMessage('رقم الهاتف غير متوفر');
         return;
       }
 
@@ -383,10 +403,16 @@ class _OrdersPageState extends State<OrdersPage> {
         AppConfig.getUserOrdersUrl(currentUserPhone, page: _currentPage, limit: _pageSize, statusFilter: statusFilter),
       );
 
-      // إرسال الطلب إلى Backend
+      // إرسال الطلب إلى Backend مع timeout أطول
       final response = await http
           .get(url)
-          .timeout(const Duration(seconds: 10), onTimeout: () => throw TimeoutException('انتهت مهلة الانتظار'));
+          .timeout(const Duration(seconds: 15), onTimeout: () => throw TimeoutException('انتهت مهلة الانتظار'));
+
+      // ✅ فحص إذا تم إلغاء هذا الطلب (طلب جديد تم إنشاؤه)
+      if (requestId != _currentRequestId) {
+        debugPrint('🚫 تم إلغاء الطلب $requestId (طلب جديد: $_currentRequestId)');
+        return;
+      }
 
       // معالجة الاستجابة
       if (response.statusCode == 200) {
@@ -407,6 +433,12 @@ class _OrdersPageState extends State<OrdersPage> {
             }
           }
 
+          // ✅ فحص مرة أخرى قبل التحديث
+          if (requestId != _currentRequestId) {
+            debugPrint('🚫 تم إلغاء الطلب $requestId قبل التحديث');
+            return;
+          }
+
           // تحديث القائمة
           if (mounted) {
             setState(() {
@@ -418,6 +450,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
               _hasMoreData = pagination['hasMore'] ?? false;
               _currentPage++;
+              _retryCount = 0; // ✅ إعادة تعيين عداد المحاولات
             });
           }
 
@@ -427,7 +460,7 @@ class _OrdersPageState extends State<OrdersPage> {
         }
       } else if (response.statusCode == 404) {
         debugPrint('⚠️ لا توجد طلبات للمستخدم');
-        if (mounted) {
+        if (mounted && requestId == _currentRequestId) {
           setState(() {
             _orders = [];
             _hasMoreData = false;
@@ -437,11 +470,31 @@ class _OrdersPageState extends State<OrdersPage> {
         throw Exception('خطأ في الخادم: ${response.statusCode}');
       }
     } on TimeoutException {
-      debugPrint('❌ انتهت مهلة الانتظار');
-      _showErrorMessage('انتهت مهلة الانتظار. يرجى المحاولة مرة أخرى');
+      debugPrint('❌ انتهت مهلة الانتظار (محاولة ${retryAttempt + 1}/$_maxRetries)');
+
+      // ✅ إعادة المحاولة تلقائياً
+      if (retryAttempt < _maxRetries && requestId == _currentRequestId) {
+        debugPrint('🔄 إعادة المحاولة...');
+        await Future.delayed(Duration(seconds: 2));
+        if (requestId == _currentRequestId) {
+          return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
+        }
+      } else {
+        if (mounted) _showErrorMessage('انتهت مهلة الانتظار. يرجى المحاولة مرة أخرى');
+      }
     } on http.ClientException {
-      debugPrint('❌ فشل الاتصال بالخادم');
-      _showErrorMessage('فشل الاتصال بالخادم. تحقق من الإنترنت');
+      debugPrint('❌ فشل الاتصال بالخادم (محاولة ${retryAttempt + 1}/$_maxRetries)');
+
+      // ✅ إعادة المحاولة تلقائياً
+      if (retryAttempt < _maxRetries && requestId == _currentRequestId) {
+        debugPrint('🔄 إعادة المحاولة...');
+        await Future.delayed(Duration(seconds: 2));
+        if (requestId == _currentRequestId) {
+          return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
+        }
+      } else {
+        if (mounted) _showErrorMessage('فشل الاتصال بالخادم. تحقق من الإنترنت');
+      }
     } catch (e) {
       debugPrint('❌ خطأ في تحميل الطلبات: $e');
       _showErrorMessage('حدث خطأ في تحميل الطلبات');
@@ -652,11 +705,6 @@ class _OrdersPageState extends State<OrdersPage> {
       'gradientColors': [const Color(0xFF2e1a1a), const Color(0xFF2e1616), const Color(0xFF3f1e1e)],
     },
     'رفض الطلب': {
-      'borderColor': const Color(0xFFdc3545),
-      'shadowColor': const Color(0xFFdc3545),
-      'gradientColors': [const Color(0xFF2e1a1a), const Color(0xFF2e1616), const Color(0xFF3f1e1e)],
-    },
-    'تم الارجاع الى التاجر': {
       'borderColor': const Color(0xFFdc3545),
       'shadowColor': const Color(0xFFdc3545),
       'gradientColors': [const Color(0xFF2e1a1a), const Color(0xFF2e1616), const Color(0xFF3f1e1e)],
@@ -911,11 +959,19 @@ class _OrdersPageState extends State<OrdersPage> {
     double width = _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing' ? 130 : 100;
 
     return GestureDetector(
-      onTap: () async {
+      onTap: () {
+        // ✅ إلغاء المؤقت السابق
+        _filterDebounceTimer?.cancel();
+
+        // ✅ تحديث الفلتر فوراً (للـ UI)
         setState(() {
           selectedFilter = status;
         });
-        await _loadOrdersFromDatabase();
+
+        // ✅ Debouncing: انتظار 300ms قبل جلب البيانات
+        _filterDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+          _loadOrdersFromDatabase();
+        });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
