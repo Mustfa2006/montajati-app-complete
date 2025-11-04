@@ -152,7 +152,7 @@ class FirebaseAdminService {
 
       // إرسال الإشعار
       const response = await this.messaging.send(message);
-      
+
       console.log('✅ تم إرسال الإشعار بنجاح:', {
         messageId: response,
         token: fcmToken.substring(0, 20) + '...',
@@ -167,7 +167,7 @@ class FirebaseAdminService {
 
     } catch (error) {
       console.error('❌ خطأ في إرسال الإشعار:', error.message);
-      
+
       // التعامل مع الأخطاء المختلفة
       let errorType = 'unknown';
       if (error.code === 'messaging/registration-token-not-registered') {
@@ -230,6 +230,10 @@ class FirebaseAdminService {
       'قيد التوصيل الى الزبون (في عهدة المندوب)': {
         title: '🚗 قيد التوصيل',
         message: 'قيد التوصيل'
+      },
+      'تم التسليم للزبون': {
+        title: '✅ تم التسليم',
+        message: 'تم التسليم'
       },
       'تم تغيير محافظة الزبون': {
         title: '📍 تغيير المحافظة',

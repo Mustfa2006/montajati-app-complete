@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/order.dart';
 import '../models/order_item.dart' as order_item_model;
@@ -15,6 +16,7 @@ import '../services/order_details_service.dart'; // ✅ استخدام Backend A
 import '../utils/order_status_helper.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
+import '../widgets/order_details_skeleton.dart';
 
 class UserOrderDetailsPage extends StatefulWidget {
   final String orderId;
@@ -29,11 +31,18 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   Order? _order;
   bool _isLoading = true;
   String? _error;
+  bool _isDeleting = false; // ✅ منع الحذف المزدوج
 
   @override
   void initState() {
     super.initState();
     _loadOrderDetails();
+  }
+
+  @override
+  void dispose() {
+    // ✅ تنظيف الموارد عند مغادرة الصفحة
+    super.dispose();
   }
 
   Future<void> _loadOrderDetails() async {
@@ -43,8 +52,6 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         _error = null;
       });
 
-      debugPrint('📥 جلب تفاصيل الطلب من Backend: ${widget.orderId}');
-
       // ✅ استخدام Backend API بدلاً من Supabase مباشرة
       final order = await OrderDetailsService.fetchOrderDetails(widget.orderId);
 
@@ -53,11 +60,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         _isLoading = false;
       });
 
-      debugPrint('✅ تم تحميل تفاصيل الطلب بنجاح: ${order.id}');
-      debugPrint('📋 اسم العميل: ${order.customerName}');
-      debugPrint('📞 رقم الهاتف: ${order.primaryPhone}');
-      debugPrint('💰 المجموع: ${order.total}');
-      debugPrint('📊 حالة الطلب: ${order.rawStatus}');
+      debugPrint('✅ تم تحميل تفاصيل الطلب بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في جلب تفاصيل الطلب: $e');
       setState(() {
@@ -70,113 +73,48 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   // 🧮 حساب المجموع الفرعي من قاعدة البيانات
   double _calculateSubtotal() {
     if (_order == null) return 0.0;
-
-    // استخدام القيمة المحفوظة في قاعدة البيانات
-    double subtotal = _order!.subtotal.toDouble();
-
-    debugPrint('🧮 المجموع الفرعي من قاعدة البيانات: $subtotal د.ع');
-    return subtotal;
+    return _order!.subtotal.toDouble();
   }
 
   // 🧮 حساب المجموع الكلي من قاعدة البيانات
   double _calculateTotal() {
     if (_order == null) return 0.0;
-
-    // استخدام القيمة المحفوظة في قاعدة البيانات
-    double total = _order!.total.toDouble();
-
-    debugPrint('🧮 المجموع الكلي من قاعدة البيانات: $total د.ع');
-    return total;
+    return _order!.total.toDouble();
   }
 
   // 🧮 حساب إجمالي الربح من قاعدة البيانات
   double _calculateTotalProfit() {
     if (_order == null) return 0.0;
-
-    // استخدام القيمة المحفوظة في قاعدة البيانات
-    double totalProfit = _order!.totalProfit.toDouble();
-
-    debugPrint('🧮 إجمالي الربح من قاعدة البيانات: $totalProfit د.ع');
-    return totalProfit;
+    return _order!.totalProfit.toDouble();
   }
 
-  // 🔍 التحقق من كون الطلب نشط (يمكن تعديله أو حذفه) - أمان مضاعف
+  // 🔍 التحقق من كون الطلب نشط (يمكن تعديله أو حذفه)
   bool _isOrderActive() {
-    // 🛡️ فحص أولي - إذا لم يكن هناك طلب، فلا يمكن التعديل
-    if (_order == null) {
-      debugPrint('🚫 لا يوجد طلب - الأزرار مخفية');
-      return false;
-    }
+    if (_order == null) return false;
 
-    // 🛡️ فحص الحالة الأصلية من قاعدة البيانات
     final rawStatus = _order!.rawStatus.toLowerCase().trim();
 
-    debugPrint('🔍 فحص صارم لنشاط الطلب:');
-    debugPrint('   📋 Raw Status الأصلي: "${_order!.rawStatus}"');
-    debugPrint('   📋 Raw Status منظف: "$rawStatus"');
+    // ✅ قائمة الحالات النشطة فقط
+    const activeStatuses = ['نشط', 'active', 'pending', 'confirmed', 'جديد', 'new'];
 
-    // 🛡️ قائمة صارمة للحالات النشطة فقط
-    final activeStatuses = ['نشط', 'active', 'pending', 'confirmed', 'جديد', 'new'];
-
-    // 🛡️ فحص إذا كانت الحالة في القائمة النشطة
-    bool isInActiveList = activeStatuses.any((status) => rawStatus == status);
-
-    // 🛡️ قائمة شاملة للحالات غير النشطة (أي حالة أخرى = غير نشط)
-    final inactiveStatuses = [
+    // ✅ قائمة الحالات غير النشطة
+    const inactiveStatuses = [
       'تم التوصيل',
       'delivered',
-      'مسلم',
       'ملغي',
       'cancelled',
-      'مرفوض',
-      'rejected',
       'قيد التوصيل',
       'in_delivery',
-      'في الطريق',
-      'لا يرد بعد الاتفاق',
       'لا يرد',
       'no_answer',
-      'مغلق',
-      'closed',
       'مؤجل',
       'postponed',
-      'طلب مكرر',
-      'duplicate',
-      'مستلم مسبقا',
-      'لم يطلب',
-      'not_ordered',
-      'الرقم غير معرف',
-      'الرقم غير داخل في الخدمة',
-      'مفصول عن الخدمة',
-      'لا يمكن الاتصال بالرقم',
-      'العنوان غير دقيق',
-      'حظر المندوب',
-      'تم تغيير محافظة الزبون',
-      'تغيير المندوب',
     ];
 
-    // 🛡️ فحص إذا كانت الحالة في القائمة غير النشطة
-    bool isInInactiveList = inactiveStatuses.any((status) => rawStatus.contains(status));
-
-    // 🛡️ القرار النهائي: نشط فقط إذا كان في القائمة النشطة وليس في القائمة غير النشطة
-    bool isActive = isInActiveList && !isInInactiveList;
-
-    // 🛡️ فحص إضافي: إذا كانت الحالة فارغة أو غير معروفة، اعتبرها غير نشطة
-    if (rawStatus.isEmpty || rawStatus == 'null') {
-      isActive = false;
-    }
-
-    debugPrint('   ✅ في القائمة النشطة: $isInActiveList');
-    debugPrint('   ❌ في القائمة غير النشطة: $isInInactiveList');
-    debugPrint('   🎯 النتيجة النهائية: $isActive');
-
-    if (isActive) {
-      debugPrint('✅ الطلب نشط - الأزرار ظاهرة');
-    } else {
-      debugPrint('🚫 الطلب غير نشط - الأزرار مخفية');
-    }
-
-    return isActive;
+    // ✅ فحص بسيط ومباشر
+    if (rawStatus.isEmpty || rawStatus == 'null') return false;
+    if (inactiveStatuses.any((status) => rawStatus.contains(status))) return false;
+    return activeStatuses.contains(rawStatus);
   }
 
   // ✏️ تعديل الطلب
@@ -330,10 +268,12 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
                         // زر الحذف
                         Expanded(
                           child: GestureDetector(
-                            onTap: () async {
-                              Navigator.pop(context);
-                              await _confirmDeleteOrder();
-                            },
+                            onTap: _isDeleting
+                                ? null // ✅ تعطيل الزر أثناء الحذف
+                                : () async {
+                                    Navigator.pop(context);
+                                    await _confirmDeleteOrder();
+                                  },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
@@ -367,40 +307,58 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
 
   // 🗑️ تأكيد حذف الطلب
   Future<void> _confirmDeleteOrder() async {
+    // ✅ منع الحذف المزدوج
+    if (_isDeleting) return;
+
     try {
-      debugPrint('🗑️ بدء حذف الطلب: ${_order!.id}');
+      setState(() => _isDeleting = true);
+      debugPrint('🗑️ بدء حذف الطلب');
+
+      // ✅ الحصول على رقم هاتف المستخدم من التخزين المحلي
+      final prefs = await SharedPreferences.getInstance();
+      final currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        throw Exception('رقم الهاتف غير متوفر');
+      }
 
       // ✅ حذف الطلب عبر Backend API (آمن وموثوق)
-      // لا نستدعي قاعدة البيانات مباشرة
-      debugPrint('📤 إرسال طلب الحذف إلى Backend...');
+      final success = await OrderDetailsService.deleteOrder(_order!.id, currentUserPhone);
 
-      // يمكن إضافة endpoint للحذف في Backend لاحقاً
-      // حالياً سنعرض رسالة تأكيد فقط
-      debugPrint('✅ تم حذف الطلب بنجاح');
+      if (!success) {
+        throw Exception('فشل في حذف الطلب');
+      }
+
+      // ✅ التحقق من mounted قبل أي عملية UI
+      if (!mounted) return;
 
       // إظهار رسالة نجاح
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('تم حذف الطلب بنجاح', style: GoogleFonts.cairo()),
-            backgroundColor: Colors.green,
-          ),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تم حذف الطلب بنجاح', style: GoogleFonts.cairo()),
+          backgroundColor: Colors.green,
+        ),
+      );
 
-        // العودة دائماً لصفحة طلبات المستخدم
-        // بغض النظر عن نوع الطلب
-        context.go('/orders');
-      }
+      // العودة لصفحة الطلبات
+      context.go('/orders');
     } catch (e) {
       debugPrint('❌ خطأ في حذف الطلب: $e');
+
+      // ✅ التحقق من mounted قبل عرض الخطأ
+      if (!mounted) return;
+
       // إظهار رسالة خطأ
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('فشل في حذف الطلب: $e', style: GoogleFonts.cairo()),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      // ✅ إعادة تعيين الحالة
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('فشل في حذف الطلب: $e', style: GoogleFonts.cairo()),
-            backgroundColor: Colors.red,
-          ),
-        );
+        setState(() => _isDeleting = false);
       }
     }
   }
@@ -419,21 +377,35 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Row(
                   children: [
-                    // زر الرجوع
-                    GestureDetector(
-                      onTap: () => context.go('/orders'),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                    // زر الرجوع - تحريكه لليسار قليلاً
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8), // ✅ إزاحة لليسار
+                      child: GestureDetector(
+                        onTap: () => context.go('/orders'),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFFffd700).withValues(alpha: 0.2)
+                                : Colors.black.withValues(alpha: 0.1), // ✅ خلفية سوداء في النهاري
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFFffd700).withValues(alpha: 0.3)
+                                  : Colors.black.withValues(alpha: 0.2), // ✅ حدود سوداء في النهاري
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            FontAwesomeIcons.arrowLeft, // ✅ السهم يشير لليسار في الوضع العربي
+                            color: isDark ? const Color(0xFFffd700) : Colors.black,
+                            size: 18,
+                          ),
                         ),
-                        child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
                       ),
                     ),
-                    // العنوان في الوسط
+                    // العنوان في الوسط بالضبط
                     Expanded(
                       child: Center(
                         child: Text(
@@ -496,19 +468,8 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   }
 
   Widget _buildLoadingState() {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.6,
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 3),
-            SizedBox(height: 20),
-            Text('جاري تحميل تفاصيل الطلب...', style: TextStyle(color: Colors.white, fontSize: 16)),
-          ],
-        ),
-      ),
-    );
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    return OrderDetailsSkeleton(isDark: isDark);
   }
 
   Widget _buildErrorState() {
@@ -523,14 +484,29 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
             style: GoogleFonts.cairo(color: Colors.red, fontSize: 16),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () => context.go('/orders'),
+          const SizedBox(height: 30),
+          // ✅ زر إعادة المحاولة
+          ElevatedButton.icon(
+            onPressed: () {
+              setState(() {
+                _isLoading = true;
+                _error = null;
+              });
+              _loadOrderDetails();
+            },
+            icon: const Icon(Icons.refresh),
+            label: Text('إعادة المحاولة', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFffd700),
               foregroundColor: const Color(0xFF1a1a2e),
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
             ),
-            child: Text('العودة للطلبات', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(height: 15),
+          // زر العودة
+          TextButton(
+            onPressed: () => context.go('/orders'),
+            child: Text('العودة للطلبات', style: GoogleFonts.cairo(color: const Color(0xFFffd700))),
           ),
         ],
       ),
@@ -540,7 +516,8 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   Widget _buildOrderContent(bool isDark) {
     if (_order == null) return const SizedBox();
 
-    return SingleChildScrollView(
+    // ✅ بدون SingleChildScrollView - الـ Scaffold يتعامل مع التمرير
+    return Padding(
       padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -710,7 +687,8 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           const SizedBox(height: 15),
           _buildInfoRow('اسم الزبون', _order!.customerName, isDark, showCopyButton: true),
           _buildInfoRow('رقم الزبون', _order!.primaryPhone, isDark, showCopyButton: true),
-          if (_order!.secondaryPhone != null)
+          // ✅ إخفاء الرقم البديل إذا كان فارغاً أو null
+          if (_order!.secondaryPhone != null && _order!.secondaryPhone!.trim().isNotEmpty)
             _buildInfoRow('الرقم البديل', _order!.secondaryPhone!, isDark, showCopyButton: true),
           _buildInfoRow('المحافظة', _order!.province, isDark),
           _buildInfoRow('المدينة', _order!.city, isDark),
@@ -861,7 +839,19 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
             ],
           ),
           const SizedBox(height: 15),
-          ...(_order!.items.map((item) => _buildOrderItem(item, isDark)).toList()),
+          // ✅ رسالة عند عدم وجود عناصر
+          if (_order!.items.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Text(
+                  'لا توجد عناصر في هذا الطلب',
+                  style: GoogleFonts.cairo(color: ThemeColors.textColor(isDark).withValues(alpha: 0.5), fontSize: 14),
+                ),
+              ),
+            )
+          else
+            ...(_order!.items.map((item) => _buildOrderItem(item, isDark)).toList()),
         ],
       ),
     );
