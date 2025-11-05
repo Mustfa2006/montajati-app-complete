@@ -394,8 +394,19 @@ class _OrdersPageState extends State<OrdersPage> {
       final currentUserPhone = prefs.getString('current_user_phone');
 
       if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        debugPrint('❌ رقم هاتف المستخدم غير متوفر');
-        if (mounted) _showErrorMessage('رقم الهاتف غير متوفر');
+        debugPrint('❌ رقم هاتف المستخدم غير متوفر - سيتم إعادة المحاولة بعد 2 ثواني');
+        if (mounted) {
+          // إيقاف مؤشرات التحميل الحالية مع جدولة إعادة المحاولة
+          setState(() {
+            _isLoading = false;
+            _isLoadingMore = false;
+          });
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) {
+              _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
+            }
+          });
+        }
         return;
       }
 
@@ -416,6 +427,9 @@ class _OrdersPageState extends State<OrdersPage> {
       final response = await http
           .get(url)
           .timeout(const Duration(seconds: 30), onTimeout: () => throw TimeoutException('انتهت مهلة الانتظار'));
+      debugPrint(
+        '📥 استلام الاستجابة: ${response.statusCode} - طول البيانات: ${response.body.length} من ${url.toString()}',
+      );
 
       // ✅ فحص إذا تم إلغاء هذا الطلب (طلب جديد تم إنشاؤه)
       if (requestId != _currentRequestId) {
@@ -473,16 +487,46 @@ class _OrdersPageState extends State<OrdersPage> {
           throw Exception(json['error'] ?? 'خطأ في جلب الطلبات');
         }
       } else if (response.statusCode == 404) {
-        debugPrint('⚠️ لا توجد طلبات للمستخدم');
-        if (mounted && requestId == _currentRequestId) {
-          setState(() {
-            _orders = [];
-            _hasMoreData = false;
+        // قد يدل 404 هنا على أن مسارات الخادم غير مُسجّلة مؤقتاً (معالج 404 العام)
+        // بدلاً من إيقاف التحميل، سنستمر بإعادة المحاولة حتى تصبح المسارات متاحة
+        try {
+          final body = response.body;
+          final json = body.isNotEmpty ? jsonDecode(body) : {};
+          final msg = (json['message'] ?? '').toString();
+          final path = json['path'];
+          final isRouteMissing = msg.contains('المسار غير موجود') || path != null;
 
-            // ✅ إيقاف مؤشر التحميل عند عدم وجود طلبات
-            _isLoading = false;
-            _isLoadingMore = false;
-          });
+          if (isRouteMissing) {
+            debugPrint('⚠️ 404 من الخادم (Route missing). سنعيد المحاولة تلقائياً...');
+            if (requestId == _currentRequestId) {
+              final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
+              debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
+              await Future.delayed(Duration(seconds: waitSeconds));
+              if (requestId == _currentRequestId) {
+                return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
+              }
+            }
+          } else {
+            // 404 فعلي لعدم وجود بيانات: نعرض أنه لا توجد طلبات
+            if (mounted && requestId == _currentRequestId) {
+              setState(() {
+                _orders = [];
+                _hasMoreData = false;
+                _isLoading = false;
+                _isLoadingMore = false;
+              });
+            }
+          }
+        } catch (_) {
+          // في حال فشل تحليل الاستجابة، نتعامل معها كحالة خادم مؤقتة ونعيد المحاولة
+          if (requestId == _currentRequestId) {
+            final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
+            debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
+            await Future.delayed(Duration(seconds: waitSeconds));
+            if (requestId == _currentRequestId) {
+              return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
+            }
+          }
         }
       } else {
         throw Exception('خطأ في الخادم: ${response.statusCode}');
