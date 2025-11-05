@@ -776,6 +776,62 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     });
   }
 
+  // ⚠️ إظهار رسالة تحذير Timeout
+  void _showTimeoutWarning() {
+    debugPrint('⏰ إظهار رسالة تحذير Timeout');
+
+    if (!mounted) {
+      debugPrint('⚠️ الصفحة لم تعد موجودة');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 32),
+            SizedBox(width: 12),
+            Text('انتهت مهلة الانتظار'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('استغرق إنشاء الطلب وقتاً أطول من المتوقع.', style: TextStyle(fontSize: 16)),
+            SizedBox(height: 12),
+            Text('يرجى التحقق من:', style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('• اتصال الإنترنت'),
+            Text('• صفحة الطلبات للتأكد من إضافة الطلب'),
+            SizedBox(height: 12),
+            Text('إذا لم يظهر الطلب، يمكنك المحاولة مرة أخرى.', style: TextStyle(fontSize: 14, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // الانتقال لصفحة الطلبات للتحقق
+              context.go('/orders');
+            },
+            child: const Text('التحقق من الطلبات'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // الرجوع لصفحة المنتجات
+              context.go('/products');
+            },
+            child: const Text('حسناً'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _confirmOrder() async {
     debugPrint('🚀 تم الضغط على زر تأكيد الطلب في صفحة ملخص الطلب');
 
@@ -815,17 +871,33 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       _isProcessing = true;
     });
 
-    // ⏰ Timeout wrapper ذكي - إذا لم يكتمل الطلب خلال 12 ثانية، إظهار أنيميشن الخطأ
+    // ⏰ Timeout محسّن - 30 ثانية لإعطاء الباك إند وقت كافٍ
     try {
-      await Future.any([
-        _createOrderInternal(),
-        Future.delayed(const Duration(seconds: 12)).then((_) {
-          debugPrint('⏰ انتهت مهلة إنشاء الطلب (12 ثانية)');
-          throw TimeoutException('انتهت مهلة إنشاء الطلب', const Duration(seconds: 12));
-        }),
-      ]);
+      await _createOrderInternal().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('⏰ انتهت مهلة إنشاء الطلب (30 ثانية)');
+          throw TimeoutException('انتهت مهلة إنشاء الطلب - يرجى التحقق من الإنترنت', const Duration(seconds: 30));
+        },
+      );
+
+      // ✅ إذا وصلنا هنا، فالطلب تم إنشاؤه بنجاح
+      debugPrint('✅ تم إنشاء الطلب بنجاح - لا أخطاء');
+    } on TimeoutException catch (e) {
+      debugPrint('⏰ خطأ Timeout: $e');
+
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _orderConfirmed = false;
+        });
+
+        // ⚠️ إظهار رسالة تحذير بدلاً من خطأ
+        _showTimeoutWarning();
+      }
     } catch (e) {
       debugPrint('❌ خطأ في إنشاء الطلب: $e');
+      debugPrint('🔍 نوع الخطأ: ${e.runtimeType}');
 
       if (mounted) {
         setState(() {
@@ -1011,7 +1083,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
         debugPrint('🚀 بدء إنشاء الطلب المجدول...');
 
-        // ✅ إضافة timeout لمنع التجمد - استخدام البيانات النهائية من ملخص الطلب
+        // ✅ إضافة timeout محسّن (30 ثانية) - استخدام البيانات النهائية من ملخص الطلب
         result = await scheduledOrdersService
             .addScheduledOrder(
               customerName: finalOrderData['customerName'] ?? '',
@@ -1029,10 +1101,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               cityId: finalOrderData['cityId'], // ✅ معرف المدينة
             )
             .timeout(
-              const Duration(seconds: 10), // ✅ timeout بعد 10 ثواني
+              const Duration(seconds: 30), // ✅ timeout محسّن بعد 30 ثانية
               onTimeout: () {
-                debugPrint('⏰ انتهت مهلة إنشاء الطلب المجدول');
-                throw TimeoutException('انتهت مهلة إنشاء الطلب', const Duration(seconds: 10));
+                debugPrint('⏰ انتهت مهلة إنشاء الطلب المجدول (30 ثانية)');
+                throw TimeoutException('انتهت مهلة إنشاء الطلب المجدول', const Duration(seconds: 30));
               },
             );
 
@@ -1068,7 +1140,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
         final ordersService = OfficialOrdersService();
 
-        // ✅ إضافة timeout لمنع التجمد - استخدام البيانات النهائية من ملخص الطلب
+        // ✅ إضافة timeout محسّن (30 ثانية) - استخدام البيانات النهائية من ملخص الطلب
         result = await ordersService
             .createOrder(
               customerName: finalOrderData['customerName'] ?? '',
@@ -1093,21 +1165,38 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               userPhone: currentUserPhone, // ✅ إضافة رقم هاتف المستخدم الحالي
             )
             .timeout(
-              const Duration(seconds: 10), // ✅ timeout بعد 10 ثواني
+              const Duration(seconds: 30), // ✅ timeout محسّن بعد 30 ثانية
               onTimeout: () {
-                debugPrint('⏰ انتهت مهلة إنشاء الطلب العادي');
-                throw TimeoutException('انتهت مهلة إنشاء الطلب', const Duration(seconds: 10));
+                debugPrint('⏰ انتهت مهلة إنشاء الطلب العادي (30 ثانية)');
+                throw TimeoutException('انتهت مهلة إنشاء الطلب العادي', const Duration(seconds: 30));
               },
             );
 
         debugPrint('✅ تم إنشاء الطلب العادي بنجاح');
       }
 
-      // ✅ استخراج معرف الطلب
-      String? orderId = result['orderId'] ?? result['data']?['orderId'];
-      debugPrint('✅ تم إنشاء الطلب - معرف الطلب: $orderId');
+      // ✅ استخراج معرف الطلب من جميع الأماكن الممكنة
+      String? orderId = result['orderId'] ?? result['data']?['orderId'] ?? result['data']?['id'];
+
+      debugPrint('🔍 === استخراج معرف الطلب ===');
+      debugPrint('   - نوع result: ${result.runtimeType}');
+      debugPrint('   - result.keys: ${result.keys}');
+      debugPrint('   - result[orderId]: ${result['orderId']}');
+      debugPrint('   - result[data]: ${result['data']}');
+      debugPrint('   - result[data][orderId]: ${result['data']?['orderId']}');
+      debugPrint('   - result[data][id]: ${result['data']?['id']}');
+      debugPrint('   - معرف الطلب النهائي: $orderId');
+
+      if (orderId == null || orderId.isEmpty) {
+        debugPrint('❌ فشل في استخراج معرف الطلب من الاستجابة');
+        debugPrint('📋 الاستجابة الكاملة: $result');
+        throw Exception('فشل في استخراج معرف الطلب من الاستجابة');
+      }
+
+      debugPrint('✅ تم إنشاء الطلب بنجاح - معرف الطلب: $orderId');
 
       // ✅ تحديث حالة الطلب
+      debugPrint('🔄 تحديث حالة الطلب إلى confirmed...');
       setState(() {
         _orderConfirmed = true;
       });
@@ -1116,7 +1205,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       final cartService = CartService();
       cartService.clearCart();
 
-      if (mounted && orderId != null) {
+      if (mounted) {
         // 🔍 التحقق الذكي من وجود الطلب في قاعدة البيانات
         debugPrint('🔍 بدء التحقق من وجود الطلب في قاعدة البيانات...');
 

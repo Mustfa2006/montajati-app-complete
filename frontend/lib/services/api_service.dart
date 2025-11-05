@@ -110,7 +110,7 @@ class ApiService {
 
       debugPrint('📦 بيانات الطلب: ${jsonEncode(requestBody)}');
 
-      // إرسال الطلب
+      // إرسال الطلب مع timeout محسّن (30 ثانية)
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/orders'),
@@ -118,10 +118,10 @@ class ApiService {
             body: jsonEncode(requestBody),
           )
           .timeout(
-            const Duration(seconds: 10),
+            const Duration(seconds: 30),
             onTimeout: () {
-              debugPrint('⏰ انتهت مهلة الاتصال بالباك إند');
-              throw TimeoutException('انتهت مهلة الاتصال بالخادم', const Duration(seconds: 10));
+              debugPrint('⏰ انتهت مهلة الاتصال بالباك إند (30 ثانية)');
+              throw TimeoutException('انتهت مهلة الاتصال بالخادم', const Duration(seconds: 30));
             },
           );
 
