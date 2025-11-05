@@ -18,14 +18,12 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
-console.log('✅ تم إنشاء عميل Supabase بنجاح في routes/orders.js');
 
 // ===================================
 // GET /api/orders/debug-waseet - فحص مفصل لحالة الوسيط
 // ===================================
 router.get('/debug-waseet', async (req, res) => {
   try {
-    console.log('🔍 فحص مفصل لحالة الوسيط...');
 
     const debugInfo = {
       timestamp: new Date().toISOString(),
@@ -57,8 +55,6 @@ router.get('/debug-waseet', async (req, res) => {
         error: serviceError.message
       };
     }
-
-    console.log('📋 معلومات التشخيص:', JSON.stringify(debugInfo, null, 2));
 
     res.json({
       success: true,
@@ -176,11 +172,9 @@ router.post('/run-integrated-sync', async (req, res) => {
   try {
     const waseetSync = require('../services/integrated_waseet_sync');
 
-    console.log('🔄 تنفيذ مزامنة فورية مع النظام المدمج...');
-
     // تأكد من أن النظام يعمل
     if (!waseetSync.isRunning) {
-      console.log('🚀 بدء النظام المدمج...');
+
       await waseetSync.start();
     }
 
@@ -261,8 +255,6 @@ router.get('/user/:userPhone', async (req, res) => {
       });
     }
 
-    console.log(`📱 جلب طلبات المستخدم: ${userPhone} - الصفحة: ${page}, الحد: ${limit}, الفلتر: ${statusFilter || 'الكل'}`);
-
     const offset = parseInt(page) * parseInt(limit);
 
     // بناء الاستعلام الأساسي
@@ -329,10 +321,6 @@ router.get('/user/:userPhone', async (req, res) => {
         // بناء قائمة الحالات بشكل صحيح للـ Supabase
         const statusArray = statuses.map(s => `"${s.replace(/"/g, '\\"')}"`).join(',');
         query = query.or(`status.in.(${statusArray}),waseet_status_text.in.(${statusArray})`);
-
-        console.log(`🔍 فلترة بالحالات (status + waseet_status_text): ${statuses.join(', ')}`);
-        console.log(`📋 عدد الحالات: ${statuses.length}`);
-        console.log(`📋 Status Array: ${statusArray.substring(0, 100)}...`);
       }
     }
 
@@ -350,8 +338,6 @@ router.get('/user/:userPhone', async (req, res) => {
         error: 'خطأ في جلب الطلبات'
       });
     }
-
-    console.log(`✅ تم جلب ${data?.length || 0} طلب من أصل ${count} طلب`);
 
     // ✅ تحويل صيغة التاريخ إلى ISO 8601 لضمان التوافق مع Frontend
     const formattedData = (data || []).map(order => ({
@@ -394,8 +380,6 @@ router.get('/user/:userPhone/counts', async (req, res) => {
         error: 'رقم الهاتف مطلوب'
       });
     }
-
-    console.log(`📊 جلب عدادات الطلبات للمستخدم: ${userPhone}`);
 
     // ✅ استعلام واحد لجلب جميع الطلبات (مع status و waseet_status_text)
     const { data: allOrders, error } = await supabase
@@ -481,8 +465,6 @@ router.get('/user/:userPhone/counts', async (req, res) => {
       counts.scheduled = scheduledCount || 0;
     }
 
-    console.log(`✅ تم حساب العدادات:`, counts);
-
     res.json({
       success: true,
       data: counts
@@ -511,8 +493,6 @@ router.get('/scheduled-orders/user/:userPhone', async (req, res) => {
         error: 'رقم الهاتف مطلوب'
       });
     }
-
-    console.log(`📅 جلب الطلبات المجدولة للمستخدم: ${userPhone}`);
 
     const offset = parseInt(page) * parseInt(limit);
 
@@ -546,8 +526,6 @@ router.get('/scheduled-orders/user/:userPhone', async (req, res) => {
         error: 'خطأ في جلب الطلبات المجدولة'
       });
     }
-
-    console.log(`✅ تم جلب ${data?.length || 0} طلب مجدول من أصل ${count}`);
 
     res.json({
       success: true,
@@ -584,8 +562,6 @@ router.delete('/scheduled-orders/:id', async (req, res) => {
       });
     }
 
-    console.log(`🗑️ حذف الطلب المجدول ${id} للمستخدم ${userPhone}`);
-
     // التحقق من أن الطلب يخص المستخدم
     const { data: order, error: fetchError } = await supabase
       .from('scheduled_orders')
@@ -621,8 +597,6 @@ router.delete('/scheduled-orders/:id', async (req, res) => {
       });
     }
 
-    console.log(`✅ تم حذف الطلب المجدول ${id}`);
-
     res.json({
       success: true,
       message: 'تم حذف الطلب المجدول بنجاح'
@@ -651,8 +625,6 @@ router.patch('/:id', async (req, res) => {
         error: 'معرف الطلب ورقم الهاتف والتحديثات مطلوبة'
       });
     }
-
-    console.log(`✏️ تعديل الطلب ${id} للمستخدم ${userPhone}`);
 
     // التحقق من أن الطلب يخص المستخدم
     const { data: order, error: fetchError } = await supabase
@@ -691,8 +663,6 @@ router.patch('/:id', async (req, res) => {
       });
     }
 
-    console.log(`✅ تم تعديل الطلب ${id}`);
-
     res.json({
       success: true,
       message: 'تم تعديل الطلب بنجاح',
@@ -722,8 +692,6 @@ router.delete('/:id', async (req, res) => {
         error: 'معرف الطلب ورقم الهاتف مطلوبان'
       });
     }
-
-    console.log(`🗑️ حذف الطلب ${id} للمستخدم ${userPhone}`);
 
     // التحقق من أن الطلب يخص المستخدم
     const { data: order, error: fetchError } = await supabase
@@ -760,8 +728,6 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    console.log(`✅ تم حذف الطلب ${id}`);
-
     res.json({
       success: true,
       message: 'تم حذف الطلب بنجاح'
@@ -776,24 +742,13 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-
-
 // ===================================
 // PUT /api/orders/:id/status - تحديث حالة الطلب
 // ===================================
 router.put('/:id/status', async (req, res) => {
   try {
-    console.log('\n🚀 ===== بداية تحديث حالة الطلب =====');
-    console.log(`⏰ الوقت: ${new Date().toISOString()}`);
-
     const { id } = req.params;
     const { status, notes, changedBy = 'admin' } = req.body;
-
-    console.log(`🆔 معرف الطلب: ${id}`);
-    console.log(`📊 الحالة الجديدة: "${status}"`);
-    console.log(`📝 ملاحظات: ${notes || 'لا توجد'}`);
-    console.log(`👤 تم التغيير بواسطة: ${changedBy}`);
-    console.log(`📦 البيانات الكاملة المستلمة:`, JSON.stringify(req.body, null, 2));
 
     // التحقق من البيانات المطلوبة
     if (!status) {
@@ -805,7 +760,6 @@ router.put('/:id/status', async (req, res) => {
 
     // تحويل الحالات المختلفة إلى الحالة الصحيحة الوحيدة للوسيط
     function normalizeStatus(status) {
-      console.log(`🔄 تحويل الحالة: "${status}"`);
 
       // الحالة الوحيدة المؤهلة للإرسال للوسيط:
       // ID: 3 - "قيد التوصيل الى الزبون (في عهدة المندوب)"
@@ -844,13 +798,12 @@ router.put('/:id/status', async (req, res) => {
       };
 
       const converted = statusMap[status] || status;
-      console.log(`   ✅ تم التحويل إلى: "${converted}"`);
+
       return converted;
     }
 
     // تطبيق التحويل على الحالة
     const normalizedStatus = normalizeStatus(status);
-    console.log(`🔄 تحويل الحالة: "${status}" → "${normalizedStatus}"`);
 
     // التحقق من وجود الطلب
     const { data: existingOrder, error: fetchError } = await supabase
@@ -868,7 +821,6 @@ router.put('/:id/status', async (req, res) => {
     }
 
     const oldStatus = existingOrder.status;
-    console.log(`📊 الحالة القديمة: ${oldStatus} → الحالة الجديدة: ${status}`);
 
     // تحديث حالة الطلب (استخدام الحالة المحولة)
     const { error: updateError } = await supabase
@@ -899,7 +851,7 @@ router.put('/:id/status', async (req, res) => {
           change_reason: notes || 'تم تحديث الحالة من لوحة التحكم',
           created_at: new Date().toISOString()
         });
-      console.log('✅ تم إضافة سجل تاريخ الحالة');
+
     } catch (historyError) {
       console.warn('⚠️ تحذير: فشل في حفظ سجل التاريخ (الجدول قد يكون غير موجود):', historyError.message);
       // لا نوقف العملية - هذا اختياري
@@ -918,23 +870,18 @@ router.put('/:id/status', async (req, res) => {
             created_by: changedBy,
             created_at: new Date().toISOString()
           });
-        console.log('✅ تم إضافة ملاحظة الحالة');
+
       } catch (noteError) {
         console.warn('⚠️ تحذير: فشل في إضافة الملاحظة (الجدول قد يكون غير موجود):', noteError.message);
       }
     }
 
-    console.log(`✅ تم تحديث حالة الطلب ${id} بنجاح`);
-
     // 🔔 **ملاحظة مهمة:** الإشعارات تُرسل الآن من مكان واحد فقط:
     // 1. من integrated_waseet_sync.js عند المزامنة التلقائية مع الوسيط
     // 2. هذا يضمن عدم تكرار الإشعارات
     // 3. لا نرسل إشعار هنا لتجنب التكرار
-    console.log('📝 ملاحظة: الإشعار سيتم إرساله من نظام المزامنة التلقائي (integrated_waseet_sync.js)');
-    // لا نوقف العملية إذا فشل الإشعار
 
     // 🚀 إرسال الطلب لشركة الوسيط عند تغيير الحالة إلى "قيد التوصيل"
-    console.log(`🔍 فحص إرسال الطلب للوسيط - الحالة المحولة: "${normalizedStatus}"`);
 
     // الحالة الوحيدة المؤهلة لإرسال الطلب للوسيط
     // ID: 3 - "قيد التوصيل الى الزبون (في عهدة المندوب)"
@@ -942,11 +889,7 @@ router.put('/:id/status', async (req, res) => {
       'قيد التوصيل الى الزبون (في عهدة المندوب)' // الحالة الوحيدة المؤهلة
     ];
 
-    console.log(`📋 الحالة الوحيدة المؤهلة للوسيط: "${deliveryStatuses[0]}"`);
-    console.log(`🔍 هل الحالة المحولة "${normalizedStatus}" مؤهلة؟`, deliveryStatuses.includes(normalizedStatus));
-
     if (deliveryStatuses.includes(normalizedStatus)) {
-      console.log(`📦 ✅ الحالة "${normalizedStatus}" مؤهلة - سيتم إرسال الطلب لشركة الوسيط...`);
 
       try {
         // التحقق من أن الطلب لم يتم إرساله مسبقاً
@@ -959,17 +902,12 @@ router.put('/:id/status', async (req, res) => {
         if (checkError) {
           console.error('❌ خطأ في فحص حالة الوسيط:', checkError);
         } else {
-          console.log(`📋 بيانات الطلب الحالية:`, currentOrder);
-          console.log(`🆔 معرف الوسيط الحالي: ${currentOrder.waseet_order_id || 'غير محدد'}`);
-          console.log(`📊 حالة الوسيط الحالية: ${currentOrder.waseet_status || 'غير محدد'}`);
 
           if (currentOrder.waseet_order_id) {
-            console.log(`ℹ️ الطلب ${id} تم إرساله مسبقاً للوسيط (ID: ${currentOrder.waseet_order_id})`);
+            // الطلب تم إرساله مسبقاً
           } else {
-            console.log(`🚀 الطلب ${id} لم يتم إرساله للوسيط - سيتم الإرسال الآن...`);
 
             // التحقق من وجود خدمة المزامنة المهيأة
-            console.log(`🔍 فحص خدمة المزامنة: ${global.orderSyncService ? '✅ موجودة' : '❌ غير موجودة'}`);
 
             if (!global.orderSyncService) {
               console.error('❌ خدمة المزامنة غير متاحة - محاولة إنشاء خدمة جديدة...');
@@ -977,7 +915,7 @@ router.put('/:id/status', async (req, res) => {
               try {
                 const OrderSyncService = require('../services/order_sync_service');
                 global.orderSyncService = new OrderSyncService();
-                console.log('✅ تم إنشاء خدمة مزامنة جديدة');
+
               } catch (serviceError) {
                 console.error('❌ فشل في إنشاء خدمة المزامنة:', serviceError.message);
 
@@ -996,23 +934,16 @@ router.put('/:id/status', async (req, res) => {
                   .eq('id', id);
 
                 // لا تتوقف هنا - استمر لإرسال الاستجابة
-                console.log('⚠️ سيتم إرسال الاستجابة رغم فشل خدمة المزامنة');
+
               }
             }
 
             // إرسال الطلب لشركة الوسيط (فقط إذا كانت الخدمة متاحة)
             if (global.orderSyncService) {
-              console.log(`🚀 بدء إرسال الطلب ${id} لشركة الوسيط...`);
-              console.log(`🔧 خدمة المزامنة: ${global.orderSyncService.constructor.name}`);
-              console.log(`🔧 حالة الخدمة: ${global.orderSyncService.isInitialized ? 'مهيأة' : 'غير مهيأة'}`);
 
               const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
 
-              console.log(`📋 نتيجة إرسال الطلب للوسيط:`, waseetResult);
-
               if (waseetResult && waseetResult.success) {
-                console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
-                console.log(`🆔 QR ID: ${waseetResult.qrId}`);
 
                 // تحديث الطلب بمعلومات الوسيط
                 await supabase
@@ -1025,10 +956,7 @@ router.put('/:id/status', async (req, res) => {
                   })
                   .eq('id', id);
 
-                console.log(`🎉 تم تحديث الطلب ${id} بمعرف الوسيط: ${waseetResult.qrId}`);
-
               } else {
-                console.log(`⚠️ فشل في إرسال الطلب ${id} لشركة الوسيط - سيتم المحاولة لاحقاً`);
 
                 // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
                 await supabase
@@ -1045,7 +973,6 @@ router.put('/:id/status', async (req, res) => {
                   .eq('id', id);
               }
             } else {
-              console.log(`⚠️ خدمة المزامنة غير متاحة - سيتم المحاولة لاحقاً`);
 
               // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
               await supabase
@@ -1086,7 +1013,7 @@ router.put('/:id/status', async (req, res) => {
         }
       }
     } else {
-      console.log(`ℹ️ الحالة "${normalizedStatus}" ليست حالة توصيل - لن يتم إرسال الطلب للوسيط`);
+
     }
 
     res.json({
@@ -1115,9 +1042,6 @@ router.put('/:id/status', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { items, ...orderData } = req.body; // ✅ فصل العناصر عن بيانات الطلب
-
-    console.log('📦 محاولة إنشاء طلب جديد عبر الباك إند...');
-    console.log('📋 عدد العناصر:', items ? items.length : 0);
 
     // إضافة معرف فريد وتاريخ الإنشاء
     const orderId = orderData.id || `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -1157,12 +1081,10 @@ router.post('/', async (req, res) => {
     }
 
     // ✅ الآن فقط نعرض رسالة النجاح
-    console.log(`✅ تم إنشاء الطلب بنجاح: ${orderResult.id}`);
 
     // ✅ حفظ عناصر الطلب إذا كانت موجودة
     let itemsSaved = false;
     if (items && items.length > 0) {
-      console.log(`📦 محاولة حفظ ${items.length} عنصر للطلب...`);
 
       const orderItems = items.map(item => ({
         order_id: orderId,
@@ -1204,11 +1126,10 @@ router.post('/', async (req, res) => {
       }
 
       itemsSaved = true;
-      console.log(`✅ تم حفظ ${itemsData.length} عنصر بنجاح`);
+
     }
 
     // ✅ النجاح الكامل
-    console.log(`🎉 تم إنشاء الطلب والعناصر بنجاح: ${orderResult.id}`);
 
     res.status(201).json({
       success: true,
@@ -1236,9 +1157,6 @@ router.post('/', async (req, res) => {
 router.post('/scheduled-orders', async (req, res) => {
   try {
     const { items, ...orderData } = req.body; // ✅ فصل العناصر عن بيانات الطلب
-
-    console.log('📅 محاولة إنشاء طلب مجدول جديد عبر الباك إند...');
-    console.log('📋 عدد العناصر:', items ? items.length : 0);
 
     // إضافة معرف فريد وتاريخ الإنشاء
     const orderId = orderData.id || `scheduled_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -1277,12 +1195,10 @@ router.post('/scheduled-orders', async (req, res) => {
     }
 
     // ✅ الآن فقط نعرض رسالة النجاح
-    console.log(`✅ تم إنشاء الطلب المجدول بنجاح: ${orderResult.id}`);
 
     // ✅ حفظ عناصر الطلب المجدول إذا كانت موجودة
     let itemsSaved = false;
     if (items && items.length > 0) {
-      console.log(`📦 محاولة حفظ ${items.length} عنصر للطلب المجدول...`);
 
       const orderItems = items.map(item => ({
         scheduled_order_id: orderId,
@@ -1322,11 +1238,10 @@ router.post('/scheduled-orders', async (req, res) => {
       }
 
       itemsSaved = true;
-      console.log(`✅ تم حفظ ${itemsData.length} عنصر بنجاح`);
+
     }
 
     // ✅ النجاح الكامل
-    console.log(`🎉 تم إنشاء الطلب المجدول والعناصر بنجاح: ${orderResult.id}`);
 
     res.status(201).json({
       success: true,
@@ -1354,8 +1269,6 @@ router.post('/scheduled-orders', async (req, res) => {
 router.post('/:id/send-to-waseet', async (req, res) => {
   try {
     const { id } = req.params;
-
-    console.log(`📦 طلب إرسال الطلب ${id} لشركة الوسيط يدوياً...`);
 
     // التحقق من وجود الطلب
     const { data: existingOrder, error: fetchError } = await supabase
@@ -1386,7 +1299,6 @@ router.post('/:id/send-to-waseet', async (req, res) => {
     const waseetResult = await orderSyncService.sendOrderToWaseet(id);
 
     if (waseetResult && waseetResult.success) {
-      console.log(`✅ تم إرسال الطلب ${id} لشركة الوسيط بنجاح`);
 
       res.json({
         success: true,
@@ -1420,7 +1332,6 @@ router.post('/:id/send-to-waseet', async (req, res) => {
 // ===================================
 router.post('/sync-waseet-statuses', async (req, res) => {
   try {
-    console.log(`🔄 طلب مزامنة حالات الطلبات مع شركة الوسيط...`);
 
     const OrderSyncService = require('../services/order_sync_service');
     const orderSyncService = new OrderSyncService();
@@ -1453,7 +1364,6 @@ router.post('/sync-waseet-statuses', async (req, res) => {
 // ===================================
 router.post('/sync-waseet-status-definitions', async (req, res) => {
   try {
-    console.log(`🔄 طلب مزامنة تعريفات حالات الوسيط...`);
 
     const OrderSyncService = require('../services/order_sync_service');
     const orderSyncService = new OrderSyncService();
@@ -1492,7 +1402,6 @@ router.post('/sync-waseet-status-definitions', async (req, res) => {
 // ===================================
 router.post('/retry-failed-waseet', async (req, res) => {
   try {
-    console.log(`🔄 إعادة محاولة إرسال الطلبات الفاشلة للوسيط...`);
 
     // جلب الطلبات التي فشل إرسالها للوسيط
     const { data: failedOrders, error: fetchError } = await supabase
@@ -1517,8 +1426,6 @@ router.post('/retry-failed-waseet', async (req, res) => {
       });
     }
 
-    console.log(`📊 تم العثور على ${failedOrders.length} طلب فاشل`);
-
     const OrderSyncService = require('../services/order_sync_service');
     const orderSyncService = new OrderSyncService();
 
@@ -1527,16 +1434,15 @@ router.post('/retry-failed-waseet', async (req, res) => {
 
     for (const order of failedOrders) {
       try {
-        console.log(`🔄 إعادة محاولة إرسال الطلب ${order.id}...`);
 
         const waseetResult = await orderSyncService.sendOrderToWaseet(order.id);
 
         if (waseetResult && waseetResult.success) {
           successCount++;
-          console.log(`✅ تم إرسال الطلب ${order.id} بنجاح`);
+
         } else {
           failCount++;
-          console.log(`❌ فشل في إرسال الطلب ${order.id}`);
+
         }
 
         // انتظار قصير بين الطلبات لتجنب الضغط على API
@@ -1547,8 +1453,6 @@ router.post('/retry-failed-waseet', async (req, res) => {
         console.error(`❌ خطأ في إعادة محاولة الطلب ${order.id}:`, orderError);
       }
     }
-
-    console.log(`✅ انتهت إعادة المحاولة - نجح: ${successCount}, فشل: ${failCount}`);
 
     res.json({
       success: true,
@@ -1572,7 +1476,6 @@ router.post('/retry-failed-waseet', async (req, res) => {
 // ===================================
 router.post('/create-test-order', async (req, res) => {
   try {
-    console.log('📦 إنشاء طلب تجريبي للاختبار...');
 
     const testOrder = {
       id: `test_order_${Date.now()}`,
@@ -1605,8 +1508,6 @@ router.post('/create-test-order', async (req, res) => {
       });
     }
 
-    console.log(`✅ تم إنشاء طلب تجريبي: ${data.id}`);
-
     res.status(201).json({
       success: true,
       message: 'تم إنشاء الطلب التجريبي بنجاح',
@@ -1629,7 +1530,6 @@ router.post('/create-test-order', async (req, res) => {
 // POST /api/orders/start-waseet-sync - بدء نظام المزامنة الحقيقي مع الوسيط
 router.post('/start-waseet-sync', async (req, res) => {
   try {
-    console.log('🚀 طلب بدء نظام المزامنة مع الوسيط...');
 
     const RealWaseetSyncSystem = require('../services/real_waseet_sync_system');
 
@@ -1667,7 +1567,6 @@ router.post('/start-waseet-sync', async (req, res) => {
 // POST /api/orders/stop-waseet-sync - إيقاف نظام المزامنة
 router.post('/stop-waseet-sync', async (req, res) => {
   try {
-    console.log('⏹️ طلب إيقاف نظام المزامنة...');
 
     if (global.waseetSyncSystem) {
       global.waseetSyncSystem.stopRealTimeSync();
@@ -1697,7 +1596,6 @@ router.post('/stop-waseet-sync', async (req, res) => {
 // POST /api/orders/force-waseet-sync - تنفيذ مزامنة فورية مع الوسيط
 router.post('/force-waseet-sync', async (req, res) => {
   try {
-    console.log('⚡ طلب مزامنة فورية مع الوسيط...');
 
     if (!global.waseetSyncSystem) {
       return res.status(400).json({
@@ -1726,7 +1624,6 @@ router.post('/force-waseet-sync', async (req, res) => {
 // POST /api/orders/force-sync-now - تنفيذ مزامنة فورية
 router.post('/force-sync-now', async (req, res) => {
   try {
-    console.log('⚡ طلب مزامنة فورية...');
 
     if (!global.realTimeSyncSystem) {
       return res.status(400).json({
@@ -1864,8 +1761,6 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log(`📥 جلب تفاصيل الطلب: ${id}`);
-
     // ✅ محاولة جلب الطلب العادي أولاً
     let { data: orderData, error: orderError } = await supabase
       .from('orders')
@@ -1877,7 +1772,6 @@ router.get('/:id', async (req, res) => {
 
     // إذا لم يوجد، جرب الطلبات المجدولة
     if (orderError) {
-      console.log('🔄 لم يوجد في الطلبات العادية، جرب الطلبات المجدولة...');
 
       const { data: scheduledData, error: scheduledError } = await supabase
         .from('scheduled_orders')
@@ -1915,8 +1809,6 @@ router.get('/:id', async (req, res) => {
       ...orderData,
       [itemsKey]: itemsData || []
     };
-
-    console.log(`✅ تم جلب الطلب بنجاح: ${id}`);
 
     res.json({
       success: true,
