@@ -95,9 +95,8 @@ class _OrdersPageState extends State<OrdersPage> {
   /// مؤقت لـ Debouncing تغيير الفلتر
   Timer? _filterDebounceTimer;
 
-  /// عدد محاولات إعادة الطلب
+  /// عدد محاولات إعادة الطلب (لا حد أقصى - إعادة محاولة مستمرة)
   int _retryCount = 0;
-  final int _maxRetries = 5;
 
   // ===================================
   // عدادات الطلبات حسب الحالة
@@ -261,13 +260,19 @@ class _OrdersPageState extends State<OrdersPage> {
       }
     } on TimeoutException {
       debugPrint('❌ انتهت مهلة الانتظار في جلب الطلبات المجدولة');
-      return [];
+      // ✅ إعادة محاولة مستمرة
+      await Future.delayed(const Duration(seconds: 3));
+      return _getScheduledOrders(userPhone);
     } on http.ClientException {
       debugPrint('❌ فشل الاتصال بالخادم في جلب الطلبات المجدولة');
-      return [];
+      // ✅ إعادة محاولة مستمرة
+      await Future.delayed(const Duration(seconds: 3));
+      return _getScheduledOrders(userPhone);
     } catch (e) {
       debugPrint('❌ خطأ في جلب الطلبات المجدولة: $e');
-      return [];
+      // ✅ إعادة محاولة مستمرة
+      await Future.delayed(const Duration(seconds: 3));
+      return _getScheduledOrders(userPhone);
     }
   }
 
@@ -356,28 +361,32 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// جلب طلبات المستخدم من Backend API
   /// يدعم Pagination و Infinite Scroll
-  /// ✅ نظام ذكي لمنع Race Condition و Retry Mechanism
+  /// ✅ نظام ذكي لمنع Race Condition و Retry Mechanism المستمر
   Future<void> _loadOrdersFromDatabase({bool isLoadMore = false, int retryAttempt = 0}) async {
-    // منع الطلبات المتعددة المتزامنة
-    if (_isLoading || (isLoadMore && _isLoadingMore) || (isLoadMore && !_hasMoreData)) {
-      return;
+    // منع الطلبات المتعددة المتزامنة (فقط في المحاولة الأولى)
+    if (retryAttempt == 0) {
+      if (_isLoading || (isLoadMore && _isLoadingMore) || (isLoadMore && !_hasMoreData)) {
+        return;
+      }
     }
 
     // ✅ إنشاء معرف فريد لهذا الطلب
     final requestId = ++_currentRequestId;
-    debugPrint('🆔 معرف الطلب: $requestId');
+    debugPrint('🆔 معرف الطلب: $requestId (محاولة ${retryAttempt + 1})');
 
-    // تحديث حالة التحميل
-    setState(() {
-      if (isLoadMore) {
-        _isLoadingMore = true;
-      } else {
-        _isLoading = true;
-        _currentPage = 0;
-        _hasMoreData = true;
-        _orders.clear();
-      }
-    });
+    // تحديث حالة التحميل (فقط في المحاولة الأولى)
+    if (retryAttempt == 0) {
+      setState(() {
+        if (isLoadMore) {
+          _isLoadingMore = true;
+        } else {
+          _isLoading = true;
+          _currentPage = 0;
+          _hasMoreData = true;
+          _orders.clear();
+        }
+      });
+    }
 
     try {
       // جلب رقم هاتف المستخدم من التخزين المحلي
@@ -430,6 +439,7 @@ class _OrdersPageState extends State<OrdersPage> {
               newOrders.add(order);
             } catch (e) {
               debugPrint('❌ خطأ في تحويل طلب: $e');
+              debugPrint('📋 بيانات الطلب: $orderData'); // ✅ طباعة البيانات للتشخيص
             }
           }
 
@@ -451,6 +461,10 @@ class _OrdersPageState extends State<OrdersPage> {
               _hasMoreData = pagination['hasMore'] ?? false;
               _currentPage++;
               _retryCount = 0; // ✅ إعادة تعيين عداد المحاولات
+
+              // ✅ إيقاف مؤشر التحميل عند النجاح
+              _isLoading = false;
+              _isLoadingMore = false;
             });
           }
 
@@ -464,53 +478,60 @@ class _OrdersPageState extends State<OrdersPage> {
           setState(() {
             _orders = [];
             _hasMoreData = false;
+
+            // ✅ إيقاف مؤشر التحميل عند عدم وجود طلبات
+            _isLoading = false;
+            _isLoadingMore = false;
           });
         }
       } else {
         throw Exception('خطأ في الخادم: ${response.statusCode}');
       }
     } on TimeoutException {
-      debugPrint('❌ انتهت مهلة الانتظار (محاولة ${retryAttempt + 1}/$_maxRetries)');
+      debugPrint('❌ انتهت مهلة الانتظار (محاولة ${retryAttempt + 1})');
 
-      // ✅ إعادة المحاولة تلقائياً مع Exponential Backoff
-      if (retryAttempt < _maxRetries && requestId == _currentRequestId) {
-        final waitSeconds = 2 * (retryAttempt + 1); // 2s, 4s, 6s, 8s, 10s
-        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
+      // ✅ إعادة المحاولة تلقائياً مستمرة بدون توقف
+      if (requestId == _currentRequestId) {
+        // حساب وقت الانتظار مع حد أقصى 30 ثانية
+        final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
+        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
+
         await Future.delayed(Duration(seconds: waitSeconds));
         if (requestId == _currentRequestId) {
           return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
-        }
-      } else {
-        if (mounted && requestId == _currentRequestId) {
-          _showErrorMessage('انتهت مهلة الانتظار. يرجى المحاولة مرة أخرى');
         }
       }
     } on http.ClientException {
-      debugPrint('❌ فشل الاتصال بالخادم (محاولة ${retryAttempt + 1}/$_maxRetries)');
+      debugPrint('❌ فشل الاتصال بالخادم (محاولة ${retryAttempt + 1})');
 
-      // ✅ إعادة المحاولة تلقائياً مع Exponential Backoff
-      if (retryAttempt < _maxRetries && requestId == _currentRequestId) {
-        final waitSeconds = 2 * (retryAttempt + 1); // 2s, 4s, 6s, 8s, 10s
-        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
+      // ✅ إعادة المحاولة تلقائياً مستمرة بدون توقف
+      if (requestId == _currentRequestId) {
+        // حساب وقت الانتظار مع حد أقصى 30 ثانية
+        final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
+        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
+
         await Future.delayed(Duration(seconds: waitSeconds));
         if (requestId == _currentRequestId) {
           return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
         }
-      } else {
-        if (mounted && requestId == _currentRequestId) {
-          _showErrorMessage('فشل الاتصال بالخادم. تحقق من الإنترنت');
-        }
       }
     } catch (e) {
-      debugPrint('❌ خطأ في تحميل الطلبات: $e');
-      _showErrorMessage('حدث خطأ في تحميل الطلبات');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _isLoadingMore = false;
-        });
+      debugPrint('❌ خطأ في تحميل الطلبات: $e (محاولة ${retryAttempt + 1})');
+
+      // ✅ إعادة المحاولة تلقائياً مستمرة بدون توقف
+      if (requestId == _currentRequestId) {
+        // حساب وقت الانتظار مع حد أقصى 30 ثانية
+        final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
+        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
+
+        await Future.delayed(Duration(seconds: waitSeconds));
+        if (requestId == _currentRequestId) {
+          return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
+        }
       }
+    } finally {
+      // ✅ لا نفعل شيء هنا - يتم إيقاف التحميل في معالجة الاستجابة الناجحة
+      // أو في معالجة الأخطاء قبل إعادة المحاولة
     }
   }
 
@@ -534,7 +555,8 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// جلب عدادات الطلبات حسب الحالة من Backend API
   /// ✅ يستخدم Backend API - آمن وسريع
-  Future<void> _loadOrderCounts() async {
+  /// ✅ نظام إعادة محاولة مستمر
+  Future<void> _loadOrderCounts({int retryAttempt = 0}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final currentUserPhone = prefs.getString('current_user_phone');
@@ -544,7 +566,7 @@ class _OrdersPageState extends State<OrdersPage> {
         return;
       }
 
-      debugPrint('📊 جلب العدادات من Backend API للمستخدم: $currentUserPhone');
+      debugPrint('📊 جلب العدادات من Backend API للمستخدم: $currentUserPhone (محاولة ${retryAttempt + 1})');
 
       // بناء URL للـ Backend API
       final url = Uri.parse(AppConfig.getOrderCountsUrl(currentUserPhone));
@@ -586,14 +608,26 @@ class _OrdersPageState extends State<OrdersPage> {
         throw Exception('خطأ في الخادم: ${response.statusCode}');
       }
     } on TimeoutException {
-      debugPrint('❌ انتهت مهلة الانتظار في جلب العدادات');
-      // لا نحسب العدادات محلياً - نبقي القيم الافتراضية (0)
+      debugPrint('❌ انتهت مهلة الانتظار في جلب العدادات (محاولة ${retryAttempt + 1})');
+      // ✅ إعادة محاولة مستمرة
+      final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
+      debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
+      await Future.delayed(Duration(seconds: waitSeconds));
+      return _loadOrderCounts(retryAttempt: retryAttempt + 1);
     } on http.ClientException {
-      debugPrint('❌ فشل الاتصال بالخادم في جلب العدادات');
-      // لا نحسب العدادات محلياً - نبقي القيم الافتراضية (0)
+      debugPrint('❌ فشل الاتصال بالخادم في جلب العدادات (محاولة ${retryAttempt + 1})');
+      // ✅ إعادة محاولة مستمرة
+      final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
+      debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
+      await Future.delayed(Duration(seconds: waitSeconds));
+      return _loadOrderCounts(retryAttempt: retryAttempt + 1);
     } catch (e) {
-      debugPrint('❌ خطأ في جلب العدادات: $e');
-      // لا نحسب العدادات محلياً - نبقي القيم الافتراضية (0)
+      debugPrint('❌ خطأ في جلب العدادات: $e (محاولة ${retryAttempt + 1})');
+      // ✅ إعادة محاولة مستمرة
+      final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
+      debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
+      await Future.delayed(Duration(seconds: waitSeconds));
+      return _loadOrderCounts(retryAttempt: retryAttempt + 1);
     }
   }
 

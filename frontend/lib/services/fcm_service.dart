@@ -12,11 +12,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../firebase_options.dart';
+import '../router.dart';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -309,15 +311,67 @@ class FCMService {
     }
   }
 
-  /// معالجة بيانات الإشعار
+  /// معالجة بيانات الإشعار والتنقل إلى الصفحة المناسبة
   void _processNotificationData(Map<String, dynamic> data) {
     debugPrint('📊 معالجة بيانات الإشعار: $data');
 
-    // يمكن إضافة منطق التنقل هنا حسب نوع الإشعار
-    final orderId = data['orderId'] ?? data['order_id'];
-    if (orderId != null) {
-      // التنقل إلى صفحة تفاصيل الطلب
-      debugPrint('🔗 التنقل إلى الطلب: $orderId');
+    try {
+      // استخراج معرف الطلب من البيانات
+      final orderId = data['orderId'] ?? data['order_id'];
+      final notificationType = data['type'] ?? 'order_status_update';
+
+      debugPrint('📋 نوع الإشعار: $notificationType');
+      debugPrint('🔗 معرف الطلب: $orderId');
+
+      if (orderId != null && orderId.toString().isNotEmpty) {
+        // ✅ التنقل إلى صفحة تفاصيل الطلب
+        _navigateToOrderDetails(orderId.toString());
+      } else {
+        debugPrint('⚠️ لم يتم العثور على معرف الطلب في بيانات الإشعار');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في معالجة بيانات الإشعار: $e');
+    }
+  }
+
+  /// التنقل إلى صفحة تفاصيل الطلب
+  void _navigateToOrderDetails(String orderId) {
+    try {
+      debugPrint('🚀 بدء التنقل إلى صفحة الطلب: $orderId');
+
+      // محاولة الحصول على BuildContext من GoRouter
+      final context = AppRouter.router.routerDelegate.navigatorKey.currentContext;
+
+      if (context == null) {
+        debugPrint('⚠️ لم يتم العثور على BuildContext - سيتم المحاولة لاحقاً');
+        // محاولة التنقل بعد تأخير قصير
+        Future.delayed(const Duration(milliseconds: 500), () {
+          final ctx = AppRouter.router.routerDelegate.navigatorKey.currentContext;
+          if (ctx != null && ctx.mounted) {
+            _performNavigation(ctx, orderId);
+          }
+        });
+        return;
+      }
+
+      _performNavigation(context, orderId);
+    } catch (e) {
+      debugPrint('❌ خطأ في التنقل إلى صفحة الطلب: $e');
+    }
+  }
+
+  /// تنفيذ التنقل الفعلي
+  void _performNavigation(BuildContext context, String orderId) {
+    try {
+      debugPrint('🔗 التنقل إلى صفحة الطلب: $orderId');
+
+      // استخدام GoRouter للتنقل
+      if (context.mounted) {
+        context.go('/orders/details/$orderId');
+        debugPrint('✅ تم التنقل إلى صفحة الطلب بنجاح: $orderId');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تنفيذ التنقل: $e');
     }
   }
 

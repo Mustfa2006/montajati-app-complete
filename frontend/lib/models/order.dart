@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'order_item.dart';
 
 enum OrderStatus { pending, confirmed, inDelivery, delivered, cancelled }
@@ -60,9 +62,9 @@ class Order {
       total: (json['total'] ?? 0),
       status: _parseOrderStatus(json['status']),
       rawStatus: json['status'] ?? 'نشط', // الاحتفاظ بالنص الأصلي
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: _parseDateTime(json['created_at']), // ✅ معالجة آمنة للتاريخ
       items: (json['order_items'] as List?)?.map((item) => OrderItem.fromJson(item)).toList() ?? [],
-      scheduledDate: json['scheduled_date'] != null ? DateTime.parse(json['scheduled_date']) : null,
+      scheduledDate: _parseOptionalDateTime(json['scheduled_date']), // ✅ معالجة آمنة
       scheduleNotes: json['schedule_notes'],
       supportRequested: json['support_requested'],
       waseetOrderId: json['waseet_order_id'],
@@ -93,6 +95,34 @@ class Order {
   static int _parseProfit(Map<String, dynamic> json) {
     // ✅ استخدام عمود profit مباشرة (هو العمود الأساسي)
     return (json['profit'] ?? 0) as int;
+  }
+
+  // ✅ دالة معالجة آمنة للتاريخ
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        debugPrint('⚠️ خطأ في تحويل التاريخ: $value - $e');
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
+  }
+
+  // ✅ دالة معالجة آمنة للتاريخ الاختياري
+  static DateTime? _parseOptionalDateTime(dynamic value) {
+    if (value == null) return null;
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        debugPrint('⚠️ خطأ في تحويل التاريخ الاختياري: $value - $e');
+        return null;
+      }
+    }
+    return null;
   }
 
   static OrderStatus _parseOrderStatus(String? status) {

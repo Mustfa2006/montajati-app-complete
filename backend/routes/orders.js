@@ -344,9 +344,17 @@ router.get('/user/:userPhone', async (req, res) => {
 
     console.log(`✅ تم جلب ${data?.length || 0} طلب من أصل ${count} طلب`);
 
+    // ✅ تحويل صيغة التاريخ إلى ISO 8601 لضمان التوافق مع Frontend
+    const formattedData = (data || []).map(order => ({
+      ...order,
+      created_at: order.created_at ? new Date(order.created_at).toISOString() : null,
+      updated_at: order.updated_at ? new Date(order.updated_at).toISOString() : null,
+      status_updated_at: order.status_updated_at ? new Date(order.status_updated_at).toISOString() : null,
+    }));
+
     res.json({
       success: true,
-      data: data || [],
+      data: formattedData,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -450,13 +458,19 @@ router.get('/user/:userPhone/counts', async (req, res) => {
     };
 
     // جلب عدد الطلبات المجدولة
-    const { count: scheduledCount } = await supabase
+    // ✅ استخدام طريقة آمنة بدون head: true
+    const { count: scheduledCount, error: scheduledError } = await supabase
       .from('scheduled_orders')
-      .select('id', { count: 'exact', head: true })
+      .select('id', { count: 'exact' })
       .eq('user_phone', userPhone)
       .eq('is_converted', false);
 
-    counts.scheduled = scheduledCount || 0;
+    if (scheduledError) {
+      console.error('❌ خطأ في جلب عدد الطلبات المجدولة:', scheduledError);
+      counts.scheduled = 0;
+    } else {
+      counts.scheduled = scheduledCount || 0;
+    }
 
     console.log(`✅ تم حساب العدادات:`, counts);
 
