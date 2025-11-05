@@ -387,16 +387,7 @@ class OfficialMontajatiServer {
     // تحميل المسارات الأساسية
     this.loadCoreRoutes();
 
-    // معالجة المسارات غير الموجودة
-    this.app.use('*', (req, res) => {
-      res.status(404).json({
-        success: false,
-        message: 'المسار غير موجود',
-        path: req.originalUrl,
-        method: req.method,
-        timestamp: new Date().toISOString()
-      });
-    });
+    // ✅ معالج 404 تم نقله إلى loadCoreRoutes() ليتم تسجيله بعد جميع المسارات
   }
 
   // ===================================
