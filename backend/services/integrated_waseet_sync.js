@@ -408,6 +408,7 @@ class IntegratedWaseetSync extends EventEmitter {
 
   /**
    * إرسال إشعار للمستخدم عند تغيير حالة الطلب
+   * ✅ نظام ذكي لمنع تكرار الإشعارات
    * @param {Object} order - بيانات الطلب
    * @param {string} newStatus - الحالة الجديدة
    * @param {string} waseetStatusText - نص حالة الوسيط
@@ -419,12 +420,6 @@ class IntegratedWaseetSync extends EventEmitter {
 
       if (!userPhone) {
         console.log(`⚠️ لا يوجد رقم هاتف للطلب ${order.id} - تخطي الإشعار`);
-        return;
-      }
-
-      // التحقق من تغيير الحالة (لا نرسل إشعار إذا لم تتغير الحالة)
-      if (order.status === newStatus) {
-        console.log(`📝 لم تتغير حالة الطلب ${order.id} - تخطي الإشعار`);
         return;
       }
 
@@ -471,12 +466,19 @@ class IntegratedWaseetSync extends EventEmitter {
       // 🚫 فلترة الإشعارات - فقط الحالات المسموحة
       if (!allowedNotificationStatuses.includes(newStatus)) {
         console.log(`🚫 تم تجاهل إشعار الحالة "${newStatus}" - غير مدرجة في القائمة المسموحة`);
-        console.log(`   الحالات المسموحة: ${allowedNotificationStatuses.join(', ')}`);
+        return;
+      }
+
+      // ✅ **فحص ذكي لمنع التكرار:**
+      // التحقق من أن الحالة الجديدة مختلفة عن آخر حالة تم إرسال إشعار لها
+      if (order.last_notification_status === newStatus) {
+        console.log(`⏭️ تخطي الإشعار للطلب ${order.id}: تم إرسال إشعار لهذه الحالة بالفعل (${newStatus})`);
         return;
       }
 
       console.log(`📱 إرسال إشعار تحديث الطلب ${order.id} للمستخدم ${userPhone}`);
       console.log(`🔄 الحالة الجديدة: ${newStatus} (${waseetStatusText})`);
+      console.log(`📊 آخر حالة تم إرسال إشعار لها: ${order.last_notification_status || 'لا توجد'}`);
 
       // تهيئة خدمة الإشعارات إذا لم تكن مهيأة
       if (!targetedNotificationService.initialized) {
@@ -494,6 +496,14 @@ class IntegratedWaseetSync extends EventEmitter {
 
       if (result.success) {
         console.log(`✅ تم إرسال إشعار الطلب ${order.id} بنجاح`);
+
+        // ✅ **تحديث آخر حالة تم إرسال إشعار لها** لمنع التكرار
+        await this.supabase
+          .from('orders')
+          .update({ last_notification_status: newStatus })
+          .eq('id', order.id);
+
+        console.log(`📝 تم تحديث آخر حالة إشعار للطلب ${order.id}: ${newStatus}`);
       } else {
         console.log(`❌ فشل إرسال إشعار الطلب ${order.id}: ${result.error}`);
       }

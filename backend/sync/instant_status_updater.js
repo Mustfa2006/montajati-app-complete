@@ -148,8 +148,11 @@ class InstantStatusUpdater {
       }
 
       // 7. إرسال إشعارات
+      // ❌ تم تعطيل إرسال الإشعارات من هنا
+      // الإشعارات تُرسل من integrated_waseet_sync.js فقط
       if (this.config.enableNotifications && hasStatusChanged) {
-        await this.sendStatusNotification(currentOrder, newLocalStatus);
+        console.log(`📝 ملاحظة: الإشعار سيتم إرساله من integrated_waseet_sync.js`);
+        // await this.sendStatusNotification(currentOrder, newLocalStatus);
       }
 
       // 8. تحديث الإحصائيات
