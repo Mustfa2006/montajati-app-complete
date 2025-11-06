@@ -152,8 +152,10 @@ class OrderStatusMonitor {
         return false;
       }
 
-      // إصلاح أرباح المستخدم
-      return await SmartProfitTransfer.fixUserProfits(userPhone);
+      // ❌ تم تعطيل SmartProfitTransfer - الأرباح تُدار من قاعدة البيانات فقط
+      debugPrint('ℹ️ SmartProfitTransfer.fixUserProfits معطل - الأرباح تُدار من قاعدة البيانات');
+      return true;
+      // return await SmartProfitTransfer.fixUserProfits(userPhone);
     } catch (e) {
       debugPrint('❌ خطأ في إعادة حساب ربح الطلب: $e');
       return false;
@@ -183,10 +185,12 @@ class OrderStatusMonitor {
         'لا يرد',
       ];
 
-      for (String status in testStatuses) {
-        final profitType = SmartProfitTransfer.getProfitType(status);
-        debugPrint('   📋 "$status" → ${_getProfitTypeName(profitType)}');
-      }
+      // ❌ تم تعطيل SmartProfitTransfer
+      debugPrint('ℹ️ SmartProfitTransfer معطل - الأرباح تُدار من قاعدة البيانات');
+      // for (String status in testStatuses) {
+      //   final profitType = SmartProfitTransfer.getProfitType(status);
+      //   debugPrint('   📋 "$status" → ${_getProfitTypeName(profitType)}');
+      // }
 
       debugPrint('✅ اختبار النظام مكتمل');
     } catch (e) {
