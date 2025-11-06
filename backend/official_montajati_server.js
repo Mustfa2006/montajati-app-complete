@@ -839,23 +839,52 @@ class OfficialMontajatiServer {
       // إيقاف الخدمات بالترتيب العكسي
       if (this.state.services.sync) {
         console.log('🔄 إيقاف خدمة المزامنة...');
-        await this.state.services.sync.shutdown();
+        try {
+          if (typeof this.state.services.sync.shutdown === 'function') {
+            await this.state.services.sync.shutdown();
+          } else if (typeof this.state.services.sync.stop === 'function') {
+            this.state.services.sync.stop();
+          }
+        } catch (err) {
+          console.error('⚠️ خطأ في إيقاف المزامنة:', err.message);
+        }
       }
 
       if (this.state.services.notifications) {
         console.log('🔔 إيقاف خدمة الإشعارات...');
-        await this.state.services.notifications.shutdown();
+        try {
+          if (typeof this.state.services.notifications.shutdown === 'function') {
+            await this.state.services.notifications.shutdown();
+          }
+        } catch (err) {
+          console.error('⚠️ خطأ في إيقاف الإشعارات:', err.message);
+        }
       }
 
-      if (this.state.services.monitor) {
-        console.log('📊 إيقاف خدمة المراقبة...');
-        await this.state.services.monitor.shutdown();
+      // إيقاف خدمة مراقبة المخزون (inventoryMonitor بدلاً من monitor)
+      if (this.state.services.inventoryMonitor) {
+        console.log('📦 إيقاف خدمة مراقبة المخزون...');
+        try {
+          if (typeof this.state.services.inventoryMonitor.shutdown === 'function') {
+            await this.state.services.inventoryMonitor.shutdown();
+          } else if (typeof this.state.services.inventoryMonitor.stop === 'function') {
+            this.state.services.inventoryMonitor.stop();
+          }
+        } catch (err) {
+          console.error('⚠️ خطأ في إيقاف مراقبة المخزون:', err.message);
+        }
       }
 
       // إيقاف النظام الإنتاجي
       if (this.state.services.productionSync) {
         console.log('🚀 إيقاف النظام الإنتاجي...');
-        await this.state.services.productionSync.stop();
+        try {
+          if (typeof this.state.services.productionSync.stop === 'function') {
+            await this.state.services.productionSync.stop();
+          }
+        } catch (err) {
+          console.error('⚠️ خطأ في إيقاف النظام الإنتاجي:', err.message);
+        }
       }
 
       console.log('✅ تم إيقاف جميع الخدمات بأمان');

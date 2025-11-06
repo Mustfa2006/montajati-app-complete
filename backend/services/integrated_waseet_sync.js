@@ -138,6 +138,25 @@ class IntegratedWaseetSync extends EventEmitter {
   }
 
   /**
+   * إغلاق آمن للنظام (لـ gracefulShutdown)
+   */
+  async shutdown() {
+    console.log('🛑 إغلاق آمن لنظام المزامنة...');
+
+    // إيقاف المزامنة
+    this.stop();
+
+    // انتظار أي عمليات جارية
+    if (this.isCurrentlySyncing) {
+      console.log('⏳ انتظار انتهاء المزامنة الجارية...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+
+    console.log('✅ تم إغلاق نظام المزامنة بنجاح');
+    return { success: true };
+  }
+
+  /**
    * اختبار الاتصال
    */
   async testConnection() {
