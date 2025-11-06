@@ -1,18 +1,16 @@
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'user_management_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../config/supabase_config.dart';
 import '../models/order_summary.dart';
 // import '../../debug_helper.dart'; // سيتم إضافته لاحقاً
 import '../utils/order_status_helper.dart';
-
-
-import 'smart_profit_transfer.dart';
 import 'official_order_service.dart';
+import 'user_management_service.dart';
 // تم حذف Smart Cache
-
 
 class AdminService {
   static SupabaseClient get _supabase => SupabaseConfig.client;
@@ -23,11 +21,8 @@ class AdminService {
   /// توليد رقم طلب فريد
   static String generateOrderNumber() {
     final now = DateTime.now();
-    final timestamp = now.millisecondsSinceEpoch.toString().substring(
-      7,
-    ); // آخر 6 أرقام
-    final random = (1000 + (now.microsecond % 9000))
-        .toString(); // رقم عشوائي من 1000-9999
+    final timestamp = now.millisecondsSinceEpoch.toString().substring(7); // آخر 6 أرقام
+    final random = (1000 + (now.microsecond % 9000)).toString(); // رقم عشوائي من 1000-9999
     return 'ORD$timestamp$random';
   }
 
@@ -39,9 +34,7 @@ class AdminService {
       // جلب جميع الطلبات (لأن order_number غير موجود في الجدول)
       final ordersWithoutOrderNumber = await _supabase
           .from('orders')
-          .select(
-            'id, customer_name, primary_phone, secondary_phone, province, city, notes, profit',
-          );
+          .select('id, customer_name, primary_phone, secondary_phone, province, city, notes, profit');
 
       for (final order in ordersWithoutOrderNumber) {
         final orderNumber = generateOrderNumber();
@@ -85,11 +78,7 @@ class AdminService {
   // التحقق من صلاحيات المدير بواسطة ID
   static Future<bool> isAdmin(String userId) async {
     try {
-      final response = await _supabase
-          .from('users')
-          .select('is_admin')
-          .eq('id', userId)
-          .maybeSingle();
+      final response = await _supabase.from('users').select('is_admin').eq('id', userId).maybeSingle();
 
       return response?['is_admin'] ?? false;
     } catch (e) {
@@ -100,11 +89,7 @@ class AdminService {
   // التحقق من صلاحيات المدير بواسطة رقم الهاتف
   static Future<bool> isAdminByPhone(String phone) async {
     try {
-      final response = await _supabase
-          .from('users')
-          .select('is_admin')
-          .eq('phone', phone)
-          .maybeSingle();
+      final response = await _supabase.from('users').select('is_admin').eq('phone', phone).maybeSingle();
 
       return response?['is_admin'] ?? false;
     } catch (e) {
@@ -133,15 +118,10 @@ class AdminService {
       debugPrint('🔧 فحص ربط الطلبات بالمستخدمين...');
 
       // فحص سريع للطلبات غير المربوطة
-      final unlinkedOrders = await _supabase
-          .from('orders')
-          .select('id')
-          .isFilter('customer_id', null);
+      final unlinkedOrders = await _supabase.from('orders').select('id').isFilter('customer_id', null);
 
       if (unlinkedOrders.isNotEmpty) {
-        debugPrint(
-          '⚠️ وُجد ${unlinkedOrders.length} طلب غير مربوط، سيتم الإصلاح...',
-        );
+        debugPrint('⚠️ وُجد ${unlinkedOrders.length} طلب غير مربوط، سيتم الإصلاح...');
 
         // استدعاء دالة الإصلاح من UserManagementService
         final result = await UserManagementService.fixOrderUserLinks();
@@ -165,39 +145,27 @@ class AdminService {
       await _fixOrderUserLinksIfNeeded();
 
       // عدد المستخدمين
-      final usersResponse = await _supabase
-          .from('users')
-          .select('id')
-          .eq('is_admin', false);
+      final usersResponse = await _supabase.from('users').select('id').eq('is_admin', false);
       final totalUsers = usersResponse.length;
 
       // عدد الطلبات الإجمالي مع جلب جميع البيانات المطلوبة
-      final ordersResponse = await _supabase
-          .from('orders')
-          .select('id, status, total, profit');
+      final ordersResponse = await _supabase.from('orders').select('id, status, total, profit');
       final totalOrders = ordersResponse.length;
 
       debugPrint('📊 إجمالي الطلبات: $totalOrders');
 
       // الطلبات النشطة (تحديث حسب النظام الجديد)
       final activeOrders = ordersResponse
-          .where(
-            (order) =>
-                order['status'] == 'active' || order['status'] == 'pending',
-          )
+          .where((order) => order['status'] == 'active' || order['status'] == 'pending')
           .length;
 
       // الطلبات قيد التوصيل
-      final shippingOrders = ordersResponse
-          .where((order) => order['status'] == 'in_delivery')
-          .length;
+      final shippingOrders = ordersResponse.where((order) => order['status'] == 'in_delivery').length;
 
       // الأرباح المحققة (من الطلبات المكتملة فقط)
       // استخدام profit فقط (ربح المستخدم فقط)
       double totalProfits = 0.0;
-      final deliveredOrders = ordersResponse.where(
-        (order) => order['status'] == 'delivered',
-      );
+      final deliveredOrders = ordersResponse.where((order) => order['status'] == 'delivered');
 
       for (var order in deliveredOrders) {
         // استخدام profit فقط (ربح المستخدم فقط)
@@ -224,29 +192,17 @@ class AdminService {
       debugPrint('🔄 سيتم إرجاع إحصائيات تجريبية');
 
       // إرجاع إحصائيات فارغة في حالة الخطأ
-      return DashboardStats(
-        totalUsers: 0,
-        totalOrders: 0,
-        activeOrders: 0,
-        shippingOrders: 0,
-        totalProfits: 0.0,
-      );
+      return DashboardStats(totalUsers: 0, totalOrders: 0, activeOrders: 0, shippingOrders: 0, totalProfits: 0.0);
     }
   }
 
   // 🚀 جلب ملخص الطلبات فقط (بدون تفاصيل) - للعرض السريع
-  static Future<List<OrderSummary>> getOrdersSummary({
-    String? statusFilter,
-    int limit = 30,
-    int offset = 0,
-  }) async {
+  static Future<List<OrderSummary>> getOrdersSummary({String? statusFilter, int limit = 30, int offset = 0}) async {
     try {
       debugPrint('🔍 getOrdersSummary - statusFilter: $statusFilter, limit: $limit, offset: $offset');
 
       // بناء الاستعلام الأساسي
-      var query = _supabase
-          .from('orders')
-          .select('''
+      var query = _supabase.from('orders').select('''
             id,
             customer_name,
             primary_phone,
@@ -266,9 +222,7 @@ class AdminService {
       }
 
       // تطبيق الترتيب والحد
-      final response = await query
-          .order('created_at', ascending: false)
-          .range(offset, offset + limit - 1);
+      final response = await query.order('created_at', ascending: false).range(offset, offset + limit - 1);
 
       debugPrint('📊 تم جلب ${response.length} طلب مع فلتر: $statusFilter');
 
@@ -282,21 +236,14 @@ class AdminService {
   // 🎯 جلب تفاصيل طلب واحد فقط (عند النقر)
   static Future<AdminOrder?> getOrderDetailsFast(String orderId) async {
     try {
-      final response = await _supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .single();
+      final response = await _supabase.from('orders').select('*').eq('id', orderId).single();
 
       // response لن يكون null مع .single()
 
       // جلب عناصر الطلب بشكل منفصل
       List<AdminOrderItem> orderItemsList = [];
       try {
-        final orderItemsData = await _supabase
-            .from('order_items')
-            .select('*')
-            .eq('order_id', orderId);
+        final orderItemsData = await _supabase.from('order_items').select('*').eq('order_id', orderId);
 
         orderItemsList = orderItemsData.map<AdminOrderItem>((item) {
           return AdminOrderItem(
@@ -330,10 +277,10 @@ class AdminService {
         customerNotes: response['customer_notes'], // ✅ إصلاح: استخدام customer_notes
         totalAmount: (response['total'] as num?)?.toDouble() ?? 0.0,
         deliveryCost: (response['delivery_fee'] as num?)?.toDouble() ?? 0.0,
-        profitAmount: (response['profit_amount'] as num?)?.toDouble() ??
-                     (response['profit'] as num?)?.toDouble() ?? 0.0,
-        expectedProfit: (response['profit_amount'] as num?)?.toDouble() ??
-                       (response['profit'] as num?)?.toDouble() ?? 0.0,
+        profitAmount:
+            (response['profit_amount'] as num?)?.toDouble() ?? (response['profit'] as num?)?.toDouble() ?? 0.0,
+        expectedProfit:
+            (response['profit_amount'] as num?)?.toDouble() ?? (response['profit'] as num?)?.toDouble() ?? 0.0,
         itemsCount: orderItemsList.length,
         status: finalStatus,
         createdAt: DateTime.tryParse(response['created_at'] ?? '') ?? DateTime.now(),
@@ -392,7 +339,6 @@ class AdminService {
       }
 
       final orders = simpleResponse.map<AdminOrder>((order) {
-
         // حساب الربح المتوقع
         double expectedProfit = 0;
         int itemsCount = 0;
@@ -408,12 +354,9 @@ class AdminService {
           for (var item in orderItems) {
             try {
               final quantity = item['quantity'] as int;
-              final customerPrice =
-                  (item['customer_price'] as num?)?.toDouble() ?? 0.0;
-              final wholesalePrice =
-                  (item['wholesale_price'] as num?)?.toDouble() ?? 0.0;
-              final profitPerItem =
-                  (item['profit_per_item'] as num?)?.toDouble() ?? 0.0;
+              final customerPrice = (item['customer_price'] as num?)?.toDouble() ?? 0.0;
+              final wholesalePrice = (item['wholesale_price'] as num?)?.toDouble() ?? 0.0;
+              final profitPerItem = (item['profit_per_item'] as num?)?.toDouble() ?? 0.0;
 
               // حساب الربح
               if (profitPerItem > 0) {
@@ -428,8 +371,7 @@ class AdminService {
                   id: (item['id'] ?? '').toString(), // ✅ تحويل إلى String
                   productName: item['product_name'] ?? '',
                   productImage: item['product_image'],
-                  productPrice:
-                      (item['product_price'] as num?)?.toDouble() ?? 0.0,
+                  productPrice: (item['product_price'] as num?)?.toDouble() ?? 0.0,
                   wholesalePrice: wholesalePrice,
                   customerPrice: customerPrice,
                   minPrice: (item['min_price'] as num?)?.toDouble(),
@@ -463,8 +405,7 @@ class AdminService {
           customerAlternatePhone: order['secondary_phone'],
           customerProvince: order['province'],
           customerCity: order['city'],
-          customerAddress:
-              '${order['province'] ?? ''} - ${order['city'] ?? ''}',
+          customerAddress: '${order['province'] ?? ''} - ${order['city'] ?? ''}',
           customerNotes: order['notes'],
           totalAmount: (order['total'] as num?)?.toDouble() ?? 0.0,
           deliveryCost: (order['delivery_fee'] as num?)?.toDouble() ?? 0.0,
@@ -543,27 +484,19 @@ class AdminService {
 
       // إدراج عناصر الطلب في جدول order_items
       for (var item in items) {
-        final itemId =
-            'ITEM_${DateTime.now().millisecondsSinceEpoch}_${items.indexOf(item)}';
+        final itemId = 'ITEM_${DateTime.now().millisecondsSinceEpoch}_${items.indexOf(item)}';
 
         await _supabase.from('order_items').insert({
           'id': itemId,
           'order_id': orderId,
           'product_name': item['name'] ?? item['productName'] ?? '',
-          'product_price': (item['price'] ?? item['customerPrice'] ?? 0.0)
-              .toDouble(),
+          'product_price': (item['price'] ?? item['customerPrice'] ?? 0.0).toDouble(),
           'wholesale_price': (item['wholesalePrice'] ?? 0.0).toDouble(),
-          'customer_price': (item['price'] ?? item['customerPrice'] ?? 0.0)
-              .toDouble(),
+          'customer_price': (item['price'] ?? item['customerPrice'] ?? 0.0).toDouble(),
           'quantity': (item['quantity'] ?? 1).toInt(),
-          'total_price':
-              ((item['price'] ?? item['customerPrice'] ?? 0.0) *
-                      (item['quantity'] ?? 1))
-                  .toDouble(),
-          'profit_per_item':
-              ((item['price'] ?? item['customerPrice'] ?? 0.0) -
-                      (item['wholesalePrice'] ?? 0.0))
-                  .toDouble(),
+          'total_price': ((item['price'] ?? item['customerPrice'] ?? 0.0) * (item['quantity'] ?? 1)).toDouble(),
+          'profit_per_item': ((item['price'] ?? item['customerPrice'] ?? 0.0) - (item['wholesalePrice'] ?? 0.0))
+              .toDouble(),
           'created_at': DateTime.now().toIso8601String(),
         });
       }
@@ -587,11 +520,7 @@ class AdminService {
 
       // جلب بيانات الطلب أولاً
       debugPrint('🔍 جلب بيانات الطلب الأساسية...');
-      final orderResponse = await _supabase
-          .from('orders')
-          .select('*')
-          .eq('id', orderId)
-          .single();
+      final orderResponse = await _supabase.from('orders').select('*').eq('id', orderId).single();
 
       debugPrint('✅ تم جلب بيانات الطلب الأساسية');
       debugPrint('📋 حالة الطلب الحالية: ${orderResponse['status']}');
@@ -606,10 +535,7 @@ class AdminService {
       debugPrint('🔍 جلب عناصر الطلب...');
       List<Map<String, dynamic>> orderItemsData = [];
       try {
-        orderItemsData = await _supabase
-            .from('order_items')
-            .select('*')
-            .eq('order_id', orderId);
+        orderItemsData = await _supabase.from('order_items').select('*').eq('order_id', orderId);
         debugPrint('✅ تم جلب ${orderItemsData.length} عنصر للطلب');
       } catch (itemsError) {
         debugPrint('⚠️ لا توجد عناصر للطلب أو خطأ في جلبها: $itemsError');
@@ -630,17 +556,13 @@ class AdminService {
               debugPrint('🔍 جلب معلومات المنتج: $productId');
               final productResponse = await _supabase
                   .from('products')
-                  .select(
-                    'id, available_from, available_to, available_quantity',
-                  )
+                  .select('id, available_from, available_to, available_quantity')
                   .eq('id', productId)
                   .single();
               productInfo = productResponse;
               debugPrint('✅ تم جلب معلومات المنتج: $productId');
             } catch (productError) {
-              debugPrint(
-                '⚠️ خطأ في جلب معلومات المنتج $productId: $productError',
-              );
+              debugPrint('⚠️ خطأ في جلب معلومات المنتج $productId: $productError');
             }
           }
 
@@ -650,16 +572,13 @@ class AdminService {
               productName: item['product_name']?.toString() ?? 'منتج غير محدد',
               productImage: item['product_image'],
               productPrice: (item['product_price'] as num?)?.toDouble() ?? 0.0,
-              wholesalePrice:
-                  (item['wholesale_price'] as num?)?.toDouble() ?? 0.0,
-              customerPrice:
-                  (item['customer_price'] as num?)?.toDouble() ?? 0.0,
+              wholesalePrice: (item['wholesale_price'] as num?)?.toDouble() ?? 0.0,
+              customerPrice: (item['customer_price'] as num?)?.toDouble() ?? 0.0,
               minPrice: (item['min_price'] as num?)?.toDouble(),
               maxPrice: (item['max_price'] as num?)?.toDouble(),
               quantity: (item['quantity'] as num?)?.toInt() ?? 0,
               totalPrice: (item['total_price'] as num?)?.toDouble() ?? 0.0,
-              profitPerItem:
-                  (item['profit_per_item'] as num?)?.toDouble() ?? 0.0,
+              profitPerItem: (item['profit_per_item'] as num?)?.toDouble() ?? 0.0,
               productId: productId,
               availableFrom: productInfo?['available_from'] as int?,
               availableTo: productInfo?['available_to'] as int?,
@@ -688,11 +607,7 @@ class AdminService {
       // جلب اسم التاجر من جدول users
       if (userPhone != 'غير محدد' && userPhone.isNotEmpty) {
         try {
-          final userResponse = await _supabase
-              .from('users')
-              .select('name')
-              .eq('phone', userPhone)
-              .single();
+          final userResponse = await _supabase.from('users').select('name').eq('phone', userPhone).single();
 
           userName = userResponse['name']?.toString() ?? 'غير محدد';
         } catch (userError) {
@@ -710,19 +625,15 @@ class AdminService {
         customerAlternatePhone: orderResponse['secondary_phone']?.toString(),
         customerProvince: orderResponse['province']?.toString(),
         customerCity: orderResponse['city']?.toString(),
-        customerAddress:
-            '${orderResponse['province']?.toString() ?? ''} - ${orderResponse['city']?.toString() ?? ''}',
+        customerAddress: '${orderResponse['province']?.toString() ?? ''} - ${orderResponse['city']?.toString() ?? ''}',
         customerNotes: orderResponse['customer_notes']?.toString(), // ✅ إصلاح: استخدام customer_notes
         totalAmount: (orderResponse['total'] as num?)?.toDouble() ?? 0.0,
-        deliveryCost:
-            (orderResponse['delivery_fee'] as num?)?.toDouble() ?? 0.0,
+        deliveryCost: (orderResponse['delivery_fee'] as num?)?.toDouble() ?? 0.0,
         profitAmount: (orderResponse['profit'] as num?)?.toDouble() ?? 0.0,
         status: orderResponse['status']?.toString() ?? 'confirmed',
         expectedProfit: totalProfit,
         itemsCount: orderItems.length,
-        createdAt: DateTime.parse(
-          orderResponse['created_at'] ?? DateTime.now().toIso8601String(),
-        ),
+        createdAt: DateTime.parse(orderResponse['created_at'] ?? DateTime.now().toIso8601String()),
         userName: userName,
         userPhone: userPhone,
         items: orderItems,
@@ -736,40 +647,27 @@ class AdminService {
       // محاولة جلب البيانات الأساسية فقط
       try {
         debugPrint('🔄 محاولة جلب البيانات الأساسية للطلب...');
-        final basicOrderResponse = await _supabase
-            .from('orders')
-            .select('*')
-            .eq('id', orderId)
-            .single();
+        final basicOrderResponse = await _supabase.from('orders').select('*').eq('id', orderId).single();
 
         // إنشاء طلب بالبيانات الأساسية فقط
         final basicOrder = AdminOrder(
           id: orderId,
           orderNumber: orderId.substring(0, 8),
-          customerName:
-              basicOrderResponse['customer_name']?.toString() ?? 'غير محدد',
-          customerPhone:
-              basicOrderResponse['primary_phone']?.toString() ?? 'غير محدد',
-          customerAlternatePhone: basicOrderResponse['secondary_phone']
-              ?.toString(),
+          customerName: basicOrderResponse['customer_name']?.toString() ?? 'غير محدد',
+          customerPhone: basicOrderResponse['primary_phone']?.toString() ?? 'غير محدد',
+          customerAlternatePhone: basicOrderResponse['secondary_phone']?.toString(),
           customerProvince: basicOrderResponse['province']?.toString(),
           customerCity: basicOrderResponse['city']?.toString(),
           customerAddress:
               '${basicOrderResponse['province']?.toString() ?? ''} - ${basicOrderResponse['city']?.toString() ?? ''}',
           customerNotes: basicOrderResponse['customer_notes']?.toString(), // ✅ إصلاح: استخدام customer_notes
           totalAmount: (basicOrderResponse['total'] as num?)?.toDouble() ?? 0.0,
-          deliveryCost:
-              (basicOrderResponse['delivery_fee'] as num?)?.toDouble() ?? 0.0,
-          profitAmount:
-              (basicOrderResponse['profit'] as num?)?.toDouble() ?? 0.0,
+          deliveryCost: (basicOrderResponse['delivery_fee'] as num?)?.toDouble() ?? 0.0,
+          profitAmount: (basicOrderResponse['profit'] as num?)?.toDouble() ?? 0.0,
           status: basicOrderResponse['status']?.toString() ?? 'confirmed',
-          expectedProfit:
-              (basicOrderResponse['profit'] as num?)?.toDouble() ?? 0.0,
+          expectedProfit: (basicOrderResponse['profit'] as num?)?.toDouble() ?? 0.0,
           itemsCount: 0,
-          createdAt: DateTime.parse(
-            basicOrderResponse['created_at'] ??
-                DateTime.now().toIso8601String(),
-          ),
+          createdAt: DateTime.parse(basicOrderResponse['created_at'] ?? DateTime.now().toIso8601String()),
           userName: 'غير محدد', // سيتم جلبه لاحقاً
           userPhone: 'غير محدد', // سيتم جلبه لاحقاً
           items: [], // قائمة فارغة
@@ -811,11 +709,7 @@ class AdminService {
     for (String testValue in testValues) {
       try {
         debugPrint('🧪 اختبار القيمة: $testValue');
-        await _supabase
-            .from('orders')
-            .update({'status': testValue})
-            .eq('id', orderId)
-            .select();
+        await _supabase.from('orders').update({'status': testValue}).eq('id', orderId).select();
         debugPrint('✅ القيمة مقبولة: $testValue');
         acceptedValues.add(testValue);
         // لا نتوقف - نريد معرفة جميع القيم المقبولة
@@ -938,12 +832,7 @@ class AdminService {
   }
 
   // تحديث حالة الطلب
-  static Future<bool> updateOrderStatus(
-    String orderId,
-    String newStatus, {
-    String? notes,
-    String? updatedBy,
-  }) async {
+  static Future<bool> updateOrderStatus(String orderId, String newStatus, {String? notes, String? updatedBy}) async {
     try {
       debugPrint('🔥 ADMIN SERVICE: بدء تحديث حالة الطلب');
       debugPrint('🔥 ORDER ID: $orderId');
@@ -953,10 +842,7 @@ class AdminService {
       // اختبار الاتصال بقاعدة البيانات أولاً
       debugPrint('🔍 اختبار الاتصال بقاعدة البيانات...');
       try {
-        await _supabase
-            .from('orders')
-            .select('count')
-            .limit(1);
+        await _supabase.from('orders').select('count').limit(1);
         debugPrint('✅ الاتصال بقاعدة البيانات يعمل بشكل صحيح');
       } catch (connectionError) {
         debugPrint('❌ فشل في الاتصال بقاعدة البيانات: $connectionError');
@@ -983,10 +869,7 @@ class AdminService {
 
         // محاولة البحث بطرق أخرى للتشخيص
         try {
-          final allOrders = await _supabase
-              .from('orders')
-              .select('id')
-              .limit(5);
+          final allOrders = await _supabase.from('orders').select('id').limit(5);
           debugPrint('🔍 أمثلة على معرفات الطلبات الموجودة: $allOrders');
         } catch (e) {
           debugPrint('🔥 خطأ في جلب أمثلة الطلبات: $e');
@@ -1011,9 +894,7 @@ class AdminService {
       debugPrint('🔄 تحويل الحالة باستخدام النظام الجديد:');
       debugPrint('   📝 الحالة المدخلة: "$newStatus"');
       debugPrint('   💾 قيمة قاعدة البيانات: "$statusForDatabase"');
-      debugPrint(
-        '   📋 النص العربي: "${OrderStatusHelper.getArabicStatus(statusForDatabase)}"',
-      );
+      debugPrint('   📋 النص العربي: "${OrderStatusHelper.getArabicStatus(statusForDatabase)}"');
 
       // 🚀 استخدام API endpoint للتحديث (يتضمن منطق الوسيط)
       debugPrint('🔧 استدعاء API endpoint: $orderId');
@@ -1046,11 +927,7 @@ class AdminService {
         debugPrint('🔥 السبب المحتمل: الطلب غير موجود أو لا توجد صلاحيات');
 
         // محاولة إضافية للتحقق من وجود الطلب
-        final checkOrder = await _supabase
-            .from('orders')
-            .select('id, status')
-            .eq('id', orderId)
-            .maybeSingle();
+        final checkOrder = await _supabase.from('orders').select('id, status').eq('id', orderId).maybeSingle();
 
         if (checkOrder == null) {
           debugPrint('🔥 ERROR: الطلب غير موجود نهائياً في قاعدة البيانات');
@@ -1130,36 +1007,41 @@ class AdminService {
       debugPrint('🔄 الحالة القديمة: "$oldStatus"');
       debugPrint('🔄 الحالة الجديدة: "$statusForDatabase"');
 
-      if (userPhone != null && userPhone.isNotEmpty && orderProfit > 0) {
-        debugPrint('✅ جميع الشروط مستوفاة - بدء نقل الأرباح');
-        debugPrint('🧠 === نقل ربح الطلب الذكي ===');
-        debugPrint('📱 المستخدم: $userPhone');
-        debugPrint('💰 ربح الطلب: $orderProfit د.ع');
-        debugPrint('🔄 الحالة: "$oldStatus" → "$statusForDatabase"');
+      // ❌ تم تعطيل SmartProfitTransfer لأنه يسبب تضاعف الأرباح
+      // ✅ الأرباح تُدار بالكامل من قاعدة البيانات عبر smart_profit_manager trigger
+      debugPrint('ℹ️ SmartProfitTransfer معطل - الأرباح تُدار من قاعدة البيانات فقط');
+      debugPrint('✅ smart_profit_manager trigger سيتولى تحديث الأرباح تلقائياً');
 
-        try {
-          final success = await SmartProfitTransfer.transferOrderProfit(
-            userPhone: userPhone,
-            orderProfit: orderProfit,
-            oldStatus: oldStatus,
-            newStatus: statusForDatabase,
-            orderId: orderId,
-            orderNumber: existingOrder['order_number'] ?? orderId,
-          );
-
-          if (success) {
-            debugPrint('✅ تم نقل ربح الطلب بنجاح');
-          } else {
-            debugPrint('⚠️ فشل في نقل ربح الطلب');
-          }
-        } catch (e) {
-          debugPrint('❌ خطأ في نقل ربح الطلب: $e');
-        }
-
-        debugPrint('✅ === انتهاء نقل ربح الطلب ===');
-      } else {
-        debugPrint('⚠️ لا يوجد رقم هاتف أو ربح للطلب - تخطي تحديث الأرباح');
-      }
+      // if (userPhone != null && userPhone.isNotEmpty && orderProfit > 0) {
+      //   debugPrint('✅ جميع الشروط مستوفاة - بدء نقل الأرباح');
+      //   debugPrint('🧠 === نقل ربح الطلب الذكي ===');
+      //   debugPrint('📱 المستخدم: $userPhone');
+      //   debugPrint('💰 ربح الطلب: $orderProfit د.ع');
+      //   debugPrint('🔄 الحالة: "$oldStatus" → "$statusForDatabase"');
+      //
+      //   try {
+      //     final success = await SmartProfitTransfer.transferOrderProfit(
+      //       userPhone: userPhone,
+      //       orderProfit: orderProfit,
+      //       oldStatus: oldStatus,
+      //       newStatus: statusForDatabase,
+      //       orderId: orderId,
+      //       orderNumber: existingOrder['order_number'] ?? orderId,
+      //     );
+      //
+      //     if (success) {
+      //       debugPrint('✅ تم نقل ربح الطلب بنجاح');
+      //     } else {
+      //       debugPrint('⚠️ فشل في نقل ربح الطلب');
+      //     }
+      //   } catch (e) {
+      //     debugPrint('❌ خطأ في نقل ربح الطلب: $e');
+      //   }
+      //
+      //   debugPrint('✅ === انتهاء نقل ربح الطلب ===');
+      // } else {
+      //   debugPrint('⚠️ لا يوجد رقم هاتف أو ربح للطلب - تخطي تحديث الأرباح');
+      // }
 
       // محاولة إضافة ملاحظة إذا كانت متوفرة (اختيارية)
       if (notes != null && notes.isNotEmpty) {
@@ -1191,8 +1073,7 @@ class AdminService {
       }
 
       // إذا كان الخطأ يتعلق بالشبكة
-      if (e.toString().contains('SocketException') ||
-          e.toString().contains('TimeoutException')) {
+      if (e.toString().contains('SocketException') || e.toString().contains('TimeoutException')) {
         debugPrint('❌ خطأ في الاتصال بالشبكة');
       }
 
@@ -1207,23 +1088,14 @@ class AdminService {
     }
   }
 
-
-
   // تحديث بيانات العميل
-  static Future<bool> updateCustomerInfo(
-    String orderId,
-    Map<String, dynamic> customerData,
-  ) async {
+  static Future<bool> updateCustomerInfo(String orderId, Map<String, dynamic> customerData) async {
     try {
       debugPrint('🔄 تحديث بيانات العميل للطلب: $orderId');
       debugPrint('📝 البيانات الجديدة: $customerData');
 
       // التحقق من وجود الطلب أولاً
-      final existingOrder = await _supabase
-          .from('orders')
-          .select('id')
-          .eq('id', orderId)
-          .maybeSingle();
+      final existingOrder = await _supabase.from('orders').select('id').eq('id', orderId).maybeSingle();
 
       if (existingOrder == null) {
         debugPrint('❌ الطلب غير موجود: $orderId');
@@ -1258,10 +1130,7 @@ class AdminService {
       // تحديث بيانات العميل في جدول الطلبات
       final response = await _supabase
           .from('orders')
-          .update({
-            ...mappedData,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+          .update({...mappedData, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', orderId)
           .select();
 
@@ -1304,11 +1173,7 @@ class AdminService {
       }
 
       // تحديث المنتج في جدول order_items
-      await _supabase
-          .from('order_items')
-          .update(updateData)
-          .eq('id', itemId)
-          .eq('order_id', orderId);
+      await _supabase.from('order_items').update(updateData).eq('id', itemId).eq('order_id', orderId);
 
       // إعادة حساب المبلغ الإجمالي والأرباح للطلب
       final orderItemsResponse = await _supabase
@@ -1322,8 +1187,7 @@ class AdminService {
       for (var item in orderItemsResponse) {
         totalAmount += (item['total_price'] as num).toDouble();
         totalProfit +=
-            ((item['profit_per_item'] as num?) ?? 0).toDouble() *
-            ((item['quantity'] as num?) ?? 1).toDouble();
+            ((item['profit_per_item'] as num?) ?? 0).toDouble() * ((item['quantity'] as num?) ?? 1).toDouble();
       }
 
       // تحديث المبلغ الإجمالي والأرباح في جدول الطلبات
@@ -1361,8 +1225,7 @@ class AdminService {
           .from('orders')
           .update({
             'total': totalAmount,
-            'delivery_fee':
-                deliveryCost, // استخدام delivery_fee بدلاً من delivery_cost
+            'delivery_fee': deliveryCost, // استخدام delivery_fee بدلاً من delivery_cost
             'profit': profitAmount, // استخدام profit بدلاً من profit_amount
             'updated_at': DateTime.now().toIso8601String(),
           })
@@ -1400,9 +1263,7 @@ class AdminService {
   }
 
   // جلب سجل تغييرات حالة الطلب
-  static Future<List<StatusHistory>> getOrderStatusHistory(
-    String orderId,
-  ) async {
+  static Future<List<StatusHistory>> getOrderStatusHistory(String orderId) async {
     try {
       debugPrint('🔍 جلب سجل الحالات للطلب: $orderId');
 
@@ -1423,8 +1284,7 @@ class AdminService {
           status: newStatus,
           statusText: OrderStatusHelper.getArabicStatus(newStatus),
           notes: item['change_reason'] ?? '', // ✅ استخدام change_reason بدلاً من notes
-          createdAt:
-              DateTime.tryParse(item['created_at'] ?? '') ?? DateTime.now(),
+          createdAt: DateTime.tryParse(item['created_at'] ?? '') ?? DateTime.now(),
           createdBy: item['changed_by'] ?? '', // ✅ استخدام changed_by بدلاً من created_by
         );
       }).toList();
@@ -1441,9 +1301,7 @@ class AdminService {
       debugPrint('🔄 === إعادة حساب الأرباح المحققة لجميع المستخدمين ===');
 
       // جلب جميع المستخدمين
-      final usersResponse = await _supabase
-          .from('users')
-          .select('id, phone, name, achieved_profits, expected_profits');
+      final usersResponse = await _supabase.from('users').select('id, phone, name, achieved_profits, expected_profits');
 
       debugPrint('👥 عدد المستخدمين: ${usersResponse.length}');
 
@@ -1520,9 +1378,7 @@ class AdminService {
 
         // حساب الإحصائيات
         int totalOrders = orders.length;
-        int activeOrders = orders
-            .where((o) => ['active', 'in_delivery'].contains(o['status']))
-            .length;
+        int activeOrders = orders.where((o) => ['active', 'in_delivery'].contains(o['status'])).length;
 
         // حساب الأرباح المحققة (من الطلبات المكتملة فقط)
         double totalProfits = 0;
@@ -1613,11 +1469,7 @@ class AdminService {
 
       debugPrint('بيانات المنتج: $productData');
 
-      final response = await _supabase
-          .from('products')
-          .insert(productData)
-          .select()
-          .single();
+      final response = await _supabase.from('products').insert(productData).select().single();
 
       debugPrint('تم إضافة المنتج بنجاح: ${response['id']}');
     } catch (e) {
@@ -1678,10 +1530,7 @@ class AdminService {
   // تغيير حالة المنتج
   Future<void> toggleProductStatus(String productId, bool isActive) async {
     try {
-      await _supabase
-          .from('products')
-          .update({'is_active': isActive})
-          .eq('id', productId);
+      await _supabase.from('products').update({'is_active': isActive}).eq('id', productId);
     } catch (e) {
       throw Exception('خطأ في تغيير حالة المنتج: $e');
     }
@@ -1700,10 +1549,7 @@ class AdminService {
 
       return response.map<AdminProduct>((product) {
         final orderItems = product['order_items'] as List;
-        int totalOrdered = orderItems.fold(
-          0,
-          (sum, item) => sum + (item['quantity'] as int),
-        );
+        int totalOrdered = orderItems.fold(0, (sum, item) => sum + (item['quantity'] as int));
 
         return AdminProduct(
           id: product['id'],
@@ -1756,21 +1602,14 @@ class AdminService {
   }
 
   // تحديث حالة طلب السحب
-  Future<bool> updateWithdrawalStatus(
-    String requestId,
-    String newStatus, {
-    String? adminNotes,
-  }) async {
+  Future<bool> updateWithdrawalStatus(String requestId, String newStatus, {String? adminNotes}) async {
     try {
       final updateData = {'status': newStatus};
       if (adminNotes != null) {
         updateData['admin_notes'] = adminNotes;
       }
 
-      await _supabase
-          .from('withdrawal_requests')
-          .update(updateData)
-          .eq('id', requestId);
+      await _supabase.from('withdrawal_requests').update(updateData).eq('id', requestId);
       return true;
     } catch (e) {
       throw Exception('خطأ في تحديث طلب السحب: $e');
@@ -1786,28 +1625,16 @@ class AdminService {
       await _fixOrderUserLinksIfNeeded();
 
       // جلب إحصائيات الطلبات مع جميع البيانات المطلوبة
-      final ordersResponse = await _supabase
-          .from('orders')
-          .select('id, status, total, profit, created_at');
+      final ordersResponse = await _supabase.from('orders').select('id, status, total, profit, created_at');
 
       final totalOrders = ordersResponse.length;
       debugPrint('📊 إجمالي الطلبات: $totalOrders');
 
-      final activeOrders = ordersResponse
-          .where((order) => order['status'] == 'active')
-          .length;
-      final deliveredOrders = ordersResponse
-          .where((order) => order['status'] == 'delivered')
-          .length;
-      final cancelledOrders = ordersResponse
-          .where((order) => order['status'] == 'cancelled')
-          .length;
-      final pendingOrders = ordersResponse
-          .where((order) => order['status'] == 'pending')
-          .length;
-      final shippingOrders = ordersResponse
-          .where((order) => order['status'] == 'in_delivery')
-          .length;
+      final activeOrders = ordersResponse.where((order) => order['status'] == 'active').length;
+      final deliveredOrders = ordersResponse.where((order) => order['status'] == 'delivered').length;
+      final cancelledOrders = ordersResponse.where((order) => order['status'] == 'cancelled').length;
+      final pendingOrders = ordersResponse.where((order) => order['status'] == 'pending').length;
+      final shippingOrders = ordersResponse.where((order) => order['status'] == 'in_delivery').length;
 
       // حساب إجمالي الأرباح (ربح المستخدم فقط)
       double totalProfits = 0;
@@ -1827,27 +1654,18 @@ class AdminService {
       debugPrint('   إجمالي الأرباح: $totalProfits');
 
       // جلب إحصائيات المستخدمين
-      final usersResponse = await _supabase
-          .from('users')
-          .select('id, created_at')
-          .eq('is_admin', false);
+      final usersResponse = await _supabase.from('users').select('id, created_at').eq('is_admin', false);
 
       final totalUsers = usersResponse.length;
       final now = DateTime.now();
       final lastWeek = now.subtract(const Duration(days: 7));
-      final newUsers = usersResponse
-          .where((user) => DateTime.parse(user['created_at']).isAfter(lastWeek))
-          .length;
+      final newUsers = usersResponse.where((user) => DateTime.parse(user['created_at']).isAfter(lastWeek)).length;
 
       // جلب إحصائيات المنتجات
-      final productsResponse = await _supabase
-          .from('products')
-          .select('id, available_quantity');
+      final productsResponse = await _supabase.from('products').select('id, available_quantity');
 
       final totalProducts = productsResponse.length;
-      final lowStockProducts = productsResponse
-          .where((product) => (product['available_quantity'] ?? 0) < 10)
-          .length;
+      final lowStockProducts = productsResponse.where((product) => (product['available_quantity'] ?? 0) < 10).length;
 
       return AdminStats(
         totalOrders: totalOrders,
@@ -2072,11 +1890,7 @@ class AdminService {
       debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
 
       // ✅ الخطوة 2: حذف الطلب (ستُحذف order_items تلقائياً بسبب CASCADE)
-      final response = await _supabase
-          .from('orders')
-          .delete()
-          .eq('id', orderId)
-          .select();
+      final response = await _supabase.from('orders').delete().eq('id', orderId).select();
 
       debugPrint('✅ تم حذف الطلب وعناصره ومعاملات الربح بنجاح');
       return response.isNotEmpty;
@@ -2107,9 +1921,7 @@ class AdminService {
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/notifications/order-status'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'userPhone': customerPhone,
           'orderId': orderId,
@@ -2146,9 +1958,7 @@ class AdminService {
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/notifications/general'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'userPhone': customerPhone,
           'title': title,
@@ -2179,12 +1989,8 @@ class AdminService {
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/notifications/test'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'userPhone': customerPhone,
-        }),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'userPhone': customerPhone}),
       );
 
       if (response.statusCode == 200) {
@@ -2335,11 +2141,7 @@ class AdminOrder {
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
       userName: json['user_name'] ?? 'غير محدد',
       userPhone: json['user_phone'] ?? '',
-      items:
-          (json['items'] as List<dynamic>?)
-              ?.map((item) => AdminOrderItem.fromJson(item))
-              .toList() ??
-          [],
+      items: (json['items'] as List<dynamic>?)?.map((item) => AdminOrderItem.fromJson(item)).toList() ?? [],
       // حقول شركة الوسيط
       waseetQrId: json['waseet_qr_id'],
       waseetStatus: json['waseet_status'],
