@@ -413,7 +413,7 @@ class IntegratedWaseetSync extends EventEmitter {
 
       // ID=4: "تم التسليم للزبون"
       if (id === 4 || text === 'تم التسليم للزبون') {
-        return 'delivered';
+        return 'تم التسليم للزبون';
       }
 
       // ===================================
