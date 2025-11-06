@@ -47,8 +47,6 @@ class IntegratedWaseetSync extends EventEmitter {
    */
   async autoStart() {
     try {
-      console.log('🚀 بدء نظام المزامنة التلقائي مع الخادم...');
-
       // انتظار 10 ثواني لضمان استقرار الخادم
       setTimeout(async () => {
         await this.start();
@@ -104,9 +102,6 @@ class IntegratedWaseetSync extends EventEmitter {
 
       scheduleNext();
 
-      const intervalMinutes = this.syncInterval / (60 * 1000);
-      console.log(`✅ نظام المزامنة يعمل - كل ${intervalMinutes} دقيقة (timeout-loop)`);
-
       return { success: true, message: 'تم بدء النظام بنجاح', nextRunAt: this.nextRunAt };
 
     } catch (error) {
@@ -133,7 +128,6 @@ class IntegratedWaseetSync extends EventEmitter {
       this.syncTimeoutId = null;
     }
     this.isRunning = false;
-    console.log('⏹️ تم إيقاف نظام المزامنة');
     return { success: true };
   }
 
@@ -141,18 +135,13 @@ class IntegratedWaseetSync extends EventEmitter {
    * إغلاق آمن للنظام (لـ gracefulShutdown)
    */
   async shutdown() {
-    console.log('🛑 إغلاق آمن لنظام المزامنة...');
-
-    // إيقاف المزامنة
     this.stop();
 
     // انتظار أي عمليات جارية
     if (this.isCurrentlySyncing) {
-      console.log('⏳ انتظار انتهاء المزامنة الجارية...');
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
-    console.log('✅ تم إغلاق نظام المزامنة بنجاح');
     return { success: true };
   }
 
@@ -245,64 +234,43 @@ class IntegratedWaseetSync extends EventEmitter {
         const ignoredStatusTexts = ['فعال', 'في موقع فرز بغداد', 'في الطريق الى مكتب المحافظة'];
 
         if (ignoredStatusIds.includes(waseetStatusId) || ignoredStatusTexts.includes(waseetStatusText)) {
-          const statusName = waseetStatusText || `ID=${waseetStatusId}`;
-          console.log(`🚫 تم تجاهل حالة "${statusName}" للطلب ${dbOrder.id} - حالة غير مهمة للمستخدم`);
-
-          // ⚠️ لا نحدث أي شيء في قاعدة البيانات لتجنب إطلاق realtime events
-          // أي UPDATE على جدول orders سيطلق event ويسبب تحديث الأرباح!
-          console.log(`⏭️ تخطي الطلب ${dbOrder.id} بالكامل - لا تحديث في قاعدة البيانات`);
           continue;
         }
 
-        // ✅ تحويل حالة الوسيط إلى حالة التطبيق المعيارية (بعد التأكد أنها ليست فعال)
+        // ✅ تحويل حالة الوسيط إلى حالة التطبيق المعيارية
         const appStatus = this.mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
 
-        // التحقق من وجود تغيير حقيقي يؤثر على ما يظهر في التطبيق
-        console.log(`🔍 فحص الطلب ${dbOrder.id}:`);
-        console.log(`   📊 قاعدة البيانات - waseet_status_id: ${dbOrder.waseet_status_id}, waseet_status_text: "${dbOrder.waseet_status_text}", status: "${dbOrder.status}"`);
-        console.log(`   📊 الوسيط - waseet_status_id: ${waseetStatusId}, waseet_status_text: "${waseetStatusText}", appStatus: "${appStatus}"`);
-        console.log(`   🔍 مقارنة - status_id: ${dbOrder.waseet_status_id === waseetStatusId}, status_text: ${dbOrder.waseet_status_text === waseetStatusText}, status: ${dbOrder.status === appStatus}`);
-
+        // التحقق من وجود تغيير
         if (dbOrder.waseet_status_id === waseetStatusId &&
           dbOrder.waseet_status_text === waseetStatusText &&
           dbOrder.status === appStatus) {
-          console.log(`   ⏭️ تخطي الطلب ${dbOrder.id} - لا يوجد تغيير`);
           continue;
         }
 
-        console.log(`🔄 تحديث الطلب ${dbOrder.id}:`);
-        console.log(`   الحالة من الوسيط: "${waseetStatusText}" (ID=${waseetStatusId})`);
-        console.log(`   الحالة بعد التحويل: "${appStatus}"`);
+        // فحص إذا تغيرت الحالة فعلياً
+        if (dbOrder.status === appStatus) {
+          continue;
+        }
 
-        // ✅ التحقق من وجود waseet_status_id في جدول waseet_statuses قبل التحديث
+        // ✅ التحقق من وجود waseet_status_id في جدول waseet_statuses
         const { data: statusExists } = await this.supabase
           .from('waseet_statuses')
           .select('id')
           .eq('id', waseetStatusId)
           .maybeSingle();
 
-        // تحديث الطلب بالحالة المعيارية + حفظ حالة الوسيط كما هي
+        // تحديث الطلب
         const updateData = {
           status: appStatus,
-          // اجعل waseet_status يعكس الحالة القياسية للتطبيق لضمان عرض صحيح في الواجهة
           waseet_status: appStatus,
           waseet_status_text: waseetStatusText,
           last_status_check: new Date().toISOString(),
           status_updated_at: new Date().toISOString()
         };
 
-        // 🛡️ PROTECTION: فحص إذا تغيرت الحالة فعلياً قبل التحديث
-        if (dbOrder.status === appStatus) {
-          console.log(`⏭️ تخطي الطلب ${dbOrder.id}: الحالة لم تتغير (${appStatus})`);
-          continue;
-        }
-
         // ✅ فقط إضافة waseet_status_id إذا كان موجوداً في جدول waseet_statuses
         if (statusExists) {
-          // @ts-ignore - إضافة الحقل ديناميكياً
           updateData['waseet_status_id'] = waseetStatusId;
-        } else {
-          console.warn(`⚠️ تحذير: waseet_status_id=${waseetStatusId} غير موجود في جدول waseet_statuses - سيتم تجاهله`);
         }
 
         const { error: updateError } = await this.supabase
@@ -312,22 +280,14 @@ class IntegratedWaseetSync extends EventEmitter {
 
         if (!updateError) {
           updatedCount++;
-          console.log(`✅ تم تحديث الطلب ${dbOrder.id} بنجاح: ${dbOrder.status} → ${appStatus}`);
-
           // إرسال إشعار للمستخدم عند تغيير الحالة
           await this.sendStatusChangeNotification(dbOrder, appStatus, waseetStatusText);
-        } else {
-          console.error(`❌ فشل تحديث الطلب ${dbOrder.id}:`, updateError);
         }
       }
 
       this.stats.successfulSyncs++;
       this.stats.ordersUpdated += updatedCount;
       this.lastSyncTime = new Date();
-
-      if (updatedCount > 0) {
-        console.log(`✅ تم تحديث ${updatedCount} طلب`);
-      }
 
     } catch (error) {
       console.error('❌ فشل المزامنة:', error.message);
@@ -389,7 +349,6 @@ class IntegratedWaseetSync extends EventEmitter {
    * إعادة تشغيل النظام
    */
   async restart() {
-    console.log('🔄 إعادة تشغيل نظام المزامنة...');
     this.stop();
     await new Promise(resolve => setTimeout(resolve, 2000));
     return await this.start();
@@ -507,70 +466,39 @@ class IntegratedWaseetSync extends EventEmitter {
    */
   async sendStatusChangeNotification(order, newStatus, waseetStatusText) {
     try {
-      // التحقق من وجود رقم هاتف المستخدم
       const userPhone = order.user_phone || order.primary_phone;
+      if (!userPhone) return;
 
-      if (!userPhone) {
-        console.log(`⚠️ لا يوجد رقم هاتف للطلب ${order.id} - تخطي الإشعار`);
-        return;
-      }
-
-      // 🎯 قائمة الحالات المسموحة للإشعارات (جميع الحالات المهمة للمستخدم)
+      // قائمة الحالات المسموحة للإشعارات
       const allowedNotificationStatuses = [
-        // الحالات الأساسية
         'قيد التوصيل الى الزبون (في عهدة المندوب)',
         'تم التسليم للزبون',
-
-        // حالات التعديل
         'تم تغيير محافظة الزبون',
         'تغيير المندوب',
-
-        // حالات عدم الرد
         'لا يرد',
         'لا يرد بعد الاتفاق',
-
-        // حالات الإغلاق
         'مغلق',
         'مغلق بعد الاتفاق',
-
-        // حالات التأجيل
         'مؤجل',
         'مؤجل لحين اعادة الطلب لاحقا',
-
-        // حالات الإلغاء والرفض
         'الغاء الطلب',
         'رفض الطلب',
         'مفصول عن الخدمة',
         'طلب مكرر',
         'مستلم مسبقا',
-
-        // حالات مشاكل الاتصال
         'الرقم غير معرف',
         'الرقم غير داخل في الخدمة',
         'لا يمكن الاتصال بالرقم',
-
-        // حالات أخرى
         'العنوان غير دقيق',
         'لم يطلب',
         'حظر المندوب'
       ];
 
-      // 🚫 فلترة الإشعارات - فقط الحالات المسموحة
-      if (!allowedNotificationStatuses.includes(newStatus)) {
-        console.log(`🚫 تم تجاهل إشعار الحالة "${newStatus}" - غير مدرجة في القائمة المسموحة`);
-        return;
-      }
+      // فلترة الإشعارات
+      if (!allowedNotificationStatuses.includes(newStatus)) return;
 
-      // ✅ **فحص ذكي لمنع التكرار:**
-      // التحقق من أن الحالة الجديدة مختلفة عن آخر حالة تم إرسال إشعار لها
-      if (order.last_notification_status === newStatus) {
-        console.log(`⏭️ تخطي الإشعار للطلب ${order.id}: تم إرسال إشعار لهذه الحالة بالفعل (${newStatus})`);
-        return;
-      }
-
-      console.log(`📱 إرسال إشعار تحديث الطلب ${order.id} للمستخدم ${userPhone}`);
-      console.log(`🔄 الحالة الجديدة: ${newStatus} (${waseetStatusText})`);
-      console.log(`📊 آخر حالة تم إرسال إشعار لها: ${order.last_notification_status || 'لا توجد'}`);
+      // فحص ذكي لمنع التكرار
+      if (order.last_notification_status === newStatus) return;
 
       // تهيئة خدمة الإشعارات إذا لم تكن مهيأة
       if (!targetedNotificationService.initialized) {
@@ -587,17 +515,11 @@ class IntegratedWaseetSync extends EventEmitter {
       );
 
       if (result.success) {
-        console.log(`✅ تم إرسال إشعار الطلب ${order.id} بنجاح`);
-
-        // ✅ **تحديث آخر حالة تم إرسال إشعار لها** لمنع التكرار
+        // تحديث آخر حالة تم إرسال إشعار لها لمنع التكرار
         await this.supabase
           .from('orders')
           .update({ last_notification_status: newStatus })
           .eq('id', order.id);
-
-        console.log(`📝 تم تحديث آخر حالة إشعار للطلب ${order.id}: ${newStatus}`);
-      } else {
-        console.log(`❌ فشل إرسال إشعار الطلب ${order.id}: ${result.error}`);
       }
 
     } catch (error) {
