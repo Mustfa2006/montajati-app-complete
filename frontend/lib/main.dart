@@ -18,8 +18,6 @@ import 'services/global_orders_cache.dart';
 import 'services/lazy_loading_service.dart';
 import 'services/location_cache_service.dart';
 import 'services/order_monitoring_service.dart';
-import 'services/order_status_monitor.dart';
-import 'services/smart_profit_transfer.dart';
 import 'widgets/immersive_wrapper.dart';
 
 void main() async {
@@ -351,14 +349,18 @@ void _scheduleBackgroundServices() {
     // خدمة الإشعارات تم تهيئتها بالفعل في الخدمات الأساسية
     debugPrint('✅ خدمة الإشعارات جاهزة بالفعل');
 
-    // تهيئة مراقبة الأرباح
-    try {
-      OrderStatusMonitor.startMonitoring();
-      await SmartProfitTransfer.testTransfer();
-      debugPrint('✅ تم تهيئة مراقبة الأرباح في الخلفية');
-    } catch (e) {
-      debugPrint('❌ خطأ في مراقبة الأرباح: $e');
-    }
+    // ❌ تم تعطيل OrderStatusMonitor لأنه يسبب تضاعف الأرباح
+    // ✅ الأرباح تُدار بالكامل من قاعدة البيانات عبر smart_profit_manager trigger
+    debugPrint('ℹ️ OrderStatusMonitor معطل - الأرباح تُدار من قاعدة البيانات فقط');
+
+    // تهيئة مراقبة الأرباح - معطلة مؤقتاً
+    // try {
+    //   OrderStatusMonitor.startMonitoring();
+    //   await SmartProfitTransfer.testTransfer();
+    //   debugPrint('✅ تم تهيئة مراقبة الأرباح في الخلفية');
+    // } catch (e) {
+    //   debugPrint('❌ خطأ في مراقبة الأرباح: $e');
+    // }
 
     // تم حذف BackgroundOrderSyncService - كان معطلاً ولا يؤثر على التطبيق
 
