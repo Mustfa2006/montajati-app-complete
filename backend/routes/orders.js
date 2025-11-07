@@ -746,12 +746,25 @@ router.delete('/:id', async (req, res) => {
 // PUT /api/orders/:id/status - تحديث حالة الطلب
 // ===================================
 router.put('/:id/status', async (req, res) => {
+  const requestId = `REQ_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const startTime = Date.now();
+
   try {
     const { id } = req.params;
     const { status, notes, changedBy = 'admin' } = req.body;
 
+    console.log('\n' + '='.repeat(100));
+    console.log(`🚀 [${requestId}] بدء تحديث حالة الطلب`);
+    console.log(`⏰ الوقت: ${new Date().toISOString()}`);
+    console.log(`🆔 معرف الطلب: ${id}`);
+    console.log(`📊 الحالة الجديدة: "${status}"`);
+    console.log(`📝 السبب: ${notes || 'بدون سبب'}`);
+    console.log(`👤 تم التغيير بواسطة: ${changedBy}`);
+    console.log('='.repeat(100));
+
     // التحقق من البيانات المطلوبة
     if (!status) {
+      console.error(`❌ [${requestId}] الحالة الجديدة مطلوبة`);
       return res.status(400).json({
         success: false,
         error: 'الحالة الجديدة مطلوبة'
@@ -798,22 +811,25 @@ router.put('/:id/status', async (req, res) => {
       };
 
       const converted = statusMap[status] || status;
+      console.log(`   📝 تحويل الحالة: "${status}" → "${converted}"`);
 
       return converted;
     }
 
     // تطبيق التحويل على الحالة
     const normalizedStatus = normalizeStatus(status);
+    console.log(`✅ [${requestId}] الحالة المحولة: "${normalizedStatus}"`);
 
     // التحقق من وجود الطلب
+    console.log(`🔍 [${requestId}] البحث عن الطلب في قاعدة البيانات...`);
     const { data: existingOrder, error: fetchError } = await supabase
       .from('orders')
-      .select('id, status, customer_name, customer_id')
+      .select('id, status, customer_name, customer_id, user_phone')
       .eq('id', id)
       .single();
 
     if (fetchError || !existingOrder) {
-      console.error('❌ الطلب غير موجود:', fetchError);
+      console.error(`❌ [${requestId}] الطلب غير موجود:`, fetchError);
       return res.status(404).json({
         success: false,
         error: 'الطلب غير موجود'
@@ -821,8 +837,15 @@ router.put('/:id/status', async (req, res) => {
     }
 
     const oldStatus = existingOrder.status;
+    console.log(`✅ [${requestId}] تم العثور على الطلب`);
+    console.log(`   📋 الحالة الحالية: "${oldStatus}"`);
+    console.log(`   📋 الحالة الجديدة: "${normalizedStatus}"`);
+    console.log(`   📱 رقم المستخدم: ${existingOrder.user_phone}`);
 
     // تحديث حالة الطلب (استخدام الحالة المحولة)
+    console.log(`🔄 [${requestId}] بدء تحديث حالة الطلب في قاعدة البيانات...`);
+    const updateStartTime = Date.now();
+
     const { error: updateError } = await supabase
       .from('orders')
       .update({
@@ -831,16 +854,24 @@ router.put('/:id/status', async (req, res) => {
       })
       .eq('id', id);
 
+    const updateDuration = Date.now() - updateStartTime;
+    console.log(`⏱️ [${requestId}] مدة التحديث: ${updateDuration}ms`);
+
     if (updateError) {
-      console.error('❌ خطأ في تحديث الطلب:', updateError);
+      console.error(`❌ [${requestId}] خطأ في تحديث الطلب:`, updateError);
       return res.status(500).json({
         success: false,
         error: 'فشل في تحديث حالة الطلب'
       });
     }
 
+    console.log(`✅ [${requestId}] تم تحديث حالة الطلب بنجاح`);
+    console.log(`   ⏱️ المدة الإجمالية حتى الآن: ${Date.now() - startTime}ms`);
+
     // إضافة سجل في تاريخ الحالات (اختياري - لا يوقف العملية إذا فشل)
+    console.log(`📝 [${requestId}] بدء إضافة سجل التاريخ...`);
     try {
+      const historyStartTime = Date.now();
       await supabase
         .from('order_status_history')
         .insert({
@@ -852,14 +883,19 @@ router.put('/:id/status', async (req, res) => {
           created_at: new Date().toISOString()
         });
 
+      const historyDuration = Date.now() - historyStartTime;
+      console.log(`✅ [${requestId}] تم إضافة سجل التاريخ بنجاح (${historyDuration}ms)`);
+
     } catch (historyError) {
-      console.warn('⚠️ تحذير: فشل في حفظ سجل التاريخ (الجدول قد يكون غير موجود):', historyError.message);
+      console.warn(`⚠️ [${requestId}] تحذير: فشل في حفظ سجل التاريخ:`, historyError.message);
       // لا نوقف العملية - هذا اختياري
     }
 
     // إضافة ملاحظة إذا كانت متوفرة
     if (notes && notes.trim()) {
+      console.log(`📝 [${requestId}] بدء إضافة الملاحظة...`);
       try {
+        const noteStartTime = Date.now();
         await supabase
           .from('order_notes')
           .insert({
@@ -871,8 +907,11 @@ router.put('/:id/status', async (req, res) => {
             created_at: new Date().toISOString()
           });
 
+        const noteDuration = Date.now() - noteStartTime;
+        console.log(`✅ [${requestId}] تم إضافة الملاحظة بنجاح (${noteDuration}ms)`);
+
       } catch (noteError) {
-        console.warn('⚠️ تحذير: فشل في إضافة الملاحظة (الجدول قد يكون غير موجود):', noteError.message);
+        console.warn(`⚠️ [${requestId}] تحذير: فشل في إضافة الملاحظة:`, noteError.message);
       }
     }
 
@@ -890,36 +929,49 @@ router.put('/:id/status', async (req, res) => {
     ];
 
     if (deliveryStatuses.includes(normalizedStatus)) {
+      console.log(`🚀 [${requestId}] الحالة الجديدة تتطلب إرسال للوسيط`);
 
       try {
         // التحقق من أن الطلب لم يتم إرساله مسبقاً
+        console.log(`🔍 [${requestId}] بدء فحص حالة الوسيط...`);
+        const checkStartTime = Date.now();
+
         const { data: currentOrder, error: checkError } = await supabase
           .from('orders')
           .select('waseet_order_id, waseet_status')
           .eq('id', id)
           .single();
 
+        const checkDuration = Date.now() - checkStartTime;
+        console.log(`✅ [${requestId}] انتهى فحص حالة الوسيط (${checkDuration}ms)`);
+
         if (checkError) {
-          console.error('❌ خطأ في فحص حالة الوسيط:', checkError);
+          console.error(`❌ [${requestId}] خطأ في فحص حالة الوسيط:`, checkError);
         } else {
+          console.log(`📊 [${requestId}] waseet_order_id: ${currentOrder?.waseet_order_id || 'NULL'}`);
 
           if (currentOrder.waseet_order_id) {
             // الطلب تم إرساله مسبقاً
+            console.log(`ℹ️ [${requestId}] الطلب تم إرساله مسبقاً للوسيط`);
           } else {
+            console.log(`📤 [${requestId}] الطلب لم يتم إرساله بعد - سيتم الإرسال الآن`);
 
             // التحقق من وجود خدمة المزامنة المهيأة
 
             if (!global.orderSyncService) {
-              console.error('❌ خدمة المزامنة غير متاحة - محاولة إنشاء خدمة جديدة...');
+              console.error(`❌ [${requestId}] خدمة المزامنة غير متاحة - محاولة إنشاء خدمة جديدة...`);
 
               try {
+                console.log(`🔧 [${requestId}] محاولة إنشاء خدمة المزامنة...`);
                 const OrderSyncService = require('../services/order_sync_service');
                 global.orderSyncService = new OrderSyncService();
+                console.log(`✅ [${requestId}] تم إنشاء خدمة المزامنة بنجاح`);
 
               } catch (serviceError) {
-                console.error('❌ فشل في إنشاء خدمة المزامنة:', serviceError.message);
+                console.error(`❌ [${requestId}] فشل في إنشاء خدمة المزامنة:`, serviceError.message);
 
                 // تحديث الطلب بحالة الخطأ
+                console.log(`📝 [${requestId}] تحديث الطلب بحالة الخطأ...`);
                 await supabase
                   .from('orders')
                   .update({
@@ -933,6 +985,8 @@ router.put('/:id/status', async (req, res) => {
                   })
                   .eq('id', id);
 
+                console.log(`✅ [${requestId}] تم تحديث الطلب بحالة الخطأ`);
+
                 // لا تتوقف هنا - استمر لإرسال الاستجابة
 
               }
@@ -940,12 +994,19 @@ router.put('/:id/status', async (req, res) => {
 
             // إرسال الطلب لشركة الوسيط (فقط إذا كانت الخدمة متاحة)
             if (global.orderSyncService) {
+              console.log(`📤 [${requestId}] بدء إرسال الطلب للوسيط...`);
+              const waseetStartTime = Date.now();
 
               const waseetResult = await global.orderSyncService.sendOrderToWaseet(id);
+              const waseetDuration = Date.now() - waseetStartTime;
+
+              console.log(`📊 [${requestId}] نتيجة الإرسال (${waseetDuration}ms):`, waseetResult);
 
               if (waseetResult && waseetResult.success) {
+                console.log(`✅ [${requestId}] تم إرسال الطلب للوسيط بنجاح`);
 
                 // تحديث الطلب بمعلومات الوسيط
+                console.log(`📝 [${requestId}] تحديث الطلب بمعلومات الوسيط...`);
                 await supabase
                   .from('orders')
                   .update({
@@ -956,9 +1017,13 @@ router.put('/:id/status', async (req, res) => {
                   })
                   .eq('id', id);
 
+                console.log(`✅ [${requestId}] تم تحديث الطلب بمعلومات الوسيط`);
+
               } else {
+                console.error(`❌ [${requestId}] فشل في إرسال الطلب للوسيط:`, waseetResult?.error);
 
                 // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
+                console.log(`📝 [${requestId}] تحديث الطلب بحالة الفشل...`);
                 await supabase
                   .from('orders')
                   .update({
@@ -971,10 +1036,14 @@ router.put('/:id/status', async (req, res) => {
                     updated_at: new Date().toISOString()
                   })
                   .eq('id', id);
+
+                console.log(`✅ [${requestId}] تم تحديث الطلب بحالة الفشل`);
               }
             } else {
+              console.warn(`⚠️ [${requestId}] خدمة المزامنة غير متاحة`);
 
               // تحديث الطلب بحالة "في انتظار الإرسال للوسيط"
+              console.log(`📝 [${requestId}] تحديث الطلب بحالة عدم توفر الخدمة...`);
               await supabase
                 .from('orders')
                 .update({
@@ -987,15 +1056,18 @@ router.put('/:id/status', async (req, res) => {
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', id);
+
+              console.log(`✅ [${requestId}] تم تحديث الطلب بحالة عدم توفر الخدمة`);
             }
           }
         }
 
       } catch (waseetError) {
-        console.error(`❌ خطأ في إرسال الطلب ${id} لشركة الوسيط:`, waseetError);
+        console.error(`❌ [${requestId}] خطأ في إرسال الطلب ${id} لشركة الوسيط:`, waseetError);
 
         // تحديث الطلب بحالة الخطأ
         try {
+          console.log(`📝 [${requestId}] تحديث الطلب بحالة الخطأ...`);
           await supabase
             .from('orders')
             .update({
@@ -1008,13 +1080,22 @@ router.put('/:id/status', async (req, res) => {
               updated_at: new Date().toISOString()
             })
             .eq('id', id);
+
+          console.log(`✅ [${requestId}] تم تحديث الطلب بحالة الخطأ`);
         } catch (updateError) {
-          console.error('❌ خطأ في تحديث حالة الخطأ:', updateError);
+          console.error(`❌ [${requestId}] خطأ في تحديث حالة الخطأ:`, updateError);
         }
       }
     } else {
-
+      console.log(`ℹ️ [${requestId}] الحالة الجديدة ليست من حالات الإرسال للوسيط`);
     }
+
+    const totalDuration = Date.now() - startTime;
+    console.log('\n' + '='.repeat(100));
+    console.log(`✅ [${requestId}] انتهى تحديث حالة الطلب بنجاح`);
+    console.log(`⏱️ المدة الإجمالية: ${totalDuration}ms`);
+    console.log(`📊 الحالة: "${oldStatus}" → "${normalizedStatus}"`);
+    console.log('='.repeat(100) + '\n');
 
     res.json({
       success: true,
@@ -1028,10 +1109,18 @@ router.put('/:id/status', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ خطأ في API تحديث حالة الطلب:', error);
+    const totalDuration = Date.now() - startTime;
+    console.error('\n' + '='.repeat(100));
+    console.error(`❌ [${requestId}] خطأ في API تحديث حالة الطلب`);
+    console.error(`⏰ المدة الإجمالية: ${totalDuration}ms`);
+    console.error(`📋 الخطأ: ${error.message}`);
+    console.error(`📚 Stack: ${error.stack}`);
+    console.error('='.repeat(100) + '\n');
+
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      requestId: requestId
     });
   }
 });

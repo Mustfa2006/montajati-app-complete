@@ -44,16 +44,26 @@ DECLARE
     was_cancelled_status BOOLEAN := FALSE;
     delivery_paid_amount NUMERIC := 0;
     last_transaction_time TIMESTAMP;
+    trigger_id TEXT := 'TRIGGER_' || to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS.MS') || '_' || NEW.id;
 BEGIN
     -- 🔍 تسجيل السياق للرصد المؤقت
     PERFORM set_config('app.current_order_id', NEW.id, true);
     PERFORM set_config('app.current_order_status', NEW.status, true);
-    
+
+    RAISE NOTICE '🚀 [%] بدء تشغيل smart_profit_manager trigger', trigger_id;
+    RAISE NOTICE '   📋 نوع العملية: %', TG_OP;
+    RAISE NOTICE '   🆔 معرف الطلب: %', NEW.id;
+    RAISE NOTICE '   📊 الحالة القديمة: %', OLD.status;
+    RAISE NOTICE '   📊 الحالة الجديدة: %', NEW.status;
+    RAISE NOTICE '   💰 ربح الطلب: %', NEW.profit;
+
     -- ✅ PROTECTION 1: منع تشغيل الـ Trigger إذا لم تتغير الحالة فعلياً
     IF TG_OP = 'UPDATE' AND OLD.status = NEW.status THEN
-        RAISE NOTICE '⚠️ لم تتغير الحالة - تجاهل التحديث';
+        RAISE NOTICE '⚠️ [%] لم تتغير الحالة - تجاهل التحديث', trigger_id;
         RETURN NEW;
     END IF;
+
+    RAISE NOTICE '✅ [%] تم تجاوز PROTECTION 1 - الحالة تغيرت', trigger_id;
     
     profit_amount := COALESCE(NEW.profit, 0);
     user_phone_number := NEW.user_phone;
@@ -166,7 +176,11 @@ BEGIN
             RAISE NOTICE '🔄 إلغاء التسليم: إرجاع % د.ع من المحققة إلى المتوقعة', profit_amount;
         END IF;
     END IF;
-    
+
+    RAISE NOTICE '✅ [%] انتهى تشغيل smart_profit_manager trigger بنجاح', trigger_id;
+    RAISE NOTICE '   💰 الأرباح المحققة الجديدة: %', current_achieved;
+    RAISE NOTICE '   📊 الأرباح المنتظرة الجديدة: %', current_expected;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -184,21 +198,30 @@ DECLARE
     new_expected DECIMAL(15,2);
     operation_context TEXT;
     current_app_name TEXT;
+    validate_id TEXT := 'VALIDATE_' || to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS.MS') || '_' || NEW.phone;
 BEGIN
     -- الحصول على القيم القديمة والجديدة
     old_achieved := COALESCE(OLD.achieved_profits, 0);
     old_expected := COALESCE(OLD.expected_profits, 0);
     new_achieved := COALESCE(NEW.achieved_profits, 0);
     new_expected := COALESCE(NEW.expected_profits, 0);
-    
+
+    RAISE NOTICE '🔍 [%] بدء validate_profit_operation trigger', validate_id;
+    RAISE NOTICE '   📱 المستخدم: %', NEW.phone;
+    RAISE NOTICE '   💰 الأرباح المحققة: % → %', old_achieved, new_achieved;
+    RAISE NOTICE '   📊 الأرباح المنتظرة: % → %', old_expected, new_expected;
+
     -- الحصول على سياق العملية من متغير الجلسة
     SELECT current_setting('app.operation_context', true) INTO operation_context;
-    
+    RAISE NOTICE '   🔐 سياق العملية: %', COALESCE(operation_context, 'NULL');
+
     -- الحصول على اسم التطبيق الحالي
     SELECT application_name INTO current_app_name FROM pg_stat_activity WHERE pid = pg_backend_pid();
-    
+    RAISE NOTICE '   📱 اسم التطبيق: %', COALESCE(current_app_name, 'NULL');
+
     -- 🛡️ PROTECTION: منع التحديثات المباشرة من PostgREST إلا إذا كانت مصرحة
     IF current_app_name = 'postgrest' AND operation_context IS NULL THEN
+        RAISE NOTICE '⚠️ [%] محاولة تحديث مباشرة من PostgREST بدون سياق!', validate_id;
         RAISE EXCEPTION 'PROFIT_PROTECTION: تحديث الأرباح مباشرة من PostgREST غير مسموح! استخدم Database Triggers أو Authorized Functions فقط.';
     END IF;
     
@@ -254,7 +277,11 @@ BEGIN
         COALESCE(current_setting('app.authorized_by', true), 'UNKNOWN'),
         operation_context IS NOT NULL
     );
-    
+
+    RAISE NOTICE '✅ [%] انتهى validate_profit_operation trigger بنجاح', validate_id;
+    RAISE NOTICE '   💰 التغيير في المحققة: %', (new_achieved - old_achieved);
+    RAISE NOTICE '   📊 التغيير في المنتظرة: %', (new_expected - old_expected);
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

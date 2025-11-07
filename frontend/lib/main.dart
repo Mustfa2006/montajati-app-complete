@@ -17,7 +17,6 @@ import 'services/fcm_service.dart';
 import 'services/global_orders_cache.dart';
 import 'services/lazy_loading_service.dart';
 import 'services/location_cache_service.dart';
-import 'services/order_monitoring_service.dart';
 import 'widgets/immersive_wrapper.dart';
 
 void main() async {
@@ -220,15 +219,19 @@ Future<void> _initializeAllServices() async {
     // انتظار قليل قبل بدء الخدمات التي تحتاج الشبكة
     await Future.delayed(const Duration(seconds: 2));
 
-    // بدء مراقبة الطلبات في الوقت الفعلي للإشعارات الفورية
-    try {
-      debugPrint('🔄 بدء مراقبة الطلبات للإشعارات الفورية...');
-      await OrderMonitoringService.startMonitoring();
-      debugPrint('✅ تم بدء مراقبة الطلبات للإشعارات الفورية بنجاح');
-    } catch (e) {
-      debugPrint('❌ خطأ في بدء مراقبة الطلبات للإشعارات الفورية: $e');
-      // نكمل بدون المراقبة الفورية
-    }
+    // ❌ تم تعطيل OrderMonitoringService لأنه يسبب تكرار الأرباح
+    // ✅ OrderStatusProvider يتولى مراقبة الطلبات بالكامل
+    debugPrint('ℹ️ OrderMonitoringService معطل - OrderStatusProvider يتولى المراقبة');
+
+    // // بدء مراقبة الطلبات في الوقت الفعلي للإشعارات الفورية
+    // try {
+    //   debugPrint('🔄 بدء مراقبة الطلبات للإشعارات الفورية...');
+    //   await OrderMonitoringService.startMonitoring();
+    //   debugPrint('✅ تم بدء مراقبة الطلبات للإشعارات الفورية بنجاح');
+    // } catch (e) {
+    //   debugPrint('❌ خطأ في بدء مراقبة الطلبات للإشعارات الفورية: $e');
+    //   // نكمل بدون المراقبة الفورية
+    // }
 
     debugPrint('✅ تم تهيئة جميع الخدمات بنجاح - المراقبة التلقائية والإشعارات الفورية نشطة');
   } catch (e, stackTrace) {
