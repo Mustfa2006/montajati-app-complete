@@ -21,19 +21,6 @@ class SmartProfitTransfer {
       debugPrint('🔄 الحالة: "$oldStatus" → "$newStatus"');
       debugPrint('📋 رقم الطلب: $orderNumber');
 
-      // 🚫 حماية إضافية: تجاهل الحالات غير المهمة
-      const ignoredStatuses = ['فعال', 'في موقع فرز بغداد', 'في الطريق الى مكتب المحافظة'];
-      if (ignoredStatuses.contains(oldStatus) || ignoredStatuses.contains(newStatus)) {
-        debugPrint('🚫 تجاهل نقل الربح - حالة غير مهمة (old=$oldStatus, new=$newStatus)');
-        return true;
-      }
-
-      // 🚫 حماية من الحالات الفارغة أو المتطابقة
-      if (oldStatus.isEmpty || newStatus.isEmpty || oldStatus == newStatus) {
-        debugPrint('⏭️ تجاهل نقل الربح - حالات فارغة أو متطابقة');
-        return true;
-      }
-
       // تحديد نوع الربح للحالة القديمة والجديدة
       final oldProfitType = getProfitType(oldStatus);
       final newProfitType = getProfitType(newStatus);
@@ -42,9 +29,7 @@ class SmartProfitTransfer {
       debugPrint('   🔍 الحالة القديمة: "$oldStatus" → ${_getProfitTypeName(oldProfitType)}');
       debugPrint('   🔍 الحالة الجديدة: "$newStatus" → ${_getProfitTypeName(newProfitType)}');
       debugPrint('   🎯 هل تم التسليم؟ ${newStatus == 'تم التسليم للزبون'}');
-      debugPrint(
-        '   🎯 هل نشط؟ ${oldStatus == 'نشط' || oldStatus == 'تم تغيير محافظة الزبون' || oldStatus == 'تغيير المندوب'}',
-      );
+      debugPrint('   🎯 هل نشط؟ ${oldStatus == 'نشط' || oldStatus == 'تم تغيير محافظة الزبون' || oldStatus == 'تغيير المندوب'}');
 
       // إذا لم يتغير نوع الربح، لا حاجة للتحديث
       if (oldProfitType == newProfitType) {
@@ -157,7 +142,7 @@ class SmartProfitTransfer {
     if (status == 'تم التسليم للزبون') {
       return ProfitType.achieved;
     }
-
+    
     // الحالات النشطة وقيد التوصيل → ربح منتظر
     if (status == 'نشط' ||
         status == 'تم تغيير محافظة الزبون' ||
@@ -167,7 +152,7 @@ class SmartProfitTransfer {
         status == 'مؤجل لحين اعادة الطلب لاحقا') {
       return ProfitType.expected;
     }
-
+    
     // الحالات الملغية → لا ربح
     return ProfitType.none;
   }
@@ -224,7 +209,10 @@ class SmartProfitTransfer {
       debugPrint('📱 المستخدم: $userPhone');
 
       // جلب جميع طلبات المستخدم
-      final ordersResponse = await _supabase.from('orders').select('profit, status').eq('user_phone', userPhone);
+      final ordersResponse = await _supabase
+          .from('orders')
+          .select('profit, status')
+          .eq('user_phone', userPhone);
 
       double totalAchieved = 0.0;
       double totalExpected = 0.0;
@@ -268,7 +256,13 @@ class SmartProfitTransfer {
     debugPrint('🧪 === اختبار النظام الذكي ===');
 
     // اختبار تصنيف الحالات
-    final testCases = ['نشط', 'تم التسليم للزبون', 'قيد التوصيل الى الزبون (في عهدة المندوب)', 'حظر المندوب', 'مؤجل'];
+    final testCases = [
+      'نشط',
+      'تم التسليم للزبون',
+      'قيد التوصيل الى الزبون (في عهدة المندوب)',
+      'حظر المندوب',
+      'مؤجل',
+    ];
 
     for (String status in testCases) {
       final profitType = getProfitType(status);
@@ -323,7 +317,7 @@ class SmartProfitTransfer {
 
 /// 🎯 أنواع الأرباح
 enum ProfitType {
-  achieved, // ربح محقق
-  expected, // ربح منتظر
-  none, // لا ربح
+  achieved,  // ربح محقق
+  expected,  // ربح منتظر
+  none,      // لا ربح
 }

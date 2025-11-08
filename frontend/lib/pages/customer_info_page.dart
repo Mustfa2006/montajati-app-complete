@@ -54,6 +54,9 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
   bool _isSubmitting = false;
   bool _isLoadingCities = false;
 
+  // خدمات
+  final CartService _cartService = CartService();
+
   // بيانات شركة الوسيط
   List<Map<String, dynamic>> _provinces = [];
   List<Map<String, dynamic>> _cities = [];

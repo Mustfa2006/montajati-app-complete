@@ -20,6 +20,7 @@ class _SettingsPageState extends State<SettingsPage> {
   // بيانات المستخدم
   String _userName = '';
   String _userPhone = '';
+  String _userEmail = '';
   int _totalOrders = 0;
   double _totalProfits = 0.0;
 
@@ -49,6 +50,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (userResponse != null) {
         _userName = userResponse['name'] ?? '';
         _userPhone = userResponse['phone'] ?? '';
+        _userEmail = userResponse['email'] ?? '';
       }
 
       // جلب عدد الطلبات

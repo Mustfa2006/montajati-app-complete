@@ -200,6 +200,38 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+/**
+ * تنظيف FCM Tokens القديمة
+ * POST /api/fcm-tokens/cleanup
+ */
+router.post('/cleanup', async (req, res) => {
+  try {
+    // حذف الرموز القديمة (أكثر من 30 يوم)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const { error } = await supabase
+      .from('fcm_tokens')
+      .update({ is_active: false })
+      .lt('last_used_at', thirtyDaysAgo.toISOString());
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'تم تنظيف FCM Tokens القديمة بنجاح'
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في تنظيف FCM Tokens:', error);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في تنظيف FCM Tokens',
+      error: error.message
+    });
+  }
+});
+
 // ===================================
 // تحديث FCM Token تلقائياً
 // ===================================

@@ -25,6 +25,7 @@ class EditOrderPage extends StatefulWidget {
 class _EditOrderPageState extends State<EditOrderPage> {
   // تم إزالة _order غير المستخدم
   bool _isLoading = true;
+  bool _isSaving = false;
   String? _error;
 
   // Controllers للحقول
@@ -1079,6 +1080,10 @@ class _EditOrderPageState extends State<EditOrderPage> {
     }
 
     try {
+      setState(() {
+        _isSaving = true;
+      });
+
       debugPrint('💾 بدء حفظ تعديلات الطلب: ${widget.orderId}');
       debugPrint('📍 المحافظة المختارة: $_selectedProvince');
       debugPrint('🏙️ المدينة المختارة: $_selectedCity');
@@ -1123,6 +1128,10 @@ class _EditOrderPageState extends State<EditOrderPage> {
 
       debugPrint('✅ تم حفظ تعديلات الطلب بنجاح');
 
+      setState(() {
+        _isSaving = false;
+      });
+
       // إظهار رسالة نجاح
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1147,6 +1156,10 @@ class _EditOrderPageState extends State<EditOrderPage> {
       }
     } catch (e) {
       debugPrint('❌ خطأ في حفظ تعديلات الطلب: $e');
+
+      setState(() {
+        _isSaving = false;
+      });
 
       _showErrorMessage('خطأ في حفظ التغييرات: $e');
     }

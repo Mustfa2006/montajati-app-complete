@@ -64,8 +64,8 @@ class OrderSyncService {
       let waseetData = null;
       if (order.waseet_data) {
         try {
-          waseetData = typeof order.waseet_data === 'string'
-            ? JSON.parse(order.waseet_data)
+          waseetData = typeof order.waseet_data === 'string' 
+            ? JSON.parse(order.waseet_data) 
             : order.waseet_data;
         } catch (parseError) {
           console.error(`❌ خطأ في تحليل بيانات الوسيط:`, parseError);
@@ -359,7 +359,7 @@ class OrderSyncService {
 
     } catch (error) {
       console.error(`❌ خطأ في إنشاء بيانات الوسيط الافتراضية:`, error);
-
+      
       // إرجاع بيانات افتراضية أساسية
       return {
         cityId: '1',
@@ -378,9 +378,9 @@ class OrderSyncService {
   async checkOrderStatus(qrId) {
     try {
       console.log(`🔍 فحص حالة الطلب ${qrId} في شركة الوسيط...`);
-
+      
       const statusResult = await this.waseetClient.getOrderStatus(qrId);
-
+      
       if (statusResult && statusResult.success) {
         console.log(`✅ تم جلب حالة الطلب ${qrId}: ${statusResult.status}`);
         return statusResult;
@@ -427,7 +427,7 @@ class OrderSyncService {
       for (const order of orders) {
         try {
           const statusResult = await this.checkOrderStatus(order.waseet_order_id);
-
+          
           if (statusResult && statusResult.status !== order.status) {
             // 🚫 تجاهل حالة "فعال" من الوسيط
             if (statusResult.status === 'فعال' || statusResult.status === 'active') {
@@ -488,21 +488,6 @@ class OrderSyncService {
                 'تغيير المندوب'
               ];
 
-              // ⚠️ تم تعطيل إرسال الإشعارات من هذا النظام لمنع التكرار
-              // ✅ الإشعارات تُرسل فقط من IntegratedWaseetSync (النظام الرسمي)
-              //
-              // السبب: كان هناك نظامان يرسلان إشعارات في نفس الوقت:
-              // 1. IntegratedWaseetSync (كل 5 دقائق) - النظام الرسمي ✅
-              // 2. OrderSyncService (هذا الملف) - نظام قديم ❌
-              //
-              // النتيجة: المستخدم كان يستقبل إشعارين مكررين لنفس الحالة!
-              //
-              // الحل: تعطيل الإشعارات من OrderSyncService والاعتماد فقط على IntegratedWaseetSync
-
-              console.log(`ℹ️ تم تحديث الطلب ${order.id} - الإشعارات تُرسل من IntegratedWaseetSync`);
-
-              // ❌ الكود القديم (معطل لمنع التكرار):
-              /*
               // فحص إذا كانت الحالة الجديدة ضمن القائمة المسموحة
               if (!allowedNotificationStatuses.includes(newStatus)) {
                 console.log(`🚫 تم تجاهل إشعار الحالة "${newStatus}" - غير مدرجة في القائمة المسموحة`);
@@ -534,7 +519,6 @@ class OrderSyncService {
               } else {
                 console.log(`⚠️ رقم هاتف المستخدم غير متوفر للطلب ${order.id}`);
               }
-              */
             } catch (notificationError) {
               console.error(`❌ خطأ في إرسال إشعار للطلب ${order.id}:`, notificationError.message);
             }

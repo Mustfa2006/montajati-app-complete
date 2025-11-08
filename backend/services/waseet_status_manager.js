@@ -13,10 +13,6 @@ class WaseetStatusManager {
     );
 
     // الحالات الأساسية المعتمدة (22 حالة)
-    // ملاحظة: الحالات التالية يتم تجاهلها تلقائياً ولا تظهر للمستخدم:
-    // - ID=1: "نشط" / "فعال"
-    // - ID=5: "في موقع فرز بغداد"
-    // - ID=7: "في الطريق الى مكتب المحافظة"
     this.approvedStatuses = [
       { id: 1, text: "نشط", category: "active", appStatus: "active" },
       { id: 2, text: "تم الاستلام من قبل المندوب", category: "in_delivery", appStatus: "قيد التوصيل الى الزبون (في عهدة المندوب)" },
@@ -148,7 +144,7 @@ class WaseetStatusManager {
   // تحديث حالات متعددة
   async updateMultipleOrderStatuses(updates) {
     const results = [];
-
+    
     for (const update of updates) {
       const result = await this.updateOrderStatus(
         update.orderId,
@@ -174,7 +170,7 @@ class WaseetStatusManager {
       }
 
       const stats = {};
-
+      
       data.forEach(order => {
         const statusId = order.waseet_status_id;
         if (!stats[statusId]) {

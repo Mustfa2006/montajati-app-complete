@@ -30,6 +30,7 @@ class _NewAccountPageState extends State<NewAccountPage> {
   // بيانات المستخدم
   String _userName = '';
   String _userPhone = '';
+  String _userEmail = '';
   String _joinDate = '';
   int _totalOrders = 0;
   double _totalProfits = 0.0;
@@ -60,6 +61,7 @@ class _NewAccountPageState extends State<NewAccountPage> {
       if (userResponse != null) {
         _userName = userResponse['name'] ?? '';
         _userPhone = userResponse['phone'] ?? '';
+        _userEmail = userResponse['email'] ?? '';
 
         // تنسيق تاريخ الانضمام
         if (userResponse['created_at'] != null) {

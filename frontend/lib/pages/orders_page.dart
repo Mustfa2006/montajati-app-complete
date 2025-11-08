@@ -73,7 +73,7 @@ class _OrdersPageState extends State<OrdersPage> {
   /// عدد الطلبات في كل صفحة
   final int _pageSize = 10;
 
-  /// متحكم التمرير للـ Infinite Scroll و Scroll-to-Refresh
+  /// متحكم التمرير للـ Infinite Scroll
   final ScrollController _scrollController = ScrollController();
 
   /// مؤقت لـ Debouncing التمرير
@@ -81,22 +81,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// حالة التحديث (Pull-to-Refresh)
   bool _isRefreshing = false;
-
-  /// موضع التمرير السابق لاكتشاف التمرير للأعلى
-  double _previousScrollPosition = 0.0;
-
-  // ===================================
-  // نظام ذكي لمنع Race Condition
-  // ===================================
-
-  /// معرف فريد للطلب الحالي (لإلغاء الطلبات القديمة)
-  int _currentRequestId = 0;
-
-  /// مؤقت لـ Debouncing تغيير الفلتر
-  Timer? _filterDebounceTimer;
-
-  /// عدد محاولات إعادة الطلب (لا حد أقصى - إعادة محاولة مستمرة)
-  int _retryCount = 0;
 
   // ===================================
   // عدادات الطلبات حسب الحالة
@@ -132,23 +116,13 @@ class _OrdersPageState extends State<OrdersPage> {
     selectedFilter = 'all';
   }
 
-  /// مراقبة التمرير للتحميل التدريجي (Infinite Scroll) و Scroll-to-Refresh
+  /// مراقبة التمرير للتحميل التدريجي (Infinite Scroll)
   /// مع Debouncing لمنع الطلبات المتعددة المتزامنة
   void _onScroll() {
-    final currentPosition = _scrollController.position.pixels;
-
-    // اكتشاف التمرير للأعلى عند الوصول لأعلى الصفحة
-    if (currentPosition <= 0 && _previousScrollPosition > 0 && !_isRefreshing) {
-      // تفعيل التحديث عند السحب للأعلى
-      _refreshData();
-    }
-
-    _previousScrollPosition = currentPosition;
-
     // إلغاء المؤقت السابق إن وجد
     _scrollDebounceTimer?.cancel();
 
-    // إنشاء مؤقت جديد للتحميل التدريجي
+    // إنشاء مؤقت جديد
     _scrollDebounceTimer = Timer(Duration(milliseconds: AppConfig.scrollDebounceDuration), () {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - AppConfig.scrollLoadThreshold) {
@@ -260,19 +234,13 @@ class _OrdersPageState extends State<OrdersPage> {
       }
     } on TimeoutException {
       debugPrint('❌ انتهت مهلة الانتظار في جلب الطلبات المجدولة');
-      // ✅ إعادة محاولة مستمرة
-      await Future.delayed(const Duration(seconds: 3));
-      return _getScheduledOrders(userPhone);
+      return [];
     } on http.ClientException {
       debugPrint('❌ فشل الاتصال بالخادم في جلب الطلبات المجدولة');
-      // ✅ إعادة محاولة مستمرة
-      await Future.delayed(const Duration(seconds: 3));
-      return _getScheduledOrders(userPhone);
+      return [];
     } catch (e) {
       debugPrint('❌ خطأ في جلب الطلبات المجدولة: $e');
-      // ✅ إعادة محاولة مستمرة
-      await Future.delayed(const Duration(seconds: 3));
-      return _getScheduledOrders(userPhone);
+      return [];
     }
   }
 
@@ -348,9 +316,8 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   void dispose() {
-    // إلغاء المؤقتات
+    // إلغاء المؤقت
     _scrollDebounceTimer?.cancel();
-    _filterDebounceTimer?.cancel();
 
     // إلغاء المتحكمات
     _scrollController.dispose();
@@ -361,32 +328,23 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// جلب طلبات المستخدم من Backend API
   /// يدعم Pagination و Infinite Scroll
-  /// ✅ نظام ذكي لمنع Race Condition و Retry Mechanism المستمر
-  Future<void> _loadOrdersFromDatabase({bool isLoadMore = false, int retryAttempt = 0}) async {
-    // منع الطلبات المتعددة المتزامنة (فقط في المحاولة الأولى)
-    if (retryAttempt == 0) {
-      if (_isLoading || (isLoadMore && _isLoadingMore) || (isLoadMore && !_hasMoreData)) {
-        return;
+  Future<void> _loadOrdersFromDatabase({bool isLoadMore = false}) async {
+    // منع الطلبات المتعددة المتزامنة
+    if (_isLoading || (isLoadMore && _isLoadingMore) || (isLoadMore && !_hasMoreData)) {
+      return;
+    }
+
+    // تحديث حالة التحميل
+    setState(() {
+      if (isLoadMore) {
+        _isLoadingMore = true;
+      } else {
+        _isLoading = true;
+        _currentPage = 0;
+        _hasMoreData = true;
+        _orders.clear();
       }
-    }
-
-    // ✅ إنشاء معرف فريد لهذا الطلب
-    final requestId = ++_currentRequestId;
-    debugPrint('🆔 معرف الطلب: $requestId (محاولة ${retryAttempt + 1})');
-
-    // تحديث حالة التحميل (فقط في المحاولة الأولى)
-    if (retryAttempt == 0) {
-      setState(() {
-        if (isLoadMore) {
-          _isLoadingMore = true;
-        } else {
-          _isLoading = true;
-          _currentPage = 0;
-          _hasMoreData = true;
-          _orders.clear();
-        }
-      });
-    }
+    });
 
     try {
       // جلب رقم هاتف المستخدم من التخزين المحلي
@@ -394,48 +352,20 @@ class _OrdersPageState extends State<OrdersPage> {
       final currentUserPhone = prefs.getString('current_user_phone');
 
       if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        debugPrint('❌ رقم هاتف المستخدم غير متوفر - سيتم إعادة المحاولة بعد 2 ثواني');
-        if (mounted) {
-          // إيقاف مؤشرات التحميل الحالية مع جدولة إعادة المحاولة
-          setState(() {
-            _isLoading = false;
-            _isLoadingMore = false;
-          });
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
-            }
-          });
-        }
+        debugPrint('❌ رقم هاتف المستخدم غير متوفر');
+        _showErrorMessage('رقم الهاتف غير متوفر');
         return;
       }
 
-      // تحديد الفلتر المطلوب (إذا لم يكن 'all' أو 'scheduled')
-      String? statusFilter;
-      if (selectedFilter != 'all' && selectedFilter != 'scheduled') {
-        statusFilter = selectedFilter;
-      }
+      debugPrint('🔍 جلب طلبات المستخدم من Backend API - الصفحة: $_currentPage');
 
-      debugPrint('🔍 جلب طلبات المستخدم من Backend API - الصفحة: $_currentPage, الفلتر: ${statusFilter ?? 'الكل'}');
+      // بناء URL للـ Backend API
+      final url = Uri.parse(AppConfig.getUserOrdersUrl(currentUserPhone, page: _currentPage, limit: _pageSize));
 
-      // بناء URL للـ Backend API مع الفلتر
-      final url = Uri.parse(
-        AppConfig.getUserOrdersUrl(currentUserPhone, page: _currentPage, limit: _pageSize, statusFilter: statusFilter),
-      );
-
-      // إرسال الطلب إلى Backend مع timeout أطول (30 ثانية)
+      // إرسال الطلب إلى Backend
       final response = await http
           .get(url)
-          .timeout(const Duration(seconds: 30), onTimeout: () => throw TimeoutException('انتهت مهلة الانتظار'));
-      debugPrint(
-        '📥 استلام الاستجابة: ${response.statusCode} - طول البيانات: ${response.body.length} من ${url.toString()}',
-      );
-
-      // ✅ فحص إذا تم إلغاء هذا الطلب (طلب جديد تم إنشاؤه)
-      if (requestId != _currentRequestId) {
-        debugPrint('🚫 تم إلغاء الطلب $requestId (طلب جديد: $_currentRequestId)');
-        return;
-      }
+          .timeout(const Duration(seconds: 10), onTimeout: () => throw TimeoutException('انتهت مهلة الانتظار'));
 
       // معالجة الاستجابة
       if (response.statusCode == 200) {
@@ -453,14 +383,7 @@ class _OrdersPageState extends State<OrdersPage> {
               newOrders.add(order);
             } catch (e) {
               debugPrint('❌ خطأ في تحويل طلب: $e');
-              debugPrint('📋 بيانات الطلب: $orderData'); // ✅ طباعة البيانات للتشخيص
             }
-          }
-
-          // ✅ فحص مرة أخرى قبل التحديث
-          if (requestId != _currentRequestId) {
-            debugPrint('🚫 تم إلغاء الطلب $requestId قبل التحديث');
-            return;
           }
 
           // تحديث القائمة
@@ -474,11 +397,6 @@ class _OrdersPageState extends State<OrdersPage> {
 
               _hasMoreData = pagination['hasMore'] ?? false;
               _currentPage++;
-              _retryCount = 0; // ✅ إعادة تعيين عداد المحاولات
-
-              // ✅ إيقاف مؤشر التحميل عند النجاح
-              _isLoading = false;
-              _isLoadingMore = false;
             });
           }
 
@@ -487,95 +405,32 @@ class _OrdersPageState extends State<OrdersPage> {
           throw Exception(json['error'] ?? 'خطأ في جلب الطلبات');
         }
       } else if (response.statusCode == 404) {
-        // قد يدل 404 هنا على أن مسارات الخادم غير مُسجّلة مؤقتاً (معالج 404 العام)
-        // بدلاً من إيقاف التحميل، سنستمر بإعادة المحاولة حتى تصبح المسارات متاحة
-        try {
-          final body = response.body;
-          final json = body.isNotEmpty ? jsonDecode(body) : {};
-          final msg = (json['message'] ?? '').toString();
-          final path = json['path'];
-          final isRouteMissing = msg.contains('المسار غير موجود') || path != null;
-
-          if (isRouteMissing) {
-            debugPrint('⚠️ 404 من الخادم (Route missing). سنعيد المحاولة تلقائياً...');
-            if (requestId == _currentRequestId) {
-              final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
-              debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
-              await Future.delayed(Duration(seconds: waitSeconds));
-              if (requestId == _currentRequestId) {
-                return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
-              }
-            }
-          } else {
-            // 404 فعلي لعدم وجود بيانات: نعرض أنه لا توجد طلبات
-            if (mounted && requestId == _currentRequestId) {
-              setState(() {
-                _orders = [];
-                _hasMoreData = false;
-                _isLoading = false;
-                _isLoadingMore = false;
-              });
-            }
-          }
-        } catch (_) {
-          // في حال فشل تحليل الاستجابة، نتعامل معها كحالة خادم مؤقتة ونعيد المحاولة
-          if (requestId == _currentRequestId) {
-            final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
-            debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
-            await Future.delayed(Duration(seconds: waitSeconds));
-            if (requestId == _currentRequestId) {
-              return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
-            }
-          }
+        debugPrint('⚠️ لا توجد طلبات للمستخدم');
+        if (mounted) {
+          setState(() {
+            _orders = [];
+            _hasMoreData = false;
+          });
         }
       } else {
         throw Exception('خطأ في الخادم: ${response.statusCode}');
       }
     } on TimeoutException {
-      debugPrint('❌ انتهت مهلة الانتظار (محاولة ${retryAttempt + 1})');
-
-      // ✅ إعادة المحاولة تلقائياً مستمرة بدون توقف
-      if (requestId == _currentRequestId) {
-        // حساب وقت الانتظار مع حد أقصى 30 ثانية
-        final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
-        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
-
-        await Future.delayed(Duration(seconds: waitSeconds));
-        if (requestId == _currentRequestId) {
-          return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
-        }
-      }
+      debugPrint('❌ انتهت مهلة الانتظار');
+      _showErrorMessage('انتهت مهلة الانتظار. يرجى المحاولة مرة أخرى');
     } on http.ClientException {
-      debugPrint('❌ فشل الاتصال بالخادم (محاولة ${retryAttempt + 1})');
-
-      // ✅ إعادة المحاولة تلقائياً مستمرة بدون توقف
-      if (requestId == _currentRequestId) {
-        // حساب وقت الانتظار مع حد أقصى 30 ثانية
-        final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
-        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
-
-        await Future.delayed(Duration(seconds: waitSeconds));
-        if (requestId == _currentRequestId) {
-          return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
-        }
-      }
+      debugPrint('❌ فشل الاتصال بالخادم');
+      _showErrorMessage('فشل الاتصال بالخادم. تحقق من الإنترنت');
     } catch (e) {
-      debugPrint('❌ خطأ في تحميل الطلبات: $e (محاولة ${retryAttempt + 1})');
-
-      // ✅ إعادة المحاولة تلقائياً مستمرة بدون توقف
-      if (requestId == _currentRequestId) {
-        // حساب وقت الانتظار مع حد أقصى 30 ثانية
-        final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
-        debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s... (محاولة ${retryAttempt + 1})');
-
-        await Future.delayed(Duration(seconds: waitSeconds));
-        if (requestId == _currentRequestId) {
-          return _loadOrdersFromDatabase(isLoadMore: isLoadMore, retryAttempt: retryAttempt + 1);
-        }
-      }
+      debugPrint('❌ خطأ في تحميل الطلبات: $e');
+      _showErrorMessage('حدث خطأ في تحميل الطلبات');
     } finally {
-      // ✅ لا نفعل شيء هنا - يتم إيقاف التحميل في معالجة الاستجابة الناجحة
-      // أو في معالجة الأخطاء قبل إعادة المحاولة
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -599,8 +454,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   /// جلب عدادات الطلبات حسب الحالة من Backend API
   /// ✅ يستخدم Backend API - آمن وسريع
-  /// ✅ نظام إعادة محاولة مستمر
-  Future<void> _loadOrderCounts({int retryAttempt = 0}) async {
+  Future<void> _loadOrderCounts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final currentUserPhone = prefs.getString('current_user_phone');
@@ -610,7 +464,7 @@ class _OrdersPageState extends State<OrdersPage> {
         return;
       }
 
-      debugPrint('📊 جلب العدادات من Backend API للمستخدم: $currentUserPhone (محاولة ${retryAttempt + 1})');
+      debugPrint('📊 جلب العدادات من Backend API للمستخدم: $currentUserPhone');
 
       // بناء URL للـ Backend API
       final url = Uri.parse(AppConfig.getOrderCountsUrl(currentUserPhone));
@@ -652,26 +506,14 @@ class _OrdersPageState extends State<OrdersPage> {
         throw Exception('خطأ في الخادم: ${response.statusCode}');
       }
     } on TimeoutException {
-      debugPrint('❌ انتهت مهلة الانتظار في جلب العدادات (محاولة ${retryAttempt + 1})');
-      // ✅ إعادة محاولة مستمرة
-      final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
-      debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
-      await Future.delayed(Duration(seconds: waitSeconds));
-      return _loadOrderCounts(retryAttempt: retryAttempt + 1);
+      debugPrint('❌ انتهت مهلة الانتظار في جلب العدادات');
+      // لا نحسب العدادات محلياً - نبقي القيم الافتراضية (0)
     } on http.ClientException {
-      debugPrint('❌ فشل الاتصال بالخادم في جلب العدادات (محاولة ${retryAttempt + 1})');
-      // ✅ إعادة محاولة مستمرة
-      final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
-      debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
-      await Future.delayed(Duration(seconds: waitSeconds));
-      return _loadOrderCounts(retryAttempt: retryAttempt + 1);
+      debugPrint('❌ فشل الاتصال بالخادم في جلب العدادات');
+      // لا نحسب العدادات محلياً - نبقي القيم الافتراضية (0)
     } catch (e) {
-      debugPrint('❌ خطأ في جلب العدادات: $e (محاولة ${retryAttempt + 1})');
-      // ✅ إعادة محاولة مستمرة
-      final waitSeconds = (2 * (retryAttempt + 1)).clamp(2, 30);
-      debugPrint('🔄 إعادة المحاولة بعد ${waitSeconds}s...');
-      await Future.delayed(Duration(seconds: waitSeconds));
-      return _loadOrderCounts(retryAttempt: retryAttempt + 1);
+      debugPrint('❌ خطأ في جلب العدادات: $e');
+      // لا نحسب العدادات محلياً - نبقي القيم الافتراضية (0)
     }
   }
 
@@ -793,6 +635,11 @@ class _OrdersPageState extends State<OrdersPage> {
       'shadowColor': const Color(0xFFdc3545),
       'gradientColors': [const Color(0xFF2e1a1a), const Color(0xFF2e1616), const Color(0xFF3f1e1e)],
     },
+    'تم الارجاع الى التاجر': {
+      'borderColor': const Color(0xFFdc3545),
+      'shadowColor': const Color(0xFFdc3545),
+      'gradientColors': [const Color(0xFF2e1a1a), const Color(0xFF2e1616), const Color(0xFF3f1e1e)],
+    },
   };
 
   /// اللون الافتراضي للحالات غير المعروفة (رمادي)
@@ -803,19 +650,38 @@ class _OrdersPageState extends State<OrdersPage> {
   };
 
   List<Order> get filteredOrders {
-    // ✅ Backend الآن يقوم بالفلترة حسب الحالة
-    // لذلك نستخدم الطلبات المجلوبة مباشرة بدون فلترة محلية
-    List<Order> statusFiltered;
+    List<Order> baseOrders = _orders;
 
-    if (selectedFilter == 'scheduled') {
-      // الطلبات المجدولة تُجلب من endpoint منفصل
-      statusFiltered = _scheduledOrders;
-    } else {
-      // جميع الطلبات الأخرى تأتي مفلترة من Backend
-      statusFiltered = _orders;
+    if (selectedFilter != 'all') {
+      switch (selectedFilter) {
+        case 'processing':
+          baseOrders = _orders.where((order) => _isProcessingStatus(order.rawStatus)).toList();
+          break;
+        case 'active':
+          baseOrders = _orders.where((order) => _isActiveStatus(order.rawStatus)).toList();
+          break;
+        case 'in_delivery':
+          baseOrders = _orders.where((order) => _isInDeliveryStatus(order.rawStatus)).toList();
+          break;
+        case 'delivered':
+          baseOrders = _orders.where((order) => _isDeliveredStatus(order.rawStatus)).toList();
+          break;
+        case 'cancelled':
+          baseOrders = _orders.where((order) => _isCancelledStatus(order.rawStatus)).toList();
+          break;
+      }
     }
 
-    // فلترة البحث فقط (محلياً)
+    baseOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    List<Order> statusFiltered = baseOrders;
+
+    if (selectedFilter == 'scheduled') {
+      statusFiltered = _scheduledOrders;
+    } else {
+      statusFiltered = baseOrders;
+    }
+
     if (searchQuery.isNotEmpty) {
       statusFiltered = statusFiltered.where((order) {
         final customerName = order.customerName.toLowerCase();
@@ -838,7 +704,9 @@ class _OrdersPageState extends State<OrdersPage> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
-        body: _buildScrollableContent(isDark), // المحتوى دائماً (مع skeleton عند التحميل)
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _buildScrollableContent(isDark), // المحتوى مباشرة بدون شريط ثابت
         bottomNavigationBar: CurvedNavigationBar(
           index: 1, // الطلبات
           items: <Widget>[
@@ -1043,57 +911,44 @@ class _OrdersPageState extends State<OrdersPage> {
     double width = _isInDeliveryStatus(status) || _isDeliveredStatus(status) || status == 'processing' ? 130 : 100;
 
     return GestureDetector(
-      onTap: () {
-        // ✅ إلغاء المؤقت السابق
-        _filterDebounceTimer?.cancel();
-
-        // ✅ تحديث الفلتر فوراً (للـ UI)
+      onTap: () async {
         setState(() {
           selectedFilter = status;
         });
-
-        // ✅ Debouncing: انتظار 50ms قبل جلب البيانات (تفاعل سريع جداً)
-        _filterDebounceTimer = Timer(const Duration(milliseconds: 50), () {
-          _loadOrdersFromDatabase();
-        });
+        await _loadOrdersFromDatabase();
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
         width: width,
-        height: 60,
+        height: 60, // تقصير الأزرار
         decoration: BoxDecoration(
-          // خلفية بيضاء في الوضع النهاري، شفافة في الوضع الليلي
-          color: isDark ? Colors.transparent : Colors.white,
+          // شفافية تامة مع تأثير زجاجي أنيق
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? color : color.withValues(alpha: 0.4), width: isSelected ? 3 : 1.5),
-          // ظلال في الوضع النهاري
-          boxShadow: isDark
-              ? []
-              : [
-                  BoxShadow(
-                    color: Colors.grey.withValues(alpha: 0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                    spreadRadius: 1,
-                  ),
-                ],
+          border: Border.all(
+            color: isSelected
+                ? color // إطار عامق للحالة المختارة
+                : color.withValues(alpha: 0.4),
+            width: isSelected ? 3 : 1.5, // إطار أعمق للمحدد
+          ),
+          // بدون توهج - فقط إطار
+          boxShadow: [],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: isDark ? 10 : 0, sigmaY: isDark ? 10 : 0),
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
               decoration: BoxDecoration(
-                gradient: isDark
-                    ? LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isSelected
-                            ? [color.withValues(alpha: 0.15), color.withValues(alpha: 0.08), Colors.transparent]
-                            : [Colors.white.withValues(alpha: 0.05), Colors.transparent],
-                      )
-                    : null, // لا تدرج في الوضع النهاري
+                // تدرج شفاف أنيق
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isSelected
+                      ? [color.withValues(alpha: 0.15), color.withValues(alpha: 0.08), Colors.transparent]
+                      : [Colors.white.withValues(alpha: 0.05), Colors.transparent],
+                ),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(6), // تقليل الـ padding لتجنب overflow
@@ -1107,7 +962,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         Icon(
                           icon,
                           color: isSelected
-                              ? (isDark ? Colors.white : color)
+                              ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
                               : isDark
                               ? color.withValues(alpha: 0.9)
                               : (status == 'all' ? Colors.black.withValues(alpha: 0.7) : color),
@@ -1123,7 +978,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   : 10,
                               fontWeight: FontWeight.w700,
                               color: isSelected
-                                  ? (isDark ? Colors.white : color)
+                                  ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
                                   : isDark
                                   ? color.withValues(alpha: 0.9)
                                   : (status == 'all' ? Colors.black.withValues(alpha: 0.7) : color),
@@ -1152,7 +1007,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                           color: isSelected
-                              ? (isDark ? Colors.white : color)
+                              ? (isDark ? Colors.white : (status == 'all' ? Colors.black : Colors.white))
                               : isDark
                               ? color
                               : (status == 'all' ? Colors.black.withValues(alpha: 0.8) : color),
@@ -1224,37 +1079,39 @@ class _OrdersPageState extends State<OrdersPage> {
             margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               // خلفية بيضاء في الوضع النهاري، شفافة في الوضع الليلي
-              color: isDark ? Colors.transparent : Colors.white,
+              color: isDark ? const Color.fromARGB(0, 0, 0, 0) : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: isDark
-                    ? cardColors['borderColor'].withValues(alpha: 0.6)
-                    : cardColors['borderColor'].withValues(alpha: 0.4),
-                width: isDark ? 2.5 : 2.7, // ✅ تثخين الإطار لإظهار اللون بوضوح
+                color: isDark ? cardColors['borderColor'].withValues(alpha: 0.6) : cardColors['borderColor'],
+                width: isDark ? 2 : 1,
               ),
-              // ظلال محسّنة
+              // ظل وتوهج مناسب للوضع
               boxShadow: isDark
                   ? [
                       BoxShadow(
-                        color: cardColors['shadowColor'].withValues(alpha: 0.15),
+                        color: cardColors['shadowColor'].withValues(alpha: 0.150),
                         blurRadius: 0,
                         offset: const Offset(0, 2),
                         spreadRadius: 0,
                       ),
                     ]
                   : [
-                      // ظل رمادي ناعم في الوضع النهاري
+                      // توهج خفيف بلون الحالة في الوضع النهاري
                       BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.12),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                        spreadRadius: 1,
+                        color: cardColors['shadowColor'].withValues(alpha: 0.15),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                        spreadRadius: 0,
                       ),
+                      BoxShadow(color: Colors.grey.withValues(alpha: 0.50), blurRadius: 8, offset: const Offset(0, 2)),
                     ],
             ),
             child: Container(
-              // بدون توهج في الوضع النهاري
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), color: Colors.transparent),
+              // توهج للبطاقة بالكامل بلون حالة الطلب
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: isDark ? Colors.transparent : cardColors['shadowColor'].withValues(alpha: 0.2),
+              ),
               padding: const EdgeInsets.all(2),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1326,7 +1183,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     style: GoogleFonts.cairo(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: isDark ? ThemeColors.textColor(isDark) : Colors.black,
+                      color: ThemeColors.textColor(isDark),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -1445,10 +1302,23 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  // بناء شارة الحالة باستخدام OrderStatusHelper
+  // دالة مساعدة لتقصير النص في البطاقة فقط (بدون تأثير على الوسيط)
+  String _getShortStatusTextForCard(String originalStatus) {
+    // إذا كان النص "قيد التوصيل في عهد المندوب" نقصره إلى "قيد التوصيل"
+    if (originalStatus.contains('قيد التوصيل في عهد المندوب') ||
+        originalStatus.contains('قيد التوصيل الى الزبون في عهد المندوب')) {
+      return 'قيد التوصيل';
+    }
+    // باقي النصوص تبقى كما هي
+    return originalStatus;
+  }
+
+  // بناء شارة الحالة باستخدام OrderStatusHelper والنص المقصر للبطاقة
   Widget _buildStatusBadge(Order order) {
-    // ✅ OrderStatusHelper يقوم بتقصير النص تلقائياً
-    final displayStatusText = OrderStatusHelper.getArabicStatus(order.rawStatus);
+    // استخدام النص الأصلي من قاعدة البيانات
+    final originalStatusText = OrderStatusHelper.getArabicStatus(order.rawStatus);
+    // تقصير النص للعرض في البطاقة فقط
+    final displayStatusText = _getShortStatusTextForCard(originalStatusText);
     final backgroundColor = OrderStatusHelper.getStatusColor(order.rawStatus);
 
     // تحديد لون النص بناءً على الحالة
@@ -1516,7 +1386,7 @@ class _OrdersPageState extends State<OrdersPage> {
               style: GoogleFonts.cairo(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: isDark ? const Color(0xFFd4af37) : Colors.black,
+                color: const Color(0xFFd4af37),
                 shadows: isDark
                     ? [
                         Shadow(
@@ -1658,8 +1528,8 @@ class _OrdersPageState extends State<OrdersPage> {
                     isScheduled ? _formatDate(order.scheduledDate!) : _formatDate(order.createdAt),
                     style: GoogleFonts.cairo(
                       fontSize: 10,
-                      fontWeight: FontWeight.w700, // تثخين الخط
-                      color: isDark ? Colors.white : Colors.black.withValues(alpha: 0.8),
+                      fontWeight: FontWeight.w500,
+                      color: isDark ? Colors.white : Colors.black.withValues(alpha: 0.7),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),

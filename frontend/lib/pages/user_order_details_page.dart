@@ -7,16 +7,14 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order.dart';
 import '../models/order_item.dart' as order_item_model;
 import '../providers/theme_provider.dart';
-import '../services/order_details_service.dart'; // ✅ استخدام Backend API
 import '../utils/order_status_helper.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
-import '../widgets/order_details_skeleton.dart';
 
 class UserOrderDetailsPage extends StatefulWidget {
   final String orderId;
@@ -31,18 +29,11 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   Order? _order;
   bool _isLoading = true;
   String? _error;
-  bool _isDeleting = false; // ✅ منع الحذف المزدوج
 
   @override
   void initState() {
     super.initState();
     _loadOrderDetails();
-  }
-
-  @override
-  void dispose() {
-    // ✅ تنظيف الموارد عند مغادرة الصفحة
-    super.dispose();
   }
 
   Future<void> _loadOrderDetails() async {
@@ -52,15 +43,120 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         _error = null;
       });
 
-      // ✅ استخدام Backend API بدلاً من Supabase مباشرة
-      final order = await OrderDetailsService.fetchOrderDetails(widget.orderId);
+      debugPrint('📥 جلب تفاصيل الطلب: ${widget.orderId}');
+
+      // محاولة جلب من جدول الطلبات العادية أولاً
+      dynamic orderResponse;
+      bool isScheduledOrder = false;
+
+      try {
+        orderResponse = await Supabase.instance.client
+            .from('orders')
+            .select('*, order_items(*)')
+            .eq('id', widget.orderId)
+            .single();
+      } catch (e) {
+        // إذا لم يوجد في الطلبات العادية، جرب الطلبات المجدولة
+        debugPrint('🔄 لم يوجد في الطلبات العادية، جرب الطلبات المجدولة...');
+        try {
+          orderResponse = await Supabase.instance.client
+              .from('scheduled_orders')
+              .select('*, scheduled_order_items(*)')
+              .eq('id', widget.orderId)
+              .single();
+          isScheduledOrder = true;
+        } catch (scheduledError) {
+          throw Exception('الطلب غير موجود في الطلبات العادية أو المجدولة');
+        }
+      }
+
+      debugPrint('✅ تم جلب تفاصيل الطلب: ${orderResponse['id']}');
+
+      // تحويل عناصر الطلب (حسب نوع الطلب)
+      final itemsKey = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
+      final orderItems =
+          (orderResponse[itemsKey] as List?)?.map((item) {
+            if (isScheduledOrder) {
+              // للطلبات المجدولة - استخدام أسماء الأعمدة الصحيحة
+              return order_item_model.OrderItem(
+                id: item['id']?.toString() ?? '',
+                productId: item['product_id']?.toString() ?? item['id']?.toString() ?? '',
+                name: item['product_name'] ?? '',
+                image: item['product_image'] ?? '', // ✅ استخدام صورة المنتج من قاعدة البيانات
+                wholesalePrice: double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
+                customerPrice: double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
+                quantity: item['quantity'] ?? 1,
+              );
+            } else {
+              // للطلبات العادية
+              return order_item_model.OrderItem(
+                id: item['id']?.toString() ?? '',
+                productId: item['product_id'] ?? '',
+                name: item['product_name'] ?? '',
+                image: item['product_image'] ?? '',
+                wholesalePrice: double.tryParse(item['wholesale_price']?.toString() ?? '0') ?? 0.0,
+                customerPrice: double.tryParse(item['customer_price']?.toString() ?? '0') ?? 0.0,
+                quantity: item['quantity'] ?? 1,
+              );
+            }
+          }).toList() ??
+          <order_item_model.OrderItem>[];
+
+      // إنشاء كائن الطلب مع أسماء الأعمدة الصحيحة
+      final order = Order(
+        id: orderResponse['id'],
+        customerName: orderResponse['customer_name'] ?? '',
+        primaryPhone: isScheduledOrder
+            ? (orderResponse['customer_phone'] ?? '')
+            : (orderResponse['primary_phone'] ?? ''),
+        secondaryPhone: isScheduledOrder
+            ? (orderResponse['customer_alternate_phone'])
+            : (orderResponse['secondary_phone']),
+        province: isScheduledOrder
+            ? (orderResponse['customer_province'] ?? 'غير محدد')
+            : (orderResponse['province'] ?? 'غير محدد'),
+        city: isScheduledOrder ? (orderResponse['customer_city'] ?? 'غير محدد') : (orderResponse['city'] ?? 'غير محدد'),
+        notes: isScheduledOrder
+            ? (orderResponse['customer_notes'] ?? orderResponse['notes'])
+            : (orderResponse['customer_notes'] ?? orderResponse['notes']),
+        totalCost: isScheduledOrder
+            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
+            : (orderResponse['total'] ?? 0),
+        subtotal: isScheduledOrder
+            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
+            : (orderResponse['subtotal'] ?? 0),
+        total: isScheduledOrder
+            ? (double.tryParse(orderResponse['total_amount']?.toString() ?? '0') ?? 0).toInt()
+            : (orderResponse['total'] ?? 0),
+        totalProfit: isScheduledOrder
+            ? (double.tryParse(orderResponse['profit_amount']?.toString() ?? '0') ?? 0).toInt()
+            : (orderResponse['profit'] ?? 0),
+        status: _parseOrderStatus(orderResponse['status'] ?? 'pending'),
+        rawStatus: orderResponse['status'] ?? 'نشط', // ✅ تمرير الحالة الأصلية من قاعدة البيانات
+        createdAt: DateTime.parse(orderResponse['created_at']),
+        items: orderItems,
+        // إضافة معلومات الجدولة إذا كان طلب مجدول
+        scheduledDate: isScheduledOrder ? DateTime.tryParse(orderResponse['scheduled_date'] ?? '') : null,
+        scheduleNotes: isScheduledOrder ? orderResponse['notes'] : null,
+      );
 
       setState(() {
         _order = order;
         _isLoading = false;
       });
 
-      debugPrint('✅ تم تحميل تفاصيل الطلب بنجاح');
+      debugPrint('✅ تم تحميل تفاصيل الطلب بنجاح: ${order.id}');
+      debugPrint('📋 اسم العميل: ${order.customerName}');
+      debugPrint('📞 رقم الهاتف: ${order.primaryPhone}');
+      debugPrint('💰 المجموع: ${order.total}');
+      debugPrint('📊 حالة الطلب الأصلية من قاعدة البيانات: ${orderResponse['status']}');
+      debugPrint('📊 حالة الطلب في rawStatus: ${order.rawStatus}');
+      debugPrint('🧮 المجموع الفرعي من قاعدة البيانات: ${order.subtotal} د.ع');
+      debugPrint('🧮 المجموع الكلي من قاعدة البيانات: ${order.total} د.ع');
+      debugPrint('🧮 إجمالي الربح من قاعدة البيانات: ${order.totalProfit} د.ع');
+      debugPrint('📝 الملاحظات من notes: "${orderResponse['notes']}"');
+      debugPrint('📝 الملاحظات من customer_notes: "${orderResponse['customer_notes']}"');
+      debugPrint('📝 الملاحظات النهائية: "${order.notes}"');
     } catch (e) {
       debugPrint('❌ خطأ في جلب تفاصيل الطلب: $e');
       setState(() {
@@ -70,51 +166,133 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     }
   }
 
+  OrderStatus _parseOrderStatus(String? status) {
+    switch (status) {
+      case 'pending':
+        return OrderStatus.pending;
+      case 'confirmed':
+        return OrderStatus.confirmed;
+      case 'in_delivery':
+        return OrderStatus.inDelivery;
+      case 'delivered':
+        return OrderStatus.delivered;
+      case 'cancelled':
+        return OrderStatus.cancelled;
+      default:
+        return OrderStatus.pending;
+    }
+  }
+
   // 🧮 حساب المجموع الفرعي من قاعدة البيانات
   double _calculateSubtotal() {
     if (_order == null) return 0.0;
-    return _order!.subtotal.toDouble();
+
+    // استخدام القيمة المحفوظة في قاعدة البيانات
+    double subtotal = _order!.subtotal.toDouble();
+
+    debugPrint('🧮 المجموع الفرعي من قاعدة البيانات: $subtotal د.ع');
+    return subtotal;
   }
 
   // 🧮 حساب المجموع الكلي من قاعدة البيانات
   double _calculateTotal() {
     if (_order == null) return 0.0;
-    return _order!.total.toDouble();
+
+    // استخدام القيمة المحفوظة في قاعدة البيانات
+    double total = _order!.total.toDouble();
+
+    debugPrint('🧮 المجموع الكلي من قاعدة البيانات: $total د.ع');
+    return total;
   }
 
   // 🧮 حساب إجمالي الربح من قاعدة البيانات
   double _calculateTotalProfit() {
     if (_order == null) return 0.0;
-    return _order!.totalProfit.toDouble();
+
+    // استخدام القيمة المحفوظة في قاعدة البيانات
+    double totalProfit = _order!.totalProfit.toDouble();
+
+    debugPrint('🧮 إجمالي الربح من قاعدة البيانات: $totalProfit د.ع');
+    return totalProfit;
   }
 
-  // 🔍 التحقق من كون الطلب نشط (يمكن تعديله أو حذفه)
+  // 🔍 التحقق من كون الطلب نشط (يمكن تعديله أو حذفه) - أمان مضاعف
   bool _isOrderActive() {
-    if (_order == null) return false;
+    // 🛡️ فحص أولي - إذا لم يكن هناك طلب، فلا يمكن التعديل
+    if (_order == null) {
+      debugPrint('🚫 لا يوجد طلب - الأزرار مخفية');
+      return false;
+    }
 
+    // 🛡️ فحص الحالة الأصلية من قاعدة البيانات
     final rawStatus = _order!.rawStatus.toLowerCase().trim();
 
-    // ✅ قائمة الحالات النشطة فقط
-    const activeStatuses = ['نشط', 'active', 'pending', 'confirmed', 'جديد', 'new'];
+    debugPrint('🔍 فحص صارم لنشاط الطلب:');
+    debugPrint('   📋 Raw Status الأصلي: "${_order!.rawStatus}"');
+    debugPrint('   📋 Raw Status منظف: "$rawStatus"');
 
-    // ✅ قائمة الحالات غير النشطة
-    const inactiveStatuses = [
+    // 🛡️ قائمة صارمة للحالات النشطة فقط
+    final activeStatuses = ['نشط', 'active', 'pending', 'confirmed', 'جديد', 'new'];
+
+    // 🛡️ فحص إذا كانت الحالة في القائمة النشطة
+    bool isInActiveList = activeStatuses.any((status) => rawStatus == status);
+
+    // 🛡️ قائمة شاملة للحالات غير النشطة (أي حالة أخرى = غير نشط)
+    final inactiveStatuses = [
       'تم التوصيل',
       'delivered',
+      'مسلم',
       'ملغي',
       'cancelled',
+      'مرفوض',
+      'rejected',
       'قيد التوصيل',
       'in_delivery',
+      'في الطريق',
+      'لا يرد بعد الاتفاق',
       'لا يرد',
       'no_answer',
+      'مغلق',
+      'closed',
       'مؤجل',
       'postponed',
+      'طلب مكرر',
+      'duplicate',
+      'مستلم مسبقا',
+      'لم يطلب',
+      'not_ordered',
+      'الرقم غير معرف',
+      'الرقم غير داخل في الخدمة',
+      'مفصول عن الخدمة',
+      'لا يمكن الاتصال بالرقم',
+      'العنوان غير دقيق',
+      'حظر المندوب',
+      'تم تغيير محافظة الزبون',
+      'تغيير المندوب',
     ];
 
-    // ✅ فحص بسيط ومباشر
-    if (rawStatus.isEmpty || rawStatus == 'null') return false;
-    if (inactiveStatuses.any((status) => rawStatus.contains(status))) return false;
-    return activeStatuses.contains(rawStatus);
+    // 🛡️ فحص إذا كانت الحالة في القائمة غير النشطة
+    bool isInInactiveList = inactiveStatuses.any((status) => rawStatus.contains(status));
+
+    // 🛡️ القرار النهائي: نشط فقط إذا كان في القائمة النشطة وليس في القائمة غير النشطة
+    bool isActive = isInActiveList && !isInInactiveList;
+
+    // 🛡️ فحص إضافي: إذا كانت الحالة فارغة أو غير معروفة، اعتبرها غير نشطة
+    if (rawStatus.isEmpty || rawStatus == 'null') {
+      isActive = false;
+    }
+
+    debugPrint('   ✅ في القائمة النشطة: $isInActiveList');
+    debugPrint('   ❌ في القائمة غير النشطة: $isInInactiveList');
+    debugPrint('   🎯 النتيجة النهائية: $isActive');
+
+    if (isActive) {
+      debugPrint('✅ الطلب نشط - الأزرار ظاهرة');
+    } else {
+      debugPrint('🚫 الطلب غير نشط - الأزرار مخفية');
+    }
+
+    return isActive;
   }
 
   // ✏️ تعديل الطلب
@@ -268,12 +446,10 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
                         // زر الحذف
                         Expanded(
                           child: GestureDetector(
-                            onTap: _isDeleting
-                                ? null // ✅ تعطيل الزر أثناء الحذف
-                                : () async {
-                                    Navigator.pop(context);
-                                    await _confirmDeleteOrder();
-                                  },
+                            onTap: () async {
+                              Navigator.pop(context);
+                              await _confirmDeleteOrder();
+                            },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               decoration: BoxDecoration(
@@ -307,58 +483,72 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
 
   // 🗑️ تأكيد حذف الطلب
   Future<void> _confirmDeleteOrder() async {
-    // ✅ منع الحذف المزدوج
-    if (_isDeleting) return;
-
     try {
-      setState(() => _isDeleting = true);
-      debugPrint('🗑️ بدء حذف الطلب');
+      debugPrint('🗑️ بدء حذف الطلب: ${_order!.id}');
 
-      // ✅ الحصول على رقم هاتف المستخدم من التخزين المحلي
-      final prefs = await SharedPreferences.getInstance();
-      final currentUserPhone = prefs.getString('current_user_phone');
+      // ✅ الخطوة 1: حذف معاملات الربح أولاً (مهم لتجنب خطأ Foreign Key)
+      final deleteProfitResponse = await Supabase.instance.client
+          .from('profit_transactions')
+          .delete()
+          .eq('order_id', _order!.id)
+          .select();
 
-      if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        throw Exception('رقم الهاتف غير متوفر');
+      debugPrint('✅ تم حذف ${deleteProfitResponse.length} معاملة ربح للطلب');
+
+      // ✅ الخطوة 2: تحديد نوع الطلب وحذفه من الجدول الصحيح
+      bool isScheduledOrder = _order!.scheduledDate != null;
+
+      if (isScheduledOrder) {
+        // حذف الطلب المجدول
+        final deleteOrderResponse = await Supabase.instance.client
+            .from('scheduled_orders')
+            .delete()
+            .eq('id', _order!.id)
+            .select();
+
+        if (deleteOrderResponse.isEmpty) {
+          throw Exception('لم يتم العثور على الطلب المجدول أو فشل في الحذف');
+        }
+
+        debugPrint('✅ تم حذف الطلب المجدول');
+      } else {
+        // حذف الطلب العادي
+        final deleteOrderResponse = await Supabase.instance.client
+            .from('orders')
+            .delete()
+            .eq('id', _order!.id)
+            .select();
+
+        if (deleteOrderResponse.isEmpty) {
+          throw Exception('لم يتم العثور على الطلب أو فشل في الحذف');
+        }
+
+        debugPrint('✅ تم حذف الطلب ');
       }
-
-      // ✅ حذف الطلب عبر Backend API (آمن وموثوق)
-      final success = await OrderDetailsService.deleteOrder(_order!.id, currentUserPhone);
-
-      if (!success) {
-        throw Exception('فشل في حذف الطلب');
-      }
-
-      // ✅ التحقق من mounted قبل أي عملية UI
-      if (!mounted) return;
 
       // إظهار رسالة نجاح
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تم حذف الطلب بنجاح', style: GoogleFonts.cairo()),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم حذف الطلب بنجاح', style: GoogleFonts.cairo()),
+            backgroundColor: Colors.green,
+          ),
+        );
 
-      // العودة لصفحة الطلبات
-      context.go('/orders');
+        // العودة دائماً لصفحة طلبات المستخدم
+        // بغض النظر عن نوع الطلب
+        context.go('/orders');
+      }
     } catch (e) {
       debugPrint('❌ خطأ في حذف الطلب: $e');
-
-      // ✅ التحقق من mounted قبل عرض الخطأ
-      if (!mounted) return;
-
       // إظهار رسالة خطأ
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('فشل في حذف الطلب: $e', style: GoogleFonts.cairo()),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      // ✅ إعادة تعيين الحالة
       if (mounted) {
-        setState(() => _isDeleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل في حذف الطلب: $e', style: GoogleFonts.cairo()),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
@@ -377,35 +567,21 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Row(
                   children: [
-                    // زر الرجوع - تحريكه لليسار قليلاً
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8), // ✅ إزاحة لليسار
-                      child: GestureDetector(
-                        onTap: () => context.go('/orders'),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFFffd700).withValues(alpha: 0.2)
-                                : Colors.black.withValues(alpha: 0.1), // ✅ خلفية سوداء في النهاري
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isDark
-                                  ? const Color(0xFFffd700).withValues(alpha: 0.3)
-                                  : Colors.black.withValues(alpha: 0.2), // ✅ حدود سوداء في النهاري
-                              width: 1,
-                            ),
-                          ),
-                          child: Icon(
-                            FontAwesomeIcons.arrowLeft, // ✅ السهم يشير لليسار في الوضع العربي
-                            color: isDark ? const Color(0xFFffd700) : Colors.black,
-                            size: 18,
-                          ),
+                    // زر الرجوع
+                    GestureDetector(
+                      onTap: () => context.go('/orders'),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
                         ),
+                        child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
                       ),
                     ),
-                    // العنوان في الوسط بالضبط
+                    // العنوان في الوسط
                     Expanded(
                       child: Center(
                         child: Text(
@@ -468,8 +644,19 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   }
 
   Widget _buildLoadingState() {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    return OrderDetailsSkeleton(isDark: isDark);
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.6,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 3),
+            SizedBox(height: 20),
+            Text('جاري تحميل تفاصيل الطلب...', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildErrorState() {
@@ -484,29 +671,14 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
             style: GoogleFonts.cairo(color: Colors.red, fontSize: 16),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 30),
-          // ✅ زر إعادة المحاولة
-          ElevatedButton.icon(
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-                _error = null;
-              });
-              _loadOrderDetails();
-            },
-            icon: const Icon(Icons.refresh),
-            label: Text('إعادة المحاولة', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () => context.go('/orders'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFffd700),
               foregroundColor: const Color(0xFF1a1a2e),
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
             ),
-          ),
-          const SizedBox(height: 15),
-          // زر العودة
-          TextButton(
-            onPressed: () => context.go('/orders'),
-            child: Text('العودة للطلبات', style: GoogleFonts.cairo(color: const Color(0xFFffd700))),
+            child: Text('العودة للطلبات', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -516,8 +688,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   Widget _buildOrderContent(bool isDark) {
     if (_order == null) return const SizedBox();
 
-    // ✅ بدون SingleChildScrollView - الـ Scaffold يتعامل مع التمرير
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -687,8 +858,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
           const SizedBox(height: 15),
           _buildInfoRow('اسم الزبون', _order!.customerName, isDark, showCopyButton: true),
           _buildInfoRow('رقم الزبون', _order!.primaryPhone, isDark, showCopyButton: true),
-          // ✅ إخفاء الرقم البديل إذا كان فارغاً أو null
-          if (_order!.secondaryPhone != null && _order!.secondaryPhone!.trim().isNotEmpty)
+          if (_order!.secondaryPhone != null)
             _buildInfoRow('الرقم البديل', _order!.secondaryPhone!, isDark, showCopyButton: true),
           _buildInfoRow('المحافظة', _order!.province, isDark),
           _buildInfoRow('المدينة', _order!.city, isDark),
@@ -839,19 +1009,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
             ],
           ),
           const SizedBox(height: 15),
-          // ✅ رسالة عند عدم وجود عناصر
-          if (_order!.items.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Text(
-                  'لا توجد عناصر في هذا الطلب',
-                  style: GoogleFonts.cairo(color: ThemeColors.textColor(isDark).withValues(alpha: 0.5), fontSize: 14),
-                ),
-              ),
-            )
-          else
-            ...(_order!.items.map((item) => _buildOrderItem(item, isDark)).toList()),
+          ...(_order!.items.map((item) => _buildOrderItem(item, isDark)).toList()),
         ],
       ),
     );

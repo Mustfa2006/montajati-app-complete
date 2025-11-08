@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import 'order_item.dart';
 
 enum OrderStatus { pending, confirmed, inDelivery, delivered, cancelled }
@@ -49,25 +47,31 @@ class Order {
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
-      id: (json['id'] ?? '').toString(),
-      customerName: (json['customer_name'] ?? '').toString(),
-      primaryPhone: (json['primary_phone'] ?? json['customer_phone'] ?? '').toString(),
-      secondaryPhone: (json['secondary_phone'] ?? json['customer_alternate_phone'])?.toString(),
-      province: (json['province'] ?? json['customer_province'] ?? '').toString(),
-      city: (json['city'] ?? json['customer_city'] ?? '').toString(),
-      notes: json['notes']?.toString(),
-      totalCost: _asInt(json['total'] ?? json['total_amount']),
+      id: json['id'] ?? '',
+      customerName: json['customer_name'] ?? '',
+      primaryPhone: json['primary_phone'] ?? '',
+      secondaryPhone: json['secondary_phone'],
+      province: json['province'] ?? '',
+      city: json['city'] ?? '',
+      notes: json['notes'],
+      totalCost: (json['total'] ?? 0),
       totalProfit: _parseProfit(json),
-      subtotal: _asInt(json['subtotal'] ?? json['subtotal_amount']),
-      total: _asInt(json['total'] ?? json['total_amount']),
-      status: _parseOrderStatus(json['status']?.toString()),
-      rawStatus: (json['waseet_status_text'] ?? json['status'] ?? 'نشط').toString(), // الاحتفاظ بالنص الأصلي
-      createdAt: _parseDateTime(json['created_at']), // ✅ معالجة آمنة للتاريخ
-      items: (json['order_items'] as List?)?.map((item) => OrderItem.fromJson(item)).toList() ?? [],
-      scheduledDate: _parseOptionalDateTime(json['scheduled_date']), // ✅ معالجة آمنة
-      scheduleNotes: json['schedule_notes']?.toString(),
-      supportRequested: json['support_requested'] as bool?,
-      waseetOrderId: json['waseet_order_id']?.toString(),
+      subtotal: (json['subtotal'] ?? 0),
+      total: (json['total'] ?? 0),
+      status: _parseOrderStatus(json['status']),
+      rawStatus: json['status'] ?? 'نشط', // الاحتفاظ بالنص الأصلي
+      createdAt: DateTime.parse(json['created_at']),
+      items:
+          (json['order_items'] as List?)
+              ?.map((item) => OrderItem.fromJson(item))
+              .toList() ??
+          [],
+      scheduledDate: json['scheduled_date'] != null
+          ? DateTime.parse(json['scheduled_date'])
+          : null,
+      scheduleNotes: json['schedule_notes'],
+      supportRequested: json['support_requested'],
+      waseetOrderId: json['waseet_order_id'],
     );
   }
 
@@ -93,58 +97,8 @@ class Order {
   }
 
   static int _parseProfit(Map<String, dynamic> json) {
-    // ✅ استخدام عمود profit مباشرة (هو العمود الأساسي) مع تحمل الأنواع
-    final v = json['profit'];
-    return _asInt(v);
-  }
-
-  // ✅ محولات آمنة للأرقام
-  static int _asInt(dynamic v) {
-    if (v == null) return 0;
-    if (v is int) return v;
-    if (v is num) return v.toInt();
-    if (v is String) {
-      return int.tryParse(v) ?? double.tryParse(v)?.toInt() ?? 0;
-    }
-    return 0;
-  }
-
-  static double _asDouble(dynamic v) {
-    if (v == null) return 0.0;
-    if (v is double) return v;
-    if (v is num) return v.toDouble();
-    if (v is String) {
-      return double.tryParse(v) ?? 0.0;
-    }
-    return 0.0;
-  }
-
-  // ✅ دالة معالجة آمنة للتاريخ
-  static DateTime _parseDateTime(dynamic value) {
-    if (value == null) return DateTime.now();
-    if (value is String) {
-      try {
-        return DateTime.parse(value);
-      } catch (e) {
-        debugPrint('⚠️ خطأ في تحويل التاريخ: $value - $e');
-        return DateTime.now();
-      }
-    }
-    return DateTime.now();
-  }
-
-  // ✅ دالة معالجة آمنة للتاريخ الاختياري
-  static DateTime? _parseOptionalDateTime(dynamic value) {
-    if (value == null) return null;
-    if (value is String) {
-      try {
-        return DateTime.parse(value);
-      } catch (e) {
-        debugPrint('⚠️ خطأ في تحويل التاريخ الاختياري: $value - $e');
-        return null;
-      }
-    }
-    return null;
+    // ✅ استخدام عمود profit مباشرة (هو العمود الأساسي)
+    return (json['profit'] ?? 0) as int;
   }
 
   static OrderStatus _parseOrderStatus(String? status) {
@@ -162,7 +116,8 @@ class Order {
     }
 
     // حالات مؤكدة
-    if (statusLower.contains('confirmed') || statusLower.contains('مؤكد')) {
+    if (statusLower.contains('confirmed') ||
+        statusLower.contains('مؤكد')) {
       return OrderStatus.confirmed;
     }
 

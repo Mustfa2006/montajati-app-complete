@@ -1,13 +1,12 @@
 import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:crypto/crypto.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../config/supabase_config.dart';
 import 'fcm_service.dart';
 import 'user_service.dart';
+
 
 class AuthService {
   static SupabaseClient get _supabase {
@@ -50,7 +49,10 @@ class AuthService {
   }
 
   // تسجيل الدخول باستخدام Supabase
-  static Future<AuthResult> login({required String usernameOrPhone, required String password}) async {
+  static Future<AuthResult> login({
+    required String usernameOrPhone,
+    required String password,
+  }) async {
     try {
       // التحقق من صحة البيانات
       if (usernameOrPhone.isEmpty || password.isEmpty) {
@@ -59,11 +61,17 @@ class AuthService {
 
       // التحقق من رقم الهاتف
       if (!RegExp(r'^[0-9]+$').hasMatch(usernameOrPhone)) {
-        return AuthResult(success: false, message: 'رقم الهاتف يجب أن يحتوي على أرقام فقط');
+        return AuthResult(
+          success: false,
+          message: 'رقم الهاتف يجب أن يحتوي على أرقام فقط',
+        );
       }
 
       if (usernameOrPhone.length != 11) {
-        return AuthResult(success: false, message: 'يجب كتابة رقم الهاتف 11 رقم');
+        return AuthResult(
+          success: false,
+          message: 'يجب كتابة رقم الهاتف 11 رقم',
+        );
       }
 
       // تشفير كلمة المرور
@@ -87,7 +95,8 @@ class AuthService {
 
       // إنشاء توكن وحفظه مع بيانات المستخدم
       final userData = response; // ✅ البيانات مباشرة من Supabase
-      String token = 'token_${userData['id']}_${DateTime.now().millisecondsSinceEpoch}';
+      String token =
+          'token_${userData['id']}_${DateTime.now().millisecondsSinceEpoch}';
       await _saveToken(token);
 
       // ✅ حفظ بيانات المستخدم في SharedPreferences
@@ -96,7 +105,10 @@ class AuthService {
       await prefs.setString('current_user_name', userData['name'] ?? '');
       await prefs.setString('current_user_phone', userData['phone'] ?? '');
       await prefs.setString('user_phone', userData['phone'] ?? ''); // ✅ إضافة للإشعارات
-      await prefs.setBool('current_user_is_admin', userData['is_admin'] ?? false);
+      await prefs.setBool(
+        'current_user_is_admin',
+        userData['is_admin'] ?? false,
+      );
 
       // 🔔 تسجيل FCM Token للإشعارات الفورية (مع تأخير للتأكد من حفظ البيانات)
       try {
@@ -146,14 +158,21 @@ class AuthService {
         ),
       );
     } on PostgrestException catch (e) {
-      return AuthResult(success: false, message: 'خطأ في قاعدة البيانات: ${e.message}');
+      return AuthResult(
+        success: false,
+        message: 'خطأ في قاعدة البيانات: ${e.message}',
+      );
     } catch (e) {
       return AuthResult(success: false, message: 'خطأ في الاتصال بالإنترنت');
     }
   }
 
   // تسجيل حساب جديد باستخدام Supabase
-  static Future<AuthResult> register({required String name, required String phone, required String password}) async {
+  static Future<AuthResult> register({
+    required String name,
+    required String phone,
+    required String password,
+  }) async {
     try {
       // التحقق من صحة البيانات
       if (name.isEmpty || phone.isEmpty || password.isEmpty) {
@@ -161,22 +180,35 @@ class AuthService {
       }
 
       if (phone.length != 11 || !RegExp(r'^[0-9]+$').hasMatch(phone)) {
-        return AuthResult(success: false, message: 'رقم الهاتف يجب أن يكون 11 رقم بالضبط');
+        return AuthResult(
+          success: false,
+          message: 'رقم الهاتف يجب أن يكون 11 رقم بالضبط',
+        );
       }
 
       if (password.length < 8) {
-        return AuthResult(success: false, message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل');
+        return AuthResult(
+          success: false,
+          message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل',
+        );
       }
 
       if (!RegExp(r'^[a-zA-Z0-9]+$').hasMatch(password)) {
-        return AuthResult(success: false, message: 'كلمة المرور يجب أن تحتوي على أحرف إنجليزية وأرقام فقط');
+        return AuthResult(
+          success: false,
+          message: 'كلمة المرور يجب أن تحتوي على أحرف إنجليزية وأرقام فقط',
+        );
       }
 
       // تشفير كلمة المرور
       String hashedPassword = _hashPassword(password);
 
       // التحقق من وجود رقم الهاتف مسبقاً
-      final existingUser = await _supabase.from('users').select('phone').eq('phone', phone).maybeSingle();
+      final existingUser = await _supabase
+          .from('users')
+          .select('phone')
+          .eq('phone', phone)
+          .maybeSingle();
 
       if (existingUser != null) {
         return AuthResult(success: false, message: 'رقم الهاتف مستخدم بالفعل');
@@ -190,13 +222,19 @@ class AuthService {
         'password_hash': hashedPassword,
       });
 
-      return AuthResult(success: true, message: 'تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول');
+      return AuthResult(
+        success: true,
+        message: 'تم إنشاء الحساب بنجاح! يمكنك الآن تسجيل الدخول',
+      );
     } on PostgrestException catch (e) {
       if (e.code == '23505') {
         // unique constraint violation
         return AuthResult(success: false, message: 'رقم الهاتف مستخدم بالفعل');
       }
-      return AuthResult(success: false, message: 'خطأ في قاعدة البيانات: ${e.message}');
+      return AuthResult(
+        success: false,
+        message: 'خطأ في قاعدة البيانات: ${e.message}',
+      );
     } catch (e) {
       return AuthResult(success: false, message: 'خطأ في الاتصال بالإنترنت');
     }
@@ -216,28 +254,12 @@ class AuthService {
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // ✅ حذف جميع FCM Tokens للمستخدم من قاعدة البيانات قبل تسجيل الخروج
-    try {
-      final currentUserPhone = prefs.getString('current_user_phone');
-      if (currentUserPhone != null && currentUserPhone.isNotEmpty) {
-        debugPrint('🗑️ حذف جميع FCM Tokens للمستخدم: $currentUserPhone');
-
-        // حذف جميع tokens المستخدم من قاعدة البيانات
-        await Supabase.instance.client.from('fcm_tokens').delete().eq('user_phone', currentUserPhone);
-
-        debugPrint('✅ تم حذف جميع FCM Tokens بنجاح');
-      }
-    } catch (e) {
-      debugPrint('⚠️ خطأ في حذف FCM Tokens: $e');
-    }
-
     // حذف جميع بيانات المستخدم
     await prefs.remove('auth_token');
     await prefs.remove('current_user_id');
     await prefs.remove('current_user_name');
     await prefs.remove('current_user_phone');
     await prefs.remove('current_user_is_admin');
-    await prefs.remove('user_phone'); // ✅ حذف user_phone أيضاً
 
     // 🗑️ مسح بيانات المستخدم من UserService
     try {
@@ -262,7 +284,11 @@ class AuthService {
     final userId = prefs.getString('current_user_id');
 
     if (userPhone != null && userPhone.isNotEmpty) {
-      return {'phone': userPhone, 'name': userName ?? 'مستخدم', 'id': userId ?? ''};
+      return {
+        'phone': userPhone,
+        'name': userName ?? 'مستخدم',
+        'id': userId ?? '',
+      };
     }
 
     return null;
@@ -291,7 +317,11 @@ class AuthService {
       final userId = parts[1];
 
       // جلب بيانات المستخدم من قاعدة البيانات باستخدام service key
-      final response = await _supabase.from('users').select('id, name, phone, is_admin').eq('id', userId).maybeSingle();
+      final response = await _supabase
+          .from('users')
+          .select('id, name, phone, is_admin')
+          .eq('id', userId)
+          .maybeSingle();
 
       if (response == null) {
         // إذا فشل الاستعلام، استخدم البيانات المحفوظة محلياً
@@ -357,7 +387,12 @@ class AuthResult {
   final String? token;
   final UserData? user;
 
-  AuthResult({required this.success, required this.message, this.token, this.user});
+  AuthResult({
+    required this.success,
+    required this.message,
+    this.token,
+    this.user,
+  });
 }
 
 // نموذج بيانات المستخدم
@@ -368,7 +403,13 @@ class UserData {
   final String? username;
   final bool isAdmin;
 
-  UserData({required this.id, required this.name, required this.phone, this.username, this.isAdmin = false});
+  UserData({
+    required this.id,
+    required this.name,
+    required this.phone,
+    this.username,
+    this.isAdmin = false,
+  });
 
   factory UserData.fromJson(Map<String, dynamic> json) {
     return UserData(

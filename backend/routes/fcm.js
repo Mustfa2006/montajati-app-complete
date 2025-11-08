@@ -199,4 +199,73 @@ router.get('/user-tokens/:userPhone', async (req, res) => {
   }
 });
 
+// ===================================
+// تنظيف FCM Tokens المنتهية الصلاحية
+// ===================================
+router.post('/cleanup-expired-tokens', async (req, res) => {
+  try {
+    console.log('🧹 بدء تنظيف FCM Tokens المنتهية الصلاحية...');
+
+    // الحصول على جميع Tokens النشطة
+    const { data: tokens, error } = await supabase
+      .from('fcm_tokens')
+      .select('id, fcm_token, user_phone')
+      .eq('is_active', true);
+
+    if (error) {
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في جلب FCM Tokens',
+        error: error.message
+      });
+    }
+
+    let expiredCount = 0;
+    let validCount = 0;
+
+    // فحص كل Token
+    for (const tokenData of tokens) {
+      try {
+        const testMessage = {
+          token: tokenData.fcm_token,
+          data: { type: 'cleanup_test' }
+        };
+
+        await admin.messaging().send(testMessage);
+        validCount++;
+
+      } catch (firebaseError) {
+        // تعطيل Token المنتهي الصلاحية
+        await supabase
+          .from('fcm_tokens')
+          .update({ is_active: false })
+          .eq('id', tokenData.id);
+
+        expiredCount++;
+        console.log(`🗑️ تم تعطيل Token منتهي الصلاحية للمستخدم: ${tokenData.user_phone}`);
+      }
+    }
+
+    console.log(`✅ تم تنظيف ${expiredCount} token منتهي الصلاحية، ${validCount} token صالح`);
+
+    res.json({
+      success: true,
+      message: 'تم تنظيف FCM Tokens بنجاح',
+      data: {
+        totalTokens: tokens.length,
+        expiredTokens: expiredCount,
+        validTokens: validCount
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في تنظيف FCM Tokens:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ داخلي في الخادم',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
