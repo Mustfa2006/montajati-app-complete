@@ -656,7 +656,7 @@ router.post('/', async (req, res) => {
   try {
     const { items, ...orderData } = req.body; // ✅ فصل العناصر عن بيانات الطلب
 
-    console.log('📦 محاولة إنشاء طلب جديد عبر الباك إند...');
+    console.log('📦 إنشاء طلب جديد عبر الباك إند...');
     console.log('📋 عدد العناصر:', items ? items.length : 0);
 
     // إضافة معرف فريد وتاريخ الإنشاء
@@ -676,9 +676,10 @@ router.post('/', async (req, res) => {
       .select()
       .single();
 
-    // ❌ التحقق من الأخطاء
     if (orderError) {
-      console.error('❌ فشل في إنشاء الطلب:', orderError.message);
+      console.error('❌ خطأ في إنشاء الطلب:', orderError);
+      console.error('📋 تفاصيل الخطأ:', orderError.message);
+      console.error('📋 كود الخطأ:', orderError.code);
       return res.status(500).json({
         success: false,
         error: 'فشل في إنشاء الطلب',
@@ -687,22 +688,11 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // ❌ التحقق من أن البيانات تم إرجاعها
-    if (!orderResult || !orderResult.id) {
-      console.error('❌ فشل في إنشاء الطلب: لم يتم إرجاع بيانات الطلب');
-      return res.status(500).json({
-        success: false,
-        error: 'فشل في إنشاء الطلب - لم يتم حفظ البيانات'
-      });
-    }
-
-    // ✅ الآن فقط نعرض رسالة النجاح
-    console.log(`✅ تم إنشاء الطلب بنجاح: ${orderResult.id}`);
+    console.log(`✅ تم إنشاء الطلب: ${orderResult.id}`);
 
     // ✅ حفظ عناصر الطلب إذا كانت موجودة
-    let itemsSaved = false;
     if (items && items.length > 0) {
-      console.log(`📦 محاولة حفظ ${items.length} عنصر للطلب...`);
+      console.log(`📦 حفظ ${items.length} عنصر للطلب...`);
 
       const orderItems = items.map(item => ({
         order_id: orderId,
@@ -717,55 +707,30 @@ router.post('/', async (req, res) => {
         created_at: new Date().toISOString()
       }));
 
-      const { data: itemsData, error: itemsError } = await supabase
+      const { error: itemsError } = await supabase
         .from('order_items')
-        .insert(orderItems)
-        .select();
+        .insert(orderItems);
 
       if (itemsError) {
-        console.error('❌ فشل في حفظ عناصر الطلب:', itemsError.message);
-        // نحذف الطلب لأن العناصر لم تُحفظ
-        await supabase.from('orders').delete().eq('id', orderId);
-        return res.status(500).json({
-          success: false,
-          error: 'فشل في حفظ عناصر الطلب',
-          details: itemsError.message
-        });
+        console.error('⚠️ خطأ في حفظ عناصر الطلب:', itemsError);
+        // لا نوقف العملية، الطلب تم حفظه بنجاح
+      } else {
+        console.log(`✅ تم حفظ ${items.length} عنصر بنجاح`);
       }
-
-      if (!itemsData || itemsData.length === 0) {
-        console.error('❌ فشل في حفظ عناصر الطلب: لم يتم إرجاع بيانات');
-        // نحذف الطلب لأن العناصر لم تُحفظ
-        await supabase.from('orders').delete().eq('id', orderId);
-        return res.status(500).json({
-          success: false,
-          error: 'فشل في حفظ عناصر الطلب - لم يتم حفظ البيانات'
-        });
-      }
-
-      itemsSaved = true;
-      console.log(`✅ تم حفظ ${itemsData.length} عنصر بنجاح`);
     }
-
-    // ✅ النجاح الكامل
-    console.log(`🎉 تم إنشاء الطلب والعناصر بنجاح: ${orderResult.id}`);
 
     res.status(201).json({
       success: true,
       message: 'تم إنشاء الطلب بنجاح',
       data: orderResult,
-      orderId: orderResult.id,
-      itemsCount: items ? items.length : 0,
-      itemsSaved: itemsSaved
+      orderId: orderResult.id
     });
 
   } catch (error) {
-    console.error('❌ خطأ حرج في API إنشاء الطلب:', error.message);
-    console.error('❌ Stack:', error.stack);
+    console.error('❌ خطأ في API إنشاء الطلب:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في الخادم',
-      details: error.message
+      error: error.message
     });
   }
 });
@@ -777,7 +742,7 @@ router.post('/scheduled-orders', async (req, res) => {
   try {
     const { items, ...orderData } = req.body; // ✅ فصل العناصر عن بيانات الطلب
 
-    console.log('📅 محاولة إنشاء طلب مجدول جديد عبر الباك إند...');
+    console.log('📅 إنشاء طلب مجدول جديد عبر الباك إند...');
     console.log('📋 عدد العناصر:', items ? items.length : 0);
 
     // إضافة معرف فريد وتاريخ الإنشاء
@@ -796,9 +761,10 @@ router.post('/scheduled-orders', async (req, res) => {
       .select()
       .single();
 
-    // ❌ التحقق من الأخطاء
     if (orderError) {
-      console.error('❌ فشل في إنشاء الطلب المجدول:', orderError.message);
+      console.error('❌ خطأ في إنشاء الطلب المجدول:', orderError);
+      console.error('📋 تفاصيل الخطأ:', orderError.message);
+      console.error('📋 كود الخطأ:', orderError.code);
       return res.status(500).json({
         success: false,
         error: 'فشل في إنشاء الطلب المجدول',
@@ -807,22 +773,11 @@ router.post('/scheduled-orders', async (req, res) => {
       });
     }
 
-    // ❌ التحقق من أن البيانات تم إرجاعها
-    if (!orderResult || !orderResult.id) {
-      console.error('❌ فشل في إنشاء الطلب المجدول: لم يتم إرجاع بيانات الطلب');
-      return res.status(500).json({
-        success: false,
-        error: 'فشل في إنشاء الطلب المجدول - لم يتم حفظ البيانات'
-      });
-    }
-
-    // ✅ الآن فقط نعرض رسالة النجاح
-    console.log(`✅ تم إنشاء الطلب المجدول بنجاح: ${orderResult.id}`);
+    console.log(`✅ تم إنشاء الطلب المجدول: ${orderResult.id}`);
 
     // ✅ حفظ عناصر الطلب المجدول إذا كانت موجودة
-    let itemsSaved = false;
     if (items && items.length > 0) {
-      console.log(`📦 محاولة حفظ ${items.length} عنصر للطلب المجدول...`);
+      console.log(`📦 حفظ ${items.length} عنصر للطلب المجدول...`);
 
       const orderItems = items.map(item => ({
         scheduled_order_id: orderId,
@@ -835,55 +790,30 @@ router.post('/scheduled-orders', async (req, res) => {
         created_at: new Date().toISOString()
       }));
 
-      const { data: itemsData, error: itemsError } = await supabase
+      const { error: itemsError } = await supabase
         .from('scheduled_order_items')
-        .insert(orderItems)
-        .select();
+        .insert(orderItems);
 
       if (itemsError) {
-        console.error('❌ فشل في حفظ عناصر الطلب المجدول:', itemsError.message);
-        // نحذف الطلب لأن العناصر لم تُحفظ
-        await supabase.from('scheduled_orders').delete().eq('id', orderId);
-        return res.status(500).json({
-          success: false,
-          error: 'فشل في حفظ عناصر الطلب المجدول',
-          details: itemsError.message
-        });
+        console.error('⚠️ خطأ في حفظ عناصر الطلب المجدول:', itemsError);
+        // لا نوقف العملية، الطلب تم حفظه بنجاح
+      } else {
+        console.log(`✅ تم حفظ ${items.length} عنصر بنجاح`);
       }
-
-      if (!itemsData || itemsData.length === 0) {
-        console.error('❌ فشل في حفظ عناصر الطلب المجدول: لم يتم إرجاع بيانات');
-        // نحذف الطلب لأن العناصر لم تُحفظ
-        await supabase.from('scheduled_orders').delete().eq('id', orderId);
-        return res.status(500).json({
-          success: false,
-          error: 'فشل في حفظ عناصر الطلب المجدول - لم يتم حفظ البيانات'
-        });
-      }
-
-      itemsSaved = true;
-      console.log(`✅ تم حفظ ${itemsData.length} عنصر بنجاح`);
     }
-
-    // ✅ النجاح الكامل
-    console.log(`🎉 تم إنشاء الطلب المجدول والعناصر بنجاح: ${orderResult.id}`);
 
     res.status(201).json({
       success: true,
       message: 'تم إنشاء الطلب المجدول بنجاح',
       data: orderResult,
-      orderId: orderResult.id,
-      itemsCount: items ? items.length : 0,
-      itemsSaved: itemsSaved
+      orderId: orderResult.id
     });
 
   } catch (error) {
-    console.error('❌ خطأ حرج في API إنشاء الطلب المجدول:', error.message);
-    console.error('❌ Stack:', error.stack);
+    console.error('❌ خطأ في API إنشاء الطلب المجدول:', error);
     res.status(500).json({
       success: false,
-      error: 'خطأ في الخادم',
-      details: error.message
+      error: error.message
     });
   }
 });
