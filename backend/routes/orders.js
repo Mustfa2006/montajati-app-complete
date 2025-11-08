@@ -842,53 +842,92 @@ router.put('/:id/status', async (req, res) => {
     console.log(`   📋 الحالة الجديدة: "${normalizedStatus}"`);
     console.log(`   📱 رقم المستخدم: ${existingOrder.user_phone}`);
 
-    // تحديث حالة الطلب (استخدام الحالة المحولة)
-    console.log(`🔄 [${requestId}] بدء تحديث حالة الطلب في قاعدة البيانات...`);
-    const updateStartTime = Date.now();
 
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        status: normalizedStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id);
+    // 🛡️ Profit Guard: التقط لقطة لأرباح المستخدم قبل التحويل إلى "قيد التوصيل"
+    const IN_DELIVERY_STATUSES = ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'];
+    let __profitGuardShouldRun = IN_DELIVERY_STATUSES.includes(normalizedStatus);
+    let __profitGuardUserPhone = existingOrder.user_phone;
+    let __profitGuardBefore = null;
 
-    const updateDuration = Date.now() - updateStartTime;
-    console.log(`⏱️ [${requestId}] مدة التحديث: ${updateDuration}ms`);
+    if (__profitGuardShouldRun && __profitGuardUserPhone) {
+      try {
+        const { data: __userRow, error: __userErr } = await supabase
+          .from('users')
+          .select('achieved_profits, expected_profits')
+          .eq('phone', __profitGuardUserPhone)
+          .single();
 
-    if (updateError) {
-      console.error(`❌ [${requestId}] خطأ في تحديث الطلب:`, updateError);
-      return res.status(500).json({
-        success: false,
-        error: 'فشل في تحديث حالة الطلب'
-      });
+        if (!__userErr && __userRow) {
+          __profitGuardBefore = {
+            achieved: Number(__userRow.achieved_profits) || 0,
+            expected: Number(__userRow.expected_profits) || 0,
+          };
+          console.log(`🛡️ [${requestId}] ProfitGuard snapshot for ${__profitGuardUserPhone}:`, __profitGuardBefore);
+        } else {
+          console.warn(`⚠️ [${requestId}] ProfitGuard could not read user profits before:`, __userErr?.message);
+          __profitGuardShouldRun = false;
+        }
+      } catch (pgErr) {
+        console.warn(`⚠️ [${requestId}] ProfitGuard read error:`, pgErr.message);
+        __profitGuardShouldRun = false;
+      }
     }
 
-    console.log(`✅ [${requestId}] تم تحديث حالة الطلب بنجاح`);
+    // تحديث حالة الطلب (استخدام الحالة المحولة) — مع تجنب أي UPDATE إذا لم تتغير الحالة
+    let __statusUpdated = false;
+    if (oldStatus !== normalizedStatus) {
+      console.log(`🔄 [${requestId}] بدء تحديث حالة الطلب في قاعدة البيانات...`);
+      const updateStartTime = Date.now();
+
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          status: normalizedStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      const updateDuration = Date.now() - updateStartTime;
+      console.log(`⏱️ [${requestId}] مدة التحديث: ${updateDuration}ms`);
+
+      if (updateError) {
+        console.error(`❌ [${requestId}] خطأ في تحديث الطلب:`, updateError);
+        return res.status(500).json({
+          success: false,
+          error: 'فشل في تحديث حالة الطلب'
+        });
+      }
+
+      console.log(`✅ [${requestId}] تم تحديث حالة الطلب بنجاح`);
+      __statusUpdated = true;
+    } else {
+      console.log(`ℹ️ [${requestId}] الحالة الجديدة مطابقة للحالية - تخطّي تحديث سجل الطلب لتجنب أحداث UPDATE إضافية`);
+    }
     console.log(`   ⏱️ المدة الإجمالية حتى الآن: ${Date.now() - startTime}ms`);
 
     // إضافة سجل في تاريخ الحالات (اختياري - لا يوقف العملية إذا فشل)
-    console.log(`📝 [${requestId}] بدء إضافة سجل التاريخ...`);
-    try {
-      const historyStartTime = Date.now();
-      await supabase
-        .from('order_status_history')
-        .insert({
-          order_id: id,
-          old_status: oldStatus,
-          new_status: normalizedStatus,
-          changed_by: changedBy,
-          change_reason: notes || 'تم تحديث الحالة من لوحة التحكم',
-          created_at: new Date().toISOString()
-        });
+    if (__statusUpdated) {
+      console.log(`📝 [${requestId}] بدء إضافة سجل التاريخ...`);
+      try {
+        const historyStartTime = Date.now();
+        await supabase
+          .from('order_status_history')
+          .insert({
+            order_id: id,
+            old_status: oldStatus,
+            new_status: normalizedStatus,
+            changed_by: changedBy,
+            change_reason: notes || 'تم تحديث الحالة من لوحة التحكم',
+            created_at: new Date().toISOString()
+          });
 
-      const historyDuration = Date.now() - historyStartTime;
-      console.log(`✅ [${requestId}] تم إضافة سجل التاريخ بنجاح (${historyDuration}ms)`);
-
-    } catch (historyError) {
-      console.warn(`⚠️ [${requestId}] تحذير: فشل في حفظ سجل التاريخ:`, historyError.message);
-      // لا نوقف العملية - هذا اختياري
+        const historyDuration = Date.now() - historyStartTime;
+        console.log(`✅ [${requestId}] تم إضافة سجل التاريخ بنجاح (${historyDuration}ms)`);
+      } catch (historyError) {
+        console.warn(`⚠️ [${requestId}] تحذير: فشل في حفظ سجل التاريخ:`, historyError.message);
+      }
+    } else {
+      console.log(`ℹ️ [${requestId}] تخطّي إضافة سجل التاريخ لأن الحالة لم تتغير`);
     }
 
     // إضافة ملاحظة إذا كانت متوفرة
@@ -1077,6 +1116,46 @@ router.put('/:id/status', async (req, res) => {
       }
     } else {
       console.log(`ℹ️ [${requestId}] الحالة الجديدة ليست من حالات الإرسال للوسيط`);
+    }
+
+
+    // 🛡️ Profit Guard: تأكيد عدم تغيّر أرباح المستخدم بشكل غير متوقع بعد التحديث
+    if (__profitGuardShouldRun && __profitGuardBefore && __profitGuardUserPhone) {
+      try {
+        const { data: __afterRow, error: __afterErr } = await supabase
+          .from('users')
+          .select('achieved_profits, expected_profits')
+          .eq('phone', __profitGuardUserPhone)
+          .single();
+
+        if (!__afterErr && __afterRow) {
+          const __after = {
+            achieved: Number(__afterRow.achieved_profits) || 0,
+            expected: Number(__afterRow.expected_profits) || 0,
+          };
+
+          const __changed = (__after.achieved !== __profitGuardBefore.achieved) || (__after.expected !== __profitGuardBefore.expected);
+
+          if (__changed) {
+            console.warn(`🛡️ [${requestId}] ProfitGuard: unexpected user profit change on in-delivery transition. Reverting.`, { before: __profitGuardBefore, after: __after });
+            await supabase
+              .from('users')
+              .update({
+                achieved_profits: __profitGuardBefore.achieved,
+                expected_profits: __profitGuardBefore.expected,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('phone', __profitGuardUserPhone);
+            console.log(`✅ [${requestId}] ProfitGuard: user profits reverted to snapshot.`);
+          } else {
+            console.log(`✅ [${requestId}] ProfitGuard: check passed - no profit changes.`);
+          }
+        } else {
+          console.warn(`⚠️ [${requestId}] ProfitGuard could not read user profits after:`, __afterErr?.message);
+        }
+      } catch (pg2Err) {
+        console.warn(`⚠️ [${requestId}] ProfitGuard post-check error:`, pg2Err.message);
+      }
     }
 
     const totalDuration = Date.now() - startTime;
