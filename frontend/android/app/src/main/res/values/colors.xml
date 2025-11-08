@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Firebase notification color -->
+    <color name="notification_color">#FFD700</color>
+    
+    <!-- App colors -->
+    <color name="primary_color">#FFD700</color>
+    <color name="primary_dark">#FFC107</color>
+    <color name="accent_color">#FF9800</color>
+	<color name="ic_launcher_background">#ffffff</color>
+</resources>

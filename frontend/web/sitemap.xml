@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <!-- الصفحة الرئيسية -->
+  <url>
+    <loc>https://montajati.com/</loc>
+    <lastmod>2025-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  
+  <!-- صفحة المنتجات -->
+  <url>
+    <loc>https://montajati.com/products</loc>
+    <lastmod>2025-08-07</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  
+  <!-- صفحة الطلبات -->
+  <url>
+    <loc>https://montajati.com/orders</loc>
+    <lastmod>2025-08-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  
+  <!-- صفحة إضافة منتج جديد -->
+  <url>
+    <loc>https://montajati.com/products/new</loc>
+    <lastmod>2025-08-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  
+  <!-- صفحة الإحصائيات -->
+  <url>
+    <loc>https://montajati.com/statistics</loc>
+    <lastmod>2025-08-07</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <!-- صفحة الإعدادات -->
+  <url>
+    <loc>https://montajati.com/settings</loc>
+    <lastmod>2025-08-07</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  
+</urlset>

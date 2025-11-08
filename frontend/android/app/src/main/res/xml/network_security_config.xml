@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- إعدادات الإنتاج - HTTPS فقط -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+
+    <!-- المواقع الموثوقة للإنتاج -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">montajati-official-backend-production.up.railway.app</domain>
+        <domain includeSubdomains="true">fqdhskaolzfavapmqodl.supabase.co</domain>
+        <domain includeSubdomains="true">firebase.googleapis.com</domain>
+        <domain includeSubdomains="true">fcm.googleapis.com</domain>
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
