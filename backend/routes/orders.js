@@ -12,12 +12,192 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('❌ خطأ حرج: متغيرات Supabase غير موجودة!');
-  console.error('SUPABASE_URL:', supabaseUrl ? 'موجود' : 'غير موجود');
-  console.error('SUPABASE_SERVICE_ROLE_KEY:', supabaseKey ? 'موجود' : 'غير موجود');
+  // ⚠️ لا نطبع القيم أو حالة وجودها لحماية السرية
   throw new Error('Supabase credentials are missing. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.');
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// ================================
+// 📊 Mapping الحالات الموحد (8️⃣)
+// ================================
+const STATUS_MAP = {
+  IN_DELIVERY: ['in_delivery', 'قيد التوصيل', 'قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery_to_customer'],
+  DELIVERED: ['delivered', 'تم التسليم للزبون', 'تم التسليم', 'delivered_to_customer'],
+  PENDING: ['pending', 'قيد الانتظار', 'waiting'],
+  CANCELLED: ['cancelled', 'ملغي', 'canceled'],
+  ACTIVE: ['active', 'نشط', 'active_order'],
+};
+
+// دالة للتحقق من حالة معينة
+function isStatusType(status, type) {
+  const normalized = (status || '').toString().toLowerCase().trim();
+  const variants = STATUS_MAP[type] || [];
+  return variants.some(v => normalized.includes(v.toLowerCase()));
+}
+
+// ================================
+// 🛠️ أدوات مساعدة عامة + التحقق من الهوية
+// ================================
+
+// 📋 Logger منظم (بدل console.log المتكرر) - 11️⃣
+const logger = {
+  info: (msg, data = '') => console.log(`ℹ️ ${msg}`, data),
+  warn: (msg, data = '') => console.warn(`⚠️ ${msg}`, data),
+  error: (msg, data = '') => console.error(`❌ ${msg}`, data),
+  debug: (msg, data = '') => process.env.DEBUG && console.log(`🔍 ${msg}`, data),
+};
+
+// 🔐 معالجة الأخطاء الموحدة
+function apiError(res, context, error, statusCode = 500) {
+  const msg = error?.message || String(error);
+  logger.error(`${context}`, msg);
+  return res.status(statusCode).json({ success: false, error: `خطأ في ${context}` });
+}
+
+// ✅ رد نجاح موحد
+function apiSuccess(res, data = null, message = 'تم بنجاح') {
+  return res.json({ success: true, message, data });
+}
+
+// 🔑 التحقق من الهوية
+async function verifyAuth(req, res, next) {
+  try {
+    const hdr = req.headers || {};
+    const authHeader = hdr.authorization || hdr.Authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+    // سماح داخلي اختياري عبر مفتاح داخلي
+    const internalKey = hdr['x-internal-key'] || hdr['X-Internal-Key'];
+    if (internalKey && process.env.INTERNAL_API_KEY && internalKey === process.env.INTERNAL_API_KEY) {
+      return next();
+    }
+
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'غير مصرح بالوصول' });
+    }
+
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data || !data.user) {
+      return res.status(401).json({ success: false, error: 'رمز الدخول غير صالح' });
+    }
+
+    req.user = data.user;
+    return next();
+  } catch (e) {
+    logger.error('Auth error', e.message);
+    return res.status(401).json({ success: false, error: 'غير مصرح بالوصول' });
+  }
+}
+
+// 🆔 توليد معرف فريد
+function generateId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// ✔️ التحقق من صحة البيانات
+function validateOrderData(data) {
+  const errors = [];
+  if (!data.customer_name || typeof data.customer_name !== 'string' || data.customer_name.trim().length === 0) {
+    errors.push('اسم العميل مطلوب وصحيح');
+  }
+  if (!data.customer_phone || typeof data.customer_phone !== 'string' || data.customer_phone.trim().length === 0) {
+    errors.push('رقم هاتف العميل مطلوب');
+  }
+  if (!data.user_phone || typeof data.user_phone !== 'string' || data.user_phone.trim().length === 0) {
+    errors.push('رقم هاتف المستخدم مطلوب');
+  }
+  if (typeof data.total !== 'number' || data.total < 0) {
+    errors.push('الإجمالي يجب أن يكون رقماً موجباً');
+  }
+  return errors;
+}
+
+// 💾 حفظ الطلب مع العناصر (مع معالجة أخطاء محسّنة) - 9️⃣
+async function saveOrderWithItems({ orderTable, itemsTable, newOrder, items, mapItemRow, foreignKeyField }) {
+  try {
+    const { data: orderResult, error: orderError } = await supabase
+      .from(orderTable)
+      .insert(newOrder)
+      .select()
+      .single();
+
+    if (orderError) {
+      return { error: orderError, where: 'order' };
+    }
+
+    let itemsSaved = false;
+    if (items && items.length > 0) {
+      const rows = items.map((item) => {
+        const base = mapItemRow(item) || {};
+        base[foreignKeyField] = newOrder.id;
+        base.created_at = new Date().toISOString();
+        return base;
+      });
+
+      const { data: itemsData, error: itemsError } = await supabase
+        .from(itemsTable)
+        .insert(rows)
+        .select();
+
+      if (itemsError || !itemsData || itemsData.length === 0) {
+        // رجوع عن إنشاء الطلب إذا فشل حفظ العناصر
+        await supabase.from(orderTable).delete().eq('id', newOrder.id);
+        return { error: itemsError || new Error('فشل في حفظ عناصر الطلب'), where: 'items' };
+      }
+
+      itemsSaved = true;
+    }
+
+    return { orderResult, itemsSaved };
+  } catch (e) {
+    logger.error('saveOrderWithItems', e.message);
+    return { error: e, where: 'transaction' };
+  }
+}
+
+// 3️⃣ دوال CRUD موحدة لتقليل التكرار
+async function createOrderUnified(table, itemsTable, orderData, items, mapItemRow, foreignKeyField) {
+  // ✔️ التحقق من صحة البيانات (12️⃣)
+  const validationErrors = validateOrderData(orderData);
+  if (validationErrors.length > 0) {
+    return { error: new Error(validationErrors.join(', ')), validationErrors };
+  }
+
+  const orderId = orderData.id || generateId(table === 'orders' ? 'order' : 'scheduled');
+  const newOrder = {
+    ...orderData,
+    id: orderId,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    status: orderData.status || 'active'
+  };
+
+  return saveOrderWithItems({
+    orderTable: table,
+    itemsTable: itemsTable,
+    newOrder,
+    items,
+    mapItemRow,
+    foreignKeyField
+  });
+}
+
+async function deleteOrderUnified(table, id) {
+  try {
+    const { error } = await supabase.from(table).delete().eq('id', id);
+    if (error) {
+      return { error };
+    }
+    return { success: true };
+  } catch (e) {
+    logger.error(`deleteOrderUnified from ${table}`, e.message);
+    return { error: e };
+  }
+}
+
+// تطبيق التحقق على جميع المسارات في هذا الراوتر
+router.use(verifyAuth);
 
 // ===================================
 // GET /api/orders/debug-waseet - فحص مفصل لحالة الوسيط
@@ -80,7 +260,7 @@ router.get('/', async (req, res) => {
 
     let query = supabase
       .from('orders')
-      .select('*')
+      .select('id, order_number, status, customer_name, customer_phone, user_phone, total, subtotal, discount, taxes, shipping_fee, profit, profit_amount, waseet_order_id, waseet_status, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     // فلترة حسب الحالة
@@ -109,11 +289,7 @@ router.get('/', async (req, res) => {
     const { data, error } = await query;
 
     if (error) {
-      console.error('❌ خطأ في جلب الطلبات:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'خطأ في جلب الطلبات'
-      });
+      return apiError(res, 'جلب الطلبات', error);
     }
 
     res.json({
@@ -167,35 +343,7 @@ router.get('/check-integrated-sync', async (req, res) => {
   }
 });
 
-// مسار لتنفيذ مزامنة فورية مع النظام المدمج
-router.post('/run-integrated-sync', async (req, res) => {
-  try {
-    const waseetSync = require('../services/integrated_waseet_sync');
-
-    // تأكد من أن النظام يعمل
-    if (!waseetSync.isRunning) {
-
-      await waseetSync.start();
-    }
-
-    // تنفيذ مزامنة فورية
-    const result = await waseetSync.forcSync();
-
-    res.json({
-      success: true,
-      message: 'تم تنفيذ المزامنة الفورية بنجاح',
-      data: result
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في المزامنة الفورية:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      message: 'فشل في تنفيذ المزامنة'
-    });
-  }
-});
+// ⚠️ تم نقل هذا المسار إلى /waseet-sync/force (موحد)
 
 // GET /api/orders/waseet-sync-status - حالة نظام المزامنة مع الوسيط
 router.get('/waseet-sync-status', async (req, res) => {
@@ -1242,53 +1390,15 @@ router.put('/:id/status', async (req, res) => {
 // ===================================
 router.post('/', async (req, res) => {
   try {
-    const { items, ...orderData } = req.body; // ✅ فصل العناصر عن بيانات الطلب
+    const { items, ...orderData } = req.body;
 
-    // إضافة معرف فريد وتاريخ الإنشاء
-    const orderId = orderData.id || `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const newOrder = {
-      ...orderData,
-      id: orderId,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      status: orderData.status || 'active'
-    };
-
-    // ✅ حفظ الطلب في قاعدة البيانات
-    const { data: orderResult, error: orderError } = await supabase
-      .from('orders')
-      .insert(newOrder)
-      .select()
-      .single();
-
-    // ❌ التحقق من الأخطاء
-    if (orderError) {
-      console.error('❌ فشل في إنشاء الطلب:', orderError.message);
-      return res.status(500).json({
-        success: false,
-        error: 'فشل في إنشاء الطلب',
-        details: orderError.message,
-        code: orderError.code
-      });
-    }
-
-    // ❌ التحقق من أن البيانات تم إرجاعها
-    if (!orderResult || !orderResult.id) {
-      console.error('❌ فشل في إنشاء الطلب: لم يتم إرجاع بيانات الطلب');
-      return res.status(500).json({
-        success: false,
-        error: 'فشل في إنشاء الطلب - لم يتم حفظ البيانات'
-      });
-    }
-
-    // ✅ الآن فقط نعرض رسالة النجاح
-
-    // ✅ حفظ عناصر الطلب إذا كانت موجودة
-    let itemsSaved = false;
-    if (items && items.length > 0) {
-
-      const orderItems = items.map(item => ({
-        order_id: orderId,
+    // استخدام الدالة الموحدة (3️⃣)
+    const result = await createOrderUnified(
+      'orders',
+      'order_items',
+      orderData,
+      items,
+      (item) => ({
         product_id: item.product_id,
         product_name: item.product_name,
         product_image: item.product_image,
@@ -1297,58 +1407,30 @@ router.post('/', async (req, res) => {
         quantity: item.quantity,
         total_price: item.total_price,
         profit_per_item: item.profit_per_item,
-        created_at: new Date().toISOString()
-      }));
+      }),
+      'order_id'
+    );
 
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems)
-        .select();
-
-      if (itemsError) {
-        console.error('❌ فشل في حفظ عناصر الطلب:', itemsError.message);
-        // نحذف الطلب لأن العناصر لم تُحفظ
-        await supabase.from('orders').delete().eq('id', orderId);
-        return res.status(500).json({
+    if (result.error) {
+      if (result.validationErrors) {
+        return res.status(400).json({
           success: false,
-          error: 'فشل في حفظ عناصر الطلب',
-          details: itemsError.message
+          error: 'بيانات غير صحيحة',
+          details: result.validationErrors
         });
       }
-
-      if (!itemsData || itemsData.length === 0) {
-        console.error('❌ فشل في حفظ عناصر الطلب: لم يتم إرجاع بيانات');
-        // نحذف الطلب لأن العناصر لم تُحفظ
-        await supabase.from('orders').delete().eq('id', orderId);
-        return res.status(500).json({
-          success: false,
-          error: 'فشل في حفظ عناصر الطلب - لم يتم حفظ البيانات'
-        });
-      }
-
-      itemsSaved = true;
-
+      return apiError(res, 'إنشاء الطلب', result.error);
     }
 
-    // ✅ النجاح الكامل
-
-    res.status(201).json({
-      success: true,
-      message: 'تم إنشاء الطلب بنجاح',
-      data: orderResult,
-      orderId: orderResult.id,
-      itemsCount: items ? items.length : 0,
-      itemsSaved: itemsSaved
-    });
+    return apiSuccess(res, {
+      id: result.orderResult.id,
+      itemsSaved: result.itemsSaved,
+      itemsCount: items ? items.length : 0
+    }, 'تم إنشاء الطلب بنجاح');
 
   } catch (error) {
-    console.error('❌ خطأ حرج في API إنشاء الطلب:', error.message);
-    console.error('❌ Stack:', error.stack);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في الخادم',
-      details: error.message
-    });
+    logger.error('خطأ حرج في API إنشاء الطلب', error.message);
+    return apiError(res, 'إنشاء الطلب', error);
   }
 });
 
@@ -1358,6 +1440,16 @@ router.post('/', async (req, res) => {
 router.post('/scheduled-orders', async (req, res) => {
   try {
     const { items, ...orderData } = req.body; // ✅ فصل العناصر عن بيانات الطلب
+
+    // ✔️ التحقق من صحة البيانات
+    const validationErrors = validateOrderData(orderData);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات غير صحيحة',
+        details: validationErrors
+      });
+    }
 
     // إضافة معرف فريد وتاريخ الإنشاء
     const orderId = orderData.id || `scheduled_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -1377,7 +1469,7 @@ router.post('/scheduled-orders', async (req, res) => {
 
     // ❌ التحقق من الأخطاء
     if (orderError) {
-      console.error('❌ فشل في إنشاء الطلب المجدول:', orderError.message);
+      logger.error('فشل في إنشاء الطلب المجدول', orderError.message);
       return res.status(500).json({
         success: false,
         error: 'فشل في إنشاء الطلب المجدول',
@@ -1646,8 +1738,6 @@ router.post('/retry-failed-waseet', async (req, res) => {
 
         }
 
-        // انتظار قصير بين الطلبات لتجنب الضغط على API
-        await new Promise(resolve => setTimeout(resolve, 1000));
 
       } catch (orderError) {
         failCount++;
@@ -1724,235 +1814,14 @@ router.post('/create-test-order', async (req, res) => {
   }
 });
 
-// ===================================
-// نظام المزامنة الحقيقي مع الوسيط
-// ===================================
+// ⚠️ تم نقل جميع مسارات المزامنة إلى /waseet-sync/:action (موحد)
 
-// POST /api/orders/start-waseet-sync - بدء نظام المزامنة الحقيقي مع الوسيط
-router.post('/start-waseet-sync', async (req, res) => {
-  try {
-
-    const RealWaseetSyncSystem = require('../services/real_waseet_sync_system');
-
-    // إنشاء النظام إذا لم يكن موجود
-    if (!global.waseetSyncSystem) {
-      global.waseetSyncSystem = new RealWaseetSyncSystem();
-    }
-
-    // بدء النظام
-    await global.waseetSyncSystem.startRealTimeSync();
-
-    const stats = global.waseetSyncSystem.getSystemStats();
-
-    res.json({
-      success: true,
-      message: 'تم بدء نظام المزامنة مع الوسيط بنجاح',
-      data: {
-        isRunning: stats.isRunning,
-        syncInterval: stats.syncInterval,
-        syncIntervalMinutes: stats.syncIntervalMinutes,
-        lastSyncTime: stats.lastSyncTime,
-        stats: stats.stats
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في بدء نظام المزامنة:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في بدء النظام'
-    });
-  }
-});
-
-// POST /api/orders/stop-waseet-sync - إيقاف نظام المزامنة
-router.post('/stop-waseet-sync', async (req, res) => {
-  try {
-
-    if (global.waseetSyncSystem) {
-      global.waseetSyncSystem.stopRealTimeSync();
-
-      res.json({
-        success: true,
-        message: 'تم إيقاف نظام المزامنة بنجاح'
-      });
-    } else {
-      res.json({
-        success: true,
-        message: 'النظام غير مفعل'
-      });
-    }
-
-  } catch (error) {
-    console.error('❌ خطأ في إيقاف نظام المزامنة:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في إيقاف النظام'
-    });
-  }
-});
-
-// تم نقل هذا المسار إلى الأعلى لتجنب التعارض مع /:id
-
-// POST /api/orders/force-waseet-sync - تنفيذ مزامنة فورية مع الوسيط
-router.post('/force-waseet-sync', async (req, res) => {
-  try {
-
-    if (!global.waseetSyncSystem) {
-      return res.status(400).json({
-        success: false,
-        error: 'نظام المزامنة غير مفعل'
-      });
-    }
-
-    const result = await global.waseetSyncSystem.performFullSync();
-
-    res.json({
-      success: true,
-      message: 'تم تنفيذ المزامنة الفورية بنجاح',
-      data: result
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في المزامنة الفورية:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في تنفيذ المزامنة'
-    });
-  }
-});
-
-// POST /api/orders/force-sync-now - تنفيذ مزامنة فورية
-router.post('/force-sync-now', async (req, res) => {
-  try {
-
-    if (!global.realTimeSyncSystem) {
-      return res.status(400).json({
-        success: false,
-        error: 'نظام المزامنة غير مفعل'
-      });
-    }
-
-    const result = await global.realTimeSyncSystem.performFullSync();
-
-    res.json({
-      success: true,
-      message: 'تم تنفيذ المزامنة الفورية بنجاح',
-      data: result
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في المزامنة الفورية:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في تنفيذ المزامنة'
-    });
-  }
-});
+// ⚠️ تم نقل هذا المسار إلى /waseet-sync/force (موحد)
 
 // ===================================
 // نظام المزامنة المدمج مع الوسيط - Production APIs
 // ===================================
-
-// GET /api/orders/integrated-sync-status - حالة نظام المزامنة المدمج
-router.get('/integrated-sync-status', async (req, res) => {
-  try {
-    const waseetSync = require('../services/integrated_waseet_sync');
-    const stats = waseetSync.getStats();
-
-    res.json({
-      success: true,
-      data: stats
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في جلب حالة النظام:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في جلب حالة النظام'
-    });
-  }
-});
-
-// POST /api/orders/force-waseet-sync - مزامنة فورية
-router.post('/force-waseet-sync', async (req, res) => {
-  try {
-    const waseetSync = require('../services/integrated_waseet_sync');
-    const result = await waseetSync.forcSync();
-
-    res.json(result);
-
-  } catch (error) {
-    console.error('❌ خطأ في المزامنة الفورية:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في تنفيذ المزامنة'
-    });
-  }
-});
-
-// POST /api/orders/restart-waseet-sync - إعادة تشغيل النظام
-router.post('/restart-waseet-sync', async (req, res) => {
-  try {
-    const waseetSync = require('../services/integrated_waseet_sync');
-    const result = await waseetSync.restart();
-
-    res.json({
-      success: true,
-      message: 'تم إعادة تشغيل النظام بنجاح',
-      data: result
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في إعادة تشغيل النظام:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في إعادة تشغيل النظام'
-    });
-  }
-});
-
-// POST /api/orders/stop-waseet-sync - إيقاف النظام
-router.post('/stop-waseet-sync', async (req, res) => {
-  try {
-    const waseetSync = require('../services/integrated_waseet_sync');
-    const result = waseetSync.stop();
-
-    res.json({
-      success: true,
-      message: 'تم إيقاف النظام بنجاح',
-      data: result
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في إيقاف النظام:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في إيقاف النظام'
-    });
-  }
-});
-
-// POST /api/orders/start-waseet-sync - بدء النظام
-router.post('/start-waseet-sync', async (req, res) => {
-  try {
-    const waseetSync = require('../services/integrated_waseet_sync');
-    const result = await waseetSync.start();
-
-    res.json({
-      success: true,
-      message: 'تم بدء النظام بنجاح',
-      data: result
-    });
-
-  } catch (error) {
-    console.error('❌ خطأ في بدء النظام:', error);
-    res.status(500).json({
-      success: false,
-      error: 'خطأ في بدء النظام'
-    });
-  }
-});
+// ⚠️ جميع مسارات المزامنة موحدة في /waseet-sync/:action
 
 // ===================================
 // GET /api/orders/:id - جلب طلب محدد مع العناصر (عادي أو مجدول)
@@ -1965,7 +1834,7 @@ router.get('/:id', async (req, res) => {
     // ✅ محاولة جلب الطلب العادي أولاً
     let { data: orderData, error: orderError } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, order_number, status, customer_name, customer_phone, user_phone, total, subtotal, discount, taxes, shipping_fee, profit, profit_amount, waseet_order_id, waseet_status, waseet_data, created_at, updated_at')
       .eq('id', id)
       .single();
 
@@ -1976,7 +1845,7 @@ router.get('/:id', async (req, res) => {
 
       const { data: scheduledData, error: scheduledError } = await supabase
         .from('scheduled_orders')
-        .select('*')
+        .select('id, customer_name, customer_phone, user_phone, scheduled_date, status, total, notes, created_at, updated_at')
         .eq('id', id)
         .single();
 
@@ -1996,7 +1865,7 @@ router.get('/:id', async (req, res) => {
     const itemsTableName = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
     const { data: itemsData, error: itemsError } = await supabase
       .from(itemsTableName)
-      .select('*')
+      .select('id, order_id, scheduled_order_id, product_id, product_name, product_image, quantity, price, total_price, notes, created_at')
       .eq(isScheduledOrder ? 'scheduled_order_id' : 'order_id', id);
 
     if (itemsError) {
@@ -2025,5 +1894,58 @@ router.get('/:id', async (req, res) => {
     });
   }
 });
+
+// ===================================
+// 1️⃣ POST /api/orders/waseet-sync/:action - مسار موحد للتحكم بمزامنة الوسيط
+// ===================================
+// الإجراءات المدعومة: start | stop | restart | force | status
+async function handleWaseetSyncAction(req, res) {
+  try {
+    const action = (req.params.action || '').toLowerCase().trim();
+    const waseetSync = require('../services/integrated_waseet_sync');
+
+    logger.info(`🔄 Waseet Sync Action: ${action}`);
+
+    const actions = {
+      start: () => {
+        logger.info('Starting Waseet sync...');
+        return waseetSync.start();
+      },
+      stop: () => {
+        logger.info('Stopping Waseet sync...');
+        return waseetSync.stop();
+      },
+      restart: () => {
+        logger.info('Restarting Waseet sync...');
+        return waseetSync.restart();
+      },
+      force: () => {
+        logger.info('Forcing Waseet sync...');
+        return waseetSync.forcSync();
+      },
+      status: () => {
+        logger.info('Getting Waseet sync status...');
+        return waseetSync.getStats ? waseetSync.getStats() : { ok: true };
+      },
+    };
+
+    if (!actions[action]) {
+      return res.status(400).json({
+        success: false,
+        error: `إجراء غير معروف: ${action}`,
+        supportedActions: Object.keys(actions)
+      });
+    }
+
+    const result = await actions[action]();
+    return apiSuccess(res, result, `تم تنفيذ الإجراء: ${action}`);
+
+  } catch (e) {
+    logger.error(`Waseet sync action error: ${req.params.action}`, e.message);
+    return apiError(res, `إجراء المزامنة (${req.params.action})`, e);
+  }
+}
+
+router.post('/waseet-sync/:action', handleWaseetSyncAction);
 
 module.exports = router;
