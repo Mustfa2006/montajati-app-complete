@@ -816,6 +816,15 @@ router.put('/:id/status', async (req, res) => {
       return converted;
     }
 
+    // Helper: اكتشاف حالة "قيد التوصيل" بشكل مرن (يدعم اختلافات الكتابة)
+    function isInDeliveryStatus(s) {
+      const t = (s || '').toString().toLowerCase();
+      // عربي: نكتفي باحتواء "قيد التوصيل" أياً كانت باقي الصيغة
+      // إنجليزي: in_delivery
+      return t.includes('in_delivery') || t.includes('قيد التوصيل');
+    }
+
+
     // تطبيق التحويل على الحالة
     const normalizedStatus = normalizeStatus(status);
     console.log(`✅ [${requestId}] الحالة المحولة: "${normalizedStatus}"`);
@@ -844,8 +853,7 @@ router.put('/:id/status', async (req, res) => {
 
 
     // 🛡️ Profit Guard: التقط لقطة لأرباح المستخدم قبل التحويل إلى "قيد التوصيل"
-    const IN_DELIVERY_STATUSES = ['قيد التوصيل الى الزبون (في عهدة المندوب)', 'in_delivery'];
-    let __profitGuardShouldRun = IN_DELIVERY_STATUSES.includes(normalizedStatus);
+    let __profitGuardShouldRun = isInDeliveryStatus(normalizedStatus);
     let __profitGuardUserPhone = existingOrder.user_phone;
     let __profitGuardBefore = null;
 
@@ -963,11 +971,8 @@ router.put('/:id/status', async (req, res) => {
 
     // الحالة الوحيدة المؤهلة لإرسال الطلب للوسيط
     // ID: 3 - "قيد التوصيل الى الزبون (في عهدة المندوب)"
-    const deliveryStatuses = [
-      'قيد التوصيل الى الزبون (في عهدة المندوب)' // الحالة الوحيدة المؤهلة
-    ];
-
-    if (deliveryStatuses.includes(normalizedStatus)) {
+    // اكتشاف حالة الإرسال للوسيط بشكل مرن
+    if (isInDeliveryStatus(normalizedStatus)) {
       console.log(`🚀 [${requestId}] الحالة الجديدة تتطلب إرسال للوسيط`);
 
       try {
@@ -1157,6 +1162,45 @@ router.put('/:id/status', async (req, res) => {
         console.warn(`⚠️ [${requestId}] ProfitGuard post-check error:`, pg2Err.message);
       }
     }
+
+    // 🛡️ Profit Guard: تحقق متأخر (بعد 1.5 ثانية) لإيقاف أي تعديل لاحق حدث بسبب مستمعين خارجيين
+    if (__profitGuardShouldRun && __profitGuardBefore && __profitGuardUserPhone) {
+      setTimeout(async () => {
+        try {
+          const { data: __laterRow, error: __laterErr } = await supabase
+            .from('users')
+            .select('achieved_profits, expected_profits')
+            .eq('phone', __profitGuardUserPhone)
+            .single();
+
+          if (!__laterErr && __laterRow) {
+            const __later = {
+              achieved: Number(__laterRow.achieved_profits) || 0,
+              expected: Number(__laterRow.expected_profits) || 0,
+            };
+
+            const __lateChanged = (__later.achieved !== __profitGuardBefore.achieved) || (__later.expected !== __profitGuardBefore.expected);
+            if (__lateChanged) {
+              console.warn(`🛡️ [${requestId}] ProfitGuard: late-change detected. Reverting now.`, { before: __profitGuardBefore, later: __later });
+              await supabase
+                .from('users')
+                .update({
+                  achieved_profits: __profitGuardBefore.achieved,
+                  expected_profits: __profitGuardBefore.expected,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('phone', __profitGuardUserPhone);
+              console.log(`✅ [${requestId}] ProfitGuard: late-change reverted.`);
+            } else {
+              console.log(`✅ [${requestId}] ProfitGuard: late-check passed - no changes.`);
+            }
+          }
+        } catch (lateErr) {
+          console.warn(`⚠️ [${requestId}] ProfitGuard late-check error:`, lateErr.message);
+        }
+      }, 1500);
+    }
+
 
     const totalDuration = Date.now() - startTime;
     console.log('\n' + '='.repeat(100));
