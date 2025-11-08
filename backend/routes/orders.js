@@ -1005,19 +1005,8 @@ router.put('/:id/status', async (req, res) => {
               if (waseetResult && waseetResult.success) {
                 console.log(`✅ [${requestId}] تم إرسال الطلب للوسيط بنجاح`);
 
-                // تحديث الطلب بمعلومات الوسيط
-                console.log(`📝 [${requestId}] تحديث الطلب بمعلومات الوسيط...`);
-                await supabase
-                  .from('orders')
-                  .update({
-                    waseet_order_id: waseetResult.qrId || null,
-                    waseet_status: 'تم الإرسال للوسيط',
-                    waseet_data: JSON.stringify(waseetResult),
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', id);
-
-                console.log(`✅ [${requestId}] تم تحديث الطلب بمعلومات الوسيط`);
+                // ✅ لا حاجة لتحديث الطلب هنا - sendOrderToWaseet يحدثه بالفعل
+                console.log(`ℹ️ [${requestId}] تم تحديث الطلب بمعلومات الوسيط من sendOrderToWaseet`);
 
               } else {
                 console.error(`❌ [${requestId}] فشل في إرسال الطلب للوسيط:`, waseetResult?.error);
