@@ -43,7 +43,7 @@ class InstantStatusUpdater {
   // ===================================
   async instantUpdateOrderStatus(orderId, newWaseetStatus, waseetData = null) {
     const startTime = Date.now();
-    
+
     try {
       console.log(`⚡ بدء تحديث فوري للطلب ${orderId}...`);
 
@@ -62,34 +62,24 @@ class InstantStatusUpdater {
         throw new Error(`الطلب ${orderId} غير موجود`);
       }
 
-      // 2. 🚫 تجاهل حالة "فعال" من الوسيط - لا نريد تغيير status إلى فعال أبداً
-      if (newWaseetStatus === 'فعال' || newWaseetStatus === 'active') {
-        console.log(`🚫 تم تجاهل حالة "فعال" للطلب ${orderId} - لا نريد تحديث status إلى فعال`);
+      // 2. 🚫 تجاهل الحالات غير المهمة من الوسيط
+      const ignoredStatuses = ['فعال', 'active', 'في موقع فرز بغداد', 'في الطريق الى مكتب المحافظة'];
+      const ignoredStatusIds = [1, 5, 7]; // 1=فعال, 5=في موقع فرز بغداد, 7=في الطريق الى مكتب المحافظة
 
-        // فقط تحديث بيانات الوسيط بدون تغيير status
-        const updateData = {
-          waseet_status: newWaseetStatus,
-          last_status_check: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
+      const isIgnoredStatus = ignoredStatuses.includes(newWaseetStatus) ||
+        (waseetData && ignoredStatusIds.includes(parseInt(waseetData.status_id)));
 
-        if (waseetData) {
-          updateData.waseet_data = waseetData;
-        }
+      if (isIgnoredStatus) {
+        console.log(`🚫 تم تجاهل حالة "${newWaseetStatus}" للطلب ${orderId} - حالة غير مهمة للمستخدم`);
 
-        const { error: updateError } = await this.supabase
-          .from('orders')
-          .update(updateData)
-          .eq('id', orderId);
-
-        if (updateError) {
-          throw new Error(`خطأ في تحديث الطلب: ${updateError.message}`);
-        }
+        // ⚠️ لا نحدث أي شيء في قاعدة البيانات لتجنب إطلاق realtime events
+        // أي UPDATE على جدول orders سيطلق event في Frontend ويسبب تحديث الأرباح!
+        console.log(`⏭️ تخطي الطلب ${orderId} بالكامل - لا تحديث في قاعدة البيانات`);
 
         return {
           success: true,
           changed: false,
-          message: 'تم تجاهل حالة فعال - تم تحديث بيانات الوسيط فقط'
+          message: `تم تجاهل حالة ${newWaseetStatus} - حالة غير مهمة`
         };
       }
 
@@ -158,8 +148,11 @@ class InstantStatusUpdater {
       }
 
       // 7. إرسال إشعارات
+      // ❌ تم تعطيل إرسال الإشعارات من هنا
+      // الإشعارات تُرسل من integrated_waseet_sync.js فقط
       if (this.config.enableNotifications && hasStatusChanged) {
-        await this.sendStatusNotification(currentOrder, newLocalStatus);
+        console.log(`📝 ملاحظة: الإشعار سيتم إرساله من integrated_waseet_sync.js`);
+        // await this.sendStatusNotification(currentOrder, newLocalStatus);
       }
 
       // 8. تحديث الإحصائيات
@@ -193,9 +186,9 @@ class InstantStatusUpdater {
     } catch (error) {
       const updateTime = Date.now() - startTime;
       this.updateStats(false, updateTime);
-      
+
       console.error(`❌ فشل في التحديث الفوري للطلب ${orderId}:`, error.message);
-      
+
       return {
         success: false,
         error: error.message,
@@ -209,7 +202,7 @@ class InstantStatusUpdater {
   // ===================================
   async batchInstantUpdate(updates) {
     console.log(`⚡ بدء تحديث فوري لـ ${updates.length} طلب...`);
-    
+
     const results = [];
     const startTime = Date.now();
 
@@ -217,11 +210,11 @@ class InstantStatusUpdater {
     const batchSize = 10;
     for (let i = 0; i < updates.length; i += batchSize) {
       const batch = updates.slice(i, i + batchSize);
-      
-      const batchPromises = batch.map(update => 
+
+      const batchPromises = batch.map(update =>
         this.instantUpdateOrderStatus(
-          update.orderId, 
-          update.waseetStatus, 
+          update.orderId,
+          update.waseetStatus,
           update.waseetData
         )
       );
@@ -280,7 +273,7 @@ class InstantStatusUpdater {
           new_status: newLocalStatus,
           changed_by: 'instant_status_updater',
           change_reason: `تحديث فوري من الوسيط: ${order.waseet_status} → ${newWaseetStatus}`,
-          waseet_response: waseetData || { 
+          waseet_response: waseetData || {
             old_waseet_status: order.waseet_status,
             new_waseet_status: newWaseetStatus,
             update_type: 'instant'
@@ -319,7 +312,7 @@ class InstantStatusUpdater {
 
     // حساب متوسط وقت التحديث
     this.stats.averageUpdateTime = (
-      (this.stats.averageUpdateTime * (this.stats.totalUpdates - 1) + updateTime) / 
+      (this.stats.averageUpdateTime * (this.stats.totalUpdates - 1) + updateTime) /
       this.stats.totalUpdates
     );
   }
@@ -359,7 +352,7 @@ class InstantStatusUpdater {
   getUpdateStats() {
     return {
       ...this.stats,
-      successRate: this.stats.totalUpdates > 0 ? 
+      successRate: this.stats.totalUpdates > 0 ?
         (this.stats.successfulUpdates / this.stats.totalUpdates * 100).toFixed(2) : 0,
       listenersCount: this.updateListeners.size,
       config: this.config

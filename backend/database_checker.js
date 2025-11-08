@@ -21,7 +21,7 @@ async function checkAndSetupDatabase() {
       .from('users')
       .select('count')
       .limit(1);
-    
+
     if (connectionError) {
       console.error('❌ فشل الاتصال بقاعدة البيانات:', connectionError.message);
       return false;
@@ -34,11 +34,11 @@ async function checkAndSetupDatabase() {
       .from('fcm_tokens')
       .select('*')
       .limit(1);
-    
+
     if (tokensError) {
       console.error('❌ جدول fcm_tokens غير موجود أو به مشكلة:', tokensError.message);
       console.log('🔧 محاولة إنشاء الجدول...');
-      
+
       // إنشاء الجدول
       const { error: createError } = await supabase.rpc('exec_sql', {
         sql: `
@@ -58,7 +58,7 @@ async function checkAndSetupDatabase() {
           CREATE INDEX IF NOT EXISTS idx_fcm_tokens_active ON fcm_tokens(is_active);
         `
       });
-      
+
       if (createError) {
         console.error('❌ فشل في إنشاء جدول fcm_tokens:', createError.message);
         return false;
@@ -70,24 +70,26 @@ async function checkAndSetupDatabase() {
 
     // 3. فحص عدد الرموز المسجلة
     console.log('\n3️⃣ فحص FCM Tokens المسجلة...');
+    // ✅ استخدام طريقة آمنة بدون head: true
     const { count: totalTokens } = await supabase
       .from('fcm_tokens')
-      .select('*', { count: 'exact', head: true });
-    
+      .select('*', { count: 'exact' });
+
     const { count: activeTokens } = await supabase
       .from('fcm_tokens')
-      .select('*', { count: 'exact', head: true })
+      .select('*', { count: 'exact' })
       .eq('is_active', true);
-    
+
     console.log(`📊 إجمالي الرموز: ${totalTokens || 0}`);
     console.log(`✅ الرموز النشطة: ${activeTokens || 0}`);
 
     // 4. فحص المستخدمين
     console.log('\n4️⃣ فحص جدول المستخدمين...');
+    // ✅ استخدام طريقة آمنة بدون head: true
     const { count: usersCount } = await supabase
       .from('users')
-      .select('*', { count: 'exact', head: true });
-    
+      .select('*', { count: 'exact' });
+
     console.log(`👥 عدد المستخدمين: ${usersCount || 0}`);
 
     // 5. إضافة رمز تجريبي إذا لم يوجد أي رمز
@@ -101,7 +103,7 @@ async function checkAndSetupDatabase() {
           device_info: { platform: 'test', app: 'montajati' },
           is_active: true
         });
-      
+
       if (insertError) {
         console.error('⚠️ فشل في إضافة رمز تجريبي:', insertError.message);
       } else {
@@ -115,7 +117,7 @@ async function checkAndSetupDatabase() {
       .from('notification_logs')
       .select('*')
       .limit(1);
-    
+
     if (logsError) {
       console.log('🔧 إنشاء جدول notification_logs...');
       const { error: createLogsError } = await supabase.rpc('exec_sql', {
@@ -135,7 +137,7 @@ async function checkAndSetupDatabase() {
           );
         `
       });
-      
+
       if (createLogsError) {
         console.log('⚠️ فشل في إنشاء جدول notification_logs:', createLogsError.message);
       } else {
@@ -149,7 +151,7 @@ async function checkAndSetupDatabase() {
     console.log('🎉 فحص قاعدة البيانات مكتمل بنجاح!');
     console.log('✅ جميع الجداول المطلوبة موجودة ومُهيأة');
     console.log('='.repeat(50));
-    
+
     return true;
 
   } catch (error) {

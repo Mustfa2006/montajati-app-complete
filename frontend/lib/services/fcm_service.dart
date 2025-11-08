@@ -6,15 +6,19 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/material.dart';
+
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:device_info_plus/device_info_plus.dart';
-import 'package:http/http.dart' as http;
+
 import '../firebase_options.dart';
+import '../router.dart';
 
 class FCMService {
   static final FCMService _instance = FCMService._internal();
@@ -23,18 +27,17 @@ class FCMService {
 
   // Firebase Messaging instance
   FirebaseMessaging? _messaging;
-  
+
   // Local Notifications
-  final FlutterLocalNotificationsPlugin _localNotifications = 
-      FlutterLocalNotificationsPlugin();
-  
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+
   // Supabase client
   final SupabaseClient _supabase = Supabase.instance.client;
-  
+
   // Service state
   bool _isInitialized = false;
   String? _currentToken;
-  
+
   // Getters
   bool get isInitialized => _isInitialized;
   String? get currentToken => _currentToken;
@@ -45,9 +48,7 @@ class FCMService {
       debugPrint('🚀 بدء تهيئة خدمة FCM...');
 
       // تهيئة Firebase
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
       debugPrint('✅ تم تهيئة Firebase');
 
       _messaging = FirebaseMessaging.instance;
@@ -85,7 +86,7 @@ class FCMService {
   /// طلب أذونات الإشعارات
   Future<void> _requestPermissions() async {
     if (_messaging == null) return;
-    
+
     final settings = await _messaging!.requestPermission(
       alert: true,
       announcement: false,
@@ -95,7 +96,7 @@ class FCMService {
       provisional: false,
       sound: true,
     );
-    
+
     debugPrint('🔔 حالة أذونات الإشعارات: ${settings.authorizationStatus}');
   }
 
@@ -107,17 +108,11 @@ class FCMService {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-    
-    await _localNotifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTapped,
-    );
-    
+
+    const initSettings = InitializationSettings(android: androidSettings, iOS: iosSettings);
+
+    await _localNotifications.initialize(initSettings, onDidReceiveNotificationResponse: _onNotificationTapped);
+
     // إنشاء notification channel للأندرويد
     if (Platform.isAndroid) {
       await _createNotificationChannel();
@@ -134,7 +129,7 @@ class FCMService {
       enableVibration: true,
       playSound: true,
     );
-    
+
     await _localNotifications
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
@@ -144,15 +139,15 @@ class FCMService {
   Future<void> _getFCMToken() async {
     try {
       if (_messaging == null) return;
-      
+
       _currentToken = await _messaging!.getToken();
-      
+
       if (_currentToken != null) {
         debugPrint('🔑 FCM Token: ${_currentToken!.substring(0, 20)}...');
-        
+
         // حفظ Token في قاعدة البيانات
         await _saveFCMToken(_currentToken!);
-        
+
         // الاستماع لتحديثات Token
         _messaging!.onTokenRefresh.listen((newToken) {
           debugPrint('🔄 تم تحديث FCM Token');
@@ -170,37 +165,40 @@ class FCMService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userPhone = prefs.getString('user_phone');
-      
+
       if (userPhone == null || userPhone.isEmpty) {
         debugPrint('⚠️ لا يوجد رقم هاتف للمستخدم - لن يتم حفظ FCM Token');
         return;
       }
-      
+
+      debugPrint('📱 حفظ FCM Token للمستخدم: $userPhone');
+
+      // ✅ حذف جميع الـ tokens القديمة للمستخدم أولاً
+      try {
+        await _supabase.from('fcm_tokens').delete().eq('user_phone', userPhone);
+        debugPrint('🗑️ تم حذف جميع الـ tokens القديمة');
+      } catch (e) {
+        debugPrint('⚠️ خطأ في حذف الـ tokens القديمة: $e');
+      }
+
       // الحصول على معلومات الجهاز
       final deviceInfo = await _getDeviceInfo();
-      
-      // ✅ حفظ Token في قاعدة البيانات مع معالجة التكرار
+
+      // ✅ إنشاء Token جديد فقط
       try {
-        await _supabase.rpc('upsert_fcm_token', params: {
-          'p_user_phone': userPhone,
-          'p_fcm_token': token,
-          'p_device_info': deviceInfo,
+        await _supabase.from('fcm_tokens').insert({
+          'user_phone': userPhone,
+          'fcm_token': token,
+          'device_info': deviceInfo,
+          'is_active': true,
+          'created_at': DateTime.now().toIso8601String(),
+          'last_used_at': DateTime.now().toIso8601String(),
         });
-        debugPrint('✅ تم حفظ FCM Token للمستخدم: $userPhone');
+        debugPrint('✅ تم حفظ FCM Token الجديد بنجاح');
       } catch (e) {
-        if (e.toString().contains('duplicate key value violates unique constraint')) {
-          debugPrint('⚠️ FCM Token موجود بالفعل - تحديث آخر استخدام');
-          // تحديث آخر استخدام للـ Token الموجود
-          await _supabase
-              .from('fcm_tokens')
-              .update({'last_used_at': DateTime.now().toIso8601String()})
-              .eq('user_phone', userPhone)
-              .eq('fcm_token', token);
-          return;
-        }
+        debugPrint('❌ خطأ في حفظ FCM Token: $e');
         rethrow;
       }
-      
     } catch (e) {
       debugPrint('❌ خطأ في حفظ FCM Token: $e');
     }
@@ -209,7 +207,7 @@ class FCMService {
   /// الحصول على معلومات الجهاز
   Future<Map<String, dynamic>> _getDeviceInfo() async {
     final deviceInfo = DeviceInfoPlugin();
-    
+
     try {
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
@@ -222,33 +220,25 @@ class FCMService {
         };
       } else if (Platform.isIOS) {
         final iosInfo = await deviceInfo.iosInfo;
-        return {
-          'platform': 'ios',
-          'model': iosInfo.model,
-          'name': iosInfo.name,
-          'version': iosInfo.systemVersion,
-        };
+        return {'platform': 'ios', 'model': iosInfo.model, 'name': iosInfo.name, 'version': iosInfo.systemVersion};
       }
     } catch (e) {
       debugPrint('⚠️ خطأ في الحصول على معلومات الجهاز: $e');
     }
-    
-    return {
-      'platform': Platform.operatingSystem,
-      'timestamp': DateTime.now().toIso8601String(),
-    };
+
+    return {'platform': Platform.operatingSystem, 'timestamp': DateTime.now().toIso8601String()};
   }
 
   /// إعداد معالجات الإشعارات
   void _setupMessageHandlers() {
     if (_messaging == null) return;
-    
+
     // معالج الإشعارات في المقدمة
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-    
+
     // معالج الإشعارات عند النقر (التطبيق في الخلفية)
     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
-    
+
     // معالج الإشعارات عند فتح التطبيق من إشعار
     _handleInitialMessage();
   }
@@ -296,29 +286,16 @@ class FCMService {
         playSound: true,
       );
 
-      const iosDetails = DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      );
+      const iosDetails = DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true);
 
-      const details = NotificationDetails(
-        android: androidDetails,
-        iOS: iosDetails,
-      );
+      const details = NotificationDetails(android: androidDetails, iOS: iosDetails);
 
       final title = message.notification?.title ?? 'إشعار جديد';
       final body = message.notification?.body ?? 'لديك تحديث جديد';
 
       debugPrint('🔔 عرض إشعار: $title - $body');
 
-      await _localNotifications.show(
-        message.hashCode,
-        title,
-        body,
-        details,
-        payload: jsonEncode(message.data),
-      );
+      await _localNotifications.show(message.hashCode, title, body, details, payload: jsonEncode(message.data));
 
       debugPrint('✅ تم عرض الإشعار المحلي بنجاح');
     } catch (e) {
@@ -334,26 +311,78 @@ class FCMService {
     }
   }
 
-  /// معالجة بيانات الإشعار
+  /// معالجة بيانات الإشعار والتنقل إلى الصفحة المناسبة
   void _processNotificationData(Map<String, dynamic> data) {
     debugPrint('📊 معالجة بيانات الإشعار: $data');
-    
-    // يمكن إضافة منطق التنقل هنا حسب نوع الإشعار
-    final orderId = data['orderId'] ?? data['order_id'];
-    if (orderId != null) {
-      // التنقل إلى صفحة تفاصيل الطلب
-      debugPrint('🔗 التنقل إلى الطلب: $orderId');
+
+    try {
+      // استخراج معرف الطلب من البيانات
+      final orderId = data['orderId'] ?? data['order_id'];
+      final notificationType = data['type'] ?? 'order_status_update';
+
+      debugPrint('📋 نوع الإشعار: $notificationType');
+      debugPrint('🔗 معرف الطلب: $orderId');
+
+      if (orderId != null && orderId.toString().isNotEmpty) {
+        // ✅ التنقل إلى صفحة تفاصيل الطلب
+        _navigateToOrderDetails(orderId.toString());
+      } else {
+        debugPrint('⚠️ لم يتم العثور على معرف الطلب في بيانات الإشعار');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في معالجة بيانات الإشعار: $e');
+    }
+  }
+
+  /// التنقل إلى صفحة تفاصيل الطلب
+  void _navigateToOrderDetails(String orderId) {
+    try {
+      debugPrint('🚀 بدء التنقل إلى صفحة الطلب: $orderId');
+
+      // محاولة الحصول على BuildContext من GoRouter
+      final context = AppRouter.router.routerDelegate.navigatorKey.currentContext;
+
+      if (context == null) {
+        debugPrint('⚠️ لم يتم العثور على BuildContext - سيتم المحاولة لاحقاً');
+        // محاولة التنقل بعد تأخير قصير
+        Future.delayed(const Duration(milliseconds: 500), () {
+          final ctx = AppRouter.router.routerDelegate.navigatorKey.currentContext;
+          if (ctx != null && ctx.mounted) {
+            _performNavigation(ctx, orderId);
+          }
+        });
+        return;
+      }
+
+      _performNavigation(context, orderId);
+    } catch (e) {
+      debugPrint('❌ خطأ في التنقل إلى صفحة الطلب: $e');
+    }
+  }
+
+  /// تنفيذ التنقل الفعلي
+  void _performNavigation(BuildContext context, String orderId) {
+    try {
+      debugPrint('🔗 التنقل إلى صفحة الطلب: $orderId');
+
+      // استخدام GoRouter للتنقل
+      if (context.mounted) {
+        context.go('/orders/details/$orderId');
+        debugPrint('✅ تم التنقل إلى صفحة الطلب بنجاح: $orderId');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تنفيذ التنقل: $e');
     }
   }
 
   /// تحديث آخر استخدام للـ Token
   Future<void> updateTokenLastUsed() async {
     if (_currentToken == null) return;
-    
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final userPhone = prefs.getString('user_phone');
-      
+
       if (userPhone != null) {
         await _supabase
             .from('fcm_tokens')
@@ -418,7 +447,6 @@ class FCMService {
 
       debugPrint('✅ تم تسجيل FCM Token بنجاح للمستخدم: $userPhone');
       return true;
-
     } catch (e) {
       debugPrint('❌ خطأ في تسجيل FCM Token: $e');
       return false;
@@ -462,7 +490,6 @@ class FCMService {
 
       // فحص صحة Token الحالي
       await _validateCurrentToken();
-
     } catch (e) {
       debugPrint('⚠️ خطأ في فحص Token: $e');
     }
@@ -477,10 +504,7 @@ class FCMService {
       final response = await http.post(
         Uri.parse('https://montajati-official-backend-production.up.railway.app/api/fcm/update-last-used'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'fcmToken': _currentToken,
-          'userPhone': await _getCurrentUserPhone(),
-        }),
+        body: jsonEncode({'fcmToken': _currentToken, 'userPhone': await _getCurrentUserPhone()}),
       );
 
       if (response.statusCode != 200) {
@@ -536,11 +560,7 @@ class FCMService {
         body: jsonEncode({
           'userPhone': userPhone,
           'fcmToken': token,
-          'deviceInfo': {
-            'platform': 'Flutter',
-            'app': 'Montajati',
-            'timestamp': DateTime.now().toIso8601String(),
-          },
+          'deviceInfo': {'platform': 'Flutter', 'app': 'Montajati', 'timestamp': DateTime.now().toIso8601String()},
         }),
       );
 

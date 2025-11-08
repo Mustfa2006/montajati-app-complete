@@ -37,17 +37,17 @@ class TargetedNotificationService {
   async initialize() {
     try {
       console.log('🎯 بدء تهيئة خدمة الإشعارات المستهدفة...');
-      
+
       // تهيئة Firebase Admin
       const firebaseInitialized = await firebaseAdminService.initialize();
-      
+
       if (!firebaseInitialized) {
         throw new Error('فشل في تهيئة Firebase Admin');
       }
-      
+
       this.initialized = true;
       console.log('✅ تم تهيئة خدمة الإشعارات المستهدفة بنجاح');
-      
+
       return true;
     } catch (error) {
       console.error('❌ خطأ في تهيئة خدمة الإشعارات المستهدفة:', error.message);
@@ -131,10 +131,10 @@ class TargetedNotificationService {
       }
 
       console.log(`📱 إرسال إشعار تحديث الطلب للمستخدم: ${userPhone}`);
-      
+
       // الحصول على FCM Token
       const fcmToken = await this.getUserFCMToken(userPhone);
-      
+
       if (!fcmToken) {
         console.log(`⚠️ لا يوجد FCM Token للمستخدم: ${userPhone}`);
         return {
@@ -180,7 +180,7 @@ class TargetedNotificationService {
 
     } catch (error) {
       console.error('❌ خطأ في إرسال إشعار تحديث الطلب:', error.message);
-      
+
       return {
         success: false,
         error: error.message,
@@ -206,10 +206,10 @@ class TargetedNotificationService {
       }
 
       console.log(`💰 إرسال إشعار تحديث طلب السحب للمستخدم: ${userPhone}`);
-      
+
       // الحصول على FCM Token
       const fcmToken = await this.getUserFCMToken(userPhone);
-      
+
       if (!fcmToken) {
         console.log(`⚠️ لا يوجد FCM Token للمستخدم: ${userPhone}`);
         return {
@@ -255,7 +255,7 @@ class TargetedNotificationService {
 
     } catch (error) {
       console.error('❌ خطأ في إرسال إشعار تحديث طلب السحب:', error.message);
-      
+
       return {
         success: false,
         error: error.message,
@@ -280,10 +280,10 @@ class TargetedNotificationService {
       }
 
       console.log(`📢 إرسال إشعار عام للمستخدم: ${userPhone}`);
-      
+
       // الحصول على FCM Token
       const fcmToken = await this.getUserFCMToken(userPhone);
-      
+
       if (!fcmToken) {
         console.log(`⚠️ لا يوجد FCM Token للمستخدم: ${userPhone}`);
         return {
@@ -323,7 +323,7 @@ class TargetedNotificationService {
 
     } catch (error) {
       console.error('❌ خطأ في إرسال الإشعار العام:', error.message);
-      
+
       return {
         success: false,
         error: error.message,

@@ -1,5 +1,3 @@
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -55,9 +53,6 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
   String? _selectedRegionId;
   bool _isSubmitting = false;
   bool _isLoadingCities = false;
-
-  // خدمات
-  final CartService _cartService = CartService();
 
   // بيانات شركة الوسيط
   List<Map<String, dynamic>> _provinces = [];
@@ -313,14 +308,25 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
           GestureDetector(
             onTap: () => context.pop(),
             child: Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
-                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2), width: 1),
+                color: isDark
+                    ? (Colors.white).withValues(alpha: 0.1)
+                    : const Color(0xFFffd700).withValues(alpha: 0.15), // خلفية ذهبية فاتحة
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark
+                      ? (Colors.white).withValues(alpha: 0.2)
+                      : const Color(0xFFffd700).withValues(alpha: 0.5), // حد ذهبي
+                  width: 1.5,
+                ),
               ),
-              child: Icon(FontAwesomeIcons.arrowRight, color: isDark ? Colors.white : Colors.black, size: 18),
+              child: Icon(
+                FontAwesomeIcons.arrowRight,
+                color: isDark ? Colors.white : const Color(0xFF8B6914),
+                size: 20,
+              ),
             ),
           ),
 
@@ -328,14 +334,15 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
           Text(
             'معلومات الزبون',
             style: GoogleFonts.cairo(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : Colors.black,
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : const Color(0xFF8B6914),
+              letterSpacing: 0.5,
             ),
           ),
 
           // مساحة فارغة للتوازن
-          const SizedBox(width: 40),
+          const SizedBox(width: 44),
         ],
       ),
     );
@@ -367,73 +374,194 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
   Widget _buildCustomerNameField() {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(15),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-        child: Container(
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-            border: Border.all(color: const Color(0xFFe6b31e).withValues(alpha: isDark ? 0.2 : 0.3), width: 1),
-            borderRadius: BorderRadius.circular(15),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        // ✨ تصميم نظيف واحترافي
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white, // خلفية بيضاء نظيفة
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFFe6b31e).withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.15), // حد رمادي فاتح
+          width: 1.5,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _nameController,
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.next,
+            textAlign: TextAlign.right, // محاذاة النص لليمين لدعم العربية
+            style: GoogleFonts.cairo(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isDark ? const Color(0xFFf0f0f0) : const Color(0xFF2C2C2C),
+            ),
+            onChanged: (value) {
+              setState(() {}); // ✅ تحديث الواجهة عند تغيير النص
+            },
+            decoration: InputDecoration(
+              labelText: null, // ✅ إزالة أي label
+              floatingLabelBehavior: FloatingLabelBehavior.never, // ✅ منع floating
+              hintText: 'أدخل اسم الزبون',
+              hintStyle: GoogleFonts.cairo(
+                fontSize: 15,
+                color: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.5),
+              ),
+              prefixIcon: const Icon(Icons.person, color: Color(0xFFffd700), size: 22),
+              // ✅ علامة الصح عند كتابة اسم صحيح
+              suffixIcon: _nameController.text.trim().isNotEmpty
+                  ? const Icon(Icons.check_circle, color: Colors.green, size: 22)
+                  : null,
+              filled: true,
+              fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : const Color(0xFFFFF8E7), // خلفية فاتحة جداً
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: _nameController.text.trim().isNotEmpty
+                      ? Colors.green
+                      : const Color(0xFFffd700).withValues(alpha: 0.4),
+                  width: _nameController.text.trim().isNotEmpty ? 2 : 1.5,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: _nameController.text.trim().isNotEmpty
+                      ? Colors.green
+                      : const Color(0xFFffd700).withValues(alpha: 0.4),
+                  width: _nameController.text.trim().isNotEmpty ? 2 : 1.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: _nameController.text.trim().isNotEmpty ? Colors.green : const Color(0xFFffd700),
+                  width: 2,
+                ),
+              ),
+              disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.red, width: 2),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: const BorderSide(color: Colors.red, width: 2.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'يرجى إدخال اسم الزبون';
+              }
+              return null;
+            },
           ),
-          child: Column(
+        ],
+      ),
+    );
+  }
+
+  // 📱 حقول أرقام الهواتف
+  Widget _buildPhoneFields() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        // ✨ تصميم نظيف واحترافي
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white, // خلفية بيضاء نظيفة
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFFe6b31e).withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.15), // حد رمادي فاتح
+          width: 1.5,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // رقم الهاتف الأساسي
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
-                controller: _nameController,
-                keyboardType: TextInputType.text,
-                textInputAction: TextInputAction.next,
-                textAlign: TextAlign.right, // محاذاة النص لليمين لدعم العربية
+                controller: _primaryPhoneController,
+                keyboardType: TextInputType.phone,
+                maxLength: 11, // ✅ حد أقصى 11 رقم
                 style: GoogleFonts.cairo(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? const Color(0xFFf0f0f0) : Colors.black,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? const Color(0xFFf0f0f0) : const Color(0xFF2C2C2C),
                 ),
                 onChanged: (value) {
+                  // ✨ تحويل الأرقام العربية إلى إنجليزية تلقائياً
+                  final convertedValue = _convertArabicToEnglishNumbers(value);
+                  if (convertedValue != value) {
+                    _primaryPhoneController.value = TextEditingValue(
+                      text: convertedValue,
+                      selection: TextSelection.collapsed(offset: convertedValue.length),
+                    );
+                  }
                   setState(() {}); // ✅ تحديث الواجهة عند تغيير النص
                 },
                 decoration: InputDecoration(
                   labelText: null, // ✅ إزالة أي label
                   floatingLabelBehavior: FloatingLabelBehavior.never, // ✅ منع floating
-                  hintText: 'أدخل اسم الزبون',
+                  hintText: '07xxxxxxxxx',
                   hintStyle: GoogleFonts.cairo(
-                    fontSize: 14,
+                    fontSize: 15,
                     color: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.5),
                   ),
-                  prefixIcon: const Icon(Icons.person, color: Color(0xFFffd700), size: 20),
-                  // ✅ علامة الصح عند كتابة اسم صحيح
-                  suffixIcon: _nameController.text.trim().isNotEmpty
-                      ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                  prefixIcon: const Icon(Icons.phone, color: Color(0xFFffd700), size: 22),
+                  // ✅ علامة الصح عند كتابة 11 رقم صحيح
+                  suffixIcon: _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
+                      ? const Icon(Icons.check_circle, color: Colors.green, size: 22)
                       : null,
                   filled: true,
-                  fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.1),
+                  fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : const Color(0xFFFFF8E7), // خلفية فاتحة جداً
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(
-                      color: _nameController.text.trim().isNotEmpty
+                      color: _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
                           ? Colors.green
-                          : const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: _nameController.text.trim().isNotEmpty ? 1.5 : 1,
+                          : const Color(0xFFffd700).withValues(alpha: 0.4),
+                      width: _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
+                          ? 2
+                          : 1.5,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
                     borderSide: BorderSide(
-                      // ✅ تغيير لون الإطار حسب وجود النص
-                      color: _nameController.text.trim().isNotEmpty
+                      color: _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
                           ? Colors.green
                           : const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: _nameController.text.trim().isNotEmpty ? 1.5 : 1,
+                      width: _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
+                          ? 1.5
+                          : 1,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(15),
                     borderSide: BorderSide(
-                      // ✅ تغيير لون الإطار حسب وجود النص
-                      color: _nameController.text.trim().isNotEmpty ? Colors.green : const Color(0xFFffd700),
-                      width: _nameController.text.trim().isNotEmpty ? 1.5 : 1,
+                      color: _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
+                          ? Colors.green
+                          : const Color(0xFFffd700),
+                      width: _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
+                          ? 1.5
+                          : 2,
                     ),
                   ),
                   disabledBorder: OutlineInputBorder(
@@ -448,276 +576,149 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
                     borderRadius: BorderRadius.circular(15),
                     borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
+                  counterText: '', // ✅ إخفاء عداد الأحرف
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'يرجى إدخال اسم الزبون';
+                    return 'رقم الهاتف مطلوب';
+                  }
+                  if (value.length != 11) {
+                    return 'يجب أن يكون رقم الهاتف من 11 رقم';
+                  }
+                  if (!value.startsWith('07')) {
+                    return 'رقم الهاتف يجب أن يبدأ بـ 07';
                   }
                   return null;
                 },
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
 
-  // 📱 حقول أرقام الهواتف
-  Widget _buildPhoneFields() {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(15),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-            border: Border.all(color: const Color(0xFFe6b31e).withValues(alpha: isDark ? 0.2 : 0.3), width: 1),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
+          const SizedBox(height: 20), // مساحة بين الحقلين
+          // رقم الهاتف البديل
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // رقم الهاتف الأساسي
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: _primaryPhoneController,
-                    keyboardType: TextInputType.phone,
-                    maxLength: 11, // ✅ حد أقصى 11 رقم
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? const Color(0xFFf0f0f0) : Colors.black,
-                    ),
-                    onChanged: (value) {
-                      // ✨ تحويل الأرقام العربية إلى إنجليزية تلقائياً
-                      final convertedValue = _convertArabicToEnglishNumbers(value);
-                      if (convertedValue != value) {
-                        _primaryPhoneController.value = TextEditingValue(
-                          text: convertedValue,
-                          selection: TextSelection.collapsed(offset: convertedValue.length),
-                        );
-                      }
-                      setState(() {}); // ✅ تحديث الواجهة عند تغيير النص
-                    },
-                    decoration: InputDecoration(
-                      labelText: null, // ✅ إزالة أي label
-                      floatingLabelBehavior: FloatingLabelBehavior.never, // ✅ منع floating
-                      hintText: '07xxxxxxxxx',
-                      hintStyle: GoogleFonts.cairo(
-                        fontSize: 14,
-                        color: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.5),
-                      ),
-                      prefixIcon: const Icon(Icons.phone, color: Color(0xFFffd700), size: 20),
-                      // ✅ علامة الصح عند كتابة 11 رقم صحيح
-                      suffixIcon:
-                          _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
-                          ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
-                          : null,
-                      filled: true,
-                      fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.1),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide(
-                          color:
-                              _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
-                              ? Colors.green
-                              : const Color(0xFFffd700).withValues(alpha: 0.3),
-                          width:
-                              _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
-                              ? 1.5
-                              : 1,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide(
-                          color:
-                              _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
-                              ? Colors.green
-                              : const Color(0xFFffd700).withValues(alpha: 0.3),
-                          width:
-                              _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
-                              ? 1.5
-                              : 1,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide(
-                          color:
-                              _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
-                              ? Colors.green
-                              : const Color(0xFFffd700),
-                          width:
-                              _primaryPhoneController.text.length == 11 && _primaryPhoneController.text.startsWith('07')
-                              ? 1.5
-                              : 2,
-                        ),
-                      ),
-                      disabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide.none,
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: const BorderSide(color: Colors.red, width: 1),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: const BorderSide(color: Colors.red, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
-                      counterText: '', // ✅ إخفاء عداد الأحرف
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'رقم الهاتف مطلوب';
-                      }
-                      if (value.length != 11) {
-                        return 'يجب أن يكون رقم الهاتف من 11 رقم';
-                      }
-                      if (!value.startsWith('07')) {
-                        return 'رقم الهاتف يجب أن يبدأ بـ 07';
-                      }
-                      return null;
-                    },
+              TextFormField(
+                controller: _secondaryPhoneController,
+                keyboardType: TextInputType.phone,
+                maxLength: 11, // ✅ حد أقصى 11 رقم
+                style: GoogleFonts.cairo(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? const Color(0xFFf0f0f0) : Colors.black,
+                ),
+                onChanged: (value) {
+                  // ✨ تحويل الأرقام العربية إلى إنجليزية تلقائياً
+                  final convertedValue = _convertArabicToEnglishNumbers(value);
+                  if (convertedValue != value) {
+                    _secondaryPhoneController.value = TextEditingValue(
+                      text: convertedValue,
+                      selection: TextSelection.collapsed(offset: convertedValue.length),
+                    );
+                  }
+                  setState(() {}); // ✅ تحديث الواجهة عند تغيير النص
+                },
+                decoration: InputDecoration(
+                  labelText: null, // ✅ إزالة أي label
+                  floatingLabelBehavior: FloatingLabelBehavior.never, // ✅ منع floating
+                  hintText: '07xxxxxxxxx (اختياري)',
+                  hintStyle: GoogleFonts.cairo(
+                    fontSize: 14,
+                    color: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.5),
                   ),
-                ],
-              ),
-
-              const SizedBox(height: 20), // مساحة بين الحقلين
-              // رقم الهاتف البديل
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: _secondaryPhoneController,
-                    keyboardType: TextInputType.phone,
-                    maxLength: 11, // ✅ حد أقصى 11 رقم
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? const Color(0xFFf0f0f0) : Colors.black,
-                    ),
-                    onChanged: (value) {
-                      // ✨ تحويل الأرقام العربية إلى إنجليزية تلقائياً
-                      final convertedValue = _convertArabicToEnglishNumbers(value);
-                      if (convertedValue != value) {
-                        _secondaryPhoneController.value = TextEditingValue(
-                          text: convertedValue,
-                          selection: TextSelection.collapsed(offset: convertedValue.length),
-                        );
-                      }
-                      setState(() {}); // ✅ تحديث الواجهة عند تغيير النص
-                    },
-                    decoration: InputDecoration(
-                      labelText: null, // ✅ إزالة أي label
-                      floatingLabelBehavior: FloatingLabelBehavior.never, // ✅ منع floating
-                      hintText: '07xxxxxxxxx (اختياري)',
-                      hintStyle: GoogleFonts.cairo(
-                        fontSize: 14,
-                        color: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.5),
-                      ),
-                      prefixIcon: const Icon(Icons.phone, color: Color(0xFFffd700), size: 20),
-                      // ✅ علامة الصح عند كتابة 11 رقم صحيح (اختياري)
-                      suffixIcon:
+                  prefixIcon: const Icon(Icons.phone, color: Color(0xFFffd700), size: 20),
+                  // ✅ علامة الصح عند كتابة 11 رقم صحيح (اختياري)
+                  suffixIcon:
+                      _secondaryPhoneController.text.isNotEmpty &&
+                          _secondaryPhoneController.text.length == 11 &&
+                          _secondaryPhoneController.text.startsWith('07')
+                      ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                      : null,
+                  filled: true,
+                  fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.1),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide(
+                      color:
                           _secondaryPhoneController.text.isNotEmpty &&
                               _secondaryPhoneController.text.length == 11 &&
                               _secondaryPhoneController.text.startsWith('07')
-                          ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
-                          : null,
-                      filled: true,
-                      fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.1),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide(
-                          color:
-                              _secondaryPhoneController.text.isNotEmpty &&
-                                  _secondaryPhoneController.text.length == 11 &&
-                                  _secondaryPhoneController.text.startsWith('07')
-                              ? Colors.green
-                              : const Color(0xFFffd700).withValues(alpha: 0.3),
-                          width:
-                              _secondaryPhoneController.text.isNotEmpty &&
-                                  _secondaryPhoneController.text.length == 11 &&
-                                  _secondaryPhoneController.text.startsWith('07')
-                              ? 1.5
-                              : 1,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide(
-                          color:
-                              _secondaryPhoneController.text.isNotEmpty &&
-                                  _secondaryPhoneController.text.length == 11 &&
-                                  _secondaryPhoneController.text.startsWith('07')
-                              ? Colors.green
-                              : const Color(0xFFffd700).withValues(alpha: 0.3),
-                          width:
-                              _secondaryPhoneController.text.isNotEmpty &&
-                                  _secondaryPhoneController.text.length == 11 &&
-                                  _secondaryPhoneController.text.startsWith('07')
-                              ? 1.5
-                              : 1,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide(
-                          color:
-                              _secondaryPhoneController.text.isNotEmpty &&
-                                  _secondaryPhoneController.text.length == 11 &&
-                                  _secondaryPhoneController.text.startsWith('07')
-                              ? Colors.green
-                              : const Color(0xFFffd700),
-                          width:
-                              _secondaryPhoneController.text.isNotEmpty &&
-                                  _secondaryPhoneController.text.length == 11 &&
-                                  _secondaryPhoneController.text.startsWith('07')
-                              ? 1.5
-                              : 2,
-                        ),
-                      ),
-                      disabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: BorderSide.none,
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: const BorderSide(color: Colors.red, width: 1),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(15),
-                        borderSide: const BorderSide(color: Colors.red, width: 2),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
-                      counterText: '', // ✅ إخفاء عداد الأحرف
+                          ? Colors.green
+                          : const Color(0xFFffd700).withValues(alpha: 0.3),
+                      width:
+                          _secondaryPhoneController.text.isNotEmpty &&
+                              _secondaryPhoneController.text.length == 11 &&
+                              _secondaryPhoneController.text.startsWith('07')
+                          ? 1.5
+                          : 1,
                     ),
-                    validator: (value) {
-                      if (value != null && value.isNotEmpty) {
-                        if (value.length != 11) {
-                          return 'يجب أن يكون من 11 رقم';
-                        }
-                        if (!value.startsWith('07')) {
-                          return 'يجب أن يبدأ بـ 07';
-                        }
-                      }
-                      return null;
-                    },
                   ),
-                ],
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide(
+                      color:
+                          _secondaryPhoneController.text.isNotEmpty &&
+                              _secondaryPhoneController.text.length == 11 &&
+                              _secondaryPhoneController.text.startsWith('07')
+                          ? Colors.green
+                          : const Color(0xFFffd700).withValues(alpha: 0.3),
+                      width:
+                          _secondaryPhoneController.text.isNotEmpty &&
+                              _secondaryPhoneController.text.length == 11 &&
+                              _secondaryPhoneController.text.startsWith('07')
+                          ? 1.5
+                          : 1,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide(
+                      color:
+                          _secondaryPhoneController.text.isNotEmpty &&
+                              _secondaryPhoneController.text.length == 11 &&
+                              _secondaryPhoneController.text.startsWith('07')
+                          ? Colors.green
+                          : const Color(0xFFffd700),
+                      width:
+                          _secondaryPhoneController.text.isNotEmpty &&
+                              _secondaryPhoneController.text.length == 11 &&
+                              _secondaryPhoneController.text.startsWith('07')
+                          ? 1.5
+                          : 2,
+                    ),
+                  ),
+                  disabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: BorderSide.none,
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: const BorderSide(color: Colors.red, width: 1),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(15),
+                    borderSide: const BorderSide(color: Colors.red, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 18),
+                  counterText: '', // ✅ إخفاء عداد الأحرف
+                ),
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
+                    if (value.length != 11) {
+                      return 'يجب أن يكون من 11 رقم';
+                    }
+                    if (!value.startsWith('07')) {
+                      return 'يجب أن يبدأ بـ 07';
+                    }
+                  }
+                  return null;
+                },
               ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -726,28 +727,31 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
   Widget _buildLocationFields() {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(15),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-            border: Border.all(color: const Color(0xFFe6b31e).withValues(alpha: isDark ? 0.2 : 0.3), width: 1),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // المحافظة
-              _buildProvinceField(),
-              const SizedBox(height: 20),
-              // المدينة
-              _buildCityField(),
-            ],
-          ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        // ✨ تصميم نظيف واحترافي
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white, // خلفية بيضاء نظيفة
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFFe6b31e).withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.15), // حد رمادي فاتح
+          width: 1.5,
         ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // المحافظة
+          _buildProvinceField(),
+          const SizedBox(height: 20),
+          // المدينة
+          _buildCityField(),
+        ],
       ),
     );
   }
@@ -1168,89 +1172,89 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
   Widget _buildNotesField() {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(15),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-            border: Border.all(color: const Color(0xFFe6b31e).withValues(alpha: isDark ? 0.2 : 0.3), width: 1),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _notesController,
-                maxLines: null, // ✅ توسع تلقائي
-                minLines: 3, // ✅ الحد الأدنى 3 أسطر
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                textAlign: TextAlign.right, // محاذاة النص لليمين لدعم العربية
-                style: GoogleFonts.cairo(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? const Color(0xFFf0f0f0) : Colors.black,
-                ),
-                onChanged: (value) {
-                  setState(() {}); // ✅ تحديث الواجهة عند تغيير النص
-                },
-                decoration: InputDecoration(
-                  labelText: null, // ✅ إزالة أي label
-                  floatingLabelBehavior: FloatingLabelBehavior.never, // ✅ منع floating
-                  hintText: 'لون المنتج، تفاصيل الموقع، نوع الهدية، أو أي ملاحظات أخرى...',
-                  hintStyle: GoogleFonts.cairo(
-                    fontSize: 14,
-                    color: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.5),
-                  ),
-                  filled: true,
-                  fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.1),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide(
-                      color: _notesController.text.trim().isNotEmpty
-                          ? Colors.green
-                          : const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: _notesController.text.trim().isNotEmpty ? 1.5 : 1,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide(
-                      color: _notesController.text.trim().isNotEmpty
-                          ? Colors.green
-                          : const Color(0xFFffd700).withValues(alpha: 0.3),
-                      width: _notesController.text.trim().isNotEmpty ? 1.5 : 1,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide(
-                      color: _notesController.text.trim().isNotEmpty ? Colors.green : const Color(0xFFffd700),
-                      width: _notesController.text.trim().isNotEmpty ? 1.5 : 2,
-                    ),
-                  ),
-                  disabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(color: Colors.red, width: 1),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
-                ),
-                readOnly: false,
-              ),
-            ],
-          ),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        // ✨ تصميم نظيف واحترافي
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white, // خلفية بيضاء نظيفة
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFFe6b31e).withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.15), // حد رمادي فاتح
+          width: 1.5,
         ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _notesController,
+            maxLines: null, // ✅ توسع تلقائي
+            minLines: 3, // ✅ الحد الأدنى 3 أسطر
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.newline,
+            textAlign: TextAlign.right, // محاذاة النص لليمين لدعم العربية
+            style: GoogleFonts.cairo(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: isDark ? const Color(0xFFf0f0f0) : const Color(0xFF2C2C2C),
+            ),
+            onChanged: (value) {
+              setState(() {}); // ✅ تحديث الواجهة عند تغيير النص
+            },
+            decoration: InputDecoration(
+              labelText: null, // ✅ إزالة أي label
+              floatingLabelBehavior: FloatingLabelBehavior.never, // ✅ منع floating
+              hintText: 'لون المنتج، تفاصيل الموقع، نوع الهدية، أو أي ملاحظات أخرى...',
+              hintStyle: GoogleFonts.cairo(
+                fontSize: 15,
+                color: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.5),
+              ),
+              filled: true,
+              fillColor: isDark ? Colors.black.withValues(alpha: 0.2) : const Color(0xFFFFF8E7), // خلفية فاتحة جداً
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: _notesController.text.trim().isNotEmpty
+                      ? Colors.green
+                      : const Color(0xFFffd700).withValues(alpha: 0.4),
+                  width: _notesController.text.trim().isNotEmpty ? 2 : 1.5,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: _notesController.text.trim().isNotEmpty
+                      ? Colors.green
+                      : const Color(0xFFffd700).withValues(alpha: 0.4),
+                  width: _notesController.text.trim().isNotEmpty ? 2 : 1.5,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(
+                  color: _notesController.text.trim().isNotEmpty ? Colors.green : const Color(0xFFffd700),
+                  width: 2,
+                ),
+              ),
+              disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: const BorderSide(color: Colors.red, width: 1),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(15),
+                borderSide: const BorderSide(color: Colors.red, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+            ),
+            readOnly: false,
+          ),
+        ],
       ),
     );
   }
@@ -1259,38 +1263,44 @@ class _CustomerInfoPageState extends State<CustomerInfoPage> with TickerProvider
   Widget _buildSubmitButton() {
     return SizedBox(
       width: double.infinity,
-      height: 55,
+      height: 52,
       child: ElevatedButton(
         onPressed: _isSubmitting ? null : _submitOrder,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFffd700),
           foregroundColor: Colors.black,
           elevation: 8,
-          shadowColor: const Color(0xFFffd700).withValues(alpha: 0.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shadowColor: const Color(0xFFffd700).withValues(alpha: 0.2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: _isSubmitting
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Text('جاري الإرسال...', style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(width: 10),
+                  Text(
+                    'جاري الإرسال...',
+                    style: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                  ),
                 ],
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(FontAwesomeIcons.paperPlane, size: 20),
-                  const SizedBox(width: 12),
-                  Text('ملخص الطلب', style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w800)),
+                  const Icon(FontAwesomeIcons.paperPlane, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'ملخص الطلب',
+                    style: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 0.3),
+                  ),
                 ],
               ),
       ),

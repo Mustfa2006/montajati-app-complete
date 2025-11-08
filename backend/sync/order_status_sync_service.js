@@ -466,12 +466,9 @@ class OrderStatusSyncService {
 
       console.log(`✅ تم تحديث حالة الطلب ${order.order_number} بنجاح`);
 
-      // إرسال إشعار للعميل
-      try {
-        await notifier.sendStatusUpdateNotification(order, statusResult.localStatus);
-      } catch (notificationError) {
-        console.warn(`⚠️ تحذير: فشل في إرسال الإشعار: ${notificationError.message}`);
-      }
+      // ❌ تم تعطيل إرسال الإشعارات من هنا
+      // الإشعارات تُرسل من integrated_waseet_sync.js فقط
+      console.log(`📝 ملاحظة: الإشعار سيتم إرساله من integrated_waseet_sync.js`);
 
       return true;
     } catch (error) {

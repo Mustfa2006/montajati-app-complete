@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'smart_inventory_manager.dart';
 
 /// خدمة بسيطة لإضافة المنتجات بدون تعقيدات
@@ -59,9 +60,7 @@ class SimpleProductService {
 
       // إذا لم يتم رفع أي صورة، استخدم صورة افتراضية
       if (imageUrls.isEmpty) {
-        imageUrls.add(
-          'https://via.placeholder.com/400x300/1a1a2e/ffd700?text=منتج+جديد',
-        );
+        imageUrls.add('https://via.placeholder.com/400x300/1a1a2e/ffd700?text=منتج+جديد');
         debugPrint('⚠️ لم يتم رفع أي صورة، استخدام صورة افتراضية');
       }
 
@@ -109,8 +108,7 @@ class SimpleProductService {
       // معالجة أخطاء قاعدة البيانات المختلفة
       String errorMessage = 'فشل في إضافة المنتج';
 
-      if (e.toString().contains('column') &&
-          e.toString().contains('does not exist')) {
+      if (e.toString().contains('column') && e.toString().contains('does not exist')) {
         errorMessage = 'خطأ في هيكل قاعدة البيانات - يرجى تحديث قاعدة البيانات';
       } else if (e.toString().contains('permission')) {
         errorMessage = 'ليس لديك صلاحية لإضافة المنتجات';
@@ -137,33 +135,55 @@ class SimpleProductService {
 
       // قراءة بيانات الصورة
       final Uint8List imageBytes = await imageFile.readAsBytes();
+      debugPrint('📊 حجم الصورة: ${(imageBytes.length / 1024 / 1024).toStringAsFixed(2)} MB');
 
-      // إنشاء اسم فريد للصورة
-      final String fileName =
-          'product_${DateTime.now().millisecondsSinceEpoch}_${imageFile.name}';
+      // إنشاء اسم فريد للصورة (اسم قصير لتجنب مشاكل الطول)
+      final String extension = imageFile.name.split('.').last;
+      final String fileName = 'p_${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+      debugPrint('📤 بدء رفع الصورة: $fileName');
 
       // رفع الصورة
-      await _supabase.storage
-          .from(_bucketName)
-          .uploadBinary(fileName, imageBytes);
+      await _supabase.storage.from(_bucketName).uploadBinary(fileName, imageBytes);
+
+      debugPrint('✅ تم رفع الصورة إلى Storage بنجاح');
 
       // الحصول على الرابط العام
-      final String publicUrl = _supabase.storage
-          .from(_bucketName)
-          .getPublicUrl(fileName);
+      final String publicUrl = _supabase.storage.from(_bucketName).getPublicUrl(fileName);
 
+      debugPrint('🔗 رابط الصورة: $publicUrl');
       return publicUrl;
     } catch (e) {
       debugPrint('❌ خطأ في رفع الصورة: $e');
+      debugPrint('📋 تفاصيل الخطأ: ${e.toString()}');
+
+      // معالجة أخطاء محددة
+      if (e.toString().contains('permission')) {
+        debugPrint('🔐 مشكلة في الأذونات - تحقق من أذونات Supabase Storage');
+      } else if (e.toString().contains('MIME')) {
+        debugPrint('📝 مشكلة في نوع الملف - تأكد من أن الملف صورة صحيحة');
+      } else if (e.toString().contains('network')) {
+        debugPrint('🌐 مشكلة في الاتصال بالإنترنت');
+      }
+
       return null;
     }
   }
 
-  /// التأكد من وجود bucket
+  /// التأكد من وجود bucket وتحديث الأذونات
   static Future<void> _ensureBucket() async {
     try {
       // محاولة الحصول على bucket
-      await _supabase.storage.getBucket(_bucketName);
+      final bucket = await _supabase.storage.getBucket(_bucketName);
+
+      // التحقق من أن الـ MIME types صحيحة
+      final allowedMimes = bucket.allowedMimeTypes ?? [];
+      debugPrint('📦 Bucket موجود مع MIME types: $allowedMimes');
+
+      // إذا كانت الأذونات ناقصة، حاول تحديثها
+      if (!allowedMimes.contains('image/jpg') || !allowedMimes.contains('image/jpeg')) {
+        debugPrint('⚠️ تحذير: قد تكون هناك مشكلة في أذونات الـ MIME types');
+      }
     } catch (e) {
       // إذا لم يكن موجود، أنشئه
       try {
@@ -171,17 +191,11 @@ class SimpleProductService {
           _bucketName,
           const BucketOptions(
             public: true,
-            allowedMimeTypes: [
-              'image/jpeg',
-              'image/jpg',
-              'image/png',
-              'image/gif',
-              'image/webp',
-            ],
+            allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
             fileSizeLimit: '52428800', // 50MB
           ),
         );
-        debugPrint('✅ تم إنشاء bucket جديد');
+        debugPrint('✅ تم إنشاء bucket جديد مع الأذونات الصحيحة');
       } catch (createError) {
         debugPrint('⚠️ خطأ في إنشاء bucket: $createError');
         // المتابعة حتى لو فشل إنشاء bucket

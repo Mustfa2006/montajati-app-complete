@@ -271,10 +271,20 @@ class _AppBackgroundState extends State<AppBackground> with TickerProviderStateM
     );
   }
 
-  /// 🌅 خلفية الوضع النهاري - بيضاء خفيفة
+  /// 🌅 خلفية الوضع النهاري - داكنة مثل صفحة المنتجات
   Widget _buildLightModeBackground() {
     return Container(
-      color: const Color(0xFFF8F9FA), // بيضاء خفيفة جداً
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            const Color(0xFFE8EAF6), // بنفسجي فاتح جداً
+            const Color(0xFFF3E5F5), // وردي فاتح جداً
+            const Color(0xFFE1F5FE), // أزرق فاتح جداً
+          ],
+        ),
+      ),
     );
   }
 }

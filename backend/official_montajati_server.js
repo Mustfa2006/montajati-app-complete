@@ -47,7 +47,6 @@ const {
 // استيراد الخدمات الرسمية
 const OfficialNotificationManager = require('./services/official_notification_manager');
 const IntegratedWaseetSync = require('./services/integrated_waseet_sync');
-const FCMCleanupService = require('./services/fcm_cleanup_service');
 
 // نظام المزامنة المدمج مع الوسيط (سيتم إنشاؤه في الـ constructor)
 
@@ -66,7 +65,7 @@ class OfficialMontajatiServer {
       console.error('❌ خطأ في constructor:', error);
       throw error;
     }
-    
+
     // حالة النظام
     this.state = {
       isRunning: false,
@@ -84,7 +83,6 @@ class OfficialMontajatiServer {
     // إعداد الخدمات
     this.notificationManager = new OfficialNotificationManager();
     this.syncManager = new IntegratedWaseetSync();
-    this.fcmCleanupService = FCMCleanupService;
 
     this.setupExpress();
     this.setupRoutes();
@@ -142,10 +140,10 @@ class OfficialMontajatiServer {
         }
       }
     }));
-    
-    this.app.use(express.urlencoded({ 
-      extended: true, 
-      limit: '10mb' 
+
+    this.app.use(express.urlencoded({
+      extended: true,
+      limit: '10mb'
     }));
 
     // تسجيل الطلبات
@@ -154,13 +152,13 @@ class OfficialMontajatiServer {
       const method = req.method;
       const url = req.originalUrl;
       const ip = req.ip || req.connection.remoteAddress;
-      
+
       console.log(`📡 ${timestamp} - ${method} ${url} - ${ip}`);
-      
+
       // إضافة معرف فريد للطلب
       req.requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       res.setHeader('X-Request-ID', req.requestId);
-      
+
       next();
     });
 
@@ -327,7 +325,7 @@ class OfficialMontajatiServer {
     this.app.post('/api/notifications/send', async (req, res) => {
       try {
         const { orderData, statusChange } = req.body;
-        
+
         if (!orderData || !statusChange) {
           return res.status(400).json({
             success: false,
@@ -336,7 +334,7 @@ class OfficialMontajatiServer {
         }
 
         const notification = await this.notificationManager.addNotification(orderData, statusChange);
-        
+
         res.json({
           success: true,
           message: 'تم إضافة الإشعار بنجاح',
@@ -356,7 +354,7 @@ class OfficialMontajatiServer {
     this.app.post('/api/sync/trigger', async (req, res) => {
       try {
         await this.syncManager.performSync();
-        
+
         res.json({
           success: true,
           message: 'تم تشغيل المزامنة بنجاح'
@@ -389,16 +387,8 @@ class OfficialMontajatiServer {
     // تحميل المسارات الأساسية
     this.loadCoreRoutes();
 
-    // معالجة المسارات غير الموجودة
-    this.app.use('*', (req, res) => {
-      res.status(404).json({
-        success: false,
-        message: 'المسار غير موجود',
-        path: req.originalUrl,
-        method: req.method,
-        timestamp: new Date().toISOString()
-      });
-    });
+    // ✅ معالج 404 تم نقله إلى loadCoreRoutes() ليتم تسجيله بعد جميع المسارات
+    // ✅ هذا يضمن أن جميع المسارات تعمل بشكل صحيح قبل معالجة 404
   }
 
   // ===================================
@@ -423,13 +413,17 @@ class OfficialMontajatiServer {
       console.warn('⚠️ تحذير في تحميل مسارات الإشعارات:', error.message);
     }
 
-    // مسارات الطلبات
+    // مسارات الطلبات (CRITICAL - يجب أن تعمل)
     try {
+      console.log('🔄 محاولة تحميل مسارات الطلبات...');
       const orderRoutes = require('./routes/orders');
       this.app.use('/api/orders', orderRoutes);
-      console.log('✅ تم تحميل مسارات الطلبات');
+      console.log('✅ تم تحميل مسارات الطلبات بنجاح');
     } catch (error) {
-      console.warn('⚠️ تحذير في تحميل مسارات الطلبات:', error.message);
+      console.error('❌ خطأ حرج في تحميل مسارات الطلبات:', error.message);
+      console.error('Stack:', error.stack);
+      // رمي الخطأ لإيقاف الخادم - هذا مسار حرج
+      throw new Error(`فشل تحميل مسارات الطلبات: ${error.message}`);
     }
 
     // مسارات المستخدمين
@@ -683,14 +677,6 @@ class OfficialMontajatiServer {
         this.state.services.sync = null;
       }
 
-      // تهيئة خدمة تنظيف FCM
-      try {
-        this.fcmCleanupService.start();
-        this.state.services.fcmCleanup = this.fcmCleanupService;
-      } catch (error) {
-        this.state.services.fcmCleanup = null;
-      }
-
       this.state.isInitialized = true;
       console.log('✅ تم تهيئة جميع الخدمات بنجاح');
 
@@ -731,7 +717,7 @@ class OfficialMontajatiServer {
         this.state.startedAt = new Date();
 
         console.log('🎉 الخادم الرسمي لنظام منتجاتي يعمل بنجاح!');
-  console.log(`🌐 الرابط: https://montajati-official-backend-production.up.railway.app`);
+        console.log(`🌐 الرابط: https://montajati-official-backend-production.up.railway.app`);
 
         // بدء المراقبة الدورية للمخزون (بشكل آمن)
         try {
@@ -846,35 +832,64 @@ class OfficialMontajatiServer {
   // ===================================
   async gracefulShutdown(signal) {
     console.log(`\n🛑 تلقي إشارة ${signal} - بدء الإغلاق الآمن...`);
-    
+
     this.state.isRunning = false;
 
     try {
       // إيقاف الخدمات بالترتيب العكسي
       if (this.state.services.sync) {
         console.log('🔄 إيقاف خدمة المزامنة...');
-        await this.state.services.sync.shutdown();
+        try {
+          if (typeof this.state.services.sync.shutdown === 'function') {
+            await this.state.services.sync.shutdown();
+          } else if (typeof this.state.services.sync.stop === 'function') {
+            this.state.services.sync.stop();
+          }
+        } catch (err) {
+          console.error('⚠️ خطأ في إيقاف المزامنة:', err.message);
+        }
       }
 
       if (this.state.services.notifications) {
         console.log('🔔 إيقاف خدمة الإشعارات...');
-        await this.state.services.notifications.shutdown();
+        try {
+          if (typeof this.state.services.notifications.shutdown === 'function') {
+            await this.state.services.notifications.shutdown();
+          }
+        } catch (err) {
+          console.error('⚠️ خطأ في إيقاف الإشعارات:', err.message);
+        }
       }
 
-      if (this.state.services.monitor) {
-        console.log('📊 إيقاف خدمة المراقبة...');
-        await this.state.services.monitor.shutdown();
+      // إيقاف خدمة مراقبة المخزون (inventoryMonitor بدلاً من monitor)
+      if (this.state.services.inventoryMonitor) {
+        console.log('📦 إيقاف خدمة مراقبة المخزون...');
+        try {
+          if (typeof this.state.services.inventoryMonitor.shutdown === 'function') {
+            await this.state.services.inventoryMonitor.shutdown();
+          } else if (typeof this.state.services.inventoryMonitor.stop === 'function') {
+            this.state.services.inventoryMonitor.stop();
+          }
+        } catch (err) {
+          console.error('⚠️ خطأ في إيقاف مراقبة المخزون:', err.message);
+        }
       }
 
       // إيقاف النظام الإنتاجي
       if (this.state.services.productionSync) {
         console.log('🚀 إيقاف النظام الإنتاجي...');
-        await this.state.services.productionSync.stop();
+        try {
+          if (typeof this.state.services.productionSync.stop === 'function') {
+            await this.state.services.productionSync.stop();
+          }
+        } catch (err) {
+          console.error('⚠️ خطأ في إيقاف النظام الإنتاجي:', err.message);
+        }
       }
 
       console.log('✅ تم إيقاف جميع الخدمات بأمان');
       console.log('👋 وداعاً!');
-      
+
       process.exit(0);
 
     } catch (error) {

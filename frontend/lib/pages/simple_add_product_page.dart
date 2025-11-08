@@ -1,13 +1,15 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import '../services/simple_product_service.dart';
+
 import '../services/basic_product_service.dart';
-import '../services/smart_inventory_manager.dart';
+import '../services/simple_product_service.dart';
 import '../services/smart_colors_service.dart';
+import '../services/smart_inventory_manager.dart';
 import '../widgets/smart_color_picker.dart';
 
 class SimpleAddProductPage extends StatefulWidget {
@@ -34,7 +36,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
   List<ProductColorInput> _selectedColors = []; // الألوان المختارة
 
   // 🎯 نظام التبليغات الذكي
-  List<String> _notificationTags = []; // قائمة التبليغات
+  final List<String> _notificationTags = []; // قائمة التبليغات
   final TextEditingController _notificationController = TextEditingController();
 
   final List<String> _categories = [
@@ -109,10 +111,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
       appBar: AppBar(
         title: Text(
           'إضافة منتج جديد',
-          style: GoogleFonts.cairo(
-            color: const Color(0xFFffd700),
-            fontWeight: FontWeight.bold,
-          ),
+          style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF16213e),
         leading: IconButton(
@@ -209,11 +208,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          FontAwesomeIcons.boxesStacked,
-                          color: const Color(0xFF4CAF50),
-                          size: 18,
-                        ),
+                        Icon(FontAwesomeIcons.boxesStacked, color: const Color(0xFF4CAF50), size: 18),
                         const SizedBox(width: 8),
                         Text(
                           'الكمية الإجمالية في المخزون',
@@ -228,10 +223,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                     const SizedBox(height: 8),
                     Text(
                       'سيتم حساب النطاق الذكي تلقائياً عند تغيير هذا الرقم',
-                      style: GoogleFonts.cairo(
-                        color: Colors.grey[400],
-                        fontSize: 11,
-                      ),
+                      style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 11),
                     ),
                     const SizedBox(height: 12),
                     _buildTextField(
@@ -283,14 +275,10 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                   onPressed: _isLoading ? null : _saveProduct,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFffd700),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
                   child: _isLoading
-                      ? const CircularProgressIndicator(
-                          color: Color(0xFF1a1a2e),
-                        )
+                      ? const CircularProgressIndicator(color: Color(0xFF1a1a2e))
                       : Text(
                           'حفظ المنتج',
                           style: GoogleFonts.cairo(
@@ -328,27 +316,27 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
         validator: validator,
         style: GoogleFonts.cairo(color: Colors.white),
         textAlignVertical: expandable ? TextAlignVertical.top : TextAlignVertical.center,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.cairo(color: const Color(0xFFffd700)),
-        prefixIcon: Icon(icon, color: const Color(0xFFffd700)),
-        filled: true,
-        fillColor: const Color(0xFF16213e),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Color(0xFFffd700)),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Color(0xFFffd700)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: Color(0xFFffd700), width: 2),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: GoogleFonts.cairo(color: const Color(0xFFffd700)),
+          prefixIcon: Icon(icon, color: const Color(0xFFffd700)),
+          filled: true,
+          fillColor: const Color(0xFF16213e),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(color: Color(0xFFffd700)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(color: Color(0xFFffd700)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(15),
+            borderSide: const BorderSide(color: Color(0xFFffd700), width: 2),
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _buildDropdown() {
@@ -393,29 +381,18 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.campaign_rounded,
-                color: const Color(0xFF6B73FF),
-                size: 20,
-              ),
+              Icon(Icons.campaign_rounded, color: const Color(0xFF6B73FF), size: 20),
               const SizedBox(width: 8),
               Text(
                 'التبليغات الذكية',
-                style: GoogleFonts.cairo(
-                  color: const Color(0xFF6B73FF),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: GoogleFonts.cairo(color: const Color(0xFF6B73FF), fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
             'أضف تبليغات تظهر على بطاقة المنتج (مثل: قابل للتجديد، عليها طلب، جديد)',
-            style: GoogleFonts.cairo(
-              color: Colors.grey[400],
-              fontSize: 12,
-            ),
+            style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 12),
           ),
           const SizedBox(height: 15),
 
@@ -453,9 +430,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6B73FF),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 child: const Icon(Icons.add),
               ),
@@ -467,11 +442,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
           if (_notificationTags.isNotEmpty) ...[
             Text(
               'التبليغات المضافة:',
-              style: GoogleFonts.cairo(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -496,20 +467,12 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                     children: [
                       Text(
                         tag,
-                        style: GoogleFonts.cairo(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: GoogleFonts.cairo(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(width: 6),
                       GestureDetector(
                         onTap: () => _removeNotificationTag(index),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 16,
-                        ),
+                        child: const Icon(Icons.close, color: Colors.white, size: 16),
                       ),
                     ],
                   ),
@@ -527,10 +490,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
               child: Center(
                 child: Text(
                   'لم يتم إضافة تبليغات بعد',
-                  style: GoogleFonts.cairo(
-                    color: Colors.grey[400],
-                    fontSize: 14,
-                  ),
+                  style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 14),
                 ),
               ),
             ),
@@ -538,11 +498,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
           const SizedBox(height: 10),
           Text(
             '💡 ملاحظة: إذا أضفت أكثر من تبليغ، ستتقلب كل 4 ثواني على بطاقة المنتج',
-            style: GoogleFonts.cairo(
-              color: Colors.orange,
-              fontSize: 11,
-              fontStyle: FontStyle.italic,
-            ),
+            style: GoogleFonts.cairo(color: Colors.orange, fontSize: 11, fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -562,35 +518,23 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
         children: [
           Row(
             children: [
-              Icon(
-                FontAwesomeIcons.brain,
-                color: const Color(0xFFffd700),
-                size: 20,
-              ),
+              Icon(FontAwesomeIcons.brain, color: const Color(0xFFffd700), size: 20),
               const SizedBox(width: 10),
               Text(
                 'النطاق الذكي للمخزون',
-                style: GoogleFonts.cairo(
-                  color: const Color(0xFFffd700),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'يتم حساب النطاق تلقائياً بناءً على الكمية الإجمالية',
-            style: GoogleFonts.cairo(
-              color: Colors.grey[400],
-              fontSize: 12,
-            ),
+            style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 12),
           ),
           const SizedBox(height: 15),
 
           // مؤشر النطاق الذكي
-          if (_stockQuantityController.text.isNotEmpty &&
-              int.tryParse(_stockQuantityController.text) != null)
+          if (_stockQuantityController.text.isNotEmpty && int.tryParse(_stockQuantityController.text) != null)
             Container(
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 15),
@@ -601,11 +545,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    FontAwesomeIcons.lightbulb,
-                    color: const Color(0xFF4CAF50),
-                    size: 16,
-                  ),
+                  Icon(FontAwesomeIcons.lightbulb, color: const Color(0xFF4CAF50), size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -639,11 +579,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
               const SizedBox(width: 15),
               Text(
                 'إلى',
-                style: GoogleFonts.cairo(
-                  color: const Color(0xFFffd700),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 15),
               Expanded(
@@ -668,11 +604,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
           const SizedBox(height: 10),
           Text(
             '💡 ملاحظة: يمكنك تحديد أي نطاق تريده - النظام مرن ويدعم جميع القيم',
-            style: GoogleFonts.cairo(
-              color: Colors.orange,
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-            ),
+            style: GoogleFonts.cairo(color: Colors.orange, fontSize: 12, fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -691,11 +623,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
         children: [
           Text(
             'صور المنتج',
-            style: GoogleFonts.cairo(
-              color: const Color(0xFFffd700),
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 15),
           ElevatedButton.icon(
@@ -711,19 +639,11 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
             const SizedBox(height: 15),
             Row(
               children: [
-                Icon(
-                  FontAwesomeIcons.images,
-                  color: const Color(0xFFffd700),
-                  size: 16,
-                ),
+                Icon(FontAwesomeIcons.images, color: const Color(0xFFffd700), size: 16),
                 const SizedBox(width: 8),
                 Text(
                   'الصور المختارة (${_selectedImages.length})',
-                  style: GoogleFonts.cairo(
-                    color: const Color(0xFFffd700),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                  style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ],
             ),
@@ -733,16 +653,11 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
               decoration: BoxDecoration(
                 color: const Color(0xFFffd700).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                ),
+                border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
               ),
               child: Text(
                 '💡 الصورة الأولى ستكون الصورة الرئيسية للمنتج',
-                style: GoogleFonts.cairo(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: GoogleFonts.cairo(color: Colors.white, fontSize: 12),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -755,35 +670,21 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
               decoration: BoxDecoration(
                 color: Colors.grey[800],
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.grey[600]!,
-                  style: BorderStyle.solid,
-                ),
+                border: Border.all(color: Colors.grey[600]!, style: BorderStyle.solid),
               ),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(
-                      FontAwesomeIcons.images,
-                      size: 30,
-                      color: Colors.grey[400],
-                    ),
+                    Icon(FontAwesomeIcons.images, size: 30, color: Colors.grey[400]),
                     const SizedBox(height: 8),
                     Text(
                       'لم يتم اختيار صور بعد',
-                      style: GoogleFonts.cairo(
-                        color: Colors.grey[400],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 14, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'اضغط على "اختيار الصور" أعلاه',
-                      style: GoogleFonts.cairo(
-                        color: Colors.grey[500],
-                        fontSize: 12,
-                      ),
+                      style: GoogleFonts.cairo(color: Colors.grey[500], fontSize: 12),
                     ),
                   ],
                 ),
@@ -829,18 +730,17 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                     color: isMainImage ? const Color(0xFFffd700) : Colors.grey[300]!,
                     width: isMainImage ? 2 : 1,
                   ),
-                  boxShadow: isMainImage ? [
-                    BoxShadow(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                      blurRadius: 4,
-                      spreadRadius: 1,
-                    ),
-                  ] : null,
+                  boxShadow: isMainImage
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFFffd700).withValues(alpha: 0.3),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: _buildImageWidget(image),
-                ),
+                child: ClipRRect(borderRadius: BorderRadius.circular(8), child: _buildImageWidget(image)),
               ),
 
               // شارة الصورة الرئيسية
@@ -850,17 +750,10 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                   right: 4,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFffd700),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
+                    decoration: BoxDecoration(color: const Color(0xFFffd700), borderRadius: BorderRadius.circular(6)),
                     child: Text(
                       'رئيسية',
-                      style: GoogleFonts.cairo(
-                        fontSize: 8,
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: GoogleFonts.cairo(fontSize: 8, color: Colors.black, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -874,15 +767,8 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                   child: Container(
                     width: 20,
                     height: 20,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      FontAwesomeIcons.xmark,
-                      color: Colors.white,
-                      size: 10,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    child: const Icon(FontAwesomeIcons.xmark, color: Colors.white, size: 10),
                   ),
                 ),
               ),
@@ -899,11 +785,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                   ),
                   child: Text(
                     '${index + 1}',
-                    style: GoogleFonts.cairo(
-                      fontSize: 8,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: GoogleFonts.cairo(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -964,13 +846,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      'تحميل...',
-                      style: GoogleFonts.cairo(
-                        fontSize: 8,
-                        color: Colors.grey[600],
-                      ),
-                    ),
+                    Text('تحميل...', style: GoogleFonts.cairo(fontSize: 8, color: Colors.grey[600])),
                   ],
                 ),
               ),
@@ -1031,9 +907,7 @@ class _SimpleAddProductPageState extends State<SimpleAddProductPage> {
         debugPrint('  ${i + 1}. ${_selectedImages[i].name} ${i == 0 ? '(رئيسية)' : ''}');
       }
       final wholesalePrice = double.parse(_wholesalePriceController.text);
-      final minPrice = _minPriceController.text.isNotEmpty
-          ? double.parse(_minPriceController.text)
-          : wholesalePrice;
+      final minPrice = _minPriceController.text.isNotEmpty ? double.parse(_minPriceController.text) : wholesalePrice;
       final maxPrice = _maxPriceController.text.isNotEmpty
           ? double.parse(_maxPriceController.text)
           : wholesalePrice * 1.5;

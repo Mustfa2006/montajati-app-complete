@@ -36,7 +36,7 @@ class _RealIraqMapState extends State<RealIraqMap> {
         isLoading = false;
       });
     } catch (e) {
-      print('خطأ في تحميل بيانات الخريطة: $e');
+      debugPrint('خطأ في تحميل بيانات الخريطة: $e');
       setState(() {
         isLoading = false;
       });

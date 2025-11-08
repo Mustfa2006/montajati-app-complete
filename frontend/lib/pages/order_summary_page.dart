@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -223,103 +222,123 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   }
 
   Widget _buildDeliveryFeeSlider(bool isDark) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.5), width: 1),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        // ✨ تصميم نظيف واحترافي
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white, // خلفية بيضاء نظيفة
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFFe6b31e).withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.15), // حد رمادي فاتح
+          width: 1.5,
+        ),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // عنوان السلايدر
+          Text(
+            'دفع كلفة التوصيل من الربح',
+            style: GoogleFonts.cairo(
+              color: isDark ? const Color(0xFFffd700) : const Color(0xFF8B6914), // ذهبي داكن في النهار
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+            ),
+            textAlign: TextAlign.center,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // عنوان السلايدر
-              Text(
-                'دفع كلفة التوصيل من الربح',
-                style: GoogleFonts.cairo(
-                  color: isDark ? const Color(0xFFffd700) : Colors.black87,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-                textAlign: TextAlign.center,
-              ),
 
-              const SizedBox(height: 15),
+          const SizedBox(height: 15),
 
-              // السلايدر
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: const Color(0xFFffd700),
-                  inactiveTrackColor: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.2),
-                  thumbColor: const Color(0xFFffd700),
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
-                  overlayColor: const Color(0xFFffd700).withValues(alpha: 0.2),
-                  trackHeight: 6,
-                  valueIndicatorColor: const Color(0xFFffd700),
-                  valueIndicatorTextStyle: GoogleFonts.cairo(
-                    color: const Color(0xFF1a1a2e),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                child: Slider(
-                  value: _deliveryOptions.indexOf(_deliveryFee).toDouble(),
-                  min: 0,
-                  max: (_deliveryOptions.length - 1).toDouble(),
-                  divisions: _deliveryOptions.length - 1,
-                  onChanged: (value) {
-                    final newFee = _deliveryOptions[value.round()];
-                    final totalsData = widget.orderData['totals'];
-                    Map<String, int> totals = {};
+          // السلايدر
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: const Color(0xFFffd700),
+              inactiveTrackColor: (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.2),
+              thumbColor: const Color(0xFFffd700),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 12),
+              overlayColor: const Color(0xFFffd700).withValues(alpha: 0.2),
+              trackHeight: 6,
+              valueIndicatorColor: const Color(0xFFffd700),
+              valueIndicatorTextStyle: GoogleFonts.cairo(color: const Color(0xFF1a1a2e), fontWeight: FontWeight.bold),
+            ),
+            child: Slider(
+              value: _deliveryOptions.indexOf(_deliveryFee).toDouble(),
+              min: 0,
+              max: (_deliveryOptions.length - 1).toDouble(),
+              divisions: _deliveryOptions.length - 1,
+              onChanged: (value) {
+                final newFee = _deliveryOptions[value.round()];
+                final totalsData = widget.orderData['totals'];
+                Map<String, int> totals = {};
 
-                    if (totalsData != null) {
-                      if (totalsData is Map<String, int>) {
-                        totals = totalsData;
-                      } else if (totalsData is Map<String, dynamic>) {
-                        totals = totalsData.map((key, value) => MapEntry(key, (value as num).toInt()));
-                      }
-                    }
+                if (totalsData != null) {
+                  if (totalsData is Map<String, int>) {
+                    totals = totalsData;
+                  } else if (totalsData is Map<String, dynamic>) {
+                    totals = totalsData.map((key, value) => MapEntry(key, (value as num).toInt()));
+                  }
+                }
 
-                    final profit = totals['profit'] ?? 0;
-                    final provinceName = widget.orderData['province'] as String?;
-                    final baseDeliveryFee = _getDeliveryFeeByProvince(provinceName);
-                    final deliveryPaidByUser = baseDeliveryFee - newFee; // المبلغ المدفوع من الربح
-                    final newProfit = profit - deliveryPaidByUser;
+                final profit = totals['profit'] ?? 0;
+                final provinceName = widget.orderData['province'] as String?;
+                final baseDeliveryFee = _getDeliveryFeeByProvince(provinceName);
+                final deliveryPaidByUser = baseDeliveryFee - newFee; // المبلغ المدفوع من الربح
+                final newProfit = profit - deliveryPaidByUser;
 
-                    // ✅ منع التقليل إذا وصل الربح لـ 0 أو أقل
-                    if (newProfit >= 0) {
-                      setState(() {
-                        _deliveryFee = newFee;
-                      });
-                    } else {
-                      // ✅ إظهار تنبيه جميل عند الوصول للحد الأقصى
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '⚠️ لا يمكن دفع المزيد - ربحك أصبح 0 د.ع',
-                            style: GoogleFonts.cairo(fontWeight: FontWeight.w600),
-                          ),
-                          backgroundColor: Colors.orange,
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ),
+                // ✅ منع التقليل إذا وصل الربح لـ 0 أو أقل
+                if (newProfit >= 0) {
+                  setState(() {
+                    _deliveryFee = newFee;
+                  });
+                } else {
+                  // ✅ إظهار تنبيه جميل عند الوصول للحد الأقصى
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '⚠️ لا يمكن دفع المزيد - ربحك أصبح 0 د.ع',
+                        style: GoogleFonts.cairo(fontWeight: FontWeight.w600),
+                      ),
+                      backgroundColor: Colors.orange,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
+          ),
 
-              const SizedBox(height: 15),
+          const SizedBox(height: 15),
 
-              // عرض الخيارات
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: _deliveryOptions.map((fee) {
-                  final isSelected = _deliveryFee == fee;
+          // عرض الخيارات
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: _deliveryOptions.map((fee) {
+              final isSelected = _deliveryFee == fee;
 
-                  // ✅ حساب ما إذا كان هذا الخيار محظور
+              // ✅ حساب ما إذا كان هذا الخيار محظور
+              final totalsData = widget.orderData['totals'];
+              Map<String, int> totals = {};
+
+              if (totalsData != null) {
+                if (totalsData is Map<String, int>) {
+                  totals = totalsData;
+                } else if (totalsData is Map<String, dynamic>) {
+                  totals = totalsData.map((key, value) => MapEntry(key, (value as num).toInt()));
+                }
+              }
+
+              final profit = totals['profit'] ?? 0;
+              final deliveryPaidByUser = 5000 - fee; // المبلغ المدفوع من الربح
+              final newProfit = profit - deliveryPaidByUser;
+              final isDisabled = newProfit < 0;
+
+              return GestureDetector(
+                onTap: () {
                   final totalsData = widget.orderData['totals'];
                   Map<String, int> totals = {};
 
@@ -334,79 +353,59 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                   final profit = totals['profit'] ?? 0;
                   final deliveryPaidByUser = 5000 - fee; // المبلغ المدفوع من الربح
                   final newProfit = profit - deliveryPaidByUser;
-                  final isDisabled = newProfit < 0;
 
-                  return GestureDetector(
-                    onTap: () {
-                      final totalsData = widget.orderData['totals'];
-                      Map<String, int> totals = {};
-
-                      if (totalsData != null) {
-                        if (totalsData is Map<String, int>) {
-                          totals = totalsData;
-                        } else if (totalsData is Map<String, dynamic>) {
-                          totals = totalsData.map((key, value) => MapEntry(key, (value as num).toInt()));
-                        }
-                      }
-
-                      final profit = totals['profit'] ?? 0;
-                      final deliveryPaidByUser = 5000 - fee; // المبلغ المدفوع من الربح
-                      final newProfit = profit - deliveryPaidByUser;
-
-                      // ✅ منع التقليل إذا وصل الربح لـ 0 أو أقل
-                      if (newProfit >= 0) {
-                        setState(() => _deliveryFee = fee);
-                      } else {
-                        // ✅ إظهار تنبيه جميل عند الوصول للحد الأقصى
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '⚠️ لا يمكن دفع المزيد - ربحك أصبح 0 د.ع',
-                              style: GoogleFonts.cairo(fontWeight: FontWeight.w600),
-                            ),
-                            backgroundColor: Colors.orange,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isDisabled
-                            ? Colors.red.withValues(alpha: 0.1)
-                            : isSelected
-                            ? const Color(0xFFffd700).withValues(alpha: 0.2)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isDisabled
-                              ? Colors.red.withValues(alpha: 0.5)
-                              : isSelected
-                              ? const Color(0xFFffd700)
-                              : (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.3),
-                          width: 1,
+                  // ✅ منع التقليل إذا وصل الربح لـ 0 أو أقل
+                  if (newProfit >= 0) {
+                    setState(() => _deliveryFee = fee);
+                  } else {
+                    // ✅ إظهار تنبيه جميل عند الوصول للحد الأقصى
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '⚠️ لا يمكن دفع المزيد - ربحك أصبح 0 د.ع',
+                          style: GoogleFonts.cairo(fontWeight: FontWeight.w600),
                         ),
+                        backgroundColor: Colors.orange,
+                        duration: const Duration(seconds: 2),
                       ),
-                      child: Text(
-                        fee == 0 ? 'مجاني' : _formatPrice(fee),
-                        style: GoogleFonts.cairo(
-                          fontSize: 10,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isDisabled
-                              ? Colors.red.withValues(alpha: 0.7)
-                              : isSelected
-                              ? const Color(0xFFffd700)
-                              : (isDark ? Colors.white70 : Colors.black87),
-                        ),
-                      ),
+                    );
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isDisabled
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : isSelected
+                        ? const Color(0xFFffd700).withValues(alpha: 0.2)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isDisabled
+                          ? Colors.red.withValues(alpha: 0.5)
+                          : isSelected
+                          ? const Color(0xFFffd700)
+                          : (isDark ? Colors.white : Colors.grey).withValues(alpha: 0.3),
+                      width: 1,
                     ),
-                  );
-                }).toList(),
-              ),
-            ],
+                  ),
+                  child: Text(
+                    fee == 0 ? 'مجاني' : _formatPrice(fee),
+                    style: GoogleFonts.cairo(
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isDisabled
+                          ? Colors.red.withValues(alpha: 0.7)
+                          : isSelected
+                          ? const Color(0xFFffd700)
+                          : (isDark ? Colors.white70 : Colors.black87),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -463,48 +462,76 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     final finalProfit = values['finalProfit']!;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.5 : 0.6), width: 2),
+        // ✨ تصميم نظيف واحترافي
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white, // خلفية بيضاء نظيفة
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFFe6b31e).withValues(alpha: 0.2)
+              : Colors.grey.withValues(alpha: 0.15), // حد رمادي فاتح
+          width: 1.5,
+        ),
+        boxShadow: isDark
+            ? []
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
         children: [
+          // العنوان
           Text(
             'ملخص الطلب',
-            style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w800, color: const Color(0xFFffd700)),
+            style: GoogleFonts.cairo(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: isDark ? const Color(0xFFffd700) : const Color(0xFF1A1A1A),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
+
+          // الصفوف
           _buildSummaryRow('المجموع الفرعي', subtotal),
+          const SizedBox(height: 12),
           _buildSummaryRow('رسوم التوصيل', _deliveryFee),
-          const Divider(color: Color(0xFFffd700), thickness: 1),
-          _buildSummaryRow('المجموع النهائي', customerTotal, isTotal: true), // 💰 المبلغ المدفوع من العميل
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+
+          // الفاصل الرمادي الفاتح
           Container(
-            padding: const EdgeInsets.all(8), // تصغير الحشو
+            height: 1.5,
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6), // تصغير الزوايا
-              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.15),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          _buildSummaryRow('المجموع النهائي', customerTotal, isTotal: true),
+          const SizedBox(height: 16),
+
+          // صندوق الربح - تصميم نظيف
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.green.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? Colors.green.withValues(alpha: 0.4) : Colors.green.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    const Icon(
-                      FontAwesomeIcons.coins,
-                      color: Colors.green,
-                      size: 14, // تصغير الأيقونة
-                    ),
-                    const SizedBox(width: 6),
+                    Icon(FontAwesomeIcons.coins, color: isDark ? Colors.green[300] : Colors.green[700], size: 18),
+                    const SizedBox(width: 10),
                     Text(
                       'ربحك:',
                       style: GoogleFonts.cairo(
-                        fontSize: 12, // تصغير النص
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: Colors.green,
+                        color: isDark ? Colors.green[300] : Colors.green[700],
                       ),
                     ),
                   ],
@@ -512,9 +539,9 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                 Text(
                   '${_formatPrice(finalProfit)} د.ع',
                   style: GoogleFonts.cairo(
-                    fontSize: 14, // تصغير النص
+                    fontSize: 17,
                     fontWeight: FontWeight.w800,
-                    color: Colors.green,
+                    color: isDark ? Colors.green[300] : Colors.green[700],
                   ),
                 ),
               ],
@@ -529,24 +556,28 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: GoogleFonts.cairo(
-              fontSize: isTotal ? 16 : 14,
+              fontSize: isTotal ? 17 : 15,
               fontWeight: isTotal ? FontWeight.w800 : FontWeight.w600,
-              color: isTotal ? const Color(0xFFffd700) : (isDark ? Colors.white70 : Colors.black87),
+              color: isTotal
+                  ? (isDark ? const Color(0xFFffd700) : const Color(0xFF1A1A1A))
+                  : (isDark ? Colors.white70 : Colors.grey.withValues(alpha: 0.7)),
             ),
           ),
           Text(
             '${_formatPrice(amount)} د.ع',
             style: GoogleFonts.cairo(
-              fontSize: isTotal ? 18 : 14,
-              fontWeight: isTotal ? FontWeight.w900 : FontWeight.w700,
-              color: isTotal ? const Color(0xFFffd700) : (isDark ? Colors.white : Colors.black),
+              fontSize: isTotal ? 18 : 15,
+              fontWeight: isTotal ? FontWeight.w800 : FontWeight.w700,
+              color: isTotal
+                  ? (isDark ? const Color(0xFFffd700) : const Color(0xFF1A1A1A))
+                  : (isDark ? Colors.white : const Color(0xFF1A1A1A)),
             ),
           ),
         ],
@@ -558,11 +589,16 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.transparent,
-        border: Border(top: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1)),
+        color: isDark ? Colors.transparent : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.15),
+            width: 1.5,
+          ),
+        ),
       ),
       child: SafeArea(
-        // ✅ زر تأكيد الطلب بدون مربع خلفي وتوهج مخفف
+        // ✅ زر تأكيد الطلب فخم وبارز
         child: GestureDetector(
           onTap: _isProcessing
               ? null
@@ -571,34 +607,30 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               : _confirmOrder,
           child: Container(
             width: double.infinity,
-            height: 56,
+            height: 52,
             decoration: BoxDecoration(
-              gradient: _isProcessing
-                  ? const LinearGradient(colors: [Colors.grey, Colors.grey])
-                  : const LinearGradient(
-                      colors: [Color(0xFFffd700), Color(0xFFffb300)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.1), // ✅ تقليل التوهج
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              color: _isProcessing ? Colors.grey.withValues(alpha: 0.5) : const Color(0xFFffd700),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: _isProcessing
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
             ),
             child: Center(
               child: _isProcessing
-                  ? const CircularProgressIndicator(color: Colors.black, strokeWidth: 3)
+                  ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
                   : Text(
                       _orderConfirmed ? 'تم تأكيد طلبك بالفعل ❤️' : 'تأكيد الطلب',
                       style: GoogleFonts.cairo(
-                        fontSize: _orderConfirmed ? 16 : 18,
-                        fontWeight: FontWeight.w900,
+                        fontSize: _orderConfirmed ? 15 : 16,
+                        fontWeight: FontWeight.w700,
                         color: Colors.black,
-                        letterSpacing: 1.2,
+                        letterSpacing: 0.3,
                       ),
                     ),
             ),
@@ -744,6 +776,62 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     });
   }
 
+  // ⚠️ إظهار رسالة تحذير Timeout
+  void _showTimeoutWarning() {
+    debugPrint('⏰ إظهار رسالة تحذير Timeout');
+
+    if (!mounted) {
+      debugPrint('⚠️ الصفحة لم تعد موجودة');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 32),
+            SizedBox(width: 12),
+            Text('انتهت مهلة الانتظار'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('استغرق إنشاء الطلب وقتاً أطول من المتوقع.', style: TextStyle(fontSize: 16)),
+            SizedBox(height: 12),
+            Text('يرجى التحقق من:', style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 8),
+            Text('• اتصال الإنترنت'),
+            Text('• صفحة الطلبات للتأكد من إضافة الطلب'),
+            SizedBox(height: 12),
+            Text('إذا لم يظهر الطلب، يمكنك المحاولة مرة أخرى.', style: TextStyle(fontSize: 14, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // الانتقال لصفحة الطلبات للتحقق
+              context.go('/orders');
+            },
+            child: const Text('التحقق من الطلبات'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // الرجوع لصفحة المنتجات
+              context.go('/products');
+            },
+            child: const Text('حسناً'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _confirmOrder() async {
     debugPrint('🚀 تم الضغط على زر تأكيد الطلب في صفحة ملخص الطلب');
 
@@ -783,17 +871,33 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       _isProcessing = true;
     });
 
-    // ⏰ Timeout wrapper ذكي - إذا لم يكتمل الطلب خلال 12 ثانية، إظهار أنيميشن الخطأ
+    // ⏰ Timeout محسّن - 30 ثانية لإعطاء الباك إند وقت كافٍ
     try {
-      await Future.any([
-        _createOrderInternal(),
-        Future.delayed(const Duration(seconds: 12)).then((_) {
-          debugPrint('⏰ انتهت مهلة إنشاء الطلب (12 ثانية)');
-          throw TimeoutException('انتهت مهلة إنشاء الطلب', const Duration(seconds: 12));
-        }),
-      ]);
+      await _createOrderInternal().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('⏰ انتهت مهلة إنشاء الطلب (30 ثانية)');
+          throw TimeoutException('انتهت مهلة إنشاء الطلب - يرجى التحقق من الإنترنت', const Duration(seconds: 30));
+        },
+      );
+
+      // ✅ إذا وصلنا هنا، فالطلب تم إنشاؤه بنجاح
+      debugPrint('✅ تم إنشاء الطلب بنجاح - لا أخطاء');
+    } on TimeoutException catch (e) {
+      debugPrint('⏰ خطأ Timeout: $e');
+
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _orderConfirmed = false;
+        });
+
+        // ⚠️ إظهار رسالة تحذير بدلاً من خطأ
+        _showTimeoutWarning();
+      }
     } catch (e) {
       debugPrint('❌ خطأ في إنشاء الطلب: $e');
+      debugPrint('🔍 نوع الخطأ: ${e.runtimeType}');
 
       if (mounted) {
         setState(() {
@@ -979,7 +1083,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
         debugPrint('🚀 بدء إنشاء الطلب المجدول...');
 
-        // ✅ إضافة timeout لمنع التجمد - استخدام البيانات النهائية من ملخص الطلب
+        // ✅ إضافة timeout محسّن (30 ثانية) - استخدام البيانات النهائية من ملخص الطلب
         result = await scheduledOrdersService
             .addScheduledOrder(
               customerName: finalOrderData['customerName'] ?? '',
@@ -997,10 +1101,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               cityId: finalOrderData['cityId'], // ✅ معرف المدينة
             )
             .timeout(
-              const Duration(seconds: 10), // ✅ timeout بعد 10 ثواني
+              const Duration(seconds: 30), // ✅ timeout محسّن بعد 30 ثانية
               onTimeout: () {
-                debugPrint('⏰ انتهت مهلة إنشاء الطلب المجدول');
-                throw TimeoutException('انتهت مهلة إنشاء الطلب', const Duration(seconds: 10));
+                debugPrint('⏰ انتهت مهلة إنشاء الطلب المجدول (30 ثانية)');
+                throw TimeoutException('انتهت مهلة إنشاء الطلب المجدول', const Duration(seconds: 30));
               },
             );
 
@@ -1036,7 +1140,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
         final ordersService = OfficialOrdersService();
 
-        // ✅ إضافة timeout لمنع التجمد - استخدام البيانات النهائية من ملخص الطلب
+        // ✅ إضافة timeout محسّن (30 ثانية) - استخدام البيانات النهائية من ملخص الطلب
         result = await ordersService
             .createOrder(
               customerName: finalOrderData['customerName'] ?? '',
@@ -1061,21 +1165,38 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               userPhone: currentUserPhone, // ✅ إضافة رقم هاتف المستخدم الحالي
             )
             .timeout(
-              const Duration(seconds: 10), // ✅ timeout بعد 10 ثواني
+              const Duration(seconds: 30), // ✅ timeout محسّن بعد 30 ثانية
               onTimeout: () {
-                debugPrint('⏰ انتهت مهلة إنشاء الطلب العادي');
-                throw TimeoutException('انتهت مهلة إنشاء الطلب', const Duration(seconds: 10));
+                debugPrint('⏰ انتهت مهلة إنشاء الطلب العادي (30 ثانية)');
+                throw TimeoutException('انتهت مهلة إنشاء الطلب العادي', const Duration(seconds: 30));
               },
             );
 
         debugPrint('✅ تم إنشاء الطلب العادي بنجاح');
       }
 
-      // ✅ استخراج معرف الطلب
-      String? orderId = result['orderId'] ?? result['data']?['orderId'];
-      debugPrint('✅ تم إنشاء الطلب - معرف الطلب: $orderId');
+      // ✅ استخراج معرف الطلب من جميع الأماكن الممكنة
+      String? orderId = result['orderId'] ?? result['data']?['orderId'] ?? result['data']?['id'];
+
+      debugPrint('🔍 === استخراج معرف الطلب ===');
+      debugPrint('   - نوع result: ${result.runtimeType}');
+      debugPrint('   - result.keys: ${result.keys}');
+      debugPrint('   - result[orderId]: ${result['orderId']}');
+      debugPrint('   - result[data]: ${result['data']}');
+      debugPrint('   - result[data][orderId]: ${result['data']?['orderId']}');
+      debugPrint('   - result[data][id]: ${result['data']?['id']}');
+      debugPrint('   - معرف الطلب النهائي: $orderId');
+
+      if (orderId == null || orderId.isEmpty) {
+        debugPrint('❌ فشل في استخراج معرف الطلب من الاستجابة');
+        debugPrint('📋 الاستجابة الكاملة: $result');
+        throw Exception('فشل في استخراج معرف الطلب من الاستجابة');
+      }
+
+      debugPrint('✅ تم إنشاء الطلب بنجاح - معرف الطلب: $orderId');
 
       // ✅ تحديث حالة الطلب
+      debugPrint('🔄 تحديث حالة الطلب إلى confirmed...');
       setState(() {
         _orderConfirmed = true;
       });
@@ -1084,7 +1205,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       final cartService = CartService();
       cartService.clearCart();
 
-      if (mounted && orderId != null) {
+      if (mounted) {
         // 🔍 التحقق الذكي من وجود الطلب في قاعدة البيانات
         debugPrint('🔍 بدء التحقق من وجود الطلب في قاعدة البيانات...');
 

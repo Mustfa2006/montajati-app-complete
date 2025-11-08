@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,11 +8,7 @@ class SimplifiedIraqMap extends StatefulWidget {
   final Map<String, int> provinceOrders;
   final Function(String)? onProvinceClick;
 
-  const SimplifiedIraqMap({
-    Key? key,
-    required this.provinceOrders,
-    this.onProvinceClick,
-  }) : super(key: key);
+  const SimplifiedIraqMap({super.key, required this.provinceOrders, this.onProvinceClick});
 
   @override
   State<SimplifiedIraqMap> createState() => _SimplifiedIraqMapState();
@@ -46,7 +43,7 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
 
   Color _getProvinceColor(String provinceName) {
     final orderCount = widget.provinceOrders[provinceName] ?? 0;
-    
+
     if (orderCount == 0) {
       return Colors.grey[300]!;
     } else if (orderCount <= 10) {
@@ -89,14 +86,12 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
   void _showProvinceDetails(String provinceName) {
     final arabicName = _getArabicProvinceName(provinceName);
     final orderCount = widget.provinceOrders[arabicName] ?? 0;
-    
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
             padding: EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -104,35 +99,20 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF1A365D),
-                  Color(0xFF2D5A87),
-                ],
+                colors: [Color(0xFF1A365D), Color(0xFF2D5A87)],
               ),
               boxShadow: [
-                BoxShadow(
-                  color: Color(0xFFD4AF37).withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: Offset(0, 10),
-                ),
+                BoxShadow(color: Color(0xFFD4AF37).withValues(alpha: 0.3), blurRadius: 20, offset: Offset(0, 10)),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.location_on,
-                  color: Color(0xFFD4AF37),
-                  size: 48,
-                ),
+                Icon(Icons.location_on, color: Color(0xFFD4AF37), size: 48),
                 SizedBox(height: 16),
                 Text(
                   arabicName,
-                  style: GoogleFonts.cairo(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                   textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 16),
@@ -145,11 +125,7 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
                   ),
                   child: Text(
                     '$orderCount طلب',
-                    style: GoogleFonts.cairo(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A365D),
-                    ),
+                    style: GoogleFonts.cairo(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF1A365D)),
                   ),
                 ),
                 SizedBox(height: 24),
@@ -159,17 +135,9 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
                     backgroundColor: Color(0xFFD4AF37),
                     foregroundColor: Color(0xFF1A365D),
                     padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                   ),
-                  child: Text(
-                    'إغلاق',
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: Text('إغلاق', style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -182,22 +150,17 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Container(
+      return SizedBox(
         height: 600,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37)),
-              ),
+              CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFD4AF37))),
               SizedBox(height: 16),
               Text(
                 'جاري تحميل خريطة العراق الحقيقية...',
-                style: GoogleFonts.cairo(
-                  fontSize: 16,
-                  color: Color(0xFF1A365D),
-                ),
+                style: GoogleFonts.cairo(fontSize: 16, color: Color(0xFF1A365D)),
               ),
             ],
           ),
@@ -206,33 +169,17 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
     }
 
     if (geoJsonData == null) {
-      return Container(
+      return SizedBox(
         height: 600,
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.error_outline,
-                color: Colors.red,
-                size: 48,
-              ),
+              Icon(Icons.error_outline, color: Colors.red, size: 48),
               SizedBox(height: 16),
-              Text(
-                'خطأ في تحميل بيانات الخريطة',
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  color: Colors.red,
-                ),
-              ),
+              Text('خطأ في تحميل بيانات الخريطة', style: GoogleFonts.cairo(fontSize: 18, color: Colors.red)),
               SizedBox(height: 8),
-              Text(
-                'سيتم عرض خريطة مبسطة',
-                style: GoogleFonts.cairo(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
+              Text('سيتم عرض خريطة مبسطة', style: GoogleFonts.cairo(fontSize: 14, color: Colors.grey[600])),
             ],
           ),
         ),
@@ -243,32 +190,24 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
       children: [
         // عنوان الخريطة
         Container(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.map,
-                color: Color(0xFFD4AF37),
-                size: 28,
-              ),
-              SizedBox(width: 8),
+              const Icon(Icons.map, color: Color(0xFFD4AF37), size: 28),
+              const SizedBox(width: 8),
               Text(
                 'خريطة العراق التفاعلية الحقيقية',
-                style: GoogleFonts.cairo(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A365D),
-                ),
+                style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.bold, color: const Color(0xFF1A365D)),
               ),
             ],
           ),
         ),
-        
+
         // رسالة نجاح تحميل البيانات
         Container(
-          margin: EdgeInsets.symmetric(horizontal: 16),
-          padding: EdgeInsets.all(12),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.green[50],
             borderRadius: BorderRadius.circular(10),
@@ -276,27 +215,20 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
           ),
           child: Row(
             children: [
-              Icon(
-                Icons.check_circle,
-                color: Colors.green[600],
-                size: 20,
-              ),
+              Icon(Icons.check_circle, color: Colors.green[600], size: 20),
               SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'تم تحميل بيانات GeoJSON الحقيقية للمحافظات العراقية بنجاح',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    color: Colors.green[800],
-                  ),
+                  style: GoogleFonts.cairo(fontSize: 14, color: Colors.green[800]),
                 ),
               ),
             ],
           ),
         ),
-        
+
         SizedBox(height: 16),
-        
+
         // معلومات البيانات
         Container(
           margin: EdgeInsets.symmetric(horizontal: 16),
@@ -310,11 +242,7 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
             children: [
               Text(
                 'معلومات الخريطة',
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A365D),
-                ),
+                style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A365D)),
               ),
               SizedBox(height: 12),
               _buildInfoRow('مصدر البيانات:', 'geoBoundaries - المستوى الإداري 1'),
@@ -324,24 +252,20 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
             ],
           ),
         ),
-        
+
         SizedBox(height: 16),
-        
+
         // قائمة المحافظات مع البيانات
         Container(
           margin: EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'المحافظات المتوفرة في البيانات:',
-            style: GoogleFonts.cairo(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A365D),
-            ),
+            style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A365D)),
           ),
         ),
-        
+
         SizedBox(height: 8),
-        
+
         // عرض المحافظات
         Container(
           height: 400,
@@ -359,14 +283,12 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
               final arabicName = _getArabicProvinceName(englishName);
               final orderCount = widget.provinceOrders[arabicName] ?? 0;
               final color = _getProvinceColor(arabicName);
-              
+
               return Container(
                 margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   child: ListTile(
                     leading: Container(
                       width: 40,
@@ -379,32 +301,15 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
                     ),
                     title: Text(
                       arabicName,
-                      style: GoogleFonts.cairo(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1A365D),
-                      ),
+                      style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A365D)),
                     ),
-                    subtitle: Text(
-                      englishName,
-                      style: GoogleFonts.cairo(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
+                    subtitle: Text(englishName, style: GoogleFonts.cairo(fontSize: 12, color: Colors.grey[600])),
                     trailing: Container(
                       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Color(0xFFD4AF37),
-                        borderRadius: BorderRadius.circular(15),
-                      ),
+                      decoration: BoxDecoration(color: Color(0xFFD4AF37), borderRadius: BorderRadius.circular(15)),
                       child: Text(
                         '$orderCount طلب',
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                        style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                     ),
                     onTap: () => _showProvinceDetails(englishName),
@@ -414,7 +319,7 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
             },
           ),
         ),
-        
+
         // مفتاح الألوان
         _buildLegend(),
       ],
@@ -431,21 +336,11 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
             width: 120,
             child: Text(
               label,
-              style: GoogleFonts.cairo(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A365D),
-              ),
+              style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1A365D)),
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.cairo(
-                fontSize: 14,
-                color: Colors.grey[700],
-              ),
-            ),
+            child: Text(value, style: GoogleFonts.cairo(fontSize: 14, color: Colors.grey[700])),
           ),
         ],
       ),
@@ -460,24 +355,14 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Color(0xFFD4AF37), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 5,
-            offset: Offset(0, 2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 5, offset: Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'مفتاح الألوان - عدد الطلبات',
-            style: GoogleFonts.cairo(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A365D),
-            ),
+            style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1A365D)),
           ),
           SizedBox(height: 8),
           Wrap(
@@ -511,13 +396,7 @@ class _SimplifiedIraqMapState extends State<SimplifiedIraqMap> {
           ),
         ),
         SizedBox(width: 4),
-        Text(
-          label,
-          style: GoogleFonts.cairo(
-            fontSize: 12,
-            color: Color(0xFF1A365D),
-          ),
-        ),
+        Text(label, style: GoogleFonts.cairo(fontSize: 12, color: Color(0xFF1A365D))),
       ],
     );
   }
