@@ -51,6 +51,11 @@ class IntegratedWaseetSync extends EventEmitter {
       syncTimeoutId: null
     };
 
+    // 🔧 Backward-compatibility flags for optional notification columns
+    this.state.hasOrderNotificationColumns = true;
+    this.state.notificationMemory = new Map();
+    this.state.notificationWarned = false;
+
     // ✅ الإحصائيات المتقدمة
     this.stats = {
       totalSyncs: 0,
@@ -454,7 +459,7 @@ class IntegratedWaseetSync extends EventEmitter {
     try {
       const { data, error } = await this.supabase
         .from('orders')
-        .select('id, waseet_order_id, waseet_qr_id, waseet_status_id, waseet_status_text, status, status_updated_at, last_notification_status, last_notification_at, user_phone, primary_phone, customer_name')
+        .select('id, waseet_order_id, waseet_qr_id, waseet_status_id, waseet_status_text, status, status_updated_at, user_phone, primary_phone, customer_name')
         .or('waseet_order_id.not.is.null,waseet_qr_id.not.is.null');
 
       if (error) throw error;
@@ -766,6 +771,24 @@ class IntegratedWaseetSync extends EventEmitter {
         }
       }
 
+      // 🧠 بديل آمن: منع التكرار اعتمادًا على الذاكرة في حال عدم توفر الأعمدة في قاعدة البيانات
+      try {
+        const __mem = this.state.notificationMemory;
+        const __oid = order.id?.toString();
+        if (__oid && __mem) {
+          const __m = __mem.get(__oid);
+          if (__m) {
+            if (__m.status === newStatus) {
+              return;
+            }
+            const __elapsed = Date.now() - __m.at;
+            if (__elapsed < this.config.notificationCooldown) {
+              return;
+            }
+          }
+        }
+      } catch (_) { }
+
       // ✅ تهيئة خدمة الإشعارات
       if (!targetedNotificationService.initialized) {
         await targetedNotificationService.initialize();
@@ -781,7 +804,15 @@ class IntegratedWaseetSync extends EventEmitter {
       );
 
       if (result.success) {
-        // ✅ تحديث بيانات الإشعار
+        // 🧠 تحديث سجل الذاكرة لمنع التكرار أثناء عمل الخدمة
+        try {
+          const __oid2 = order.id?.toString();
+          if (__oid2) {
+            this.state.notificationMemory.set(__oid2, { status: newStatus, at: Date.now() });
+          }
+        } catch (_) { }
+
+        // ✅ تحديث بيانات الإشعار في قاعدة البيانات (إن كانت الأعمدة متاحة)
         await this._updateNotificationStatus(order.id, newStatus);
         this.stats.notificationsSent++;
       }
@@ -796,15 +827,34 @@ class IntegratedWaseetSync extends EventEmitter {
    */
   async _updateNotificationStatus(orderId, newStatus) {
     try {
-      await this.supabase
+      // إذا كانت الأعمدة غير متاحة تم تعطيل الحفظ - نخرج مبكرًا
+      if (this.state && this.state.hasOrderNotificationColumns === false) {
+        return;
+      }
+
+      const { error } = await this.supabase
         .from('orders')
         .update({
           last_notification_status: newStatus,
           last_notification_at: new Date().toISOString()
         })
         .eq('id', orderId);
+
+      if (error) throw error;
     } catch (error) {
-      console.error(`❌ خطأ في تحديث حالة الإشعار للطلب ${orderId}:`, error.message);
+      const msg = error?.message || String(error);
+      if (/last_notification_(status|at)/i.test(msg) || /does not exist/i.test(msg)) {
+        // تعطيل المحاولة مستقبلًا والاكتفاء بمنع التكرار ضمن الذاكرة
+        if (this.state) {
+          this.state.hasOrderNotificationColumns = false;
+          if (!this.state.notificationWarned) {
+            console.warn('ℹ️ تعطيل تحديث حقول الإشعار في جدول orders لعدم توفر الأعمدة (last_notification_status/last_notification_at). سيتم استخدام منع التكرار ضمن الذاكرة فقط.');
+            this.state.notificationWarned = true;
+          }
+        }
+      } else {
+        console.error(`❌ خطأ في تحديث حالة الإشعار للطلب ${orderId}:`, msg);
+      }
     }
   }
 
