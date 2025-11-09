@@ -137,21 +137,21 @@ class StatusMapper {
   mapWaseetToLocal(waseetStatus) {
     if (!waseetStatus) {
       console.warn('⚠️ تحذير: حالة الوسيط فارغة، استخدام الحالة الافتراضية');
-      return 'active';
+      return 'in_delivery';
     }
 
     // تحويل إلى أحرف صغيرة وإزالة المسافات
     const normalizedStatus = waseetStatus.toString().toLowerCase().trim();
-    
+
     // البحث في الخريطة
     const localStatus = this.waseetToLocalMap[normalizedStatus];
-    
+
     if (localStatus) {
       console.log(`🔄 تحويل الحالة: ${waseetStatus} → ${localStatus}`);
       return localStatus;
     } else {
       console.warn(`⚠️ تحذير: حالة غير معروفة من الوسيط: ${waseetStatus}, استخدام الحالة الافتراضية`);
-      return 'active'; // الحالة الافتراضية
+      return 'in_delivery'; // الحالة الافتراضية
     }
   }
 
@@ -165,7 +165,7 @@ class StatusMapper {
     }
 
     const waseetStatus = this.localToWaseetMap[localStatus];
-    
+
     if (waseetStatus) {
       return waseetStatus;
     } else {
@@ -262,7 +262,7 @@ class StatusMapper {
       'delivered': '#4CAF50',   // أخضر
       'cancelled': '#F44336'    // أحمر
     };
-    
+
     return colors[status] || '#9E9E9E'; // رمادي للحالات غير المعروفة
   }
 
@@ -276,7 +276,7 @@ class StatusMapper {
       'delivered': '✅',
       'cancelled': '❌'
     };
-    
+
     return icons[status] || '❓';
   }
 
@@ -303,7 +303,7 @@ class StatusMapper {
 
     const normalizedWaseetStatus = waseetStatus.toLowerCase().trim();
     this.waseetToLocalMap[normalizedWaseetStatus] = localStatus;
-    
+
     console.log(`✅ تم إضافة حالة جديدة: ${waseetStatus} → ${localStatus}`);
   }
 

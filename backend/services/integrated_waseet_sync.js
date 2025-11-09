@@ -442,6 +442,33 @@ class IntegratedWaseetSync extends EventEmitter {
       console.log(`   📊 تم تحديث: ${updatedCount} | تم تجاهل: ${skippedCount}`);
       console.log(`   ⏱️ المدة: ${syncDuration}ms`);
 
+
+      // 🔁 محاولة رفع الطلبات التي أصبحت "قيد التوصيل" ولم تُرسل للوسيط بعد
+      try {
+        const { data: pendingOrders, error: pendingErr } = await this.supabase
+          .from('orders')
+          .select('id, status, waseet_order_id')
+          .in('status', ['in_delivery', 'قيد التوصيل الى الزبون (في عهدة المندوب)'])
+          .is('waseet_order_id', null)
+          .limit(20);
+
+        if (!pendingErr && Array.isArray(pendingOrders) && pendingOrders.length > 0) {
+          console.log(`🚚 يوجد ${pendingOrders.length} طلب(ات) قيد التوصيل بدون معرف وسيط، سيتم رفعها الآن...`);
+          const OrderSyncService = require('./order_sync_service');
+          const orderSyncService = new OrderSyncService();
+
+          for (const o of pendingOrders) {
+            try {
+              await orderSyncService.sendOrderToWaseet(o.id);
+            } catch (e) {
+              console.warn(`⚠️ تعذّر رفع الطلب ${o.id} للوسيط: ${e.message}`);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ فشل تمرير الطلبات المعلقة إلى الوسيط:', e.message);
+      }
+
     } catch (error) {
       console.error('❌ فشل المزامنة:', error.message);
       this.stats.failedSyncs++;
@@ -533,7 +560,11 @@ class IntegratedWaseetSync extends EventEmitter {
       };
       // ✅ لا نقوم بتحديث عمود status إذا لم تتغير الحالة فعلياً لمنع تشغيل Trigger التربح مرتين
       if (dbOrder.status !== appStatus) {
-        updateData.status = appStatus;
+        const lower = (appStatus || '').toString().toLowerCase().trim();
+        const isActiveLike = ['active', 'فعال', 'نشط', 'confirmed'].includes(lower);
+        if (!isActiveLike) {
+          updateData.status = appStatus;
+        }
       }
 
       // شرط إضافي: نمنع تحديث صف يحتوي نفس القيمة في status باستخدام neq لمنع تشغيل التريجر بلا داعٍ
@@ -698,12 +729,12 @@ class IntegratedWaseetSync extends EventEmitter {
         }
       }
 
-      // ✅ الحالة الافتراضية الآمنة
-      return 'active';
+      // ✅ الحالة الافتراضية الآمنة (لا نعود إلى نشط)
+      return 'قيد التوصيل الى الزبون (في عهدة المندوب)';
 
     } catch (error) {
       console.error('❌ خطأ في تحويل حالة الوسيط:', error.message);
-      return 'active';
+      return 'قيد التوصيل الى الزبون (في عهدة المندوب)';
     }
   }
 
