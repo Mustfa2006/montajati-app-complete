@@ -113,7 +113,7 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
       debugPrint('✅ تم العثور على توكن المصادقة');
 
       // 🌐 جلب الأرباح من الـ API (آمن جداً - يعتمد على JWT فقط)
-      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:3002');
+      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:5000');
 
       // TODO: في المستقبل، يجب أن يعتمد الخادم على JWT فقط لتحديد المستخدم
       // للآن، نحتاج إرسال رقم الهاتف حتى يتم تطبيق JWT verification كاملاً

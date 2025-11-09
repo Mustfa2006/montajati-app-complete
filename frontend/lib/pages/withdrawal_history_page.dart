@@ -86,7 +86,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       debugPrint('✅ جاهز لإرسال الطلب إلى الـ API');
 
       // 🌐 جلب طلبات السحب من الـ API (آمن جداً - يعتمد على JWT)
-      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:3002');
+      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:5000');
 
       final response = await http
           .post(
