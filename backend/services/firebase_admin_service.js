@@ -166,7 +166,7 @@ class FirebaseAdminService {
       };
 
     } catch (error) {
-      console.error('❌ خطأ في إرسال الإشعار:', error.message);
+      console.error('❌ خطأ في إرسال الإشعار:', error.message, '| code:', error.code);
 
       // التعامل مع الأخطاء المختلفة
       let errorType = 'unknown';
@@ -176,6 +176,9 @@ class FirebaseAdminService {
         errorType = 'invalid_token';
       } else if (error.code === 'messaging/mismatched-credential') {
         errorType = 'auth_error';
+      } else if (/requested entity was not found/i.test(error.message || '')) {
+        // بعض بيئات FCM تُرجع رسالة عامة بدل code
+        errorType = 'invalid_token';
       }
 
       return {

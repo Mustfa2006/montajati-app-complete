@@ -114,6 +114,42 @@ class TargetedNotificationService {
       console.error('⚠️ خطأ في تحديث آخر استخدام للـ Token:', error.message);
     }
   }
+  /**
+   * الحصول على جميع FCM Tokens النشطة للمستخدم (الأحدث أولاً)
+   */
+  async getActiveFCMTokens(userPhone) {
+    try {
+      const { data, error } = await this.supabase
+        .from('fcm_tokens')
+        .select('fcm_token, created_at')
+        .eq('user_phone', userPhone)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(r => r.fcm_token);
+    } catch (err) {
+      console.error('❌ خطأ في جلب جميع FCM Tokens:', err.message);
+      return [];
+    }
+  }
+
+  /**
+   * تعطيل FCM Token غير صالح
+   */
+  async deactivateToken(userPhone, fcmToken) {
+    try {
+      await this.supabase
+        .from('fcm_tokens')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('user_phone', userPhone)
+        .eq('fcm_token', fcmToken);
+      console.log(`🔕 تم تعطيل FCM Token غير صالح للمستخدم ${userPhone}`);
+    } catch (err) {
+      console.warn('⚠️ فشل تعطيل FCM Token غير صالح:', err.message);
+    }
+  }
+
 
   /**
    * إرسال إشعار تحديث حالة الطلب
@@ -132,51 +168,64 @@ class TargetedNotificationService {
 
       console.log(`📱 إرسال إشعار تحديث الطلب للمستخدم: ${userPhone}`);
 
-      // الحصول على FCM Token
-      const fcmToken = await this.getUserFCMToken(userPhone);
-
-      if (!fcmToken) {
-        console.log(`⚠️ لا يوجد FCM Token للمستخدم: ${userPhone}`);
-        return {
-          success: false,
-          error: 'لا يوجد FCM Token للمستخدم',
-          userPhone: userPhone
-        };
+      // الحصول على جميع FCM Tokens النشطة (الأحدث أولاً)
+      const tokens = await this.getActiveFCMTokens(userPhone);
+      if (!tokens || tokens.length === 0) {
+        console.log(`⚠️ لا يوجد أي FCM Token نشط للمستخدم: ${userPhone}`);
+        return { success: false, error: 'لا يوجد FCM Token للمستخدم', userPhone };
       }
 
-      // إرسال الإشعار
-      const result = await firebaseAdminService.sendOrderStatusNotification(
-        fcmToken,
-        orderId,
-        newStatus,
-        customerName
-      );
+      let result = { success: false, error: 'no_token' };
+      let usedToken = null;
+      for (const token of tokens) {
+        usedToken = token;
+        result = await firebaseAdminService.sendOrderStatusNotification(
+          token,
+          orderId,
+          newStatus,
+          customerName
+        );
+
+        if (result.success) {
+          break; // تم الإرسال بنجاح
+        }
+
+        // إذا كان الرمز غير صالح - نعطله ونحاول التالي
+        const msg = (result.error || '').toLowerCase();
+        const isInvalid = result.errorType === 'invalid_token' || /requested entity was not found|registration-token-not-registered|invalid-registration-token|not registered/.test(msg);
+        if (isInvalid) {
+          await this.deactivateToken(userPhone, token);
+          continue;
+        }
+
+        // أخطاء أخرى - لا داعي لتجربة بقية الرموز
+        break;
+      }
+
+      // ✅ تحديث آخر استخدام للرمز الناجح
+      if (result.success && usedToken) {
+        await this.updateTokenLastUsed(userPhone, usedToken);
+      }
 
       // تسجيل النتيجة في قاعدة البيانات
       await this.logNotification({
         user_phone: userPhone,
-        fcm_token: fcmToken,
+        fcm_token: usedToken,
         notification_type: 'order_status_update',
         title: '📦 تحديث حالة طلبك',
         message: `تم تحديث حالة طلبك إلى: ${newStatus}`,
         data: {
-          orderId: orderId,
-          newStatus: newStatus,
-          customerName: customerName,
-          notes: notes
+          orderId,
+          newStatus,
+          customerName,
+          notes
         },
         success: result.success,
         error_message: result.error || null,
         firebase_message_id: result.messageId || null
       });
 
-      return {
-        success: result.success,
-        userPhone: userPhone,
-        orderId: orderId,
-        messageId: result.messageId,
-        error: result.error
-      };
+      return { success: result.success, userPhone, orderId, messageId: result.messageId, error: result.error };
 
     } catch (error) {
       console.error('❌ خطأ في إرسال إشعار تحديث الطلب:', error.message);
@@ -207,51 +256,63 @@ class TargetedNotificationService {
 
       console.log(`💰 إرسال إشعار تحديث طلب السحب للمستخدم: ${userPhone}`);
 
-      // الحصول على FCM Token
-      const fcmToken = await this.getUserFCMToken(userPhone);
-
-      if (!fcmToken) {
-        console.log(`⚠️ لا يوجد FCM Token للمستخدم: ${userPhone}`);
-        return {
-          success: false,
-          error: 'لا يوجد FCM Token للمستخدم',
-          userPhone: userPhone
-        };
+      // الحصول على جميع FCM Tokens النشطة (الأحدث أولاً)
+      const tokens = await this.getActiveFCMTokens(userPhone);
+      if (!tokens || tokens.length === 0) {
+        console.log(`⚠️ لا يوجد أي FCM Token نشط للمستخدم: ${userPhone}`);
+        return { success: false, error: 'لا يوجد FCM Token للمستخدم', userPhone };
       }
 
-      // إرسال الإشعار
-      const result = await firebaseAdminService.sendWithdrawalStatusNotification(
-        fcmToken,
-        requestId,
-        amount,
-        status
-      );
+      let result = { success: false, error: 'no_token' };
+      let usedToken = null;
+      for (const token of tokens) {
+        usedToken = token;
+        result = await firebaseAdminService.sendWithdrawalStatusNotification(
+          token,
+          requestId,
+          amount,
+          status
+        );
+
+        if (result.success) {
+          break; // تم الإرسال بنجاح
+        }
+
+        // إذا كان الرمز غير صالح - نعطله ونحاول التالي
+        const msg = (result.error || '').toLowerCase();
+        const isInvalid = result.errorType === 'invalid_token' || /requested entity was not found|registration-token-not-registered|invalid-registration-token|not registered/.test(msg);
+        if (isInvalid) {
+          await this.deactivateToken(userPhone, token);
+          continue;
+        }
+
+        break; // أخطاء أخرى
+      }
+
+      // ✅ تحديث آخر استخدام للرمز الناجح
+      if (result.success && usedToken) {
+        await this.updateTokenLastUsed(userPhone, usedToken);
+      }
 
       // تسجيل النتيجة في قاعدة البيانات
       await this.logNotification({
         user_phone: userPhone,
-        fcm_token: fcmToken,
+        fcm_token: usedToken,
         notification_type: 'withdrawal_status_update',
         title: '💰 تحديث طلب السحب',
         message: `تم تحديث حالة طلب سحب ${amount} ريال إلى: ${status}`,
         data: {
-          requestId: requestId,
-          amount: amount,
-          status: status,
-          reason: reason
+          requestId,
+          amount,
+          status,
+          reason
         },
         success: result.success,
         error_message: result.error || null,
         firebase_message_id: result.messageId || null
       });
 
-      return {
-        success: result.success,
-        userPhone: userPhone,
-        requestId: requestId,
-        messageId: result.messageId,
-        error: result.error
-      };
+      return { success: result.success, userPhone, requestId, messageId: result.messageId, error: result.error };
 
     } catch (error) {
       console.error('❌ خطأ في إرسال إشعار تحديث طلب السحب:', error.message);
@@ -281,45 +342,58 @@ class TargetedNotificationService {
 
       console.log(`📢 إرسال إشعار عام للمستخدم: ${userPhone}`);
 
-      // الحصول على FCM Token
-      const fcmToken = await this.getUserFCMToken(userPhone);
-
-      if (!fcmToken) {
-        console.log(`⚠️ لا يوجد FCM Token للمستخدم: ${userPhone}`);
-        return {
-          success: false,
-          error: 'لا يوجد FCM Token للمستخدم',
-          userPhone: userPhone
-        };
+      // الحصول على جميع FCM Tokens النشطة (الأحدث أولاً)
+      const tokens = await this.getActiveFCMTokens(userPhone);
+      if (!tokens || tokens.length === 0) {
+        console.log(`⚠️ لا يوجد أي FCM Token نشط للمستخدم: ${userPhone}`);
+        return { success: false, error: 'لا يوجد FCM Token للمستخدم', userPhone };
       }
 
-      // إرسال الإشعار
-      const result = await firebaseAdminService.sendGeneralNotification(
-        fcmToken,
-        title,
-        message,
-        additionalData
-      );
+      let result = { success: false, error: 'no_token' };
+      let usedToken = null;
+      for (const token of tokens) {
+        usedToken = token;
+        result = await firebaseAdminService.sendGeneralNotification(
+          token,
+          title,
+          message,
+          additionalData
+        );
+
+        if (result.success) {
+          break; // تم الإرسال بنجاح
+        }
+
+        // إذا كان الرمز غير صالح - نعطله ونحاول التالي
+        const msg = (result.error || '').toLowerCase();
+        const isInvalid = result.errorType === 'invalid_token' || /requested entity was not found|registration-token-not-registered|invalid-registration-token|not registered/.test(msg);
+        if (isInvalid) {
+          await this.deactivateToken(userPhone, token);
+          continue;
+        }
+
+        break; // أخطاء أخرى
+      }
+
+      // ✅ تحديث آخر استخدام للرمز الناجح
+      if (result.success && usedToken) {
+        await this.updateTokenLastUsed(userPhone, usedToken);
+      }
 
       // تسجيل النتيجة في قاعدة البيانات
       await this.logNotification({
         user_phone: userPhone,
-        fcm_token: fcmToken,
+        fcm_token: usedToken,
         notification_type: 'general',
-        title: title,
-        message: message,
+        title,
+        message,
         data: additionalData,
         success: result.success,
         error_message: result.error || null,
         firebase_message_id: result.messageId || null
       });
 
-      return {
-        success: result.success,
-        userPhone: userPhone,
-        messageId: result.messageId,
-        error: result.error
-      };
+      return { success: result.success, userPhone, messageId: result.messageId, error: result.error };
 
     } catch (error) {
       console.error('❌ خطأ في إرسال الإشعار العام:', error.message);

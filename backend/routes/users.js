@@ -15,7 +15,7 @@ const supabase = createClient(
 router.get('/', async (req, res) => {
   try {
     const users = await User.find().select('-password');
-    
+
     res.status(200).json({
       success: true,
       results: users.length,
@@ -36,14 +36,14 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'المستخدم غير موجود',
       });
     }
-    
+
     res.status(200).json({
       success: true,
       data: {
@@ -63,7 +63,7 @@ router.get('/:id', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { name, email, phone } = req.body;
-    
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { name, email, phone },
@@ -72,14 +72,14 @@ router.patch('/:id', async (req, res) => {
         runValidators: true,
       }
     ).select('-password');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'المستخدم غير موجود',
       });
     }
-    
+
     res.status(200).json({
       success: true,
       data: {
@@ -99,14 +99,14 @@ router.patch('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'المستخدم غير موجود',
       });
     }
-    
+
     res.status(204).json({
       success: true,
       data: null,
@@ -142,12 +142,12 @@ router.post('/fcm-token', async (req, res) => {
       .from('fcm_tokens')
       .upsert({
         user_phone: user_phone,
-        token: fcm_token,
+        fcm_token: fcm_token,
         device_info: device_info || {},
         is_active: true,
         last_used_at: new Date().toISOString()
       }, {
-        onConflict: 'user_phone,token'
+        onConflict: 'user_phone,fcm_token'
       })
       .select();
 
