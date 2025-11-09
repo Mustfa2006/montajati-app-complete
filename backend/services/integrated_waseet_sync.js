@@ -172,6 +172,7 @@ class IntegratedWaseetSync extends EventEmitter {
     return new Map([
       [1, 'فعال'],
       [5, 'في موقع فرز بغداد'],
+      [6, 'في مكتب المحافظة'],
       [7, 'في الطريق الى مكتب المحافظة']
     ]);
   }
@@ -554,10 +555,16 @@ class IntegratedWaseetSync extends EventEmitter {
       let updateData = {
         waseet_status: appStatus,
         waseet_status_text: waseetStatusText,
-        waseet_status_id: waseetStatusId,
         last_status_check: new Date().toISOString(),
         status_updated_at: new Date().toISOString()
       };
+
+      // ✅ لا نحدّث waseet_status_id إلا إذا كان ضمن القائمة المعتمدة لتفادي كسر FK
+      const allowedWaseetIds = new Set([2, 3, 4, 17, 23, 31, 32, 33, 34, 35, 39, 40]);
+      const parsedId = parseInt(waseetStatusId);
+      if (allowedWaseetIds.has(parsedId)) {
+        updateData.waseet_status_id = parsedId;
+      }
       // ✅ لا نقوم بتحديث عمود status إذا لم تتغير الحالة فعلياً لمنع تشغيل Trigger التربح مرتين
       if (dbOrder.status !== appStatus) {
         const lower = (appStatus || '').toString().toLowerCase().trim();

@@ -63,8 +63,8 @@ class InstantStatusUpdater {
       }
 
       // 2. 🚫 تجاهل الحالات غير المهمة من الوسيط
-      const ignoredStatuses = ['فعال', 'active', 'في موقع فرز بغداد', 'في الطريق الى مكتب المحافظة'];
-      const ignoredStatusIds = [1, 5, 7]; // 1=فعال, 5=في موقع فرز بغداد, 7=في الطريق الى مكتب المحافظة
+      const ignoredStatuses = ['فعال', 'active', 'في موقع فرز بغداد', 'في الطريق الى مكتب المحافظة', 'في مكتب المحافظة'];
+      const ignoredStatusIds = [1, 5, 6, 7]; // 1=فعال, 5=في موقع فرز بغداد, 6=في مكتب المحافظة, 7=في الطريق الى مكتب المحافظة
 
       const isIgnoredStatus = ignoredStatuses.includes(newWaseetStatus) ||
         (waseetData && ignoredStatusIds.includes(parseInt(waseetData.status_id)));
