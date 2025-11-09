@@ -552,6 +552,37 @@ class IntegratedWaseetSync extends EventEmitter {
    */
   async _updateOrder(dbOrder, appStatus, waseetStatusId, waseetStatusText) {
     try {
+      // 🛡️ ProfitGuard (integrated sync): منع أي تغيير غير متوقع في أرباح المستخدم عند التحويل إلى "قيد التوصيل"
+      const isInDeliveryStatus = (s) => {
+        const t = (s || '').toString().toLowerCase();
+        return t.includes('in_delivery') || t.includes('قيد التوصيل');
+      };
+      let __profitGuardShouldRun = isInDeliveryStatus(appStatus);
+      const __profitGuardUserPhone = dbOrder.user_phone || dbOrder.primary_phone;
+      let __profitGuardBefore = null;
+      const __orderId = dbOrder.id;
+
+      if (__profitGuardShouldRun && __profitGuardUserPhone) {
+        try {
+          const { data: __u, error: __uErr } = await this.supabase
+            .from('users')
+            .select('achieved_profits, expected_profits')
+            .eq('phone', __profitGuardUserPhone)
+            .single();
+          if (!__uErr && __u) {
+            __profitGuardBefore = {
+              achieved: Number(__u.achieved_profits) || 0,
+              expected: Number(__u.expected_profits) || 0,
+            };
+            console.log(`🛡️ [SYNC] ProfitGuard snapshot for ${__profitGuardUserPhone} (order ${__orderId}):`, __profitGuardBefore);
+          } else {
+            __profitGuardShouldRun = false;
+          }
+        } catch (gErr) {
+          __profitGuardShouldRun = false;
+        }
+      }
+
       let updateData = {
         waseet_status: appStatus,
         waseet_status_text: waseetStatusText,
@@ -587,6 +618,74 @@ class IntegratedWaseetSync extends EventEmitter {
       if (error) {
         console.error(`❌ خطأ في تحديث الطلب ${dbOrder.id}:`, error.message);
         return false;
+      }
+
+      // 🛡️ ProfitGuard: فحص فوري بعد التحديث
+      if (__profitGuardShouldRun && __profitGuardBefore && __profitGuardUserPhone) {
+        try {
+          const { data: __after, error: __afterErr } = await this.supabase
+            .from('users')
+            .select('achieved_profits, expected_profits')
+            .eq('phone', __profitGuardUserPhone)
+            .single();
+          if (!__afterErr && __after) {
+            const achievedAfter = Number(__after.achieved_profits) || 0;
+            const expectedAfter = Number(__after.expected_profits) || 0;
+            const __changed = achievedAfter !== __profitGuardBefore.achieved || expectedAfter !== __profitGuardBefore.expected;
+            if (__changed) {
+              console.warn(`🛡️ [SYNC] ProfitGuard: unexpected change detected after in-delivery sync update. Reverting.`, {
+                orderId: __orderId,
+                before: __profitGuardBefore,
+                after: { achieved: achievedAfter, expected: expectedAfter }
+              });
+              await this.supabase
+                .from('users')
+                .update({
+                  achieved_profits: __profitGuardBefore.achieved,
+                  expected_profits: __profitGuardBefore.expected,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('phone', __profitGuardUserPhone);
+              console.log(`✅ [SYNC] ProfitGuard: user profits reverted to snapshot for ${__profitGuardUserPhone}.`);
+            }
+          }
+        } catch (pgErr2) {
+          // تجاهل
+        }
+
+        // 🔁 تحقق متأخر لالتقاط أي تغييرات تأتي متأخرة من مستمعين خارجيين
+        setTimeout(async () => {
+          try {
+            const { data: __later, error: __laterErr } = await this.supabase
+              .from('users')
+              .select('achieved_profits, expected_profits')
+              .eq('phone', __profitGuardUserPhone)
+              .single();
+            if (!__laterErr && __later) {
+              const achievedLater = Number(__later.achieved_profits) || 0;
+              const expectedLater = Number(__later.expected_profits) || 0;
+              const __lateChanged = achievedLater !== __profitGuardBefore.achieved || expectedLater !== __profitGuardBefore.expected;
+              if (__lateChanged) {
+                console.warn(`🛡️ [SYNC] ProfitGuard (delayed): late change detected. Reverting now.`, {
+                  orderId: __orderId,
+                  before: __profitGuardBefore,
+                  later: { achieved: achievedLater, expected: expectedLater }
+                });
+                await this.supabase
+                  .from('users')
+                  .update({
+                    achieved_profits: __profitGuardBefore.achieved,
+                    expected_profits: __profitGuardBefore.expected,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('phone', __profitGuardUserPhone);
+                console.log(`✅ [SYNC] ProfitGuard (delayed): user profits reverted for ${__profitGuardUserPhone}.`);
+              }
+            }
+          } catch (pgErr3) {
+            // تجاهل
+          }
+        }, 1500);
       }
 
       return true;
