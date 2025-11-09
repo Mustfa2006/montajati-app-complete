@@ -972,6 +972,14 @@ router.put('/:id/status', async (req, res) => {
       return t.includes('in_delivery') || t.includes('قيد التوصيل');
     }
 
+    // Helper: اكتشاف حالة "تم التسليم" بشكل مرن (يدعم اختلافات الكتابة)
+    function isDeliveredStatus(s) {
+      const t = (s || '').toString().toLowerCase();
+      // إنجليزي: delivered
+      // عربي: تم التسليم للزبون / تم التسليم
+      return t.includes('delivered') || t.includes('تم التسليم');
+    }
+
 
     // تطبيق التحويل على الحالة
     const normalizedStatus = normalizeStatus(status);
@@ -981,7 +989,7 @@ router.put('/:id/status', async (req, res) => {
     console.log(`🔍 [${requestId}] البحث عن الطلب في قاعدة البيانات...`);
     const { data: existingOrder, error: fetchError } = await supabase
       .from('orders')
-      .select('id, status, customer_name, customer_id, user_phone')
+      .select('id, status, customer_name, customer_id, user_phone, profit, profit_amount')
       .eq('id', id)
       .single();
 
@@ -1028,6 +1036,35 @@ router.put('/:id/status', async (req, res) => {
         __profitGuardShouldRun = false;
       }
     }
+
+    // 🛡️ DeliveredGuard: التقط لقطة لأرباح المستخدم قبل التحويل إلى "تم التسليم"
+    const __deliveredGuardShouldRun = isDeliveredStatus(normalizedStatus);
+    const __deliveredGuardUserPhone = existingOrder.user_phone;
+    let __deliveredGuardBefore = null;
+    const __deliveredGuardOrderProfit = Number(existingOrder.profit_amount ?? existingOrder.profit) || 0;
+
+    if (__deliveredGuardShouldRun && __deliveredGuardUserPhone) {
+      try {
+        const { data: __uRow2, error: __uErr2 } = await supabase
+          .from('users')
+          .select('achieved_profits, expected_profits')
+          .eq('phone', __deliveredGuardUserPhone)
+          .single();
+
+        if (!__uErr2 && __uRow2) {
+          __deliveredGuardBefore = {
+            achieved: Number(__uRow2.achieved_profits) || 0,
+            expected: Number(__uRow2.expected_profits) || 0,
+          };
+          console.log(`🛡️ [${requestId}] DeliveredGuard snapshot for ${__deliveredGuardUserPhone}:`, __deliveredGuardBefore);
+        } else {
+          console.warn(`⚠️ [${requestId}] DeliveredGuard could not read user profits before:`, __uErr2?.message);
+        }
+      } catch (dgErr) {
+        console.warn(`⚠️ [${requestId}] DeliveredGuard read error:`, dgErr.message);
+      }
+    }
+
 
     // تحديث حالة الطلب (استخدام الحالة المحولة) — مع تجنب أي UPDATE إذا لم تتغير الحالة
     let __statusUpdated = false;
@@ -1107,6 +1144,59 @@ router.put('/:id/status', async (req, res) => {
 
       } catch (noteError) {
         console.warn(`⚠️ [${requestId}] تحذير: فشل في إضافة الملاحظة:`, noteError.message);
+      }
+    }
+
+
+    // 🛡️ DeliveredGuard: فحص ما بعد التحديث وتصحيح أي تكرار في نقل الأرباح
+    if (__statusUpdated && __deliveredGuardShouldRun && __deliveredGuardBefore && __deliveredGuardUserPhone) {
+      try {
+        const { data: __afterUser, error: __afterErr } = await supabase
+          .from('users')
+          .select('achieved_profits, expected_profits')
+          .eq('phone', __deliveredGuardUserPhone)
+          .single();
+
+        if (!__afterErr && __afterUser) {
+          const achievedAfter = Number(__afterUser.achieved_profits) || 0;
+          const expectedAfter = Number(__afterUser.expected_profits) || 0;
+
+          const expectedAchieved = (__deliveredGuardBefore.achieved) + __deliveredGuardOrderProfit;
+          const expectedExpected = Math.max(0, (__deliveredGuardBefore.expected) - __deliveredGuardOrderProfit);
+
+          const isOk = achievedAfter === expectedAchieved && expectedAfter === expectedExpected;
+
+          if (isOk) {
+            console.log(`✅ [${requestId}] DeliveredGuard: check passed - profits moved correctly.`);
+          } else {
+            // نمط مكرر معروف: إضافة الربح مرتين للمحققة وعدم إنقاص المنتظرة
+            const isDupPattern = (achievedAfter === (__deliveredGuardBefore.achieved + 2 * __deliveredGuardOrderProfit))
+              && (expectedAfter === __deliveredGuardBefore.expected);
+
+            if (isDupPattern) {
+              console.warn(`🛡️ [${requestId}] DeliveredGuard: duplicate profit movement detected. Applying correction.`);
+              await supabase
+                .from('users')
+                .update({
+                  achieved_profits: expectedAchieved,
+                  expected_profits: expectedExpected,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('phone', __deliveredGuardUserPhone);
+              console.log(`✅ [${requestId}] DeliveredGuard: correction applied.`);
+            } else {
+              console.warn(`⚠️ [${requestId}] DeliveredGuard: anomaly detected but pattern not recognized. No auto-fix applied.`, {
+                before: __deliveredGuardBefore,
+                after: { achieved: achievedAfter, expected: expectedAfter },
+                expected: { achieved: expectedAchieved, expected: expectedExpected },
+              });
+            }
+          }
+        } else {
+          console.warn(`⚠️ [${requestId}] DeliveredGuard could not read user profits after:`, __afterErr?.message);
+        }
+      } catch (dgAfterErr) {
+        console.warn(`⚠️ [${requestId}] DeliveredGuard post-check error:`, dgAfterErr.message);
       }
     }
 

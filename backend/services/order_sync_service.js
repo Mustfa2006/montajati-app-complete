@@ -442,15 +442,25 @@ class OrderSyncService {
               continue;
             }
 
-            // تحديث حالة الطلب
-            await this.supabase
-              .from('orders')
-              .update({
-                status: statusResult.localStatus || statusResult.status,
+            // تحديث حالة الطلب - لا نلمس عمود status إذا لم يتغير فعليًا لمنع تشغيل Trigger إضافي
+            {
+              const __newStatus = statusResult.localStatus || statusResult.status;
+              const __updatePayload = {
                 waseet_status: statusResult.status,
                 updated_at: new Date().toISOString()
-              })
-              .eq('id', order.id);
+              };
+              if (__newStatus && __newStatus !== order.status) {
+                __updatePayload.status = __newStatus;
+              }
+              let __q = this.supabase
+                .from('orders')
+                .update(__updatePayload)
+                .eq('id', order.id);
+              if (Object.prototype.hasOwnProperty.call(__updatePayload, 'status')) {
+                __q = __q.neq('status', __newStatus);
+              }
+              await __q;
+            }
 
             console.log(`✅ تم تحديث حالة الطلب ${order.id}: ${order.status} → ${statusResult.status}`);
 

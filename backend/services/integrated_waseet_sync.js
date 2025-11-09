@@ -519,19 +519,27 @@ class IntegratedWaseetSync extends EventEmitter {
    */
   async _updateOrder(dbOrder, appStatus, waseetStatusId, waseetStatusText) {
     try {
-      const updateData = {
-        status: appStatus,
+      let updateData = {
         waseet_status: appStatus,
         waseet_status_text: waseetStatusText,
         waseet_status_id: waseetStatusId,
         last_status_check: new Date().toISOString(),
         status_updated_at: new Date().toISOString()
       };
+      // ✅ لا نقوم بتحديث عمود status إذا لم تتغير الحالة فعلياً لمنع تشغيل Trigger التربح مرتين
+      if (dbOrder.status !== appStatus) {
+        updateData.status = appStatus;
+      }
 
-      const { error } = await this.supabase
+      // شرط إضافي: نمنع تحديث صف يحتوي نفس القيمة في status باستخدام neq لمنع تشغيل التريجر بلا داعٍ
+      let __q = this.supabase
         .from('orders')
         .update(updateData)
         .eq('id', dbOrder.id);
+      if (Object.prototype.hasOwnProperty.call(updateData, 'status')) {
+        __q = __q.neq('status', appStatus);
+      }
+      const { error } = await __q;
 
       if (error) {
         console.error(`❌ خطأ في تحديث الطلب ${dbOrder.id}:`, error.message);
