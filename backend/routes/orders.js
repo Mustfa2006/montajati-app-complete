@@ -1201,6 +1201,55 @@ router.put('/:id/status', async (req, res) => {
       }
     }
 
+    // 🛡️ DeliveredGuard: تحقق متأخر (بعد 1.5 ثانية) لضمان عدم حدوث نقل مزدوج لاحقًا من خدمات أخرى
+    if (__statusUpdated && __deliveredGuardShouldRun && __deliveredGuardBefore && __deliveredGuardUserPhone) {
+      setTimeout(async () => {
+        try {
+          const { data: __laterUser, error: __laterErr } = await supabase
+            .from('users')
+            .select('achieved_profits, expected_profits')
+            .eq('phone', __deliveredGuardUserPhone)
+            .single();
+
+          if (!__laterErr && __laterUser) {
+            const achievedLater = Number(__laterUser.achieved_profits) || 0;
+            const expectedLater = Number(__laterUser.expected_profits) || 0;
+
+            const expectedAchievedLater = (__deliveredGuardBefore.achieved) + __deliveredGuardOrderProfit;
+            const expectedExpectedLater = Math.max(0, (__deliveredGuardBefore.expected) - __deliveredGuardOrderProfit);
+
+            const isOkLater = achievedLater === expectedAchievedLater && expectedLater === expectedExpectedLater;
+
+            if (isOkLater) {
+              console.log(`✅ [${requestId}] DeliveredGuard (delayed): check passed - single profit move confirmed.`);
+            } else {
+              console.warn(`🛡️ [${requestId}] DeliveredGuard (delayed): anomaly detected. Auto-correcting to single movement.`, {
+                before: __deliveredGuardBefore,
+                after: { achieved: achievedLater, expected: expectedLater },
+                willSet: { achieved: expectedAchievedLater, expected: expectedExpectedLater }
+              });
+
+              await supabase
+                .from('users')
+                .update({
+                  achieved_profits: expectedAchievedLater,
+                  expected_profits: expectedExpectedLater,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('phone', __deliveredGuardUserPhone);
+
+              console.log(`✅ [${requestId}] DeliveredGuard (delayed): correction applied to enforce single profit move.`);
+            }
+          } else {
+            console.warn(`⚠️ [${requestId}] DeliveredGuard (delayed) could not read user profits:`, __laterErr?.message);
+          }
+        } catch (dgLaterErr) {
+          console.warn(`⚠️ [${requestId}] DeliveredGuard delayed check error:`, dgLaterErr.message);
+        }
+      }, 1500);
+    }
+
+
     // 🔔 **ملاحظة مهمة:** الإشعارات تُرسل الآن من مكان واحد فقط:
     // 1. من integrated_waseet_sync.js عند المزامنة التلقائية مع الوسيط
     // 2. هذا يضمن عدم تكرار الإشعارات
