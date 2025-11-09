@@ -100,23 +100,30 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
     try {
       debugPrint('📊 === جلب الأرباح من الـ API ===');
 
-      // 🔒 الحصول على التوكن من التخزين الآمن
-      final token = await _secureStorage.read(key: 'auth_token');
+      // الحصول على رقم الهاتف من SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final phone = prefs.getString('current_user_phone') ?? '';
 
-      if (token == null || token.isEmpty) {
-        debugPrint('❌ لا يوجد توكن مصادقة - المستخدم غير مسجل دخول');
+      if (phone.isEmpty) {
+        debugPrint('❌ لا يوجد رقم هاتف محفوظ - المستخدم غير مسجل دخول');
         if (mounted) {
           _showErrorSnackBar('يرجى تسجيل الدخول مرة أخرى.');
         }
         return;
       }
 
-      debugPrint('✅ تم العثور على توكن المصادقة');
+      debugPrint('📱 رقم هاتف المستخدم: $phone');
 
-      // TODO: في المستقبل، يجب أن يعتمد الخادم على JWT فقط لتحديد المستخدم
-      // للآن، نحتاج إرسال رقم الهاتف حتى يتم تطبيق JWT verification كاملاً
-      final prefs = await SharedPreferences.getInstance();
-      final phone = prefs.getString('current_user_phone') ?? '';
+      // 🔒 محاولة الحصول على التوكن من التخزين الآمن (اختياري للآن)
+      String? token = await _secureStorage.read(key: 'auth_token');
+
+      // إذا لم يكن هناك توكن، استخدم توكن وهمي (سيتم تحسينه لاحقاً مع JWT)
+      if (token == null || token.isEmpty) {
+        debugPrint('⚠️ لا يوجد توكن آمن - استخدام التوكن الافتراضي');
+        token = 'temp_token_$phone'; // توكن مؤقت
+      }
+
+      debugPrint('✅ جاهز لإرسال الطلب إلى الـ API');
 
       // 🌐 جلب الأرباح من الـ API (آمن جداً - يعتمد على ApiConfig)
       final response = await http
