@@ -64,10 +64,10 @@ class StatusMapper {
       '3': 'in_delivery', // قيد التوصيل الى الزبون
 
       // حالات التسليم
-      'delivered': 'delivered',
-      'completed': 'delivered',
-      'success': 'delivered',
-      'received': 'delivered',
+      'delivered': 'تم التسليم للزبون',
+      'completed': 'تم التسليم للزبون',
+      'success': 'تم التسليم للزبون',
+      'received': 'تم التسليم للزبون',
 
       // ✅ إضافة الحالة المفقودة الأساسية
       '4': 'delivered', // تم التسليم للزبون
