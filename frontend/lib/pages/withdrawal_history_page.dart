@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import '../providers/theme_provider.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
@@ -85,16 +86,17 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
 
       debugPrint('✅ جاهز لإرسال الطلب إلى الـ API');
 
-      // 🌐 جلب طلبات السحب من الـ API (آمن جداً - يعتمد على JWT)
-      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:5000');
-
+      // 🌐 جلب طلبات السحب من الـ API (آمن جداً - يعتمد على ApiConfig)
       final response = await http
           .post(
-            Uri.parse('$apiUrl/api/users/withdrawals'),
-            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+            Uri.parse('${ApiConfig.usersUrl}/withdrawals'),
+            headers: {
+              ...ApiConfig.defaultHeaders,
+              'Authorization': 'Bearer $token',
+            },
             body: jsonEncode({'phone': phone}),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(ApiConfig.defaultTimeout);
 
       debugPrint('📡 استجابة الخادم: ${response.statusCode}');
 

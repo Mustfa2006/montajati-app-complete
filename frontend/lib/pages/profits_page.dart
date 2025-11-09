@@ -12,6 +12,7 @@ import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import '../providers/theme_provider.dart';
 import '../utils/number_formatter.dart';
 import '../utils/theme_colors.dart';
@@ -112,21 +113,19 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
 
       debugPrint('✅ تم العثور على توكن المصادقة');
 
-      // 🌐 جلب الأرباح من الـ API (آمن جداً - يعتمد على JWT فقط)
-      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:5000');
-
       // TODO: في المستقبل، يجب أن يعتمد الخادم على JWT فقط لتحديد المستخدم
       // للآن، نحتاج إرسال رقم الهاتف حتى يتم تطبيق JWT verification كاملاً
       final prefs = await SharedPreferences.getInstance();
       final phone = prefs.getString('current_user_phone') ?? '';
 
+      // 🌐 جلب الأرباح من الـ API (آمن جداً - يعتمد على ApiConfig)
       final response = await http
           .post(
-            Uri.parse('$apiUrl/api/users/profits'),
-            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+            Uri.parse('${ApiConfig.usersUrl}/profits'),
+            headers: {...ApiConfig.defaultHeaders, 'Authorization': 'Bearer $token'},
             body: jsonEncode({'phone': phone}),
           )
-          .timeout(const Duration(seconds: 5));
+          .timeout(ApiConfig.defaultTimeout);
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
