@@ -408,4 +408,184 @@ router.post('/withdrawals', async (req, res) => {
   }
 });
 
+// ===================================
+// POST /api/users/statistics/realized-profits - جلب الأرباح المحققة
+// ===================================
+router.post('/statistics/realized-profits', async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone || phone.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    console.log(`✅ جلب الأرباح المحققة للمستخدم: ${phone}`);
+
+    // جلب الطلبات المسلمة فقط (status = 'تم التسليم للزبون')
+    const { data, error } = await supabase
+      .from('orders')
+      .select('profit')
+      .eq('user_phone', phone)
+      .eq('status', 'تم التسليم للزبون');
+
+    if (error) {
+      console.error(`❌ خطأ في جلب الأرباح المحققة:`, error.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في جلب الأرباح المحققة'
+      });
+    }
+
+    // جمع جميع الأرباح
+    let totalProfit = 0.0;
+    if (data && data.length > 0) {
+      data.forEach(order => {
+        const profit = Number(order.profit) || 0.0;
+        totalProfit += profit;
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        realized_profits: totalProfit
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب الأرباح المحققة:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
+// ===================================
+// POST /api/users/statistics/province-orders - جلب الطلبات حسب المحافظة
+// ===================================
+router.post('/statistics/province-orders', async (req, res) => {
+  try {
+    const { phone, from_date, to_date } = req.body;
+
+    if (!phone || phone.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    if (!from_date || !to_date) {
+      return res.status(400).json({
+        success: false,
+        error: 'التواريخ مطلوبة'
+      });
+    }
+
+    console.log(`✅ جلب طلبات المحافظات للمستخدم: ${phone} من ${from_date} إلى ${to_date}`);
+
+    // جلب الطلبات في الفترة المحددة
+    const { data, error } = await supabase
+      .from('orders')
+      .select('id, province, city, created_at, user_phone, status')
+      .eq('user_phone', phone)
+      .gte('created_at', from_date)
+      .lte('created_at', to_date);
+
+    if (error) {
+      console.error(`❌ خطأ في جلب طلبات المحافظات:`, error.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في جلب طلبات المحافظات'
+      });
+    }
+
+    // حساب عدد الطلبات لكل محافظة
+    const provinceCounts = {};
+    if (data && data.length > 0) {
+      data.forEach(order => {
+        const province = order.province;
+        if (province) {
+          provinceCounts[province] = (provinceCounts[province] || 0) + 1;
+        }
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        province_counts: provinceCounts,
+        total_orders: data?.length || 0
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب طلبات المحافظات:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
+// ===================================
+// POST /api/users/statistics/weekday-orders - جلب الطلبات حسب أيام الأسبوع
+// ===================================
+router.post('/statistics/weekday-orders', async (req, res) => {
+  try {
+    const { phone, week_start, week_end } = req.body;
+
+    if (!phone || phone.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    if (!week_start || !week_end) {
+      return res.status(400).json({
+        success: false,
+        error: 'تواريخ الأسبوع مطلوبة'
+      });
+    }
+
+    console.log(`✅ جلب طلبات الأسبوع للمستخدم: ${phone} من ${week_start} إلى ${week_end}`);
+
+    // استخدام RPC للحصول على البيانات
+    const { data, error } = await supabase.rpc(
+      'get_weekday_orders',
+      {
+        p_user_phone: phone,
+        p_week_start: week_start,
+        p_week_end: week_end,
+      }
+    );
+
+    if (error) {
+      console.error(`❌ خطأ في جلب طلبات الأسبوع:`, error.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في جلب طلبات الأسبوع'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        weekday_orders: data || []
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب طلبات الأسبوع:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
 module.exports = router;

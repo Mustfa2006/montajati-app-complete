@@ -90,10 +90,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       final response = await http
           .post(
             Uri.parse('${ApiConfig.usersUrl}/withdrawals'),
-            headers: {
-              ...ApiConfig.defaultHeaders,
-              'Authorization': 'Bearer $token',
-            },
+            headers: {...ApiConfig.defaultHeaders, 'Authorization': 'Bearer $token'},
             body: jsonEncode({'phone': phone}),
           )
           .timeout(ApiConfig.defaultTimeout);
@@ -265,22 +262,35 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          // زر الرجوع (بارز وجميل - الوضع النهاري فقط)
+          // زر الرجوع الرهيب - نفس تصميم صفحة الأرباح
           GestureDetector(
             onTap: () => context.pop(),
             child: Container(
-              width: 45,
-              height: 45,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.5), width: 1.5),
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFFFD700).withValues(alpha: 0.4),
+                    const Color(0xFFFFA500).withValues(alpha: 0.3),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.6), width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
+              child: ClipOval(
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: const Icon(FontAwesomeIcons.arrowRight, color: Colors.black, size: 20),
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: const Icon(FontAwesomeIcons.arrowRight, color: Colors.black87, size: 22),
                 ),
               ),
             ),

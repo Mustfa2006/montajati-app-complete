@@ -5,10 +5,11 @@ import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/api_config.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/app_background.dart';
 import '../widgets/iraq_map_widget.dart';
@@ -143,7 +144,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
     }
   }
 
-  // جلب أرباح المستخدم - جمع الأرباح من الطلبات المسلمة فقط
+  // 🌐 جلب أرباح المستخدم من الباك اند (آمن جداً)
   Future<void> _loadUserProfits() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -153,26 +154,33 @@ class _StatisticsPageState extends State<StatisticsPage> {
         return;
       }
 
-      // جلب الطلبات المسلمة فقط (status = 'تم التسليم للزبون')
-      final response = await Supabase.instance.client
-          .from('orders')
-          .select('profit')
-          .eq('user_phone', currentUserPhone)
-          .eq('status', 'تم التسليم للزبون');
+      debugPrint('📊 جلب الأرباح المحققة من الباك اند للمستخدم: $currentUserPhone');
 
-      if (mounted) {
-        // جمع جميع الأرباح من الطلبات المسلمة
-        double totalProfit = 0.0;
-        for (var order in response) {
-          final profit = (order['profit'] as num?)?.toDouble() ?? 0.0;
-          totalProfit += profit;
+      // 🌐 جلب الأرباح من الباك اند
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/statistics/realized-profits'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({'phone': currentUserPhone}),
+          )
+          .timeout(ApiConfig.defaultTimeout);
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          final data = jsonData['data'];
+          final realizedProfits = (data['realized_profits'] as num?)?.toDouble() ?? 0.0;
+
+          if (mounted) {
+            setState(() {
+              _realizedProfits = realizedProfits;
+            });
+
+            debugPrint('✅ إجمالي الأرباح المحققة: $realizedProfits د.ع');
+          }
         }
-
-        setState(() {
-          _realizedProfits = totalProfit;
-        });
-
-        debugPrint('✅ إجمالي الأرباح المحققة: $totalProfit د.ع من ${response.length} طلب مسلم');
+      } else {
+        debugPrint('❌ خطأ في جلب الأرباح: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('❌ خطأ في جلب الأرباح: $e');
@@ -244,47 +252,53 @@ class _StatisticsPageState extends State<StatisticsPage> {
       debugPrint('   من: ${_selectedFromDate!.toIso8601String()}');
       debugPrint('   إلى: ${_selectedToDate!.toIso8601String()}');
 
-      // جلب الطلبات للمستخدم الحالي فقط
-      // استخدام user_phone لأنه رقم المستخدم الذي أنشأ الطلب
-      debugPrint('🔎 البحث عن الطلبات بـ user_phone = $currentUserPhone');
+      // 🌐 جلب الطلبات من الباك اند (آمن جداً)
+      debugPrint('🔎 جلب طلبات المحافظات من الباك اند');
 
-      final response = await Supabase.instance.client
-          .from('orders')
-          .select('id, province, city, created_at, user_phone, status')
-          .eq('user_phone', currentUserPhone)
-          .gte('created_at', _selectedFromDate!.toIso8601String())
-          .lte('created_at', _selectedToDate!.toIso8601String());
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/statistics/province-orders'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({
+              'phone': currentUserPhone,
+              'from_date': _selectedFromDate!.toIso8601String(),
+              'to_date': _selectedToDate!.toIso8601String(),
+            }),
+          )
+          .timeout(ApiConfig.defaultTimeout);
 
-      debugPrint('📊 عدد الطلبات المسترجعة: ${response.length}');
+      if (response.statusCode != 200) {
+        debugPrint('❌ خطأ في جلب طلبات المحافظات: ${response.statusCode}');
+        return;
+      }
 
-      if (response.isEmpty) {
+      final jsonData = jsonDecode(response.body);
+      if (jsonData['success'] != true || jsonData['data'] == null) {
+        debugPrint('❌ فشل في جلب طلبات المحافظات');
+        return;
+      }
+
+      final data = jsonData['data'];
+      final Map<String, dynamic> rawProvinceCounts = data['province_counts'] ?? {};
+      final totalOrders = data['total_orders'] ?? 0;
+
+      debugPrint('📊 عدد الطلبات المسترجعة: $totalOrders');
+
+      if (totalOrders == 0) {
         debugPrint('⚠️ لا توجد طلبات في هذه الفترة للمستخدم $currentUserPhone');
       }
 
-      // حساب عدد الطلبات لكل محافظة
+      // تحويل وتطبيع أسماء المحافظات
       final Map<String, int> provinceCounts = {};
 
-      for (var order in response) {
-        final province = order['province'];
-        final orderId = order['id'];
-        final city = order['city'];
-        final status = order['status'];
-
-        debugPrint('� طلب $orderId:');
-        debugPrint('   المحافظة الأصلية: $province');
-        debugPrint('   المدينة: $city');
-        debugPrint('   الحالة: $status');
-
+      rawProvinceCounts.forEach((province, count) {
         if (province != null && province.toString().trim().isNotEmpty) {
           final originalName = province.toString().trim();
           final normalizedName = _normalizeProvinceName(originalName);
-
-          provinceCounts[normalizedName] = (provinceCounts[normalizedName] ?? 0) + 1;
-          debugPrint('   ✅ تم إضافة للمحافظة: $normalizedName');
-        } else {
-          debugPrint('   ⚠️ المحافظة فارغة!');
+          provinceCounts[normalizedName] = (provinceCounts[normalizedName] ?? 0) + (count as int);
+          debugPrint('   ✅ $normalizedName: $count طلب');
         }
-      }
+      });
 
       debugPrint('🗺️ === النتيجة النهائية ===');
       debugPrint('عدد الطلبات حسب المحافظة:');
@@ -367,24 +381,41 @@ class _StatisticsPageState extends State<StatisticsPage> {
       debugPrint('📅 الأسبوع بتوقيت العراق: من ${weekStartIraq.toString()} إلى ${weekEndIraq.toString()}');
       debugPrint('📅 الأسبوع بتوقيت UTC: من ${weekStartUtc.toIso8601String()} إلى ${weekEndUtc.toIso8601String()}');
 
-      // استخدام RPC للحصول على البيانات
-      final response = await Supabase.instance.client.rpc(
-        'get_weekday_orders',
-        params: {
-          'p_user_phone': currentUserPhone,
-          'p_week_start': weekStartUtc.toIso8601String(),
-          'p_week_end': weekEndUtc.toIso8601String(),
-        },
-      );
+      // 🌐 جلب طلبات الأسبوع من الباك اند (آمن جداً)
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/statistics/weekday-orders'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({
+              'phone': currentUserPhone,
+              'week_start': weekStartUtc.toIso8601String(),
+              'week_end': weekEndUtc.toIso8601String(),
+            }),
+          )
+          .timeout(ApiConfig.defaultTimeout);
 
-      debugPrint('📦 عدد الأيام المسترجعة: ${response?.length ?? 0}');
+      if (response.statusCode != 200) {
+        debugPrint('❌ خطأ في جلب طلبات الأسبوع: ${response.statusCode}');
+        return;
+      }
+
+      final jsonData = jsonDecode(response.body);
+      if (jsonData['success'] != true || jsonData['data'] == null) {
+        debugPrint('❌ فشل في جلب طلبات الأسبوع');
+        return;
+      }
+
+      final data = jsonData['data'];
+      final List<dynamic> weekdayOrdersData = data['weekday_orders'] ?? [];
+
+      debugPrint('📦 عدد الأيام المسترجعة: ${weekdayOrdersData.length}');
 
       // إعادة تعيين العدادات
       _weekdayOrders.updateAll((key, value) => 0);
 
-      if (response != null && response.isNotEmpty) {
+      if (weekdayOrdersData.isNotEmpty) {
         // معالجة النتائج
-        for (var item in response) {
+        for (var item in weekdayOrdersData) {
           final dayOfWeek = item['day_of_week'] as int;
           final orderCount = item['order_count'] as int;
 

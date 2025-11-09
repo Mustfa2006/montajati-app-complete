@@ -279,48 +279,111 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
               // مساحة للشريط العلوي
               const SizedBox(height: 25),
 
-              // ✨ شريط علوي بسيط (ضمن المحتوى)
+              // ✨ شريط علوي احترافي مع تصميم رهيب
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    // زر الرجوع (بارز وجميل - الوضع النهاري فقط)
-                    GestureDetector(
-                      onTap: () => context.go('/'),
-                      child: Container(
-                        width: 45,
-                        height: 45,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(15),
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                          border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.5), width: 1.5),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(15),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                            child: Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
+                padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(25),
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFFFFD700).withValues(alpha: 0.15),
+                      const Color(0xFFFFA500).withValues(alpha: 0.1),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(25),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Row(
+                      children: [
+                        // زر الرجوع الرهيب
+                        GestureDetector(
+                          onTap: () => context.go('/'),
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFFFFD700).withValues(alpha: 0.4),
+                                  const Color(0xFFFFA500).withValues(alpha: 0.3),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.6), width: 2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                                child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 22),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
 
-                    // العنوان في المنتصف
-                    Expanded(
-                      child: Text(
-                        'الأرباح',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.cairo(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFFFD700),
+                        // العنوان الرهيب في المنتصف
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 15),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'الأرباح',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFFFFD700),
+                                    letterSpacing: 1.2,
+                                    shadows: [
+                                      Shadow(
+                                        color: const Color(0xFFFFD700).withValues(alpha: 0.5),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Container(
+                                  width: 60,
+                                  height: 3,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(2),
+                                    gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
 
-                    // مساحة فارغة للتوازن
-                    const SizedBox(width: 45),
-                  ],
+                        // مساحة فارغة للتوازن
+                        const SizedBox(width: 50),
+                      ],
+                    ),
+                  ),
                 ),
               ),
 
@@ -437,29 +500,9 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
 
                   const SizedBox(height: 8),
 
-                  // المبلغ مع أنيميشن تحميل
+                  // المبلغ مع أنيميشن تحميل رهيب
                   _isLoadingProfits
-                      ? Row(
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF06d6a0)),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'جاري التحميل...',
-                              style: GoogleFonts.cairo(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF06d6a0).withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ],
-                        )
+                      ? const BouncingBallsLoader(color: Color(0xFF06d6a0), size: 14.0)
                       : Text(
                           NumberFormatter.formatCurrency(_realizedProfits),
                           style: GoogleFonts.cairo(
@@ -543,29 +586,9 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
 
                   const SizedBox(height: 8),
 
-                  // المبلغ مع أنيميشن تحميل
+                  // المبلغ مع أنيميشن تحميل رهيب
                   _isLoadingProfits
-                      ? Row(
-                          children: [
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFf72585)),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Text(
-                              'جاري التحميل...',
-                              style: GoogleFonts.cairo(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFf72585).withValues(alpha: 0.7),
-                              ),
-                            ),
-                          ],
-                        )
+                      ? const BouncingBallsLoader(color: Color(0xFFf72585), size: 14.0)
                       : Text(
                           NumberFormatter.formatCurrency(_pendingProfits),
                           style: GoogleFonts.cairo(
@@ -721,6 +744,85 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
           ],
         ),
       ),
+    );
+  }
+}
+
+// 🎨 Widget للـ Loading الرهيب - كرات تقفز بتصميم احترافي
+class BouncingBallsLoader extends StatefulWidget {
+  final Color color;
+  final double size;
+
+  const BouncingBallsLoader({super.key, this.color = const Color(0xFFFFD700), this.size = 12.0});
+
+  @override
+  State<BouncingBallsLoader> createState() => _BouncingBallsLoaderState();
+}
+
+class _BouncingBallsLoaderState extends State<BouncingBallsLoader> with TickerProviderStateMixin {
+  late List<AnimationController> _controllers;
+  late List<Animation<double>> _animations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = List.generate(
+      3,
+      (index) => AnimationController(vsync: this, duration: const Duration(milliseconds: 600)),
+    );
+
+    _animations = _controllers.map((controller) {
+      return Tween<double>(
+        begin: 0.0,
+        end: -20.0,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
+    }).toList();
+
+    // تشغيل الأنيميشن بتأخير متتالي
+    for (int i = 0; i < _controllers.length; i++) {
+      Future.delayed(Duration(milliseconds: i * 150), () {
+        if (mounted) {
+          _controllers[i].repeat(reverse: true);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(3, (index) {
+        return AnimatedBuilder(
+          animation: _animations[index],
+          builder: (context, child) {
+            return Container(
+              margin: EdgeInsets.symmetric(horizontal: widget.size * 0.3),
+              child: Transform.translate(
+                offset: Offset(0, _animations[index].value),
+                child: Container(
+                  width: widget.size,
+                  height: widget.size,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(colors: [widget.color, widget.color.withValues(alpha: 0.6)]),
+                    boxShadow: [BoxShadow(color: widget.color.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 2)],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      }),
     );
   }
 }
