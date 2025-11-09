@@ -1,12 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/api_config.dart';
 import '../providers/theme_provider.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
@@ -47,26 +50,38 @@ class _TopProductsPageState extends State<TopProductsPage> {
 
       debugPrint('🔍 جلب المنتجات الأكثر مبيعاً للمستخدم: $currentUserPhone');
 
-      // استخدام RPC أو استعلام مباشر للحصول على المنتجات من order_items
-      // نستخدم استعلام SQL مباشر لأنه أكثر كفاءة
-      final response = await Supabase.instance.client.rpc(
-        'get_top_products_for_user',
-        params: {'p_user_phone': currentUserPhone},
-      );
+      // 🚀 استخدام الباك اند بدلاً من الاتصال المباشر بقاعدة البيانات
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/top-products'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({'phone': currentUserPhone}),
+          )
+          .timeout(ApiConfig.defaultTimeout);
 
-      debugPrint('📦 عدد المنتجات المسترجعة: ${response.length}');
-
-      if (response == null || response.isEmpty) {
-        debugPrint('⚠️ لا توجد منتجات');
-        setState(() {
-          _isLoading = false;
-        });
+      if (response.statusCode != 200) {
+        debugPrint('❌ فشل في جلب المنتجات: ${response.statusCode}');
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
         return;
       }
 
+      final jsonData = jsonDecode(response.body);
+      if (jsonData['success'] != true || jsonData['data'] == null) {
+        debugPrint('⚠️ لا توجد منتجات');
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+
+      final List<dynamic> data = jsonData['data'];
+      debugPrint('📦 عدد المنتجات المسترجعة: ${data.length}');
+
       // تحويل النتائج إلى قائمة
       final List<Map<String, dynamic>> products = [];
-      for (var item in response) {
+      for (var item in data) {
         products.add({
           'product_id': item['product_id'],
           'product_name': item['product_name'],
@@ -108,8 +123,10 @@ class _TopProductsPageState extends State<TopProductsPage> {
             SliverToBoxAdapter(child: const SizedBox(height: 20)),
 
             if (_isLoading)
-              const SliverFillRemaining(
-                child: Center(child: CircularProgressIndicator(color: Color(0xFFffd700))),
+              SliverFillRemaining(
+                child: Center(
+                  child: BouncingBallsLoader(color: isDark ? const Color(0xFFffd700) : Colors.black87, size: 16.0),
+                ),
               )
             else if (_topProducts.isEmpty)
               SliverFillRemaining(
@@ -146,11 +163,18 @@ class _TopProductsPageState extends State<TopProductsPage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                border: Border.all(
+                  color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                  width: 1,
+                ),
               ),
-              child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
+              child: Icon(
+                FontAwesomeIcons.arrowRight,
+                color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                size: 18,
+              ),
             ),
           ),
           const SizedBox(width: 15),
@@ -210,11 +234,15 @@ class _TopProductsPageState extends State<TopProductsPage> {
                           productImage,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) {
-                            return const Icon(FontAwesomeIcons.image, color: Color(0xFFffd700), size: 30);
+                            return Icon(
+                              FontAwesomeIcons.image,
+                              color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                              size: 30,
+                            );
                           },
                         ),
                       )
-                    : const Icon(FontAwesomeIcons.image, color: Color(0xFFffd700), size: 30),
+                    : Icon(FontAwesomeIcons.image, color: isDark ? const Color(0xFFffd700) : Colors.black87, size: 30),
               ),
               const SizedBox(width: 15),
               // اسم المنتج
@@ -225,7 +253,11 @@ class _TopProductsPageState extends State<TopProductsPage> {
                     if (index == 0)
                       Row(
                         children: [
-                          const FaIcon(FontAwesomeIcons.trophy, color: Color(0xFFffd700), size: 16),
+                          FaIcon(
+                            FontAwesomeIcons.trophy,
+                            color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                            size: 16,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             'الأكثر مبيعاً',
@@ -331,6 +363,82 @@ class _TopProductsPageState extends State<TopProductsPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// 🎨 Widget للـ Loading الرهيب - كرات تقفز بتصميم احترافي
+class BouncingBallsLoader extends StatefulWidget {
+  final Color color;
+  final double size;
+
+  const BouncingBallsLoader({super.key, this.color = const Color(0xFFFFD700), this.size = 12.0});
+
+  @override
+  State<BouncingBallsLoader> createState() => _BouncingBallsLoaderState();
+}
+
+class _BouncingBallsLoaderState extends State<BouncingBallsLoader> with TickerProviderStateMixin {
+  late List<AnimationController> _controllers;
+  late List<Animation<double>> _animations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = List.generate(
+      3,
+      (index) => AnimationController(vsync: this, duration: const Duration(milliseconds: 600)),
+    );
+
+    _animations = _controllers.map((controller) {
+      return Tween<double>(
+        begin: 0.0,
+        end: -10.0, // تقليل الارتفاع إلى 50% فقط
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
+    }).toList();
+
+    // تشغيل الأنيميشن بتأخير متتالي
+    for (int i = 0; i < _controllers.length; i++) {
+      Future.delayed(Duration(milliseconds: i * 150), () {
+        if (mounted) {
+          _controllers[i].repeat(reverse: true);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(3, (index) {
+        return AnimatedBuilder(
+          animation: _animations[index],
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _animations[index].value),
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: widget.color.withValues(alpha: 0.5), blurRadius: 8, spreadRadius: 2)],
+                ),
+              ),
+            );
+          },
+        );
+      }),
     );
   }
 }

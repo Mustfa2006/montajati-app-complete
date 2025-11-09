@@ -121,6 +121,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
   DateTime? _lastRequestTime;
   static const Duration _debounceDuration = Duration(milliseconds: 500);
   bool _isLoading = false; // لمنع الطلبات المتعددة
+  bool _isLoadingProfits = false; // مؤشر تحميل منفصل للأرباح المحققة
+  bool _profitsLoaded = false; // لتتبع ما إذا تم تحميل الأرباح مسبقاً
 
   // دالة مساعدة لتحويل رقم اليوم إلى اسم عربي
   String _getArabicDayName(int weekday) {
@@ -151,6 +153,9 @@ class _StatisticsPageState extends State<StatisticsPage> {
   }
 
   Future<void> _initializePage() async {
+    // 🚀 تفعيل مؤشر تحميل الأرباح
+    setState(() => _isLoadingProfits = true);
+
     // 🚀 SWR Pattern: عرض البيانات المخزنة فوراً ثم تحديثها
     await _loadCachedStatistics(); // عرض فوري
     await _loadGeoJsonData();
@@ -356,8 +361,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
       }
     } catch (e) {
       debugPrint('❌ خطأ في جلب الإحصائيات: $e');
-      // 🚨 عرض رسالة خطأ للمستخدم
-      _showErrorSnackBar('خطأ في الاتصال بالإنترنت');
+      // 🚨 عرض رسالة خطأ للمستخدم مع إعادة محاولة تلقائية
+      _showErrorSnackBarWithRetry('خطأ في الاتصال بالإنترنت');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -370,8 +375,12 @@ class _StatisticsPageState extends State<StatisticsPage> {
     if (!mounted) return;
 
     setState(() {
-      // 1️⃣ الأرباح المحققة
-      _realizedProfits = (data['realized_profits'] as num?)?.toDouble() ?? 0.0;
+      // 1️⃣ الأرباح المحققة (تُحمل مرة واحدة فقط)
+      if (!_profitsLoaded) {
+        _realizedProfits = (data['realized_profits'] as num?)?.toDouble() ?? 0.0;
+        _profitsLoaded = true;
+        _isLoadingProfits = false;
+      }
 
       // 2️⃣ طلبات المحافظات
       _provinceOrders.clear();
@@ -430,6 +439,45 @@ class _StatisticsPageState extends State<StatisticsPage> {
     if (_cachedData != null) {
       _applyDataFromResponse(_cachedData!);
     }
+  }
+
+  // 🚨 عرض رسالة خطأ مع إعادة محاولة تلقائية عند توفر الإنترنت
+  void _showErrorSnackBarWithRetry(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red.shade700,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'إعادة المحاولة',
+          textColor: Colors.white,
+          onPressed: () => _loadAllStatistics(forceRefresh: true),
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+
+    // 🔄 إعادة محاولة تلقائية بعد 3 ثواني
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        _loadAllStatistics(forceRefresh: true);
+      }
+    });
   }
 
   // 🚨 عرض رسالة خطأ مع زر "إعادة المحاولة"
@@ -929,11 +977,18 @@ class _StatisticsPageState extends State<StatisticsPage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                border: Border.all(
+                  color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                  width: 1,
+                ),
               ),
-              child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
+              child: Icon(
+                FontAwesomeIcons.arrowRight,
+                color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                size: 18,
+              ),
             ),
           ),
           const SizedBox(width: 15),
@@ -970,10 +1025,15 @@ class _StatisticsPageState extends State<StatisticsPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFffd700).withValues(alpha: 0.3),
+              color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.transparent,
               borderRadius: BorderRadius.circular(15),
+              border: isDark ? null : Border.all(color: Colors.black87, width: 1),
             ),
-            child: const FaIcon(FontAwesomeIcons.dollarSign, color: Color(0xFFffd700), size: 24),
+            child: FaIcon(
+              FontAwesomeIcons.dollarSign,
+              color: isDark ? const Color(0xFFffd700) : Colors.black87,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 20),
           // النص
@@ -991,18 +1051,29 @@ class _StatisticsPageState extends State<StatisticsPage> {
                 ),
                 const SizedBox(height: 6),
                 // 🚀 عرض مؤشر تحميل أو البيانات
-                _isLoading
-                    ? const SizedBox(
-                        height: 28,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                _isLoadingProfits
+                    ? SizedBox(
+                        height: 24,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: List.generate(
+                            3,
+                            (index) => Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 2),
+                              child: _BouncingBall(
+                                delay: Duration(milliseconds: index * 150),
+                                color: const Color(0xFFffd700),
+                                size: 6,
+                                maxHeight: 18, // حد أقصى للارتفاع (لا يتجاوز النص)
+                              ),
+                            ),
+                          ),
                         ),
                       )
                     : Text(
                         '${_realizedProfits.toStringAsFixed(0)} د.ع',
                         style: GoogleFonts.cairo(
-                          fontSize: 28,
+                          fontSize: 22, // تصغير من 28 إلى 22
                           fontWeight: FontWeight.bold,
                           color: const Color(0xFFffd700),
                           height: 1.0,
@@ -1032,28 +1103,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const FaIcon(FontAwesomeIcons.calendar, color: Color(0xFFffd700), size: 16),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'المدة',
-                style: GoogleFonts.cairo(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
+          // 🗑️ تم حذف كلمة "المدة" والأيقونة حسب طلب المستخدم
           Row(
             children: [
               Expanded(
@@ -1113,7 +1163,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
     );
   }
 
-  // الخريطة التفاعلية
+  // الخريطة التفاعلية (responsive + إخفاء مربع الملاحظة عند النقر خارجها)
   Widget _buildInteractiveMap(bool isDark) {
     if (_isLoadingMap) {
       return Container(
@@ -1135,16 +1185,57 @@ class _StatisticsPageState extends State<StatisticsPage> {
 
     debugPrint('🗺️ Building map with province orders: $_provinceOrders');
 
-    return IraqMapWidget(
-      geoJsonData: _geoJsonData!,
-      provinceOrders: _provinceOrders,
-      selectedProvince: _selectedProvince,
-      onProvinceSelected: (provinceName, center) {
-        if (mounted) {
-          setState(() {
-            _selectedProvince = provinceName;
-          });
+    // 🚀 حساب ارتفاع الخريطة بناءً على عرض الشاشة (responsive)
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final screenWidth = MediaQuery.of(context).size.width;
+        final screenHeight = MediaQuery.of(context).size.height;
+
+        // حساب ارتفاع ذكي بناءً على حجم الشاشة
+        double mapHeight;
+        if (screenWidth < 360) {
+          // هواتف صغيرة جداً
+          mapHeight = screenHeight * 0.5;
+        } else if (screenWidth < 400) {
+          // هواتف صغيرة
+          mapHeight = screenHeight * 0.55;
+        } else if (screenWidth < 600) {
+          // هواتف متوسطة
+          mapHeight = screenHeight * 0.6;
+        } else {
+          // أجهزة لوحية وكبيرة
+          mapHeight = screenHeight * 0.65;
         }
+
+        // التأكد من أن الارتفاع ليس كبيراً جداً أو صغيراً جداً
+        mapHeight = mapHeight.clamp(350.0, 700.0);
+
+        return GestureDetector(
+          // 🎯 إخفاء مربع الملاحظة عند النقر خارج الخريطة
+          onTap: () {
+            if (_selectedProvince != null && mounted) {
+              setState(() {
+                _selectedProvince = null;
+              });
+            }
+          },
+          child: Container(
+            height: mapHeight,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            child: IraqMapWidget(
+              geoJsonData: _geoJsonData!,
+              provinceOrders: _provinceOrders,
+              selectedProvince: _selectedProvince,
+              onProvinceSelected: (provinceName, center) {
+                if (mounted) {
+                  setState(() {
+                    _selectedProvince = provinceName;
+                  });
+                }
+              },
+            ),
+          ),
+        );
       },
     );
   }
@@ -1181,10 +1272,15 @@ class _StatisticsPageState extends State<StatisticsPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                  color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
+                  border: isDark ? null : Border.all(color: Colors.black87, width: 1),
                 ),
-                child: const FaIcon(FontAwesomeIcons.calendarWeek, color: Color(0xFFffd700), size: 16),
+                child: FaIcon(
+                  FontAwesomeIcons.calendarWeek,
+                  color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                  size: 16,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1200,14 +1296,34 @@ class _StatisticsPageState extends State<StatisticsPage> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      weekTitle,
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        color: const Color(0xFFffd700),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    // 🚀 عرض كرات تحميل أو عنوان الأسبوع
+                    _isLoading
+                        ? SizedBox(
+                            height: 14,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(
+                                3,
+                                (index) => Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                                  child: _BouncingBall(
+                                    delay: Duration(milliseconds: index * 150),
+                                    color: const Color(0xFFffd700),
+                                    size: 4,
+                                    maxHeight: 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Text(
+                            weekTitle,
+                            style: GoogleFonts.cairo(
+                              fontSize: 14,
+                              color: const Color(0xFFffd700),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ],
                 ),
               ),
@@ -1224,15 +1340,28 @@ class _StatisticsPageState extends State<StatisticsPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                      color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const FaIcon(FontAwesomeIcons.arrowLeft, color: Color(0xFFffd700), size: 12),
+                        FaIcon(
+                          FontAwesomeIcons.arrowLeft,
+                          color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                          size: 12,
+                        ),
                         const SizedBox(width: 6),
-                        Text('السابق', style: GoogleFonts.cairo(fontSize: 12, color: const Color(0xFFffd700))),
+                        Text(
+                          'السابق',
+                          style: GoogleFonts.cairo(
+                            fontSize: 12,
+                            color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1251,15 +1380,28 @@ class _StatisticsPageState extends State<StatisticsPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                      color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       children: [
-                        Text('التالي', style: GoogleFonts.cairo(fontSize: 12, color: const Color(0xFFffd700))),
+                        Text(
+                          'التالي',
+                          style: GoogleFonts.cairo(
+                            fontSize: 12,
+                            color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                          ),
+                        ),
                         const SizedBox(width: 6),
-                        const FaIcon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 12),
+                        FaIcon(
+                          FontAwesomeIcons.arrowRight,
+                          color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                          size: 12,
+                        ),
                       ],
                     ),
                   ),
@@ -1286,14 +1428,34 @@ class _StatisticsPageState extends State<StatisticsPage> {
                           color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
                         ),
                       ),
-                      Text(
-                        '${entry.value} طلب',
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFFffd700),
-                        ),
-                      ),
+                      // 🚀 عرض كرات تحميل أو العداد
+                      _isLoading
+                          ? SizedBox(
+                              height: 14,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: List.generate(
+                                  3,
+                                  (index) => Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                                    child: _BouncingBall(
+                                      delay: Duration(milliseconds: index * 150),
+                                      color: const Color(0xFFffd700),
+                                      size: 4,
+                                      maxHeight: 10,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Text(
+                              '${entry.value} طلب',
+                              style: GoogleFonts.cairo(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFffd700),
+                              ),
+                            ),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -1353,6 +1515,64 @@ class _StatisticsPageState extends State<StatisticsPage> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// 🎯 Widget للكرات القافزة (مؤشر تحميل مخصص)
+class _BouncingBall extends StatefulWidget {
+  final Duration delay;
+  final Color color;
+  final double size;
+  final double maxHeight;
+
+  const _BouncingBall({required this.delay, required this.color, this.size = 8, this.maxHeight = 20});
+
+  @override
+  State<_BouncingBall> createState() => _BouncingBallState();
+}
+
+class _BouncingBallState extends State<_BouncingBall> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
+
+    _animation = Tween<double>(
+      begin: 0,
+      end: -widget.maxHeight * 0.5, // تقليل الارتفاع إلى 50% فقط
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    Future.delayed(widget.delay, () {
+      if (mounted) {
+        _controller.repeat(reverse: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _animation.value),
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+          ),
+        );
+      },
     );
   }
 }

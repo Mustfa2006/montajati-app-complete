@@ -226,8 +226,22 @@ class _IraqMapWidgetState extends State<IraqMapWidget> {
                 ),
               ),
 
-              // معلومات المحافظة المختارة
-              if (widget.selectedProvince != null) Positioned(top: 20, right: 20, child: _buildProvinceInfoCard()),
+              // معلومات المحافظة المختارة (مع تأثير تلاشي جميل)
+              Positioned(
+                top: 20,
+                right: 20,
+                child: AnimatedOpacity(
+                  opacity: widget.selectedProvince != null ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 400),
+                  curve: Curves.easeOut,
+                  child: AnimatedScale(
+                    scale: widget.selectedProvince != null ? 1.0 : 0.8,
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeOut,
+                    child: widget.selectedProvince != null ? _buildProvinceInfoCard() : const SizedBox.shrink(),
+                  ),
+                ),
+              ),
             ],
           );
         },

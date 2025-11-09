@@ -701,4 +701,43 @@ router.post('/statistics/summary', async (req, res) => {
   }
 });
 
+// 🏆 POST /api/users/top-products - جلب أكثر المنتجات مبيعاً للمستخدم
+router.post('/top-products', async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'رقم الهاتف مطلوب' });
+    }
+
+    debugLog(`🏆 جلب أكثر المنتجات مبيعاً للمستخدم: ${phone}`);
+
+    // استدعاء دالة SQL المخزنة
+    const { data, error } = await supabase.rpc('get_top_products_for_user', {
+      p_user_phone: phone,
+    });
+
+    if (error) {
+      debugLog(`❌ خطأ في جلب المنتجات: ${error.message}`);
+      return res.status(500).json({ success: false, error: 'خطأ في جلب المنتجات' });
+    }
+
+    if (!data || data.length === 0) {
+      debugLog('⚠️ لا توجد منتجات');
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    debugLog(`✅ تم جلب ${data.length} منتج`);
+
+    res.status(200).json({
+      success: true,
+      data: data,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    debugLog(`❌ خطأ في الخادم: ${error.message}`);
+    res.status(500).json({ success: false, error: 'خطأ في الخادم' });
+  }
+});
+
 module.exports = router;
