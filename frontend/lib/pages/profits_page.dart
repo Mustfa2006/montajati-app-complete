@@ -1,18 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/theme_provider.dart';
-import '../services/lazy_loading_service.dart';
-import '../services/simple_orders_service.dart';
 import '../utils/number_formatter.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
@@ -29,96 +29,50 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
   // متحكم الحركة للتحديث فقط
   late AnimationController _refreshAnimationController;
 
+  // التخزين الآمن للبيانات الحساسة
+  final _secureStorage = const FlutterSecureStorage();
+
   // بيانات الأرباح
   double _realizedProfits = 0.0;
   double _pendingProfits = 0.0;
-  int _completedOrders = 0;
-  int _activeOrders = 0;
   bool _isRefreshing = false;
-  bool _isLoadingCounts = false;
-
-  // خدمة الطلبات
-  final SimpleOrdersService _ordersService = SimpleOrdersService();
+  bool _isLoadingProfits = false;
 
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
 
-    // تهيئة الصفحة بشكل صحيح
+    // تحميل الأرباح مرة واحدة فقط عند بدء الصفحة
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeProfitsPage();
-      _checkForRefreshParameter(); // التحقق من parameter التحديث
-    });
-
-    // تحميل فوري للأرباح كخطة احتياطية
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted && _realizedProfits == 0.0 && _pendingProfits == 0.0) {
-        debugPrint('🔄 تحميل احتياطي للأرباح...');
-        _loadProfitsFromDatabase();
-      }
-    }).catchError((error) {
-      debugPrint('❌ خطأ في التحميل الاحتياطي: $error');
+      _loadProfitsFromDatabaseWithRetry();
     });
   }
 
-  /// التحقق من parameter التحديث وتحديث البيانات إذا لزم الأمر
-  void _checkForRefreshParameter() {
-    try {
-      final uri = Uri.base;
-      if (uri.queryParameters.containsKey('refresh')) {
-        debugPrint('🔄 تم طلب تحديث صفحة الأرباح من parameter');
-        // تحديث البيانات فوراً بدون تأخير
-        if (mounted) {
-          refreshProfits();
-        }
-        // تحديث إضافي للتأكد
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            _loadProfitsFromDatabase();
-          }
-        });
-      } else {
-        // حتى لو لم يكن هناك parameter، قم بالتحديث للتأكد
-        debugPrint('🔄 تحديث تلقائي للأرباح عند دخول الصفحة');
-        Future.delayed(const Duration(milliseconds: 200), () {
-          if (mounted) {
-            _loadProfitsFromDatabase();
-          }
-        });
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في التحقق من parameter التحديث: $e');
-      // في حالة الخطأ، قم بالتحديث على أي حال
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) {
-          _loadProfitsFromDatabase();
-        }
-      });
-    }
-  }
+  /// جلب الأرباح مع نظام إعادة المحاولة (Retry)
+  Future<void> _loadProfitsFromDatabaseWithRetry() async {
+    int retries = 0;
+    const maxRetries = 3;
 
-  /// تهيئة صفحة الأرباح مع التحميل التدريجي
-  Future<void> _initializeProfitsPage() async {
-    try {
-      debugPrint('🚀 === بدء تهيئة صفحة الأرباح ===');
-
-      // تحميل الصفحة عند الحاجة فقط
-      await LazyLoadingService.loadPageIfNeeded('profits');
-      debugPrint('✅ تم تحميل خدمة التحميل التدريجي');
-
-      // تحميل البيانات
-      debugPrint('🔄 بدء تحميل بيانات الأرباح...');
-      await _loadAndCalculateProfits();
-
-      debugPrint('✅ تم الانتهاء من تهيئة صفحة الأرباح');
-    } catch (e) {
-      debugPrint('❌ خطأ في تهيئة صفحة الأرباح: $e');
-      // في حالة الخطأ، حاول تحميل البيانات مباشرة
+    while (retries < maxRetries) {
       try {
         await _loadProfitsFromDatabase();
-      } catch (e2) {
-        debugPrint('❌ خطأ في التحميل المباشر: $e2');
+        debugPrint('✅ تم جلب الأرباح بنجاح');
+        break; // نجح التحميل، اخرج من الحلقة
+      } catch (e) {
+        retries++;
+        debugPrint('❌ محاولة $retries من $maxRetries فشلت: $e');
+
+        if (retries < maxRetries) {
+          // انتظر قبل إعادة المحاولة (exponential backoff)
+          await Future.delayed(Duration(seconds: retries * 2));
+          debugPrint('🔄 إعادة المحاولة...');
+        } else {
+          debugPrint('❌ فشلت جميع المحاولات');
+          if (mounted) {
+            _showErrorSnackBar('فشل في جلب الأرباح بعد $maxRetries محاولات. تحقق من الإنترنت.');
+          }
+        }
       }
     }
   }
@@ -128,21 +82,7 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
     _refreshAnimationController = AnimationController(duration: const Duration(milliseconds: 1000), vsync: this);
   }
 
-  // تحميل وحساب الأرباح من الطلبات الفعلية
-  Future<void> _loadAndCalculateProfits() async {
-    try {
-      // تحميل الطلبات من قاعدة البيانات
-      await _ordersService.loadOrders();
-
-      await _loadProfitsFromDatabase();
-    } catch (e) {
-      debugPrint('خطأ في تحميل الطلبات: $e');
-    }
-  }
-
-  // 🛡️ جلب الأرباح مباشرة من قاعدة البيانات (مع حماية من التكرار)
-  bool _isLoadingProfits = false;
-
+  // 🛡️ جلب الأرباح من الـ API (آمن جداً مع حماية من التكرار)
   Future<void> _loadProfitsFromDatabase() async {
     // منع التحميل المتكرر
     if (_isLoadingProfits) {
@@ -150,187 +90,118 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
       return;
     }
 
-    _isLoadingProfits = true;
+    if (mounted) {
+      setState(() {
+        _isLoadingProfits = true;
+      });
+    }
 
     try {
-      debugPrint('📊 === جلب الأرباح من قاعدة البيانات ===');
+      debugPrint('📊 === جلب الأرباح من الـ API ===');
 
-      // الحصول على المستخدم الحالي
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserPhone = prefs.getString('current_user_phone');
+      // 🔒 الحصول على التوكن من التخزين الآمن
+      final token = await _secureStorage.read(key: 'auth_token');
 
-      if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        debugPrint('❌ لا يوجد مستخدم مسجل دخول');
+      if (token == null || token.isEmpty) {
+        debugPrint('❌ لا يوجد توكن مصادقة - المستخدم غير مسجل دخول');
         if (mounted) {
-          setState(() {
-            _realizedProfits = 0.0;
-            _pendingProfits = 0.0;
-          });
+          _showErrorSnackBar('يرجى تسجيل الدخول مرة أخرى.');
         }
         return;
       }
 
-      debugPrint('📱 رقم هاتف المستخدم: $currentUserPhone');
+      debugPrint('✅ تم العثور على توكن المصادقة');
 
-      // جلب الأرباح من قاعدة البيانات
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('achieved_profits, expected_profits, name')
-          .eq('phone', currentUserPhone)
-          .maybeSingle();
+      // 🌐 جلب الأرباح من الـ API (آمن جداً - يعتمد على JWT فقط)
+      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:3002');
 
-      if (response != null) {
-        final dbAchievedProfits = (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-        final dbExpectedProfits = (response['expected_profits'] as num?)?.toDouble() ?? 0.0;
-        final userName = response['name'] ?? 'مستخدم';
+      // TODO: في المستقبل، يجب أن يعتمد الخادم على JWT فقط لتحديد المستخدم
+      // للآن، نحتاج إرسال رقم الهاتف حتى يتم تطبيق JWT verification كاملاً
+      final prefs = await SharedPreferences.getInstance();
+      final phone = prefs.getString('current_user_phone') ?? '';
 
-        debugPrint('📊 الأرباح المحققة من قاعدة البيانات: $dbAchievedProfits د.ع');
-        debugPrint('📊 الأرباح المنتظرة من قاعدة البيانات: $dbExpectedProfits د.ع');
-        debugPrint('👤 المستخدم: $userName');
+      final response = await http
+          .post(
+            Uri.parse('$apiUrl/api/users/profits'),
+            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+            body: jsonEncode({'phone': phone}),
+          )
+          .timeout(const Duration(seconds: 5));
 
-        // حساب عدادات الطلبات
-        await _calculateOrderCounts(currentUserPhone);
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          final data = jsonData['data'];
+          final dbAchievedProfits = (data['achieved_profits'] as num?)?.toDouble() ?? 0.0;
+          final dbExpectedProfits = (data['expected_profits'] as num?)?.toDouble() ?? 0.0;
 
+          debugPrint('📊 الأرباح المحققة من الـ API: $dbAchievedProfits د.ع');
+          debugPrint('📊 الأرباح المنتظرة من الـ API: $dbExpectedProfits د.ع');
+
+          if (mounted) {
+            setState(() {
+              _realizedProfits = dbAchievedProfits;
+              _pendingProfits = dbExpectedProfits;
+            });
+
+            debugPrint('🎯 تم تحديث المتغيرات:');
+            debugPrint('   _realizedProfits = $_realizedProfits');
+            debugPrint('   _pendingProfits = $_pendingProfits');
+          }
+        } else {
+          debugPrint('❌ فشل في جلب الأرباح من الـ API');
+          if (mounted) {
+            _showErrorSnackBar('فشل في جلب الأرباح. حاول مرة أخرى.');
+          }
+        }
+      } else if (response.statusCode == 401) {
+        debugPrint('❌ خطأ في المصادقة: غير مصرح');
         if (mounted) {
-          setState(() {
-            _realizedProfits = dbAchievedProfits;
-            _pendingProfits = dbExpectedProfits;
-          });
-
-          // 🔍 تأكيد إضافي من القيم المحدثة
-          debugPrint('🎯 تم تحديث المتغيرات:');
-          debugPrint('   _realizedProfits = $_realizedProfits');
-          debugPrint('   _pendingProfits = $_pendingProfits');
-          debugPrint('   _completedOrders = $_completedOrders');
-          debugPrint('   _activeOrders = $_activeOrders');
+          _showErrorSnackBar('انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.');
+        }
+      } else if (response.statusCode == 404) {
+        debugPrint('❌ المستخدم غير موجود');
+        if (mounted) {
+          _showErrorSnackBar('المستخدم غير موجود.');
         }
       } else {
-        debugPrint('❌ لم يتم العثور على المستخدم في قاعدة البيانات');
+        debugPrint('❌ خطأ في الـ API: ${response.statusCode}');
         if (mounted) {
-          setState(() {
-            _realizedProfits = 0.0;
-            _pendingProfits = 0.0;
-          });
+          _showErrorSnackBar('خطأ في الخادم (${response.statusCode}). حاول لاحقاً.');
         }
+      }
+    } on TimeoutException {
+      debugPrint('❌ انتهت مهلة الاتصال');
+      if (mounted) {
+        _showErrorSnackBar('انتهت مهلة الاتصال. تحقق من الإنترنت.');
       }
     } catch (e) {
       debugPrint('❌ خطأ في جلب الأرباح: $e');
       if (mounted) {
-        setState(() {
-          _realizedProfits = 0.0;
-          _pendingProfits = 0.0;
-        });
+        _showErrorSnackBar('فشل في الاتصال بالخادم. تحقق من الإنترنت.');
       }
     } finally {
-      _isLoadingProfits = false;
+      if (mounted) {
+        setState(() {
+          _isLoadingProfits = false;
+        });
+      }
     }
   }
 
-  // حساب عدادات الطلبات
-  Future<void> _calculateOrderCounts(String userPhone) async {
-    if (_isLoadingCounts) return;
-
-    setState(() {
-      _isLoadingCounts = true;
-    });
-
-    try {
-      debugPrint('🔢 === حساب عدادات الطلبات ===');
-      debugPrint('📱 المستخدم: $userPhone');
-
-      // جلب جميع الطلبات للمستخدم مع تفاصيل أكثر
-      debugPrint('🔍 البحث عن الطلبات برقم الهاتف: $userPhone');
-
-      // أولاً: فحص إجمالي الطلبات في قاعدة البيانات
-      final totalOrdersResponse = await Supabase.instance.client.from('orders').select('id');
-
-      debugPrint('📊 إجمالي الطلبات في قاعدة البيانات: ${totalOrdersResponse.length}');
-
-      // ثانياً: فحص الطلبات لهذا الرقم
-      final response = await Supabase.instance.client
-          .from('orders')
-          .select('id, status, customer_name, created_at, primary_phone')
-          .eq('primary_phone', userPhone)
-          .order('created_at', ascending: false);
-
-      debugPrint('📊 تم جلب ${response.length} طلب لحساب العدادات');
-
-      // إذا لم نجد طلبات، دعنا نتحقق من جميع الطلبات في قاعدة البيانات
-      if (response.isEmpty) {
-        debugPrint('⚠️ لم نجد طلبات لهذا الرقم، دعنا نتحقق من جميع الطلبات...');
-        final allOrders = await Supabase.instance.client
-            .from('orders')
-            .select('primary_phone, customer_name')
-            .limit(10);
-
-        debugPrint('📋 عينة من أرقام الهواتف في قاعدة البيانات:');
-        for (var order in allOrders) {
-          debugPrint('   ${order['primary_phone']} - ${order['customer_name']}');
-        }
-      }
-
-      int completed = 0;
-      int active = 0;
-      int delivery = 0;
-
-      // إحصائيات مفصلة
-      Map<String, int> statusCounts = {};
-
-      for (var order in response) {
-        String status = order['status'] ?? '';
-        String customerName = order['customer_name'] ?? 'غير محدد';
-
-        // عد الحالات
-        statusCounts[status] = (statusCounts[status] ?? 0) + 1;
-
-        debugPrint('📋 ${order['id']}: $customerName - $status');
-
-        // ✅ تصنيف صحيح حسب الحالات الفعلية في قاعدة البيانات
-        switch (status.toLowerCase()) {
-          case 'delivered':
-            completed++;
-            break;
-          case 'active':
-            active++;
-            break;
-          case 'in_delivery':
-            delivery++;
-            break;
-          case 'cancelled':
-            // لا نحسبها في أي من العدادات
-            break;
-          default:
-            debugPrint('⚠️ حالة غير معروفة: $status');
-        }
-      }
-
-      debugPrint('📊 === ملخص الحالات ===');
-      statusCounts.forEach((status, count) {
-        debugPrint('   $status: $count');
-      });
-
-      debugPrint('📊 === النتائج النهائية ===');
-      debugPrint('   ✅ مكتمل: $completed');
-      debugPrint('   🟡 نشط: $active');
-      debugPrint('   🚚 قيد التوصيل: $delivery');
-
-      if (mounted) {
-        setState(() {
-          _completedOrders = completed;
-          _activeOrders = active;
-          _isLoadingCounts = false;
-        });
-
-        debugPrint('🎯 تم تحديث العدادات في الواجهة');
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في حساب عدادات الطلبات: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingCounts = false;
-        });
-      }
-    }
+  /// عرض رسالة خطأ للمستخدم
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w500)),
+        backgroundColor: Colors.red[700],
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   void refreshProfits() async {
@@ -351,18 +222,21 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
           debugPrint('❌ خطأ في animation: $error');
         });
 
-    // محاكاة تحديث البيانات
-    await Future.delayed(const Duration(seconds: 1));
-
-    // ✅ إعادة جلب الأرباح من قاعدة البيانات
-    if (mounted) {
+    try {
+      // ✅ إعادة جلب الأرباح من الـ API
       await _loadProfitsFromDatabase();
-    }
-
-    if (mounted) {
-      setState(() {
-        _isRefreshing = false;
-      });
+      debugPrint('✅ تم تحديث الأرباح بنجاح');
+    } catch (e) {
+      debugPrint('❌ خطأ في تحديث الأرباح: $e');
+      if (mounted) {
+        _showErrorSnackBar('فشل التحديث. حاول مرة أخرى.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -388,12 +262,7 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
     debugPrint('   الأرباح المحققة المعروضة: $_realizedProfits');
     debugPrint('   الأرباح المنتظرة المعروضة: $_pendingProfits');
 
-    // 🛡️ تم إزالة التحديث التلقائي لمنع الحلقة اللا نهائية
-    // الأرباح تُحدث فقط عند:
-    // 1. فتح الصفحة (initState)
-    // 2. السحب للتحديث (refresh)
-    // 3. تغيير الطلبات (listener)
-
+    // لا حاجة لمؤشر تحميل كامل للصفحة - الأنيميشن موجود على العدادات مباشرة
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
@@ -409,7 +278,7 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
                 margin: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    // زر الرجوع
+                    // زر الرجوع (بارز وجميل - الوضع النهاري فقط)
                     GestureDetector(
                       onTap: () => context.go('/'),
                       child: Container(
@@ -417,18 +286,14 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
                         height: 45,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(15),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [Colors.white.withValues(alpha: 0.1), Colors.white.withValues(alpha: 0.05)],
-                          ),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1),
+                          color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                          border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.5), width: 1.5),
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(15),
                           child: BackdropFilter(
                             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                            child: Icon(Icons.arrow_back_ios_new, color: Colors.white.withValues(alpha: 0.9), size: 20),
+                            child: Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
                           ),
                         ),
                       ),
@@ -566,16 +431,38 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
 
                   const SizedBox(height: 8),
 
-                  // المبلغ
-                  Text(
-                    NumberFormatter.formatCurrency(_realizedProfits),
-                    style: GoogleFonts.cairo(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF06d6a0),
-                      height: 1.2,
-                    ),
-                  ),
+                  // المبلغ مع أنيميشن تحميل
+                  _isLoadingProfits
+                      ? Row(
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFF06d6a0)),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'جاري التحميل...',
+                              style: GoogleFonts.cairo(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFF06d6a0).withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          NumberFormatter.formatCurrency(_realizedProfits),
+                          style: GoogleFonts.cairo(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF06d6a0),
+                            height: 1.2,
+                          ),
+                        ),
 
                   const SizedBox(height: 5),
 
@@ -650,16 +537,38 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
 
                   const SizedBox(height: 8),
 
-                  // المبلغ
-                  Text(
-                    NumberFormatter.formatCurrency(_pendingProfits),
-                    style: GoogleFonts.cairo(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFFf72585),
-                      height: 1.2,
-                    ),
-                  ),
+                  // المبلغ مع أنيميشن تحميل
+                  _isLoadingProfits
+                      ? Row(
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFf72585)),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'جاري التحميل...',
+                              style: GoogleFonts.cairo(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFFf72585).withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Text(
+                          NumberFormatter.formatCurrency(_pendingProfits),
+                          style: GoogleFonts.cairo(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFFf72585),
+                            height: 1.2,
+                          ),
+                        ),
 
                   const SizedBox(height: 5),
 
@@ -703,54 +612,18 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 35,
+              height: 35,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: canWithdraw
-                    ? LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [const Color(0xFFFFD700), const Color(0xFFFFA500), const Color(0xFFFF8C00)],
-                      )
-                    : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Colors.grey.withValues(alpha: 0.6),
-                          Colors.grey.withValues(alpha: 0.4),
-                          Colors.grey.withValues(alpha: 0.3),
-                        ],
-                      ),
-                boxShadow: canWithdraw
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                          spreadRadius: 2,
-                        ),
-                        BoxShadow(
-                          color: const Color(0xFFFFA500).withValues(alpha: 0.3),
-                          blurRadius: 25,
-                          offset: const Offset(0, 15),
-                          spreadRadius: 5,
-                        ),
-                      ]
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.2),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                borderRadius: BorderRadius.circular(10),
+                color: canWithdraw ? const Color(0xFFFFD700) : Colors.grey.withValues(alpha: 0.3),
               ),
               child: Icon(
                 FontAwesomeIcons.wallet,
                 color: canWithdraw
                     ? const Color(0xFF1a1a2e)
                     : (isDark ? Colors.white.withValues(alpha: 0.7) : Colors.black54),
-                size: 20,
+                size: 16,
               ),
             ),
             const SizedBox(width: 15),

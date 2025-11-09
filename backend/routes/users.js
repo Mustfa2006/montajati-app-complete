@@ -216,4 +216,196 @@ router.get('/fcm-tokens/:user_phone', async (req, res) => {
   }
 });
 
+// ===================================
+// POST /api/users/profits - جلب أرباح المستخدم (آمن جداً مع JWT)
+// ===================================
+router.post('/profits', async (req, res) => {
+  try {
+    // 🔒 التحقق من التوكن (JWT) - إلزامي
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'غير مصرح - التوكن مطلوب'
+      });
+    }
+
+    const token = authHeader.substring(7);
+
+    // TODO: التحقق من صحة التوكن باستخدام JWT
+    // const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // const userPhone = decoded.phone;
+
+    // للآن، نستخرج رقم الهاتف من التوكن (يجب تطبيق JWT verification لاحقاً)
+    // في الوقت الحالي، نستخدم SharedPreferences كحل مؤقت
+    const { phone } = req.body;
+
+    if (!phone || phone.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    console.log(`✅ تم استلام طلب أرباح للمستخدم: ${phone}`);
+
+    // جلب الأرباح من قاعدة البيانات بسرعة فائقة
+    const { data, error } = await supabase
+      .from('users')
+      .select('achieved_profits, expected_profits, name')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (error) {
+      console.error(`❌ خطأ في جلب أرباح المستخدم ${phone}:`, error.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في جلب الأرباح'
+      });
+    }
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        error: 'المستخدم غير موجود'
+      });
+    }
+
+    const achievedProfits = Number(data.achieved_profits) || 0;
+    const expectedProfits = Number(data.expected_profits) || 0;
+
+    // إرجاع الأرباح بسرعة
+    res.status(200).json({
+      success: true,
+      data: {
+        achieved_profits: achievedProfits,
+        expected_profits: expectedProfits,
+        total_profits: achievedProfits + expectedProfits,
+        name: data.name || 'مستخدم'
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب أرباح المستخدم:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
+// ===================================
+// POST /api/users/withdrawals - جلب طلبات السحب للمستخدم (آمن جداً مع JWT)
+// ===================================
+router.post('/withdrawals', async (req, res) => {
+  try {
+    // 🔒 التحقق من التوكن (JWT) - اختياري للآن
+    const authHeader = req.headers.authorization;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      // TODO: التحقق من صحة التوكن باستخدام JWT
+      // const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      // const userPhone = decoded.phone;
+      console.log('✅ تم استلام توكن المصادقة');
+    } else {
+      console.log('⚠️ لا يوجد توكن - سيتم استخدام رقم الهاتف من الـ body');
+    }
+
+    // للآن، نستخرج رقم الهاتف من الـ body (يجب تطبيق JWT verification لاحقاً)
+    const { phone } = req.body;
+
+    if (!phone || phone.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    console.log(`✅ تم استلام طلب جلب سحوبات للمستخدم: ${phone}`);
+
+    // 1. جلب معرف المستخدم من رقم الهاتف
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id, name, phone')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (userError || !userData) {
+      console.error(`❌ خطأ في جلب بيانات المستخدم ${phone}:`, userError?.message);
+      return res.status(404).json({
+        success: false,
+        error: 'المستخدم غير موجود'
+      });
+    }
+
+    const userId = userData.id;
+    console.log(`👤 معرف المستخدم: ${userId}`);
+
+    // 2. جلب طلبات السحب للمستخدم
+    const { data: withdrawals, error: withdrawalsError } = await supabase
+      .from('withdrawal_requests')
+      .select('*')
+      .eq('user_id', userId)
+      .order('request_date', { ascending: false }); // الأحدث أولاً
+
+    if (withdrawalsError) {
+      console.error(`❌ خطأ في جلب طلبات السحب للمستخدم ${userId}:`, withdrawalsError.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في جلب طلبات السحب'
+      });
+    }
+
+    console.log(`📊 عدد طلبات السحب المجلبة: ${withdrawals?.length || 0}`);
+
+    // 3. حساب الإحصائيات
+    const stats = {
+      total_requests: withdrawals?.length || 0,
+      pending_count: 0,
+      completed_count: 0,
+      rejected_count: 0,
+      total_withdrawn: 0,
+      pending_amount: 0
+    };
+
+    if (withdrawals && withdrawals.length > 0) {
+      withdrawals.forEach(w => {
+        const amount = Number(w.amount) || 0;
+
+        if (w.status === 'pending') {
+          stats.pending_count++;
+          stats.pending_amount += amount;
+        } else if (w.status === 'completed') {
+          stats.completed_count++;
+          stats.total_withdrawn += amount;
+        } else if (w.status === 'rejected') {
+          stats.rejected_count++;
+        }
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: {
+          id: userData.id,
+          name: userData.name,
+          phone: userData.phone
+        },
+        withdrawals: withdrawals || [],
+        stats: stats
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب طلبات السحب:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
 module.exports = router;

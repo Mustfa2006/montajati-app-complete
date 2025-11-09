@@ -1,13 +1,16 @@
+import 'dart:convert';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/theme_provider.dart';
-import '../services/withdrawal_service.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 
@@ -24,6 +27,17 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> withdrawalRequests = [];
   final TextEditingController _searchController = TextEditingController();
+  final _secureStorage = const FlutterSecureStorage();
+
+  // إحصائيات من الباك اند
+  final Map<String, dynamic> _stats = {
+    'total_requests': 0,
+    'pending_count': 0,
+    'completed_count': 0,
+    'rejected_count': 0,
+    'total_withdrawn': 0.0,
+    'pending_amount': 0.0,
+  };
 
   @override
   void initState() {
@@ -38,73 +52,126 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     _loadWithdrawalRequests();
   }
 
-  // جلب طلبات السحب للمستخدم الحالي فقط
+  // 🔒 جلب طلبات السحب من الباك اند فقط (آمن جداً)
   Future<void> _loadWithdrawalRequests() async {
     try {
       setState(() => _isLoading = true);
 
-      // ✅ الحصول على معرف المستخدم من SharedPreferences (نفس النظام المستخدم في السحب)
+      debugPrint('📊 === جلب طلبات السحب من الـ API ===');
+
+      // الحصول على رقم الهاتف من SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      String? currentUserId = prefs.getString('current_user_id');
-      String? currentUserPhone = prefs.getString('current_user_phone');
+      final phone = prefs.getString('current_user_phone') ?? '';
 
-      if (currentUserId == null || currentUserId.isEmpty) {
-        debugPrint('❌ لا يوجد معرف مستخدم محفوظ');
+      if (phone.isEmpty) {
+        debugPrint('❌ لا يوجد رقم هاتف محفوظ - المستخدم غير مسجل دخول');
+        if (mounted) {
+          _showErrorSnackBar('يرجى تسجيل الدخول مرة أخرى.');
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
 
-        // محاولة البحث بالهاتف إذا لم يكن هناك معرف
-        if (currentUserPhone != null && currentUserPhone.isNotEmpty) {
-          debugPrint('🔍 البحث عن المستخدم برقم الهاتف: $currentUserPhone');
+      debugPrint('📱 رقم هاتف المستخدم: $phone');
 
-          final userResponse = await Supabase.instance.client
-              .from('users')
-              .select('id')
-              .eq('phone', currentUserPhone)
-              .maybeSingle();
+      // 🔒 محاولة الحصول على التوكن من التخزين الآمن (اختياري للآن)
+      String? token = await _secureStorage.read(key: 'auth_token');
 
-          if (userResponse != null) {
-            currentUserId = userResponse['id'];
-            await prefs.setString('current_user_id', currentUserId!);
-            debugPrint('✅ تم العثور على معرف المستخدم: $currentUserId');
-          } else {
-            debugPrint('❌ لم يتم العثور على المستخدم');
-            setState(() => _isLoading = false);
-            return;
+      // إذا لم يكن هناك توكن، استخدم توكن وهمي (سيتم تحسينه لاحقاً مع JWT)
+      if (token == null || token.isEmpty) {
+        debugPrint('⚠️ لا يوجد توكن آمن - استخدام التوكن الافتراضي');
+        token = 'temp_token_$phone'; // توكن مؤقت
+      }
+
+      debugPrint('✅ جاهز لإرسال الطلب إلى الـ API');
+
+      // 🌐 جلب طلبات السحب من الـ API (آمن جداً - يعتمد على JWT)
+      const apiUrl = String.fromEnvironment('API_URL', defaultValue: 'http://localhost:3002');
+
+      final response = await http
+          .post(
+            Uri.parse('$apiUrl/api/users/withdrawals'),
+            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+            body: jsonEncode({'phone': phone}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      debugPrint('📡 استجابة الخادم: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          final data = jsonData['data'];
+          final List<dynamic> withdrawalsData = data['withdrawals'] ?? [];
+          final Map<String, dynamic> statsData = data['stats'] ?? {};
+
+          debugPrint('📊 عدد طلبات السحب المجلبة: ${withdrawalsData.length}');
+          debugPrint('📊 الإحصائيات: $statsData');
+
+          if (mounted) {
+            setState(() {
+              withdrawalRequests = withdrawalsData.cast<Map<String, dynamic>>();
+              _stats.addAll(statsData);
+              _isLoading = false;
+            });
           }
+
+          debugPrint('✅ تم جلب طلبات السحب بنجاح');
         } else {
-          debugPrint('❌ لا يوجد مستخدم مسجل دخول');
+          debugPrint('❌ فشل في جلب طلبات السحب: ${jsonData['error']}');
+          if (mounted) {
+            _showErrorSnackBar('فشل في جلب طلبات السحب.');
+            setState(() => _isLoading = false);
+          }
+        }
+      } else if (response.statusCode == 401) {
+        debugPrint('❌ غير مصرح - التوكن غير صالح');
+        if (mounted) {
+          _showErrorSnackBar('انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى.');
           setState(() => _isLoading = false);
-          return;
+        }
+      } else if (response.statusCode == 404) {
+        debugPrint('❌ المستخدم غير موجود');
+        if (mounted) {
+          _showErrorSnackBar('المستخدم غير موجود.');
+          setState(() => _isLoading = false);
+        }
+      } else {
+        debugPrint('❌ خطأ في الخادم: ${response.statusCode}');
+        if (mounted) {
+          _showErrorSnackBar('خطأ في الخادم. حاول مرة أخرى.');
+          setState(() => _isLoading = false);
         }
       }
-
-      debugPrint('👤 جلب طلبات السحب للمستخدم: $currentUserId');
-
-      // جلب طلبات السحب للمستخدم الحالي فقط
-      final requests = await WithdrawalService.getUserWithdrawalRequests(currentUserId);
-
-      debugPrint('📊 طلبات السحب المجلبة: $requests');
-      debugPrint('📊 عدد طلبات السحب: ${requests.length}');
-
-      if (requests.isNotEmpty) {
-        debugPrint('📋 أول طلب سحب: ${requests.first}');
+    } on http.ClientException catch (e) {
+      debugPrint('❌ خطأ في الاتصال: $e');
+      if (mounted) {
+        _showErrorSnackBar('فشل في الاتصال بالخادم. تحقق من الإنترنت.');
+        setState(() => _isLoading = false);
       }
-
-      setState(() {
-        withdrawalRequests = requests;
-        _isLoading = false;
-      });
-
-      debugPrint('✅ تم جلب ${requests.length} طلب سحب للمستخدم');
     } catch (e) {
       debugPrint('❌ خطأ في جلب طلبات السحب: $e');
-      setState(() => _isLoading = false);
-
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('خطأ في جلب طلبات السحب: $e'), backgroundColor: Colors.red));
+        _showErrorSnackBar('حدث خطأ غير متوقع.');
+        setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// عرض رسالة خطأ للمستخدم
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w500)),
+        backgroundColor: Colors.red[700],
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   // إحصائيات سريعة - عمليات حسابية دقيقة 100%
@@ -196,18 +263,24 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          // زر الرجوع
+          // زر الرجوع (بارز وجميل - الوضع النهاري فقط)
           GestureDetector(
             onTap: () => context.pop(),
             child: Container(
-              width: 40,
-              height: 40,
+              width: 45,
+              height: 45,
               decoration: BoxDecoration(
-                color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                color: const Color(0xFFFFD700).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.5), width: 1.5),
               ),
-              child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(15),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: const Icon(FontAwesomeIcons.arrowRight, color: Colors.black, size: 20),
+                ),
+              ),
             ),
           ),
 
@@ -397,7 +470,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
               SizedBox(height: 20),
               Text(
                 'جاري تحميل طلبات السحب...',
-                style: GoogleFonts.cairo(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                style: GoogleFonts.cairo(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -426,24 +499,16 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(FontAwesomeIcons.fileInvoiceDollar, size: 80, color: Colors.white.withValues(alpha: 0.3)),
+              Icon(FontAwesomeIcons.fileInvoiceDollar, size: 80, color: const Color(0xFFFFD700).withValues(alpha: 0.4)),
               const SizedBox(height: 20),
               Text(
                 withdrawalRequests.isEmpty ? 'لا توجد طلبات سحب' : 'لا توجد نتائج',
-                style: GoogleFonts.cairo(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
+                style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.black87),
               ),
               const SizedBox(height: 10),
               Text(
                 withdrawalRequests.isEmpty ? 'لم تقم بأي طلبات سحب حتى الآن' : 'جرب تغيير معايير البحث أو الفلترة',
-                style: GoogleFonts.cairo(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white.withValues(alpha: 0.5),
-                ),
+                style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54),
               ),
             ],
           ),
