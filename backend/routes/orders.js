@@ -1169,28 +1169,26 @@ router.put('/:id/status', async (req, res) => {
           if (isOk) {
             console.log(`✅ [${requestId}] DeliveredGuard: check passed - profits moved correctly.`);
           } else {
-            // نمط مكرر معروف: إضافة الربح مرتين للمحققة وعدم إنقاص المنتظرة
-            const isDupPattern = (achievedAfter === (__deliveredGuardBefore.achieved + 2 * __deliveredGuardOrderProfit))
-              && (expectedAfter === __deliveredGuardBefore.expected);
+            // ✅ تصحيح عام: أي انحراف عن عملية النقل الصحيحة سيتم تصحيحه إلى حركة واحدة فقط
+            const deltaAchieved = achievedAfter - __deliveredGuardBefore.achieved;
+            const deltaExpected = expectedAfter - __deliveredGuardBefore.expected;
 
-            if (isDupPattern) {
-              console.warn(`🛡️ [${requestId}] DeliveredGuard: duplicate profit movement detected. Applying correction.`);
-              await supabase
-                .from('users')
-                .update({
-                  achieved_profits: expectedAchieved,
-                  expected_profits: expectedExpected,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('phone', __deliveredGuardUserPhone);
-              console.log(`✅ [${requestId}] DeliveredGuard: correction applied.`);
-            } else {
-              console.warn(`⚠️ [${requestId}] DeliveredGuard: anomaly detected but pattern not recognized. No auto-fix applied.`, {
-                before: __deliveredGuardBefore,
-                after: { achieved: achievedAfter, expected: expectedAfter },
-                expected: { achieved: expectedAchieved, expected: expectedExpected },
-              });
-            }
+            console.warn(`🛡️ [${requestId}] DeliveredGuard: anomaly detected. Auto-correcting to single movement.`, {
+              before: __deliveredGuardBefore,
+              after: { achieved: achievedAfter, expected: expectedAfter },
+              deltas: { achieved: deltaAchieved, expected: deltaExpected },
+              willSet: { achieved: expectedAchieved, expected: expectedExpected }
+            });
+
+            await supabase
+              .from('users')
+              .update({
+                achieved_profits: expectedAchieved,
+                expected_profits: expectedExpected,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('phone', __deliveredGuardUserPhone);
+            console.log(`✅ [${requestId}] DeliveredGuard: correction applied to enforce single profit move.`);
           }
         } else {
           console.warn(`⚠️ [${requestId}] DeliveredGuard could not read user profits after:`, __afterErr?.message);

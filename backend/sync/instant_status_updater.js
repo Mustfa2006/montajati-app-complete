@@ -133,10 +133,15 @@ class InstantStatusUpdater {
         updateData.waseet_data = waseetData;
       }
 
-      const { error: updateError } = await this.supabase
+      // ✅ تجنّب تشغيل Trigger الأرباح إذا تغيّرت الحالة في مكان آخر أثناء التنفيذ
+      let __q = this.supabase
         .from('orders')
         .update(updateData)
         .eq('id', orderId);
+      if (Object.prototype.hasOwnProperty.call(updateData, 'status')) {
+        __q = __q.neq('status', newLocalStatus);
+      }
+      const { error: updateError } = await __q;
 
       if (updateError) {
         throw new Error(`خطأ في تحديث الطلب: ${updateError.message}`);

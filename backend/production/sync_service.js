@@ -15,13 +15,13 @@ class ProductionSyncService {
       config.get('database', 'supabase').url,
       config.get('database', 'supabase').serviceRoleKey
     );
-    
+
     this.waseetService = new ProductionWaseetService();
     this.isRunning = false;
     this.syncInterval = null;
     this.lastSyncTime = null;
     this.syncCount = 0;
-    
+
     // إحصائيات المزامنة
     this.stats = {
       totalSyncs: 0,
@@ -48,19 +48,19 @@ class ProductionSyncService {
 
     try {
       // بدء خدمة المزامنة بصمت
-      
+
       // التحقق من التكوين
       await this.validateConfiguration();
-      
+
       // إجراء مزامنة أولية
       await this.performSync();
-      
+
       // بدء المزامنة الدورية
       this.startPeriodicSync();
-      
+
       this.isRunning = true;
       // تم بدء خدمة المزامنة بصمت
-      
+
     } catch (error) {
       logger.error('❌ فشل بدء خدمة المزامنة', {
         error: error.message
@@ -79,12 +79,12 @@ class ProductionSyncService {
     }
 
     logger.info('🛑 إيقاف خدمة المزامنة');
-    
+
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
     }
-    
+
     this.isRunning = false;
     logger.info('✅ تم إيقاف خدمة المزامنة');
   }
@@ -94,20 +94,20 @@ class ProductionSyncService {
    */
   async validateConfiguration() {
     // التحقق من صحة التكوين بصمت
-    
+
     // التحقق من الاتصال بقاعدة البيانات
     const { error: dbError } = await this.supabase
       .from('orders')
       .select('id')
       .limit(1);
-    
+
     if (dbError) {
       throw new Error(`فشل الاتصال بقاعدة البيانات: ${dbError.message}`);
     }
-    
+
     // التحقق من الاتصال بشركة الوسيط
     await this.waseetService.authenticate();
-    
+
     // تم التحقق من صحة التكوين بصمت
   }
 
@@ -137,14 +137,14 @@ class ProductionSyncService {
 
     const operationId = await logger.startOperation('full_sync');
     const startTime = Date.now();
-    
+
     try {
       this.syncCount++;
       this.stats.totalSyncs++;
-      
+
       // جلب الطلبات من قاعدة البيانات
       const localOrders = await this.getOrdersToSync();
-      
+
       if (localOrders.length === 0) {
         logger.info('📭 لا توجد طلبات للمزامنة');
         await this.logSyncResult(operationId, true, 0, 0, 0);
@@ -153,24 +153,24 @@ class ProductionSyncService {
 
       // جلب الحالات من شركة الوسيط
       const waseetData = await this.waseetService.fetchAllOrderStatuses();
-      
+
       if (!waseetData.success) {
         throw new Error(`فشل جلب البيانات من الوسيط: ${waseetData.error}`);
       }
 
       // تم جلب الطلبات من الوسيط بصمت
-      
+
       // مزامنة الطلبات
       const syncResults = await this.syncOrders(localOrders, waseetData.orders);
-      
+
       // تسجيل النتائج
       const duration = Date.now() - startTime;
-      await this.logSyncResult(operationId, true, localOrders.length, 
+      await this.logSyncResult(operationId, true, localOrders.length,
         syncResults.updated, duration);
-      
+
       this.updateStats(true, localOrders.length, syncResults.updated, duration);
       this.lastSyncTime = new Date().toISOString();
-      
+
       // رسالة مبسطة للنتيجة
       if (syncResults.updated > 0) {
         logger.info(`✅ مزامنة ${this.syncCount}: تم تحديث ${syncResults.updated} من ${localOrders.length} طلب`);
@@ -180,16 +180,16 @@ class ProductionSyncService {
 
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       await logger.error('❌ فشلت المزامنة', {
         error: error.message,
         syncCount: this.syncCount,
         duration
       });
-      
+
       await this.logSyncResult(operationId, false, 0, 0, duration, error.message);
       this.updateStats(false, 0, 0, duration, error.message);
-      
+
       throw error;
     }
   }
@@ -264,10 +264,10 @@ class ProductionSyncService {
 
     // معالجة الطلبات بدفعات
     const batches = this.createBatches(localOrders, this.config.batchSize);
-    
+
     for (const batch of batches) {
       const batchResults = await this.processBatch(batch, waseetOrdersMap);
-      
+
       results.processed += batchResults.processed;
       results.updated += batchResults.updated;
       results.errors += batchResults.errors;
@@ -302,9 +302,9 @@ class ProductionSyncService {
     const promises = batch.map(async (localOrder) => {
       try {
         results.processed++;
-        
+
         const waseetOrder = waseetOrdersMap.get(localOrder.waseet_order_id.toString());
-        
+
         if (!waseetOrder) {
           // طلب غير موجود في الوسيط (طبيعي للطلبات القديمة)
           return;
@@ -312,11 +312,11 @@ class ProductionSyncService {
 
         // التحقق من تغيير الحالة
         const needsUpdate = this.shouldUpdateOrder(localOrder, waseetOrder);
-        
+
         if (needsUpdate) {
           await this.updateOrderStatus(localOrder, waseetOrder);
           results.updated++;
-          
+
           results.details.push({
             orderId: localOrder.id,
             orderNumber: localOrder.order_number,
@@ -372,7 +372,6 @@ class ProductionSyncService {
       }
 
       const updateData = {
-        status: waseetOrder.local_status,
         waseet_status: waseetOrder.status_text,
         waseet_data: {
           status_id: waseetOrder.status_id,
@@ -382,11 +381,20 @@ class ProductionSyncService {
         },
         updated_at: new Date().toISOString()
       };
+      const shouldChangeStatus = waseetOrder.local_status && waseetOrder.local_status !== localOrder.status;
+      if (shouldChangeStatus) {
+        updateData.status = waseetOrder.local_status;
+        updateData.status_updated_at = new Date().toISOString();
+      }
 
-      const { error } = await this.supabase
+      let __q = this.supabase
         .from('orders')
         .update(updateData)
         .eq('id', localOrder.id);
+      if (shouldChangeStatus) {
+        __q = __q.neq('status', waseetOrder.local_status);
+      }
+      const { error } = await __q;
 
       if (error) {
         throw new Error(`فشل تحديث الطلب: ${error.message}`);
@@ -501,7 +509,7 @@ class ProductionSyncService {
           error,
           syncCount: this.syncCount
         });
-        
+
         // الاحتفاظ بآخر 10 أخطاء فقط
         if (this.stats.errors.length > 10) {
           this.stats.errors = this.stats.errors.slice(-10);
@@ -517,7 +525,7 @@ class ProductionSyncService {
     if (this.stats.averageSyncTime === 0) {
       this.stats.averageSyncTime = duration;
     } else {
-      this.stats.averageSyncTime = 
+      this.stats.averageSyncTime =
         (this.stats.averageSyncTime + duration) / 2;
     }
   }
@@ -554,10 +562,10 @@ class ProductionSyncService {
       lastSyncDuration: 0,
       errors: []
     };
-    
+
     this.syncCount = 0;
     this.waseetService.resetStats();
-    
+
     logger.info('📊 تم إعادة تعيين إحصائيات المزامنة');
   }
 }

@@ -431,17 +431,26 @@ class OrderStatusSyncService {
 
       console.log(`🔄 تحديث حالة الطلب ${order.order_number} من ${order.status} إلى ${statusResult.localStatus}`);
 
-      // بدء معاملة قاعدة البيانات
-      const { error: updateError } = await this.supabase
+      // بدء معاملة قاعدة البيانات - a 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10
+      const __payload = {
+        waseet_status: statusResult.waseetStatus,
+        waseet_data: statusResult.waseetData,
+        last_status_check: now,
+        updated_at: now
+      };
+      const __shouldChangeStatus = statusResult.localStatus && statusResult.localStatus !== order.status;
+      if (__shouldChangeStatus) {
+        __payload.status = statusResult.localStatus;
+        __payload.status_updated_at = now;
+      }
+      let __q = this.supabase
         .from('orders')
-        .update({
-          status: statusResult.localStatus,
-          waseet_status: statusResult.waseetStatus,
-          waseet_data: statusResult.waseetData,
-          last_status_check: now,
-          updated_at: now
-        })
+        .update(__payload)
         .eq('id', order.id);
+      if (__shouldChangeStatus) {
+        __q = __q.neq('status', statusResult.localStatus);
+      }
+      const { error: updateError } = await __q;
 
       if (updateError) {
         throw new Error(`خطأ في تحديث الطلب: ${updateError.message}`);
