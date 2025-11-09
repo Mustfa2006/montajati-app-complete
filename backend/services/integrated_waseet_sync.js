@@ -574,7 +574,7 @@ class IntegratedWaseetSync extends EventEmitter {
               achieved: Number(__u.achieved_profits) || 0,
               expected: Number(__u.expected_profits) || 0,
             };
-            console.log(`🛡️ [SYNC] ProfitGuard snapshot for ${__profitGuardUserPhone} (order ${__orderId}):`, __profitGuardBefore);
+            if (process.env.LOG_LEVEL === 'debug') console.log(`🛡️ [SYNC] ProfitGuard snapshot for ${__profitGuardUserPhone} (order ${__orderId}):`, __profitGuardBefore);
           } else {
             __profitGuardShouldRun = false;
           }
@@ -646,7 +646,7 @@ class IntegratedWaseetSync extends EventEmitter {
                   updated_at: new Date().toISOString(),
                 })
                 .eq('phone', __profitGuardUserPhone);
-              console.log(`✅ [SYNC] ProfitGuard: user profits reverted to snapshot for ${__profitGuardUserPhone}.`);
+              if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [SYNC] ProfitGuard: user profits reverted to snapshot for ${__profitGuardUserPhone}.`);
             }
           }
         } catch (pgErr2) {
@@ -679,7 +679,7 @@ class IntegratedWaseetSync extends EventEmitter {
                     updated_at: new Date().toISOString(),
                   })
                   .eq('phone', __profitGuardUserPhone);
-                console.log(`✅ [SYNC] ProfitGuard (delayed): user profits reverted for ${__profitGuardUserPhone}.`);
+                if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [SYNC] ProfitGuard (delayed): user profits reverted for ${__profitGuardUserPhone}.`);
               }
             }
           } catch (pgErr3) {

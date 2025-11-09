@@ -45,7 +45,7 @@ class InstantStatusUpdater {
     const startTime = Date.now();
 
     try {
-      console.log(`⚡ بدء تحديث فوري للطلب ${orderId}...`);
+      if (process.env.LOG_LEVEL === 'debug') console.log(`⚡ بدء تحديث فوري للطلب ${orderId}...`);
 
       // 1. جلب الطلب الحالي
       const { data: currentOrder, error: fetchError } = await this.supabase
@@ -70,11 +70,11 @@ class InstantStatusUpdater {
         (waseetData && ignoredStatusIds.includes(parseInt(waseetData.status_id)));
 
       if (isIgnoredStatus) {
-        console.log(`🚫 تم تجاهل حالة "${newWaseetStatus}" للطلب ${orderId} - حالة غير مهمة للمستخدم`);
+        if (process.env.LOG_LEVEL === 'debug') console.log(`🚫 تم تجاهل حالة "${newWaseetStatus}" للطلب ${orderId} - حالة غير مهمة للمستخدم`);
 
         // ⚠️ لا نحدث أي شيء في قاعدة البيانات لتجنب إطلاق realtime events
         // أي UPDATE على جدول orders سيطلق event في Frontend ويسبب تحديث الأرباح!
-        console.log(`⏭️ تخطي الطلب ${orderId} بالكامل - لا تحديث في قاعدة البيانات`);
+        if (process.env.LOG_LEVEL === 'debug') console.log(`⏭️ تخطي الطلب ${orderId} بالكامل - لا تحديث في قاعدة البيانات`);
 
         return {
           success: true,
@@ -89,7 +89,7 @@ class InstantStatusUpdater {
       // 5. فحص إذا كانت الحالة الحالية نهائية
       const finalStatuses = ['تم التسليم للزبون', 'الغاء الطلب', 'رفض الطلب', 'delivered', 'cancelled'];
       if (finalStatuses.includes(currentOrder.status)) {
-        console.log(`⏹️ تم تجاهل تحديث الطلب ${orderId} - الحالة نهائية: ${currentOrder.status}`);
+        if (process.env.LOG_LEVEL === 'debug') console.log(`⏹️ تم تجاهل تحديث الطلب ${orderId} - الحالة نهائية: ${currentOrder.status}`);
         return {
           success: true,
           changed: false,
@@ -102,7 +102,7 @@ class InstantStatusUpdater {
       const hasWaseetStatusChanged = newWaseetStatus !== currentOrder.waseet_status;
 
       if (!hasStatusChanged && !hasWaseetStatusChanged) {
-        console.log(`📊 الطلب ${orderId}: لا يوجد تغيير في الحالة`);
+        if (process.env.LOG_LEVEL === 'debug') console.log(`📊 الطلب ${orderId}: لا يوجد تغيير في الحالة`);
         return {
           success: true,
           changed: false,
@@ -136,7 +136,7 @@ class InstantStatusUpdater {
               achieved: Number(__u.achieved_profits) || 0,
               expected: Number(__u.expected_profits) || 0,
             };
-            console.log(`🛡️ [INSTANT] ProfitGuard snapshot for ${__profitGuardUserPhone} (order ${orderId}):`, __profitGuardBefore);
+            if (process.env.LOG_LEVEL === 'debug') console.log(`🛡️ [INSTANT] ProfitGuard snapshot for ${__profitGuardUserPhone} (order ${orderId}):`, __profitGuardBefore);
           } else {
             __profitGuardShouldRun = false;
           }
@@ -202,7 +202,7 @@ class InstantStatusUpdater {
                   updated_at: new Date().toISOString(),
                 })
                 .eq('phone', __profitGuardUserPhone);
-              console.log(`✅ [INSTANT] ProfitGuard: user profits reverted to snapshot for ${__profitGuardUserPhone}.`);
+              if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [INSTANT] ProfitGuard: user profits reverted to snapshot for ${__profitGuardUserPhone}.`);
             }
           }
         } catch (_) { }
@@ -233,7 +233,7 @@ class InstantStatusUpdater {
                     updated_at: new Date().toISOString(),
                   })
                   .eq('phone', __profitGuardUserPhone);
-                console.log(`✅ [INSTANT] ProfitGuard (delayed): user profits reverted for ${__profitGuardUserPhone}.`);
+                if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [INSTANT] ProfitGuard (delayed): user profits reverted for ${__profitGuardUserPhone}.`);
               }
             }
           } catch (_) { }
@@ -249,7 +249,7 @@ class InstantStatusUpdater {
       // ❌ تم تعطيل إرسال الإشعارات من هنا
       // الإشعارات تُرسل من integrated_waseet_sync.js فقط
       if (this.config.enableNotifications && hasStatusChanged) {
-        console.log(`📝 ملاحظة: الإشعار سيتم إرساله من integrated_waseet_sync.js`);
+        if (process.env.LOG_LEVEL === 'debug') console.log(`📝 ملاحظة: الإشعار سيتم إرساله من integrated_waseet_sync.js`);
         // await this.sendStatusNotification(currentOrder, newLocalStatus);
       }
 
@@ -268,7 +268,7 @@ class InstantStatusUpdater {
         updateTime
       });
 
-      console.log(`✅ تم تحديث الطلب ${orderId} فورياً: ${currentOrder.status} → ${newLocalStatus} (${updateTime}ms)`);
+      if (process.env.LOG_LEVEL === 'debug') console.log(`✅ تم تحديث الطلب ${orderId} فورياً: ${currentOrder.status} → ${newLocalStatus} (${updateTime}ms)`);
 
       return {
         success: true,
@@ -299,7 +299,7 @@ class InstantStatusUpdater {
   // تحديث متعدد للطلبات فورياً
   // ===================================
   async batchInstantUpdate(updates) {
-    console.log(`⚡ بدء تحديث فوري لـ ${updates.length} طلب...`);
+    if (process.env.LOG_LEVEL === 'debug') console.log(`⚡ بدء تحديث فوري لـ ${updates.length} طلب...`);
 
     const results = [];
     const startTime = Date.now();
@@ -325,7 +325,7 @@ class InstantStatusUpdater {
     const successCount = results.filter(r => r.success).length;
     const changedCount = results.filter(r => r.success && r.changed).length;
 
-    console.log(`✅ انتهى التحديث المتعدد: ${successCount}/${updates.length} نجح، ${changedCount} تغيير (${totalTime}ms)`);
+    if (process.env.LOG_LEVEL === 'debug') console.log(`✅ انتهى التحديث المتعدد: ${successCount}/${updates.length} نجح، ${changedCount} تغيير (${totalTime}ms)`);
 
     return {
       success: true,
@@ -389,7 +389,7 @@ class InstantStatusUpdater {
     try {
       // يمكن إضافة منطق الإشعارات هنا
       // مثل إرسال إشعار للعميل أو التاجر
-      console.log(`📱 إشعار: تغيرت حالة الطلب ${order.order_number} إلى ${newStatus}`);
+      if (process.env.LOG_LEVEL === 'debug') console.log(`📱 إشعار: تغيرت حالة الطلب ${order.order_number} إلى ${newStatus}`);
     } catch (error) {
       console.warn('⚠️ تحذير: فشل في إرسال الإشعار:', error.message);
     }
@@ -468,7 +468,7 @@ class InstantStatusUpdater {
       lastUpdateTime: null,
       averageUpdateTime: 0
     };
-    console.log('📊 تم إعادة تعيين إحصائيات التحديث');
+    if (process.env.LOG_LEVEL === 'debug') console.log('📊 تم إعادة تعيين إحصائيات التحديث');
   }
 }
 

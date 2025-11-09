@@ -9,9 +9,11 @@ const { firebaseAdminService } = require('./firebase_admin_service');
 class TargetedNotificationService {
   constructor() {
     // تسجيل متغيرات البيئة للتشخيص
-    console.log('🔍 فحص متغيرات Supabase:');
-    console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'موجود' : 'مفقود');
-    console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'موجود' : 'مفقود');
+    if (process.env.LOG_LEVEL === 'debug') {
+      console.log('🔍 فحص متغيرات Supabase:');
+      console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'موجود' : 'مفقود');
+      console.log('SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'موجود' : 'مفقود');
+    }
 
     if (!process.env.SUPABASE_URL) {
       throw new Error('SUPABASE_URL مفقود من متغيرات البيئة');
@@ -27,7 +29,7 @@ class TargetedNotificationService {
       process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
-    console.log('✅ تم إنشاء Supabase client بنجاح');
+    if (process.env.LOG_LEVEL === 'debug') console.log('✅ تم إنشاء Supabase client بنجاح');
     this.initialized = false;
   }
 
@@ -36,7 +38,7 @@ class TargetedNotificationService {
    */
   async initialize() {
     try {
-      console.log('🎯 بدء تهيئة خدمة الإشعارات المستهدفة...');
+      if (process.env.LOG_LEVEL === 'debug') console.log('🎯 بدء تهيئة خدمة الإشعارات المستهدفة...');
 
       // تهيئة Firebase Admin
       const firebaseInitialized = await firebaseAdminService.initialize();
@@ -46,7 +48,7 @@ class TargetedNotificationService {
       }
 
       this.initialized = true;
-      console.log('✅ تم تهيئة خدمة الإشعارات المستهدفة بنجاح');
+      if (process.env.LOG_LEVEL === 'debug') console.log('✅ تم تهيئة خدمة الإشعارات المستهدفة بنجاح');
 
       return true;
     } catch (error) {
@@ -77,7 +79,7 @@ class TargetedNotificationService {
       }
 
       if (!data || data.length === 0) {
-        console.log(`⚠️ لا توجد FCM tokens نشطة للمستخدم: ${userPhone}`);
+        console.warn(`⚠️ لا توجد FCM tokens نشطة للمستخدم: ${userPhone}`);
         return null;
       }
 
@@ -86,7 +88,7 @@ class TargetedNotificationService {
 
       // تحديث آخر استخدام وإرجاع Token
       await this.updateTokenLastUsed(userPhone, latestToken.fcm_token);
-      console.log(`✅ تم العثور على FCM token للمستخدم: ${userPhone}`);
+      if (process.env.LOG_LEVEL === 'debug') console.log(`✅ تم العثور على FCM token للمستخدم: ${userPhone}`);
       return latestToken.fcm_token;
 
       console.log(`❌ جميع FCM tokens منتهية الصلاحية للمستخدم: ${userPhone}`);
@@ -166,7 +168,7 @@ class TargetedNotificationService {
         throw new Error('خدمة الإشعارات غير مهيأة');
       }
 
-      console.log(`📱 إرسال إشعار تحديث الطلب للمستخدم: ${userPhone}`);
+      if (process.env.LOG_LEVEL === 'debug') console.log(`📱 إرسال إشعار تحديث الطلب للمستخدم: ${userPhone}`);
 
       // الحصول على جميع FCM Tokens النشطة (الأحدث أولاً)
       const tokens = await this.getActiveFCMTokens(userPhone);
@@ -254,12 +256,12 @@ class TargetedNotificationService {
         throw new Error('خدمة الإشعارات غير مهيأة');
       }
 
-      console.log(`💰 إرسال إشعار تحديث طلب السحب للمستخدم: ${userPhone}`);
+      if (process.env.LOG_LEVEL === 'debug') console.log(`💰 إرسال إشعار تحديث طلب السحب للمستخدم: ${userPhone}`);
 
       // الحصول على جميع FCM Tokens النشطة (الأحدث أولاً)
       const tokens = await this.getActiveFCMTokens(userPhone);
       if (!tokens || tokens.length === 0) {
-        console.log(`⚠️ لا يوجد أي FCM Token نشط للمستخدم: ${userPhone}`);
+        console.warn(`⚠️ لا يوجد أي FCM Token نشط للمستخدم: ${userPhone}`);
         return { success: false, error: 'لا يوجد FCM Token للمستخدم', userPhone };
       }
 
@@ -340,7 +342,7 @@ class TargetedNotificationService {
         throw new Error('خدمة الإشعارات غير مهيأة');
       }
 
-      console.log(`📢 إرسال إشعار عام للمستخدم: ${userPhone}`);
+      if (process.env.LOG_LEVEL === 'debug') console.log(`📢 إرسال إشعار عام للمستخدم: ${userPhone}`);
 
       // الحصول على جميع FCM Tokens النشطة (الأحدث أولاً)
       const tokens = await this.getActiveFCMTokens(userPhone);

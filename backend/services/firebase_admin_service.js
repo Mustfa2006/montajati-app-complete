@@ -16,7 +16,7 @@ class FirebaseAdminService {
    */
   async initialize() {
     try {
-      console.log('🔥 بدء تهيئة Firebase Admin SDK...');
+      if (process.env.LOG_LEVEL === 'debug') console.log('🔥 بدء تهيئة Firebase Admin SDK...');
 
       // ✅ طرق متعددة لتحميل Firebase credentials
       let serviceAccount;
@@ -25,7 +25,7 @@ class FirebaseAdminService {
       if (process.env.FIREBASE_SERVICE_ACCOUNT) {
         try {
           serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-          console.log('✅ تم تحميل Firebase credentials من FIREBASE_SERVICE_ACCOUNT');
+          if (process.env.LOG_LEVEL === 'debug') console.log('✅ تم تحميل Firebase credentials من FIREBASE_SERVICE_ACCOUNT');
         } catch (parseError) {
           console.warn('⚠️ خطأ في تحليل FIREBASE_SERVICE_ACCOUNT JSON:', parseError.message);
         }
@@ -45,7 +45,7 @@ class FirebaseAdminService {
           auth_provider_x509_cert_url: "https://www.googleapis.com/oauth2/v1/certs",
           client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL || ""
         };
-        console.log('✅ تم تحميل Firebase credentials من متغيرات البيئة المنفصلة');
+        if (process.env.LOG_LEVEL === 'debug') console.log('✅ تم تحميل Firebase credentials من متغيرات البيئة المنفصلة');
       }
 
       // التحقق من وجود Service Account
@@ -67,17 +67,17 @@ class FirebaseAdminService {
           credential: admin.credential.cert(serviceAccount),
           projectId: serviceAccount.project_id
         });
-        console.log('✅ تم تهيئة Firebase Admin بنجاح');
+        if (process.env.LOG_LEVEL === 'debug') console.log('✅ تم تهيئة Firebase Admin بنجاح');
       } else {
-        console.log('✅ Firebase Admin مهيأ مسبقاً');
+        if (process.env.LOG_LEVEL === 'debug') console.log('✅ Firebase Admin مهيأ مسبقاً');
       }
 
       this.messaging = admin.messaging();
       this.initialized = true;
 
-      console.log('✅ تم تهيئة Firebase Admin SDK بنجاح');
-      console.log(`📋 Project ID: ${serviceAccount.project_id}`);
-      console.log(`📧 Client Email: ${serviceAccount.client_email}`);
+      if (process.env.LOG_LEVEL === 'debug') console.log('✅ تم تهيئة Firebase Admin SDK بنجاح');
+      if (process.env.LOG_LEVEL === 'debug') console.log(`📋 Project ID: ${serviceAccount.project_id}`);
+      if (process.env.LOG_LEVEL === 'debug') console.log(`📧 Client Email: ${serviceAccount.client_email}`);
 
       return true;
 
@@ -153,7 +153,7 @@ class FirebaseAdminService {
       // إرسال الإشعار
       const response = await this.messaging.send(message);
 
-      console.log('✅ تم إرسال الإشعار بنجاح:', {
+      if (process.env.LOG_LEVEL === 'debug') console.log('✅ تم إرسال الإشعار بنجاح:', {
         messageId: response,
         token: fcmToken.substring(0, 20) + '...',
         title: notification.title
