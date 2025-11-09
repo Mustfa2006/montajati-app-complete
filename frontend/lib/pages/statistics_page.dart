@@ -14,6 +14,62 @@ import '../providers/theme_provider.dart';
 import '../widgets/app_background.dart';
 import '../widgets/iraq_map_widget.dart';
 
+// ⏰ دوال ثابتة لتوحيد منطق التوقيت (بغداد = UTC+3)
+class _TimeHelper {
+  static const Duration baghdadOffset = Duration(hours: 3);
+
+  /// تحويل من UTC إلى توقيت بغداد
+  static DateTime toBaghdad(DateTime utc) => utc.add(baghdadOffset);
+
+  /// تحويل من توقيت بغداد إلى UTC
+  static DateTime toUtc(DateTime baghdad) => baghdad.subtract(baghdadOffset);
+
+  /// الوقت الحالي بتوقيت بغداد
+  static DateTime nowBaghdad() => toBaghdad(DateTime.now().toUtc());
+
+  /// بداية اليوم (00:00:00) بتوقيت بغداد ثم تحويل إلى UTC
+  static DateTime startOfDayUtc(DateTime baghdadDate) {
+    final startBaghdad = DateTime(baghdadDate.year, baghdadDate.month, baghdadDate.day, 0, 0, 0);
+    return toUtc(startBaghdad);
+  }
+
+  /// نهاية اليوم (23:59:59) بتوقيت بغداد ثم تحويل إلى UTC
+  static DateTime endOfDayUtc(DateTime baghdadDate) {
+    final endBaghdad = DateTime(baghdadDate.year, baghdadDate.month, baghdadDate.day, 23, 59, 59);
+    return toUtc(endBaghdad);
+  }
+
+  /// حساب بداية الأسبوع (السبت) بتوقيت بغداد
+  static DateTime startOfWeekBaghdad(DateTime baghdadDate, {int weekOffset = 0}) {
+    final currentWeekday = baghdadDate.weekday;
+
+    int daysToSubtract;
+    if (currentWeekday == DateTime.saturday) {
+      daysToSubtract = 0;
+    } else if (currentWeekday == DateTime.sunday) {
+      daysToSubtract = 1;
+    } else {
+      daysToSubtract = currentWeekday + 1;
+    }
+
+    return DateTime(
+      baghdadDate.year,
+      baghdadDate.month,
+      baghdadDate.day,
+      0,
+      0,
+      0,
+      0,
+      0,
+    ).subtract(Duration(days: daysToSubtract)).add(Duration(days: weekOffset * 7));
+  }
+
+  /// حساب نهاية الأسبوع (الجمعة 23:59:59) بتوقيت بغداد
+  static DateTime endOfWeekBaghdad(DateTime weekStartBaghdad) {
+    return weekStartBaghdad.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+  }
+}
+
 class StatisticsPage extends StatefulWidget {
   const StatisticsPage({super.key});
 
@@ -22,6 +78,9 @@ class StatisticsPage extends StatefulWidget {
 }
 
 class _StatisticsPageState extends State<StatisticsPage> {
+  // 💾 تخزين GeoJSON في متغير static لتحميله مرة واحدة فقط
+  static Map<String, dynamic>? _cachedGeoJsonData;
+
   // بيانات الأرباح
   double _realizedProfits = 0.0;
 
@@ -53,6 +112,16 @@ class _StatisticsPageState extends State<StatisticsPage> {
   // متغير لتتبع الأسبوع الحالي (0 = هذا الأسبوع، -1 = الأسبوع الماضي، إلخ)
   int _weekOffset = 0;
 
+  // 🚀 نظام Cache للبيانات (تحسين الأداء)
+  Map<String, dynamic>? _cachedData;
+  DateTime? _cacheTimestamp;
+  static const Duration _cacheDuration = Duration(minutes: 5); // مدة صلاحية الكاش
+
+  // 🚀 نظام Debounce للحماية من التكرار
+  DateTime? _lastRequestTime;
+  static const Duration _debounceDuration = Duration(milliseconds: 500);
+  bool _isLoading = false; // لمنع الطلبات المتعددة
+
   // دالة مساعدة لتحويل رقم اليوم إلى اسم عربي
   String _getArabicDayName(int weekday) {
     switch (weekday) {
@@ -82,16 +151,59 @@ class _StatisticsPageState extends State<StatisticsPage> {
   }
 
   Future<void> _initializePage() async {
+    // 🚀 SWR Pattern: عرض البيانات المخزنة فوراً ثم تحديثها
+    await _loadCachedStatistics(); // عرض فوري
     await _loadGeoJsonData();
     await _setDefaultDateRange();
-    await _loadUserProfits();
-    await _loadProvinceOrders();
-    await _loadWeekdayOrders();
+    // 🚀 استخدام الدالة الموحدة الجديدة بدلاً من 3 دوال منفصلة
+    await _loadAllStatistics(); // تحديث من الخادم
   }
 
-  // تحميل بيانات GeoJSON
+  // � تحميل البيانات المخزنة محلياً (SWR Pattern)
+  Future<void> _loadCachedStatistics() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedProfits = prefs.getDouble('cached_realized_profits');
+
+      if (cachedProfits != null && mounted) {
+        setState(() {
+          _realizedProfits = cachedProfits;
+        });
+        debugPrint('✅ تم تحميل الأرباح من الكاش المحلي: $cachedProfits');
+      }
+    } catch (e) {
+      debugPrint('⚠️ خطأ في تحميل الكاش المحلي: $e');
+    }
+  }
+
+  // 💾 حفظ البيانات محلياً
+  Future<void> _saveCachedStatistics() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('cached_realized_profits', _realizedProfits);
+      debugPrint('💾 تم حفظ الأرباح في الكاش المحلي: $_realizedProfits');
+    } catch (e) {
+      debugPrint('⚠️ خطأ في حفظ الكاش المحلي: $e');
+    }
+  }
+
+  // �💾 تحميل بيانات GeoJSON (مع تخزين مؤقت)
   Future<void> _loadGeoJsonData() async {
     try {
+      // 🚀 استخدام الكاش إذا كان موجوداً
+      if (_cachedGeoJsonData != null) {
+        debugPrint('✅ استخدام GeoJSON من الكاش');
+        if (mounted) {
+          setState(() {
+            _geoJsonData = _cachedGeoJsonData;
+            _isLoadingMap = false;
+          });
+        }
+        return;
+      }
+
+      // 📥 تحميل من الملف إذا لم يكن في الكاش
+      debugPrint('📥 تحميل GeoJSON من الملف...');
       final String jsonString = await rootBundle.loadString('assets/data/iraq_Governorate_level_1.geojson');
       final Map<String, dynamic> jsonData = json.decode(jsonString);
 
@@ -105,6 +217,9 @@ class _StatisticsPageState extends State<StatisticsPage> {
           debugPrint('   - $shapeName');
         }
       }
+
+      // 💾 حفظ في الكاش
+      _cachedGeoJsonData = jsonData;
 
       if (mounted) {
         setState(() {
@@ -124,24 +239,229 @@ class _StatisticsPageState extends State<StatisticsPage> {
 
   // تعيين نطاق التاريخ الافتراضي (آخر 7 أيام حسب توقيت بغداد)
   Future<void> _setDefaultDateRange() async {
-    // الحصول على الوقت الحالي بتوقيت بغداد
-    final nowUtc = DateTime.now().toUtc();
-    final nowBaghdad = nowUtc.add(const Duration(hours: 3));
-
-    // آخر 7 أيام
+    // 🚀 استخدام _TimeHelper لتوحيد منطق التوقيت
+    final nowBaghdad = _TimeHelper.nowBaghdad();
     final sevenDaysAgo = nowBaghdad.subtract(const Duration(days: 7));
 
     if (mounted) {
       setState(() {
-        // بداية اليوم (00:00:00) بتوقيت بغداد، ثم تحويل إلى UTC
-        final fromBaghdad = DateTime(sevenDaysAgo.year, sevenDaysAgo.month, sevenDaysAgo.day, 0, 0, 0);
-        _selectedFromDate = fromBaghdad.subtract(const Duration(hours: 3)); // تحويل إلى UTC
-
-        // نهاية اليوم (23:59:59) بتوقيت بغداد، ثم تحويل إلى UTC
-        final toBaghdad = DateTime(nowBaghdad.year, nowBaghdad.month, nowBaghdad.day, 23, 59, 59);
-        _selectedToDate = toBaghdad.subtract(const Duration(hours: 3)); // تحويل إلى UTC
+        _selectedFromDate = _TimeHelper.startOfDayUtc(sevenDaysAgo);
+        _selectedToDate = _TimeHelper.endOfDayUtc(nowBaghdad);
       });
     }
+  }
+
+  // 🚀 جلب جميع الإحصائيات في طلب واحد (محسّن + Cache + Debounce)
+  Future<void> _loadAllStatistics({bool forceRefresh = false}) async {
+    try {
+      // 🛡️ Debounce: منع الطلبات المتكررة
+      final now = DateTime.now();
+      if (_lastRequestTime != null && !forceRefresh) {
+        final timeSinceLastRequest = now.difference(_lastRequestTime!);
+        if (timeSinceLastRequest < _debounceDuration) {
+          debugPrint('⏸️ تم تجاهل الطلب (Debounce): ${timeSinceLastRequest.inMilliseconds}ms منذ آخر طلب');
+          return;
+        }
+      }
+
+      // 🛡️ منع الطلبات المتعددة في نفس الوقت
+      if (_isLoading && !forceRefresh) {
+        debugPrint('⏸️ تم تجاهل الطلب: يوجد طلب قيد التنفيذ');
+        return;
+      }
+
+      // 💾 Cache: استخدام البيانات المخزنة إذا كانت صالحة
+      if (_cachedData != null && _cacheTimestamp != null && !forceRefresh) {
+        final cacheAge = now.difference(_cacheTimestamp!);
+        if (cacheAge < _cacheDuration) {
+          debugPrint('✅ استخدام البيانات من الكاش (عمر الكاش: ${cacheAge.inSeconds}s)');
+          _applyDataFromCache();
+          return;
+        } else {
+          debugPrint('⏰ الكاش منتهي الصلاحية (عمر الكاش: ${cacheAge.inMinutes}m)');
+        }
+      }
+
+      setState(() => _isLoading = true);
+      _lastRequestTime = now;
+
+      final prefs = await SharedPreferences.getInstance();
+      String? currentUserPhone = prefs.getString('current_user_phone');
+
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        debugPrint('❌ رقم الهاتف غير موجود');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      if (_selectedFromDate == null || _selectedToDate == null) {
+        debugPrint('❌ التواريخ غير محددة');
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // 🚀 حساب بداية ونهاية الأسبوع باستخدام _TimeHelper
+      final nowBaghdad = _TimeHelper.nowBaghdad();
+      final weekStartBaghdad = _TimeHelper.startOfWeekBaghdad(nowBaghdad, weekOffset: _weekOffset);
+      final weekEndBaghdad = _TimeHelper.endOfWeekBaghdad(weekStartBaghdad);
+      final weekStartUtc = _TimeHelper.toUtc(weekStartBaghdad);
+      final weekEndUtc = _TimeHelper.toUtc(weekEndBaghdad);
+
+      debugPrint('📊 === جلب ملخص الإحصائيات الموحد ===');
+      debugPrint('📱 رقم الهاتف: $currentUserPhone');
+      debugPrint('📅 الفترة: ${_selectedFromDate!.toIso8601String()} إلى ${_selectedToDate!.toIso8601String()}');
+      debugPrint('📅 الأسبوع: ${weekStartUtc.toIso8601String()} إلى ${weekEndUtc.toIso8601String()}');
+
+      // 🚀 طلب واحد موحد بدلاً من 3 طلبات منفصلة
+      // TODO: 🔒 استخدام JWT بدلاً من إرسال phone من الفرونت اند (تحسين أمني)
+      // يجب تعديل الباك اند ليستخرج phone من التوكن بدلاً من الطلب
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/statistics/summary'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({
+              'phone': currentUserPhone, // ⚠️ سيتم إزالته لاحقاً واستخدام JWT
+              'from_date': _selectedFromDate!.toIso8601String(),
+              'to_date': _selectedToDate!.toIso8601String(),
+              'week_start': weekStartUtc.toIso8601String(),
+              'week_end': weekEndUtc.toIso8601String(),
+            }),
+          )
+          .timeout(ApiConfig.defaultTimeout);
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        if (jsonData['success'] == true && jsonData['data'] != null) {
+          final data = jsonData['data'];
+
+          // 💾 حفظ البيانات في الكاش
+          _cachedData = data;
+          _cacheTimestamp = DateTime.now();
+
+          // تطبيق البيانات
+          _applyDataFromResponse(data);
+
+          // 💾 حفظ في الكاش المحلي (SharedPreferences)
+          _saveCachedStatistics();
+
+          debugPrint('✅ تم جلب جميع الإحصائيات بنجاح');
+          debugPrint('   💰 الأرباح: $_realizedProfits د.ع');
+          debugPrint('   🗺️ المحافظات: ${_provinceOrders.length}');
+          debugPrint('   📅 أيام الأسبوع: ${_weekdayOrders.values.reduce((a, b) => a + b)} طلب');
+        }
+      } else {
+        debugPrint('❌ خطأ في جلب الإحصائيات: ${response.statusCode}');
+        // 🚨 عرض رسالة خطأ للمستخدم
+        _showErrorSnackBar('فشل في جلب البيانات (${response.statusCode})');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في جلب الإحصائيات: $e');
+      // 🚨 عرض رسالة خطأ للمستخدم
+      _showErrorSnackBar('خطأ في الاتصال بالإنترنت');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  // تطبيق البيانات من الاستجابة
+  void _applyDataFromResponse(Map<String, dynamic> data) {
+    if (!mounted) return;
+
+    setState(() {
+      // 1️⃣ الأرباح المحققة
+      _realizedProfits = (data['realized_profits'] as num?)?.toDouble() ?? 0.0;
+
+      // 2️⃣ طلبات المحافظات
+      _provinceOrders.clear();
+      final provinceData = data['province_orders'];
+      if (provinceData != null) {
+        final Map<String, dynamic> rawProvinceCounts = provinceData['province_counts'] ?? {};
+        rawProvinceCounts.forEach((province, count) {
+          if (province.toString().trim().isNotEmpty) {
+            final normalizedName = _normalizeProvinceName(province.toString().trim());
+            _provinceOrders[normalizedName] = (count as num).toInt();
+          }
+        });
+      }
+
+      // 3️⃣ طلبات أيام الأسبوع
+      _weekdayOrders.updateAll((key, value) => 0);
+      final List<dynamic> weekdayOrdersData = data['weekday_orders'] ?? [];
+      for (var item in weekdayOrdersData) {
+        final dayOfWeek = item['day_of_week'] as int;
+        final orderCount = item['order_count'] as int;
+
+        String dayName;
+        switch (dayOfWeek) {
+          case 0:
+            dayName = 'الأحد';
+            break;
+          case 1:
+            dayName = 'الاثنين';
+            break;
+          case 2:
+            dayName = 'الثلاثاء';
+            break;
+          case 3:
+            dayName = 'الأربعاء';
+            break;
+          case 4:
+            dayName = 'الخميس';
+            break;
+          case 5:
+            dayName = 'الجمعة';
+            break;
+          case 6:
+            dayName = 'السبت';
+            break;
+          default:
+            dayName = 'غير معروف';
+        }
+
+        _weekdayOrders[dayName] = orderCount;
+      }
+    });
+  }
+
+  // تطبيق البيانات من الكاش
+  void _applyDataFromCache() {
+    if (_cachedData != null) {
+      _applyDataFromResponse(_cachedData!);
+    }
+  }
+
+  // 🚨 عرض رسالة خطأ مع زر "إعادة المحاولة"
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.red.shade700,
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'إعادة المحاولة',
+          textColor: Colors.white,
+          onPressed: () => _loadAllStatistics(forceRefresh: true),
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   // 🌐 جلب أرباح المستخدم من الباك اند (آمن جداً)
@@ -292,7 +612,7 @@ class _StatisticsPageState extends State<StatisticsPage> {
       final Map<String, int> provinceCounts = {};
 
       rawProvinceCounts.forEach((province, count) {
-        if (province != null && province.toString().trim().isNotEmpty) {
+        if (province.toString().trim().isNotEmpty) {
           final originalName = province.toString().trim();
           final normalizedName = _normalizeProvinceName(originalName);
           provinceCounts[normalizedName] = (provinceCounts[normalizedName] ?? 0) + (count as int);
@@ -502,7 +822,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
           _selectedToDate = null;
         }
       });
-      await _loadProvinceOrders();
+      // 🚀 استخدام الدالة الموحدة بدلاً من _loadProvinceOrders
+      await _loadAllStatistics(forceRefresh: true);
     }
   }
 
@@ -543,7 +864,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
         final pickedBaghdad = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
         _selectedToDate = pickedBaghdad.subtract(const Duration(hours: 3));
       });
-      await _loadProvinceOrders();
+      // 🚀 استخدام الدالة الموحدة بدلاً من _loadProvinceOrders
+      await _loadAllStatistics(forceRefresh: true);
     }
   }
 
@@ -556,8 +878,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
         backgroundColor: Colors.transparent,
         body: RefreshIndicator(
           onRefresh: () async {
-            await _loadUserProfits();
-            await _loadProvinceOrders();
+            // 🚀 استخدام الدالة الموحدة مع forceRefresh لتجاهل الكاش
+            await _loadAllStatistics(forceRefresh: true);
           },
           color: const Color(0xFFffd700),
           child: CustomScrollView(
@@ -668,15 +990,24 @@ class _StatisticsPageState extends State<StatisticsPage> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  '${_realizedProfits.toStringAsFixed(0)} د.ع',
-                  style: GoogleFonts.cairo(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFFffd700),
-                    height: 1.0,
-                  ),
-                ),
+                // 🚀 عرض مؤشر تحميل أو البيانات
+                _isLoading
+                    ? const SizedBox(
+                        height: 28,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                        ),
+                      )
+                    : Text(
+                        '${_realizedProfits.toStringAsFixed(0)} د.ع',
+                        style: GoogleFonts.cairo(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFffd700),
+                          height: 1.0,
+                        ),
+                      ),
               ],
             ),
           ),
@@ -887,7 +1218,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
                     setState(() {
                       _weekOffset--;
                     });
-                    await _loadWeekdayOrders();
+                    // 🚀 استخدام الدالة الموحدة بدلاً من _loadWeekdayOrders
+                    await _loadAllStatistics(forceRefresh: true);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -913,7 +1245,8 @@ class _StatisticsPageState extends State<StatisticsPage> {
                     setState(() {
                       _weekOffset++;
                     });
-                    await _loadWeekdayOrders();
+                    // 🚀 استخدام الدالة الموحدة بدلاً من _loadWeekdayOrders
+                    await _loadAllStatistics(forceRefresh: true);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

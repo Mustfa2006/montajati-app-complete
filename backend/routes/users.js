@@ -588,4 +588,117 @@ router.post('/statistics/weekday-orders', async (req, res) => {
   }
 });
 
+// ===================================
+// 🚀 POST /api/users/statistics/summary - جلب جميع الإحصائيات في طلب واحد (محسّن)
+// ===================================
+router.post('/statistics/summary', async (req, res) => {
+  try {
+    const { phone, from_date, to_date, week_start, week_end } = req.body;
+
+    // التحقق من رقم الهاتف
+    if (!phone || phone.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    console.log('📊 === جلب ملخص الإحصائيات الموحد ===');
+    console.log('📱 رقم الهاتف:', phone);
+    console.log('📅 الفترة (المحافظات):', from_date, 'إلى', to_date);
+    console.log('📅 الأسبوع:', week_start, 'إلى', week_end);
+
+    // 🔥 تنفيذ جميع الاستعلامات بالتوازي (Parallel) لتحسين الأداء
+    const [realizedProfitsResult, provinceOrdersResult, weekdayOrdersResult] = await Promise.all([
+
+      // 1️⃣ جلب الأرباح المحققة
+      supabase
+        .from('orders')
+        .select('profit')
+        .eq('user_phone', phone)
+        .eq('status', 'تم التسليم للزبون'),
+
+      // 2️⃣ جلب طلبات المحافظات (إذا تم تحديد التواريخ)
+      from_date && to_date
+        ? supabase
+          .from('orders')
+          .select('id, province, city, created_at, user_phone, status')
+          .eq('user_phone', phone)
+          .gte('created_at', from_date)
+          .lte('created_at', to_date)
+        : Promise.resolve({ data: [], error: null }),
+
+      // 3️⃣ جلب طلبات أيام الأسبوع (إذا تم تحديد الأسبوع)
+      week_start && week_end
+        ? supabase.rpc('get_weekday_orders', {
+          p_user_phone: phone,
+          p_week_start: week_start,
+          p_week_end: week_end,
+        })
+        : Promise.resolve({ data: [], error: null })
+    ]);
+
+    // معالجة الأخطاء
+    if (realizedProfitsResult.error) {
+      console.error('❌ خطأ في جلب الأرباح:', realizedProfitsResult.error.message);
+    }
+    if (provinceOrdersResult.error) {
+      console.error('❌ خطأ في جلب طلبات المحافظات:', provinceOrdersResult.error.message);
+    }
+    if (weekdayOrdersResult.error) {
+      console.error('❌ خطأ في جلب طلبات الأسبوع:', weekdayOrdersResult.error.message);
+    }
+
+    // 1️⃣ حساب الأرباح المحققة
+    let totalProfit = 0.0;
+    if (realizedProfitsResult.data && realizedProfitsResult.data.length > 0) {
+      realizedProfitsResult.data.forEach(order => {
+        totalProfit += Number(order.profit) || 0.0;
+      });
+    }
+
+    // 2️⃣ حساب طلبات المحافظات
+    const provinceCounts = {};
+    let totalOrders = 0;
+    if (provinceOrdersResult.data && provinceOrdersResult.data.length > 0) {
+      totalOrders = provinceOrdersResult.data.length;
+      provinceOrdersResult.data.forEach(order => {
+        if (order.province) {
+          const province = order.province.trim();
+          provinceCounts[province] = (provinceCounts[province] || 0) + 1;
+        }
+      });
+    }
+
+    // 3️⃣ طلبات أيام الأسبوع (جاهزة من الـ RPC)
+    const weekdayOrders = weekdayOrdersResult.data || [];
+
+    console.log('✅ النتائج:');
+    console.log('   💰 الأرباح المحققة:', totalProfit);
+    console.log('   🗺️ عدد المحافظات:', Object.keys(provinceCounts).length);
+    console.log('   📅 عدد أيام الأسبوع:', weekdayOrders.length);
+
+    // إرجاع جميع البيانات في استجابة واحدة
+    res.status(200).json({
+      success: true,
+      data: {
+        realized_profits: totalProfit,
+        province_orders: {
+          province_counts: provinceCounts,
+          total_orders: totalOrders
+        },
+        weekday_orders: weekdayOrders
+      },
+      timestamp: new Date().toISOString() // لتتبع وقت الاستجابة
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في جلب ملخص الإحصائيات:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'خطأ في الخادم'
+    });
+  }
+});
+
 module.exports = router;
