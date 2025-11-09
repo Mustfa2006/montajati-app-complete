@@ -1072,13 +1072,16 @@ router.put('/:id/status', async (req, res) => {
       console.log(`🔄 [${requestId}] بدء تحديث حالة الطلب في قاعدة البيانات...`);
       const updateStartTime = Date.now();
 
-      const { error: updateError } = await supabase
+      // ✅ تحديث آمن: لا نقوم بالتحديث إذا كانت القيمة الحالية مساوية لتجنّب تشغيل تريجر الأرباح مرتين
+      let __q = supabase
         .from('orders')
         .update({
           status: normalizedStatus,
           updated_at: new Date().toISOString()
         })
-        .eq('id', id);
+        .eq('id', id)
+        .neq('status', normalizedStatus);
+      const { error: updateError } = await __q;
 
       const updateDuration = Date.now() - updateStartTime;
       console.log(`⏱️ [${requestId}] مدة التحديث: ${updateDuration}ms`);

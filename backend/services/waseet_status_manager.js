@@ -107,21 +107,47 @@ class WaseetStatusManager {
       const statusInfo = this.getStatusById(waseetStatusId);
       const statusText = waseetStatusText || statusInfo.text;
 
-      // تحديث الطلب في قاعدة البيانات - حفظ النص الكامل في عمود status
-      const { data, error } = await this.supabase
+      // تحديث آمن لتجنّب تشغيل تريجر الأرباح أكثر من مرة عند حالات التوازي
+      const nowTs = new Date().toISOString();
+
+      // 1) تحديث حقول وسيط الوسيط دائمًا دون المساس بعمود status
+      const { error: metaErr } = await this.supabase
         .from('orders')
         .update({
-          status: statusText,  // حفظ النص الكامل للحالة في عمود status
           waseet_status_id: waseetStatusId,
           waseet_status_text: statusText,
-          status_updated_at: new Date().toISOString()
+          updated_at: nowTs
         })
-        .eq('id', orderId)
-        .select('*')
-        .single();
+        .eq('id', orderId);
+      if (metaErr) {
+        throw new Error(`خطأ في تحديث بيانات حالة الوسيط: ${metaErr.message}`);
+      }
 
-      if (error) {
-        throw new Error(`خطأ في تحديث قاعدة البيانات: ${error.message}`);
+      // 2) إن كانت الحالة تغيّرت فعلًا: حدّث عمود status بشرط .neq لمنع التحديث إن كانت متطابقة
+      const shouldChangeStatus = currentOrder.status !== statusText;
+      if (shouldChangeStatus) {
+        let __q = this.supabase
+          .from('orders')
+          .update({
+            status: statusText,
+            status_updated_at: nowTs
+          })
+          .eq('id', orderId)
+          .neq('status', statusText);
+        const { error: updErr } = await __q;
+        if (updErr) {
+          throw new Error(`خطأ في تحديث حالة الطلب: ${updErr.message}`);
+        }
+      }
+
+      // 3) في النهاية: اجلب الصف بعد التحديث لإرجاع حالة مضمونة
+      const { data, error: fetchAfterErr } = await this.supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      if (fetchAfterErr) {
+        throw new Error(`خطأ في جلب الطلب بعد التحديث: ${fetchAfterErr.message}`);
       }
 
       console.log(`✅ تم تحديث حالة الطلب ${orderId} بنجاح`);
@@ -131,8 +157,8 @@ class WaseetStatusManager {
       return {
         success: true,
         order: data,
-        oldStatus: data.status,
-        newStatus: statusText,  // النص الكامل للحالة
+        oldStatus: currentOrder.status,
+        newStatus: statusText,
         waseetStatus: statusText
       };
 
