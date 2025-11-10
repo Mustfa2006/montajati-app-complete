@@ -712,35 +712,47 @@ router.post('/top-products', async (req, res) => {
 
     console.log(`🏆 جلب أكثر المنتجات مبيعاً للمستخدم: ${phone}`);
 
-    // 🔍 جلب جميع الطلبات للمستخدم مع تفاصيل المنتجات
-    const { data: orders, error: ordersError } = await supabase
-      .from('orders')
-      .select('id, product_id, product_name, product_image, quantity, profit, status')
-      .eq('user_phone', phone);
+    // 🔍 جلب جميع عناصر الطلبات للمستخدم مع تفاصيل الطلبات
+    const { data: orderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select(`
+        id,
+        product_id,
+        product_name,
+        product_image,
+        quantity,
+        profit_per_item,
+        orders!inner (
+          id,
+          user_phone,
+          status
+        )
+      `)
+      .eq('orders.user_phone', phone);
 
-    if (ordersError) {
-      console.log(`❌ خطأ في جلب الطلبات: ${ordersError.message}`);
-      return res.status(500).json({ success: false, error: 'خطأ في جلب الطلبات' });
+    if (itemsError) {
+      console.log(`❌ خطأ في جلب عناصر الطلبات: ${itemsError.message}`);
+      return res.status(500).json({ success: false, error: 'خطأ في جلب البيانات' });
     }
 
-    if (!orders || orders.length === 0) {
-      console.log('⚠️ لا توجد طلبات للمستخدم');
+    if (!orderItems || orderItems.length === 0) {
+      console.log('⚠️ لا توجد منتجات للمستخدم');
       return res.status(200).json({ success: true, data: [] });
     }
 
-    console.log(`📦 تم جلب ${orders.length} طلب`);
+    console.log(`📦 تم جلب ${orderItems.length} عنصر طلب`);
 
     // 📊 تجميع البيانات حسب المنتج
     const productStats = {};
 
-    orders.forEach((order) => {
-      const productId = order.product_id;
+    orderItems.forEach((item) => {
+      const productId = item.product_id || item.product_name; // استخدام product_name كـ fallback
 
       if (!productStats[productId]) {
         productStats[productId] = {
           product_id: productId,
-          product_name: order.product_name,
-          product_image: order.product_image,
+          product_name: item.product_name,
+          product_image: item.product_image,
           total_orders: 0,
           total_quantity: 0,
           delivered_orders: 0,
@@ -750,12 +762,14 @@ router.post('/top-products', async (req, res) => {
       }
 
       productStats[productId].total_orders += 1;
-      productStats[productId].total_quantity += order.quantity || 1;
+      productStats[productId].total_quantity += item.quantity || 1;
 
-      if (order.status === 'تم التسليم للزبون') {
+      const orderStatus = item.orders?.status || '';
+
+      if (orderStatus === 'تم التسليم للزبون' || orderStatus === 'delivered') {
         productStats[productId].delivered_orders += 1;
-        productStats[productId].total_profit += order.profit || 0;
-      } else if (order.status === 'ملغي') {
+        productStats[productId].total_profit += item.profit_per_item || 0;
+      } else if (orderStatus === 'ملغي' || orderStatus === 'cancelled') {
         productStats[productId].cancelled_orders += 1;
       }
     });
@@ -868,27 +882,28 @@ router.post('/withdraw', async (req, res) => {
     }
 
     // إنشاء سجل طلب السحب
-    const withdrawalData = {
-      user_id: user.id,
-      amount: amount,
-      method: method,
-      status: 'pending',
-      request_date: new Date().toISOString(),
-    };
-
-    // إضافة البيانات حسب طريقة السحب
+    // 🔧 تجهيز تفاصيل الحساب حسب طريقة السحب
+    let accountDetails = '';
     if (method === 'ki_card') {
       if (!card_holder || !card_number) {
         return res.status(400).json({ success: false, error: 'بيانات البطاقة ناقصة' });
       }
-      withdrawalData.card_holder = card_holder;
-      withdrawalData.card_number = card_number;
+      accountDetails = `حامل البطاقة: ${card_holder}\nرقم البطاقة: ${card_number}`;
     } else if (method === 'zain_cash') {
       if (!phone_number) {
         return res.status(400).json({ success: false, error: 'رقم الهاتف مطلوب' });
       }
-      withdrawalData.phone_number = phone_number;
+      accountDetails = `رقم الهاتف: ${phone_number}`;
     }
+
+    const withdrawalData = {
+      user_id: user.id,
+      amount: amount,
+      withdrawal_method: method, // ✅ استخدام withdrawal_method بدلاً من method
+      account_details: accountDetails, // ✅ تخزين التفاصيل في account_details
+      status: 'pending',
+      created_at: new Date().toISOString(),
+    };
 
     console.log(`📝 إنشاء سجل طلب السحب...`);
 
