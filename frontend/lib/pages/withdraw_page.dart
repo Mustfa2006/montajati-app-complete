@@ -1,12 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/api_config.dart';
 import '../providers/theme_provider.dart';
 import '../utils/number_formatter.dart';
 import '../utils/theme_colors.dart';
@@ -55,14 +58,18 @@ class _WithdrawPageState extends State<WithdrawPage> {
     super.dispose();
   }
 
+  // 🔒 جلب رصيد المستخدم من الباك اند (آمن جداً)
   Future<void> _loadUserProfits() async {
     try {
       setState(() => _isLoadingBalance = true);
+
+      debugPrint('💰 === جلب رصيد المستخدم من الـ API ===');
 
       final prefs = await SharedPreferences.getInstance();
       String? currentUserPhone = prefs.getString('current_user_phone');
 
       if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        debugPrint('❌ لا يوجد رقم هاتف محفوظ');
         setState(() {
           _availableBalance = 0.0;
           _isLoadingBalance = false;
@@ -70,38 +77,69 @@ class _WithdrawPageState extends State<WithdrawPage> {
         return;
       }
 
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('achieved_profits, name, id')
-          .eq('phone', currentUserPhone)
-          .maybeSingle();
+      debugPrint('📱 رقم هاتف المستخدم: $currentUserPhone');
 
-      if (response != null) {
-        final achievedProfits = (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
+      // 🌐 جلب الرصيد من الـ API (آمن جداً)
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/balance'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({'phone': currentUserPhone}),
+          )
+          .timeout(ApiConfig.defaultTimeout);
 
-        await prefs.setString('current_user_id', response['id']);
-        await prefs.setString('current_user_name', response['name'] ?? 'مستخدم');
+      debugPrint('📡 استجابة الخادم: ${response.statusCode}');
 
-        setState(() {
-          _availableBalance = achievedProfits;
-          _isLoadingBalance = false;
-        });
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+
+        if (jsonData['success'] == true) {
+          final balance = (jsonData['balance'] as num?)?.toDouble() ?? 0.0;
+          final userId = jsonData['user_id'];
+          final userName = jsonData['user_name'];
+
+          debugPrint('✅ الرصيد المتاح: $balance د.ع');
+
+          // حفظ بيانات المستخدم
+          await prefs.setString('current_user_id', userId);
+          await prefs.setString('current_user_name', userName ?? 'مستخدم');
+
+          if (mounted) {
+            setState(() {
+              _availableBalance = balance;
+              _isLoadingBalance = false;
+            });
+          }
+        } else {
+          debugPrint('❌ فشل في جلب الرصيد: ${jsonData['error']}');
+          if (mounted) {
+            setState(() {
+              _availableBalance = 0.0;
+              _isLoadingBalance = false;
+            });
+          }
+        }
       } else {
-        // المستخدم غير موجود - لا ننشئ حساب جديد
+        debugPrint('❌ خطأ في الخادم: ${response.statusCode}');
+        if (mounted) {
+          setState(() {
+            _availableBalance = 0.0;
+            _isLoadingBalance = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في جلب الرصيد: $e');
+      if (mounted) {
         setState(() {
           _availableBalance = 0.0;
           _isLoadingBalance = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _availableBalance = 0.0;
-        _isLoadingBalance = false;
-      });
     }
   }
 
-  /// التحقق من الرصيد في قاعدة البيانات قبل السحب (حماية من التلاعب)
+  /// 🔒 التحقق من الرصيد من الباك اند قبل السحب (حماية من التلاعب)
   Future<bool> _verifyBalanceInDatabase(double requestedAmount) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -111,21 +149,30 @@ class _WithdrawPageState extends State<WithdrawPage> {
         throw Exception('لا يوجد مستخدم مسجل دخول');
       }
 
-      // جلب الرصيد الحقيقي من قاعدة البيانات
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('achieved_profits')
-          .eq('phone', currentUserPhone)
-          .maybeSingle();
+      debugPrint('🔍 === التحقق من الرصيد من الـ API ===');
+      debugPrint('   المبلغ المطلوب: $requestedAmount د.ع');
 
-      if (response == null) {
-        throw Exception('المستخدم غير موجود في النظام');
+      // 🌐 جلب الرصيد الحقيقي من الـ API
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/balance'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({'phone': currentUserPhone}),
+          )
+          .timeout(ApiConfig.defaultTimeout);
+
+      if (response.statusCode != 200) {
+        throw Exception('فشل في الاتصال بالخادم');
       }
 
-      final actualBalance = (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
+      final jsonData = jsonDecode(response.body);
 
-      debugPrint('🔍 التحقق من الرصيد:');
-      debugPrint('   المبلغ المطلوب: $requestedAmount د.ع');
+      if (jsonData['success'] != true) {
+        throw Exception(jsonData['error'] ?? 'خطأ في جلب الرصيد');
+      }
+
+      final actualBalance = (jsonData['balance'] as num?)?.toDouble() ?? 0.0;
+
       debugPrint('   الرصيد الفعلي: $actualBalance د.ع');
 
       // التحقق من كفاية الرصيد
@@ -135,11 +182,14 @@ class _WithdrawPageState extends State<WithdrawPage> {
 
       // تحديث الرصيد المعروض إذا كان مختلف
       if (_availableBalance != actualBalance) {
-        setState(() {
-          _availableBalance = actualBalance;
-        });
+        if (mounted) {
+          setState(() {
+            _availableBalance = actualBalance;
+          });
+        }
       }
 
+      debugPrint('✅ التحقق من الرصيد نجح');
       return true;
     } catch (e) {
       debugPrint('❌ خطأ في التحقق من الرصيد: $e');
@@ -808,19 +858,13 @@ class _WithdrawPageState extends State<WithdrawPage> {
       // 2. التحقق من الرصيد في قاعدة البيانات (حماية من التلاعب)
       await _verifyBalanceInDatabase(amount);
 
-      // 3. التحقق المزدوج من الرصيد
-      final currentBalance = await _getCurrentBalance();
-      if (currentBalance < amount) {
-        throw Exception('الرصيد غير كافي. الرصيد الحالي: ${NumberFormatter.formatCurrency(currentBalance)}');
-      }
-
-      // 4. بدء معاملة قاعدة البيانات الآمنة
+      // 3. بدء معاملة قاعدة البيانات الآمنة
       final result = await _executeSecureWithdrawTransaction(
         transactionId: transactionId,
         amount: amount,
         netAmount: netAmount,
         accountNumber: accountNumber,
-        currentBalance: currentBalance,
+        currentBalance: _availableBalance,
       );
 
       if (result['success']) {
@@ -894,29 +938,7 @@ class _WithdrawPageState extends State<WithdrawPage> {
     return {'isValid': true, 'message': 'البيانات صحيحة'};
   }
 
-  // 💰 الحصول على الرصيد الحالي
-  Future<double> _getCurrentBalance() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserPhone = prefs.getString('current_user_phone');
-
-      if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        throw Exception('المستخدم غير مسجل الدخول');
-      }
-
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('achieved_profits')
-          .eq('phone', currentUserPhone)
-          .single();
-
-      return (response['achieved_profits'] as num?)?.toDouble() ?? 0.0;
-    } catch (e) {
-      throw Exception('فشل في الحصول على الرصيد الحالي: $e');
-    }
-  }
-
-  // 🔐 تنفيذ معاملة السحب الآمنة
+  //  تنفيذ معاملة السحب الآمنة عبر الباك اند
   Future<Map<String, dynamic>> _executeSecureWithdrawTransaction({
     required String transactionId,
     required double amount,
@@ -925,40 +947,74 @@ class _WithdrawPageState extends State<WithdrawPage> {
     required double currentBalance,
   }) async {
     try {
-      // الحصول على معرف المستخدم من SharedPreferences
+      debugPrint('💸 === إرسال طلب السحب إلى الـ API ===');
+
       final prefs = await SharedPreferences.getInstance();
       String? currentUserPhone = prefs.getString('current_user_phone');
-      String? userId = prefs.getString('current_user_id');
 
-      if (currentUserPhone == null || userId == null) {
+      if (currentUserPhone == null) {
         throw Exception('معرف المستخدم غير صحيح');
       }
 
-      // 1. إنشاء طلب السحب
-      String accountDetails = selectedMethod == 'ki_card'
-          ? 'بطاقة كي كارد - ${_cardHolderController.text} - $accountNumber'
-          : 'زين كاش - $accountNumber';
+      debugPrint('📱 رقم الهاتف: $currentUserPhone');
+      debugPrint('💰 المبلغ: $amount د.ع');
+      debugPrint('🏦 الطريقة: $selectedMethod');
 
-      await Supabase.instance.client.from('withdrawal_requests').insert({
-        'user_id': userId,
-        'amount': amount,
-        'withdrawal_method': selectedMethod == 'ki_card' ? 'بطاقة كي كارد' : 'زين كاش',
-        'account_details': accountDetails,
-        'status': 'pending',
-      });
+      // إعداد البيانات حسب طريقة السحب
+      final Map<String, dynamic> requestData = {'phone': currentUserPhone, 'amount': amount, 'method': selectedMethod};
 
-      // 2. سحب المبلغ من الأرباح باستخدام الدالة الآمنة
-      final withdrawResult = await Supabase.instance.client.rpc(
-        'safe_withdraw_profits',
-        params: {'p_user_phone': currentUserPhone, 'p_amount': amount, 'p_authorized_by': 'USER_WITHDRAWAL'},
-      );
-
-      if (withdrawResult == null || withdrawResult['success'] != true) {
-        throw Exception('فشل في خصم المبلغ من الأرباح: ${withdrawResult?['error'] ?? 'خطأ غير معروف'}');
+      if (selectedMethod == 'ki_card') {
+        requestData['card_holder'] = _cardHolderController.text.trim();
+        requestData['card_number'] = _cardNumberController.text.trim();
+        debugPrint('💳 حامل البطاقة: ${requestData['card_holder']}');
+        debugPrint('💳 رقم البطاقة: ${requestData['card_number']}');
+      } else {
+        requestData['phone_number'] = _phoneController.text.trim();
+        debugPrint('📞 رقم الهاتف: ${requestData['phone_number']}');
       }
 
-      return {'success': true, 'message': 'تم إنجاز المعاملة بنجاح'};
+      // 🌐 إرسال الطلب إلى الـ API
+      final response = await http
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/withdraw'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode(requestData),
+          )
+          .timeout(ApiConfig.defaultTimeout);
+
+      debugPrint('📡 استجابة الخادم: ${response.statusCode}');
+      debugPrint('📥 Response body: ${response.body}');
+
+      if (response.statusCode != 200) {
+        final jsonData = jsonDecode(response.body);
+        throw Exception(jsonData['error'] ?? 'فشل في إرسال طلب السحب');
+      }
+
+      final jsonData = jsonDecode(response.body);
+
+      if (jsonData['success'] != true) {
+        throw Exception(jsonData['error'] ?? 'فشل في إرسال طلب السحب');
+      }
+
+      debugPrint('✅ تم إرسال طلب السحب بنجاح');
+      debugPrint('🆔 معرف المعاملة: ${jsonData['transaction_id']}');
+      debugPrint('💰 الرصيد الجديد: ${jsonData['new_balance']} د.ع');
+
+      // تحديث الرصيد المحلي
+      if (mounted) {
+        setState(() {
+          _availableBalance = (jsonData['new_balance'] as num?)?.toDouble() ?? 0.0;
+        });
+      }
+
+      return {
+        'success': true,
+        'message': jsonData['message'] ?? 'تم إرسال طلب السحب بنجاح',
+        'transaction_id': jsonData['transaction_id'],
+        'new_balance': jsonData['new_balance'],
+      };
     } catch (e) {
+      debugPrint('❌ خطأ في تنفيذ معاملة السحب: $e');
       return {'success': false, 'message': 'فشل في تنفيذ المعاملة: $e'};
     }
   }

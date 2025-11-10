@@ -778,4 +778,162 @@ router.post('/top-products', async (req, res) => {
   }
 });
 
+// 💰 جلب رصيد المستخدم المتاح للسحب
+router.post('/balance', async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ success: false, error: 'رقم الهاتف مطلوب' });
+    }
+
+    debugLog(`💰 جلب رصيد المستخدم: ${phone}`);
+
+    // جلب بيانات المستخدم
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, name, achieved_profits')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (userError) {
+      debugLog(`❌ خطأ في جلب بيانات المستخدم: ${userError.message}`);
+      return res.status(500).json({ success: false, error: 'خطأ في جلب البيانات' });
+    }
+
+    if (!user) {
+      debugLog('⚠️ المستخدم غير موجود');
+      return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
+    }
+
+    const balance = user.achieved_profits || 0;
+    debugLog(`✅ رصيد المستخدم: ${balance} د.ع`);
+
+    res.status(200).json({
+      success: true,
+      balance: balance,
+      user_id: user.id,
+      user_name: user.name,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    debugLog(`❌ خطأ في الخادم: ${error.message}`);
+    res.status(500).json({ success: false, error: 'خطأ في الخادم' });
+  }
+});
+
+// 💸 إنشاء طلب سحب جديد
+router.post('/withdraw', async (req, res) => {
+  try {
+    const { phone, amount, method, card_holder, card_number, phone_number } = req.body;
+
+    // التحقق من البيانات المطلوبة
+    if (!phone || !amount || !method) {
+      return res.status(400).json({ success: false, error: 'البيانات المطلوبة ناقصة' });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ success: false, error: 'المبلغ يجب أن يكون أكبر من صفر' });
+    }
+
+    debugLog(`💸 طلب سحب جديد من المستخدم: ${phone} - المبلغ: ${amount} د.ع`);
+
+    // جلب بيانات المستخدم
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, name, achieved_profits')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (userError) {
+      debugLog(`❌ خطأ في جلب بيانات المستخدم: ${userError.message}`);
+      return res.status(500).json({ success: false, error: 'خطأ في جلب البيانات' });
+    }
+
+    if (!user) {
+      debugLog('⚠️ المستخدم غير موجود');
+      return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
+    }
+
+    const currentBalance = user.achieved_profits || 0;
+
+    // التحقق من الرصيد الكافي
+    if (amount > currentBalance) {
+      debugLog(`⚠️ رصيد غير كافٍ - المطلوب: ${amount} د.ع، المتاح: ${currentBalance} د.ع`);
+      return res.status(400).json({
+        success: false,
+        error: 'الرصيد غير كافٍ',
+        available_balance: currentBalance,
+      });
+    }
+
+    // إنشاء سجل طلب السحب
+    const withdrawalData = {
+      user_id: user.id,
+      amount: amount,
+      method: method,
+      status: 'pending',
+      request_date: new Date().toISOString(),
+    };
+
+    // إضافة البيانات حسب طريقة السحب
+    if (method === 'ki_card') {
+      if (!card_holder || !card_number) {
+        return res.status(400).json({ success: false, error: 'بيانات البطاقة ناقصة' });
+      }
+      withdrawalData.card_holder = card_holder;
+      withdrawalData.card_number = card_number;
+    } else if (method === 'zain_cash') {
+      if (!phone_number) {
+        return res.status(400).json({ success: false, error: 'رقم الهاتف مطلوب' });
+      }
+      withdrawalData.phone_number = phone_number;
+    }
+
+    debugLog(`📝 إنشاء سجل طلب السحب...`);
+
+    const { data: withdrawal, error: withdrawalError } = await supabase
+      .from('withdrawal_requests')
+      .insert([withdrawalData])
+      .select()
+      .single();
+
+    if (withdrawalError) {
+      debugLog(`❌ خطأ في إنشاء طلب السحب: ${withdrawalError.message}`);
+      return res.status(500).json({ success: false, error: 'فشل في إنشاء طلب السحب' });
+    }
+
+    debugLog(`✅ تم إنشاء طلب السحب بنجاح - ID: ${withdrawal.id}`);
+
+    // خصم المبلغ من رصيد المستخدم
+    const newBalance = currentBalance - amount;
+    debugLog(`💰 تحديث رصيد المستخدم من ${currentBalance} إلى ${newBalance} د.ع`);
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ achieved_profits: newBalance })
+      .eq('id', user.id);
+
+    if (updateError) {
+      debugLog(`❌ خطأ في تحديث الرصيد: ${updateError.message}`);
+      // حذف طلب السحب في حالة فشل تحديث الرصيد
+      await supabase.from('withdrawal_requests').delete().eq('id', withdrawal.id);
+      return res.status(500).json({ success: false, error: 'فشل في تحديث الرصيد' });
+    }
+
+    debugLog(`✅ تم تحديث الرصيد بنجاح`);
+
+    res.status(200).json({
+      success: true,
+      message: 'تم إرسال طلب السحب بنجاح',
+      transaction_id: withdrawal.id,
+      new_balance: newBalance,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    debugLog(`❌ خطأ في الخادم: ${error.message}`);
+    res.status(500).json({ success: false, error: 'خطأ في الخادم' });
+  }
+});
+
 module.exports = router;
