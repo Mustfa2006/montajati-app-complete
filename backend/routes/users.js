@@ -710,7 +710,7 @@ router.post('/top-products', async (req, res) => {
       return res.status(400).json({ success: false, error: 'رقم الهاتف مطلوب' });
     }
 
-    debugLog(`🏆 جلب أكثر المنتجات مبيعاً للمستخدم: ${phone}`);
+    console.log(`🏆 جلب أكثر المنتجات مبيعاً للمستخدم: ${phone}`);
 
     // 🔍 جلب جميع الطلبات للمستخدم مع تفاصيل المنتجات
     const { data: orders, error: ordersError } = await supabase
@@ -719,16 +719,16 @@ router.post('/top-products', async (req, res) => {
       .eq('user_phone', phone);
 
     if (ordersError) {
-      debugLog(`❌ خطأ في جلب الطلبات: ${ordersError.message}`);
+      console.log(`❌ خطأ في جلب الطلبات: ${ordersError.message}`);
       return res.status(500).json({ success: false, error: 'خطأ في جلب الطلبات' });
     }
 
     if (!orders || orders.length === 0) {
-      debugLog('⚠️ لا توجد طلبات للمستخدم');
+      console.log('⚠️ لا توجد طلبات للمستخدم');
       return res.status(200).json({ success: true, data: [] });
     }
 
-    debugLog(`📦 تم جلب ${orders.length} طلب`);
+    console.log(`📦 تم جلب ${orders.length} طلب`);
 
     // 📊 تجميع البيانات حسب المنتج
     const productStats = {};
@@ -765,7 +765,7 @@ router.post('/top-products', async (req, res) => {
       .sort((a, b) => b.total_orders - a.total_orders)
       .slice(0, 10); // أفضل 10 منتجات
 
-    debugLog(`✅ تم جلب ${topProducts.length} منتج`);
+    console.log(`✅ تم جلب ${topProducts.length} منتج`);
 
     res.status(200).json({
       success: true,
@@ -773,7 +773,7 @@ router.post('/top-products', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    debugLog(`❌ خطأ في الخادم: ${error.message}`);
+    console.log(`❌ خطأ في الخادم: ${error.message}`);
     res.status(500).json({ success: false, error: 'خطأ في الخادم' });
   }
 });
@@ -787,7 +787,7 @@ router.post('/balance', async (req, res) => {
       return res.status(400).json({ success: false, error: 'رقم الهاتف مطلوب' });
     }
 
-    debugLog(`💰 جلب رصيد المستخدم: ${phone}`);
+    console.log(`💰 جلب رصيد المستخدم: ${phone}`);
 
     // جلب بيانات المستخدم
     const { data: user, error: userError } = await supabase
@@ -797,17 +797,17 @@ router.post('/balance', async (req, res) => {
       .maybeSingle();
 
     if (userError) {
-      debugLog(`❌ خطأ في جلب بيانات المستخدم: ${userError.message}`);
+      console.log(`❌ خطأ في جلب بيانات المستخدم: ${userError.message}`);
       return res.status(500).json({ success: false, error: 'خطأ في جلب البيانات' });
     }
 
     if (!user) {
-      debugLog('⚠️ المستخدم غير موجود');
+      console.log('⚠️ المستخدم غير موجود');
       return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
     }
 
     const balance = user.achieved_profits || 0;
-    debugLog(`✅ رصيد المستخدم: ${balance} د.ع`);
+    console.log(`✅ رصيد المستخدم: ${balance} د.ع`);
 
     res.status(200).json({
       success: true,
@@ -817,7 +817,7 @@ router.post('/balance', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    debugLog(`❌ خطأ في الخادم: ${error.message}`);
+    console.log(`❌ خطأ في الخادم: ${error.message}`);
     res.status(500).json({ success: false, error: 'خطأ في الخادم' });
   }
 });
@@ -836,7 +836,7 @@ router.post('/withdraw', async (req, res) => {
       return res.status(400).json({ success: false, error: 'المبلغ يجب أن يكون أكبر من صفر' });
     }
 
-    debugLog(`💸 طلب سحب جديد من المستخدم: ${phone} - المبلغ: ${amount} د.ع`);
+    console.log(`💸 طلب سحب جديد من المستخدم: ${phone} - المبلغ: ${amount} د.ع`);
 
     // جلب بيانات المستخدم
     const { data: user, error: userError } = await supabase
@@ -846,12 +846,12 @@ router.post('/withdraw', async (req, res) => {
       .maybeSingle();
 
     if (userError) {
-      debugLog(`❌ خطأ في جلب بيانات المستخدم: ${userError.message}`);
+      console.log(`❌ خطأ في جلب بيانات المستخدم: ${userError.message}`);
       return res.status(500).json({ success: false, error: 'خطأ في جلب البيانات' });
     }
 
     if (!user) {
-      debugLog('⚠️ المستخدم غير موجود');
+      console.log('⚠️ المستخدم غير موجود');
       return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
     }
 
@@ -859,7 +859,7 @@ router.post('/withdraw', async (req, res) => {
 
     // التحقق من الرصيد الكافي
     if (amount > currentBalance) {
-      debugLog(`⚠️ رصيد غير كافٍ - المطلوب: ${amount} د.ع، المتاح: ${currentBalance} د.ع`);
+      console.log(`⚠️ رصيد غير كافٍ - المطلوب: ${amount} د.ع، المتاح: ${currentBalance} د.ع`);
       return res.status(400).json({
         success: false,
         error: 'الرصيد غير كافٍ',
@@ -890,7 +890,7 @@ router.post('/withdraw', async (req, res) => {
       withdrawalData.phone_number = phone_number;
     }
 
-    debugLog(`📝 إنشاء سجل طلب السحب...`);
+    console.log(`📝 إنشاء سجل طلب السحب...`);
 
     const { data: withdrawal, error: withdrawalError } = await supabase
       .from('withdrawal_requests')
@@ -899,15 +899,15 @@ router.post('/withdraw', async (req, res) => {
       .single();
 
     if (withdrawalError) {
-      debugLog(`❌ خطأ في إنشاء طلب السحب: ${withdrawalError.message}`);
+      console.log(`❌ خطأ في إنشاء طلب السحب: ${withdrawalError.message}`);
       return res.status(500).json({ success: false, error: 'فشل في إنشاء طلب السحب' });
     }
 
-    debugLog(`✅ تم إنشاء طلب السحب بنجاح - ID: ${withdrawal.id}`);
+    console.log(`✅ تم إنشاء طلب السحب بنجاح - ID: ${withdrawal.id}`);
 
     // خصم المبلغ من رصيد المستخدم
     const newBalance = currentBalance - amount;
-    debugLog(`💰 تحديث رصيد المستخدم من ${currentBalance} إلى ${newBalance} د.ع`);
+    console.log(`💰 تحديث رصيد المستخدم من ${currentBalance} إلى ${newBalance} د.ع`);
 
     const { error: updateError } = await supabase
       .from('users')
@@ -915,13 +915,13 @@ router.post('/withdraw', async (req, res) => {
       .eq('id', user.id);
 
     if (updateError) {
-      debugLog(`❌ خطأ في تحديث الرصيد: ${updateError.message}`);
+      console.log(`❌ خطأ في تحديث الرصيد: ${updateError.message}`);
       // حذف طلب السحب في حالة فشل تحديث الرصيد
       await supabase.from('withdrawal_requests').delete().eq('id', withdrawal.id);
       return res.status(500).json({ success: false, error: 'فشل في تحديث الرصيد' });
     }
 
-    debugLog(`✅ تم تحديث الرصيد بنجاح`);
+    console.log(`✅ تم تحديث الرصيد بنجاح`);
 
     res.status(200).json({
       success: true,
@@ -931,7 +931,7 @@ router.post('/withdraw', async (req, res) => {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    debugLog(`❌ خطأ في الخادم: ${error.message}`);
+    console.log(`❌ خطأ في الخادم: ${error.message}`);
     res.status(500).json({ success: false, error: 'خطأ في الخادم' });
   }
 });
@@ -945,7 +945,7 @@ router.post('/verify-withdrawal', async (req, res) => {
       return res.status(400).json({ success: false, error: 'البيانات المطلوبة ناقصة' });
     }
 
-    debugLog(`🔍 التحقق من طلب السحب: ${transaction_id}`);
+    console.log(`🔍 التحقق من طلب السحب: ${transaction_id}`);
 
     // جلب بيانات المستخدم
     const { data: user, error: userError } = await supabase
@@ -955,7 +955,7 @@ router.post('/verify-withdrawal', async (req, res) => {
       .maybeSingle();
 
     if (userError || !user) {
-      debugLog('❌ المستخدم غير موجود');
+      console.log('❌ المستخدم غير موجود');
       return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
     }
 
@@ -968,12 +968,12 @@ router.post('/verify-withdrawal', async (req, res) => {
       .maybeSingle();
 
     if (withdrawalError) {
-      debugLog(`❌ خطأ في التحقق: ${withdrawalError.message}`);
+      console.log(`❌ خطأ في التحقق: ${withdrawalError.message}`);
       return res.status(500).json({ success: false, error: 'خطأ في التحقق' });
     }
 
     if (withdrawal) {
-      debugLog(`✅ طلب السحب موجود: ${withdrawal.id} - الحالة: ${withdrawal.status}`);
+      console.log(`✅ طلب السحب موجود: ${withdrawal.id} - الحالة: ${withdrawal.status}`);
       res.status(200).json({
         success: true,
         exists: true,
@@ -982,14 +982,14 @@ router.post('/verify-withdrawal', async (req, res) => {
         amount: withdrawal.amount,
       });
     } else {
-      debugLog('⚠️ طلب السحب غير موجود');
+      console.log('⚠️ طلب السحب غير موجود');
       res.status(200).json({
         success: true,
         exists: false,
       });
     }
   } catch (error) {
-    debugLog(`❌ خطأ في الخادم: ${error.message}`);
+    console.log(`❌ خطأ في الخادم: ${error.message}`);
     res.status(500).json({ success: false, error: 'خطأ في الخادم' });
   }
 });
