@@ -11,6 +11,48 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// 🔒 التحقق من حالة السحب
+router.get('/withdrawal-status', async (req, res) => {
+  try {
+    console.log('🔍 التحقق من حالة السحب...');
+
+    const { data: setting, error } = await supabase
+      .from('app_settings')
+      .select('setting_value, message')
+      .eq('setting_key', 'withdrawal_enabled')
+      .maybeSingle();
+
+    if (error) {
+      console.log(`❌ خطأ في جلب إعدادات السحب: ${error.message}`);
+      // في حالة الخطأ، نسمح بالسحب افتراضياً
+      return res.status(200).json({
+        success: true,
+        enabled: true,
+        message: 'عملية السحب متاحة حالياً',
+      });
+    }
+
+    const isEnabled = setting?.setting_value === 'true';
+    const message = setting?.message || (isEnabled ? 'عملية السحب متاحة حالياً' : 'عملية السحب متوقفة حالياً');
+
+    console.log(`✅ حالة السحب: ${isEnabled ? 'مفعل' : 'معطل'}`);
+
+    res.status(200).json({
+      success: true,
+      enabled: isEnabled,
+      message: message,
+    });
+  } catch (error) {
+    console.log(`❌ خطأ في الخادم: ${error.message}`);
+    // في حالة الخطأ، نسمح بالسحب افتراضياً
+    res.status(200).json({
+      success: true,
+      enabled: true,
+      message: 'عملية السحب متاحة حالياً',
+    });
+  }
+});
+
 // الحصول على جميع المستخدمين (للأدمن فقط)
 router.get('/', async (req, res) => {
   try {

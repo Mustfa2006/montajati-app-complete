@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,10 +46,21 @@ class _WithdrawPageState extends State<WithdrawPage> {
   final TextEditingController _cardNumberController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
+  // 🔒 حالة السحب
+  bool _isWithdrawalEnabled = true;
+  String _withdrawalMessage = 'عملية السحب متاحة حالياً';
+  bool _isCheckingStatus = true;
+  Timer? _statusCheckTimer;
+
   @override
   void initState() {
     super.initState();
     _loadUserProfits();
+    _checkWithdrawalStatus();
+    // التحقق من الحالة كل 30 ثانية
+    _statusCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _checkWithdrawalStatus();
+    });
   }
 
   @override
@@ -58,7 +70,45 @@ class _WithdrawPageState extends State<WithdrawPage> {
     _cardHolderController.dispose();
     _cardNumberController.dispose();
     _phoneController.dispose();
+    _statusCheckTimer?.cancel();
     super.dispose();
+  }
+
+  // 🔒 التحقق من حالة السحب من الباك اند
+  Future<void> _checkWithdrawalStatus() async {
+    try {
+      debugPrint('🔍 === التحقق من حالة السحب ===');
+
+      final response = await http
+          .get(Uri.parse('${ApiConfig.usersUrl}/withdrawal-status'), headers: ApiConfig.defaultHeaders)
+          .timeout(ApiConfig.defaultTimeout);
+
+      debugPrint('📡 استجابة الخادم: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        debugPrint('📊 البيانات المستلمة: $jsonData');
+
+        if (jsonData['success'] == true) {
+          setState(() {
+            _isWithdrawalEnabled = jsonData['enabled'] ?? true;
+            _withdrawalMessage = jsonData['message'] ?? 'عملية السحب متاحة حالياً';
+            _isCheckingStatus = false;
+          });
+
+          debugPrint('✅ حالة السحب: ${_isWithdrawalEnabled ? "مفعل" : "معطل"}');
+          debugPrint('📝 الرسالة: $_withdrawalMessage');
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في التحقق من حالة السحب: $e');
+      // في حالة الخطأ، نسمح بالسحب افتراضياً
+      setState(() {
+        _isWithdrawalEnabled = true;
+        _withdrawalMessage = 'عملية السحب متاحة حالياً';
+        _isCheckingStatus = false;
+      });
+    }
   }
 
   // 🔒 جلب رصيد المستخدم من الباك اند (آمن جداً)
@@ -296,94 +346,157 @@ class _WithdrawPageState extends State<WithdrawPage> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: AppBackground(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // مساحة للشريط العلوي
-              const SizedBox(height: 25),
+      body: Stack(
+        children: [
+          AppBackground(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  // مساحة للشريط العلوي
+                  const SizedBox(height: 25),
 
-              // ✨ شريط علوي بسيط (ضمن المحتوى)
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    // زر الرجوع على اليمين - ذهبي
-                    GestureDetector(
-                      onTap: () => context.pop(),
-                      child: Container(
-                        width: 45,
-                        height: 45,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                  // ✨ شريط علوي بسيط (ضمن المحتوى)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        // زر الرجوع على اليمين - ذهبي
+                        GestureDetector(
+                          onTap: () => context.pop(),
+                          child: Container(
+                            width: 45,
+                            height: 45,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(15),
+                              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
+                            ),
+                            child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
+                          ),
                         ),
-                        child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFFffd700), size: 18),
-                      ),
-                    ),
 
-                    const SizedBox(width: 15),
+                        const SizedBox(width: 15),
 
-                    // العنوان في المنتصف
-                    Expanded(
-                      child: Text(
-                        'سحب الأرباح',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.cairo(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFFFFD700),
+                        // العنوان في المنتصف
+                        Expanded(
+                          child: Text(
+                            'سحب الأرباح',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.cairo(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFFFFD700),
+                            ),
+                          ),
                         ),
-                      ),
+
+                        // مساحة فارغة للتوازن
+                        const SizedBox(width: 60),
+                      ],
                     ),
+                  ),
 
-                    // مساحة فارغة للتوازن
-                    const SizedBox(width: 60),
-                  ],
-                ),
+                  const SizedBox(height: 20),
+
+                  // المحتوى
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      children: [
+                        // المبلغ المتاح للسحب
+                        _buildAvailableBalance(isDark),
+
+                        const SizedBox(height: 25),
+
+                        // أزرار اختيار نوع البطاقة
+                        _buildCardTypeButtons(isDark),
+
+                        const SizedBox(height: 25),
+
+                        // البطاقة البنكية أو حقل الهاتف
+                        selectedMethod == 'ki_card' ? _buildMasterCard() : _buildPhoneInput(isDark),
+
+                        const SizedBox(height: 25),
+
+                        // إدخال مبلغ السحب
+                        _buildWithdrawAmountInput(isDark),
+
+                        const SizedBox(height: 25),
+
+                        // ملخص السحب
+                        _buildWithdrawSummary(isDark),
+
+                        const SizedBox(height: 25),
+
+                        // زر تأكيد السحب
+                        _buildConfirmWithdrawButton(isDark),
+
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+            ),
+          ),
+          // 🔒 شاشة القفل المضببة الحمراء
+          if (!_isWithdrawalEnabled) _buildLockOverlay(isDark),
+        ],
+      ),
+    );
+  }
 
-              const SizedBox(height: 20),
-
-              // المحتوى
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    // المبلغ المتاح للسحب
-                    _buildAvailableBalance(isDark),
-
-                    const SizedBox(height: 25),
-
-                    // أزرار اختيار نوع البطاقة
-                    _buildCardTypeButtons(isDark),
-
-                    const SizedBox(height: 25),
-
-                    // البطاقة البنكية أو حقل الهاتف
-                    selectedMethod == 'ki_card' ? _buildMasterCard() : _buildPhoneInput(isDark),
-
-                    const SizedBox(height: 25),
-
-                    // إدخال مبلغ السحب
-                    _buildWithdrawAmountInput(isDark),
-
-                    const SizedBox(height: 25),
-
-                    // ملخص السحب
-                    _buildWithdrawSummary(isDark),
-
-                    const SizedBox(height: 25),
-
-                    // زر تأكيد السحب
-                    _buildConfirmWithdrawButton(isDark),
-
-                    const SizedBox(height: 100),
-                  ],
-                ),
+  // 🔒 شاشة القفل المضببة الحمراء
+  Widget _buildLockOverlay(bool isDark) {
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      color: Colors.red.withValues(alpha: 0.15), // تضبيب أحمر خفيف
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // تضبيب قوي
+        child: Container(
+          color: Colors.red.withValues(alpha: 0.2), // طبقة حمراء إضافية
+          child: Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 30),
+              padding: const EdgeInsets.all(30),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1a1a1a) : Colors.white,
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: Colors.red.withValues(alpha: 0.5), width: 2),
+                boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5)],
               ),
-            ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // أيقونة القفل
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), shape: BoxShape.circle),
+                    child: const Icon(FontAwesomeIcons.lock, color: Colors.red, size: 40),
+                  ),
+                  const SizedBox(height: 25),
+                  // الرسالة
+                  Text(
+                    _withdrawalMessage,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.red, height: 1.8),
+                  ),
+                  const SizedBox(height: 20),
+                  // نص إضافي
+                  Text(
+                    'يرجى المحاولة لاحقاً',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.cairo(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: ThemeColors.secondaryTextColor(isDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -414,7 +527,7 @@ class _WithdrawPageState extends State<WithdrawPage> {
                   ? Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]),
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(13), // ✅ تقليل الزاوية من 15 إلى 13
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -469,7 +582,7 @@ class _WithdrawPageState extends State<WithdrawPage> {
                   ? Container(
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]),
-                        borderRadius: BorderRadius.circular(15),
+                        borderRadius: BorderRadius.circular(13), // ✅ تقليل الزاوية من 15 إلى 13
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -661,14 +774,14 @@ class _WithdrawPageState extends State<WithdrawPage> {
             ),
           ),
           const SizedBox(height: 20),
-          Icon(FontAwesomeIcons.mobileScreenButton, color: const Color(0xFFFF9800), size: 40),
+          Icon(FontAwesomeIcons.mobileScreenButton, color: isDark ? const Color(0xFFFF9800) : Colors.black87, size: 40),
           const SizedBox(height: 15),
           Text(
             'رقم الهاتف',
             style: GoogleFonts.cairo(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.6),
+              color: isDark ? Colors.white.withValues(alpha: 0.6) : Colors.black87,
             ),
           ),
           const SizedBox(height: 15),
@@ -678,23 +791,23 @@ class _WithdrawPageState extends State<WithdrawPage> {
             style: GoogleFonts.robotoMono(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.4),
+              color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.black54,
               letterSpacing: 1,
             ),
             decoration: InputDecoration(
               hintText: '07XXXXXXXX',
               hintStyle: GoogleFonts.robotoMono(
                 fontSize: 18,
-                color: Colors.white.withValues(alpha: 0.3),
+                color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black38,
                 letterSpacing: 1,
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black26),
               ),
               disabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(15),
-                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black26),
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             ),
@@ -757,33 +870,84 @@ class _WithdrawPageState extends State<WithdrawPage> {
             'المبلغ المطلوب سحبه',
             style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: ThemeColors.textColor(isDark)),
           ),
-          const SizedBox(height: 12),
-          Container(
-            height: 60,
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.5), width: 1),
-            ),
-            child: TextFormField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w700, color: ThemeColors.textColor(isDark)),
-              decoration: InputDecoration(
-                hintText: 'أدخل المبلغ (الحد الأدنى ${NumberFormatter.formatCurrency(1000)})',
-                hintStyle: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                prefixIcon: const Icon(FontAwesomeIcons.coins, color: Color(0xFFffd700), size: 18),
-                suffixText: 'د.ع',
-                suffixStyle: GoogleFonts.cairo(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFffd700),
+          const SizedBox(height: 20), // ✅ رفع الشريط قليلاً
+          ClipRRect(
+            borderRadius: BorderRadius.circular(25), // ✅ قص الحواف بشكل مثالي
+            child: Container(
+              height: 60,
+              decoration: BoxDecoration(
+                // 🎨 تدرج لوني رهيب وجذاب
+                gradient: isDark
+                    ? const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF2d2d2d), // رمادي داكن
+                          Color(0xFF1a1a1a), // أسود خفيف
+                        ],
+                      )
+                    : const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFFFFFFFF), // أبيض نقي
+                          Color(0xFFF8F8F8), // أبيض مائل للرمادي
+                        ],
+                      ),
+                // ✅ ظل خفيف وأنيق
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+                // ✅ إطار رفيع ومتناسق
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFFffd700).withValues(alpha: 0.25) // ذهبي خفيف
+                      : const Color(0xFFE0E0E0), // رمادي فاتح
+                  width: 1.5,
                 ),
               ),
-              onChanged: (value) => setState(() {}),
+              child: TextFormField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                style: GoogleFonts.cairo(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: ThemeColors.textColor(isDark),
+                  letterSpacing: 0.5,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'أدخل المبلغ',
+                  hintStyle: GoogleFonts.cairo(
+                    color: ThemeColors.secondaryTextColor(isDark),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 12, right: 8),
+                    child: Icon(
+                      FontAwesomeIcons.coins,
+                      color: isDark ? const Color(0xFFffd700) : const Color(0xFF757575),
+                      size: 20,
+                    ),
+                  ),
+                  suffixText: 'د.ع',
+                  suffixStyle: GoogleFonts.cairo(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? const Color(0xFFffd700) : const Color(0xFF424242),
+                  ),
+                ),
+                onChanged: (value) => setState(() {}),
+              ),
             ),
           ),
         ],
@@ -871,6 +1035,18 @@ class _WithdrawPageState extends State<WithdrawPage> {
 
     bool canSubmit = amount >= 1000 && amount <= _availableBalance && agreeToTerms && hasValidAccount;
 
+    // 📝 رسالة الخطأ التفاعلية
+    String getErrorMessage() {
+      if (amount < 1000) return 'المبلغ أقل من الحد الأدنى (1,000 د.ع)';
+      if (amount > _availableBalance) return 'المبلغ أكبر من الرصيد المتاح';
+      if (selectedMethod == 'ki_card') {
+        if (_cardHolderController.text.trim().isEmpty) return 'اسم حامل البطاقة مطلوب';
+        if (_cardNumberController.text.length != 10) return 'رقم البطاقة غير صحيح (10 أرقام)';
+      }
+      if (!agreeToTerms) return 'يجب الموافقة على الشروط والأحكام';
+      return 'تأكيد طلب السحب';
+    }
+
     return GestureDetector(
       onTap: canSubmit && !isLoading ? _submitWithdrawRequest : null,
       child: Container(
@@ -886,8 +1062,15 @@ class _WithdrawPageState extends State<WithdrawPage> {
                 )
               : null,
           color: canSubmit ? null : ThemeColors.cardBackground(isDark),
+          // ✅ حذف التوهج العالي
           boxShadow: canSubmit
-              ? [BoxShadow(color: const Color(0x60ffd700), blurRadius: 30, offset: const Offset(0, 15))]
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
               : [],
         ),
         child: Row(
@@ -908,12 +1091,16 @@ class _WithdrawPageState extends State<WithdrawPage> {
               ),
               const SizedBox(width: 15),
             ],
-            Text(
-              isLoading ? 'جاري المعالجة...' : 'تأكيد طلب السحب',
-              style: GoogleFonts.cairo(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: canSubmit ? const Color(0xFF1a1a2e) : ThemeColors.secondaryTextColor(isDark),
+            // ✅ نص متفاعل حسب الخطأ
+            Flexible(
+              child: Text(
+                isLoading ? 'جاري المعالجة...' : getErrorMessage(),
+                textAlign: TextAlign.center,
+                style: GoogleFonts.cairo(
+                  fontSize: canSubmit ? 18 : 15,
+                  fontWeight: FontWeight.w800,
+                  color: canSubmit ? const Color(0xFF1a1a2e) : ThemeColors.secondaryTextColor(isDark),
+                ),
               ),
             ),
           ],
