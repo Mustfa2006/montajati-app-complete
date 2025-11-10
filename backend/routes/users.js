@@ -712,26 +712,64 @@ router.post('/top-products', async (req, res) => {
 
     debugLog(`🏆 جلب أكثر المنتجات مبيعاً للمستخدم: ${phone}`);
 
-    // استدعاء دالة SQL المخزنة
-    const { data, error } = await supabase.rpc('get_top_products_for_user', {
-      p_user_phone: phone,
-    });
+    // 🔍 جلب جميع الطلبات للمستخدم مع تفاصيل المنتجات
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select('id, product_id, product_name, product_image, quantity, profit, status')
+      .eq('user_phone', phone);
 
-    if (error) {
-      debugLog(`❌ خطأ في جلب المنتجات: ${error.message}`);
-      return res.status(500).json({ success: false, error: 'خطأ في جلب المنتجات' });
+    if (ordersError) {
+      debugLog(`❌ خطأ في جلب الطلبات: ${ordersError.message}`);
+      return res.status(500).json({ success: false, error: 'خطأ في جلب الطلبات' });
     }
 
-    if (!data || data.length === 0) {
-      debugLog('⚠️ لا توجد منتجات');
+    if (!orders || orders.length === 0) {
+      debugLog('⚠️ لا توجد طلبات للمستخدم');
       return res.status(200).json({ success: true, data: [] });
     }
 
-    debugLog(`✅ تم جلب ${data.length} منتج`);
+    debugLog(`📦 تم جلب ${orders.length} طلب`);
+
+    // 📊 تجميع البيانات حسب المنتج
+    const productStats = {};
+
+    orders.forEach((order) => {
+      const productId = order.product_id;
+
+      if (!productStats[productId]) {
+        productStats[productId] = {
+          product_id: productId,
+          product_name: order.product_name,
+          product_image: order.product_image,
+          total_orders: 0,
+          total_quantity: 0,
+          delivered_orders: 0,
+          cancelled_orders: 0,
+          total_profit: 0,
+        };
+      }
+
+      productStats[productId].total_orders += 1;
+      productStats[productId].total_quantity += order.quantity || 1;
+
+      if (order.status === 'تم التسليم للزبون') {
+        productStats[productId].delivered_orders += 1;
+        productStats[productId].total_profit += order.profit || 0;
+      } else if (order.status === 'ملغي') {
+        productStats[productId].cancelled_orders += 1;
+      }
+    });
+
+    // 🏆 تحويل إلى مصفوفة وترتيب حسب عدد الطلبات
+    const topProducts = Object.values(productStats)
+      .sort((a, b) => b.total_orders - a.total_orders)
+      .slice(0, 10); // أفضل 10 منتجات
+
+    debugLog(`✅ تم جلب ${topProducts.length} منتج`);
 
     res.status(200).json({
       success: true,
-      data: data,
+      data: topProducts,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -279,111 +278,46 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
               // مساحة للشريط العلوي
               const SizedBox(height: 25),
 
-              // ✨ شريط علوي احترافي مع تصميم رهيب
+              // ✨ شريط علوي بسيط ومتناسق مع صفحة الإحصائيات
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(25),
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFFFFD700).withValues(alpha: 0.15),
-                      const Color(0xFFFFA500).withValues(alpha: 0.1),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.2),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Row(
+                  children: [
+                    // زر الرجوع - متناسق مع صفحة الإحصائيات
+                    GestureDetector(
+                      onTap: () => context.go('/'),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          FontAwesomeIcons.arrowRight,
+                          color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                          size: 18,
+                        ),
+                      ),
                     ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Text(
+                        'الأرباح',
+                        style: GoogleFonts.cairo(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 55), // للتوازن
                   ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(25),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: Row(
-                      children: [
-                        // زر الرجوع الرهيب
-                        GestureDetector(
-                          onTap: () => context.go('/'),
-                          child: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [
-                                  const Color(0xFFFFD700).withValues(alpha: 0.4),
-                                  const Color(0xFFFFA500).withValues(alpha: 0.3),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.6), width: 2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                                child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 22),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // العنوان الرهيب في المنتصف
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 15),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'الأرباح',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w900,
-                                    color: const Color(0xFFFFD700),
-                                    letterSpacing: 1.2,
-                                    shadows: [
-                                      Shadow(
-                                        color: const Color(0xFFFFD700).withValues(alpha: 0.5),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Container(
-                                  width: 60,
-                                  height: 3,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(2),
-                                    gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA500)]),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // مساحة فارغة للتوازن
-                        const SizedBox(width: 50),
-                      ],
-                    ),
-                  ),
                 ),
               ),
 
@@ -774,7 +708,7 @@ class _BouncingBallsLoaderState extends State<BouncingBallsLoader> with TickerPr
     _animations = _controllers.map((controller) {
       return Tween<double>(
         begin: 0.0,
-        end: -20.0,
+        end: -8.0, // تقليل الارتفاع بشكل كبير لمنع القفز فوق النص
       ).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
     }).toList();
 

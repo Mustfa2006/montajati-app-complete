@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -256,42 +255,30 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     );
   }
 
-  // بناء الشريط العلوي البسيط
+  // بناء الشريط العلوي البسيط - متناسق مع صفحة الإحصائيات
   Widget _buildSimpleHeader(bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          // زر الرجوع الرهيب - نفس تصميم صفحة الأرباح
+          // زر الرجوع - متناسق مع صفحة الإحصائيات
           GestureDetector(
             onTap: () => context.pop(),
             child: Container(
-              width: 50,
-              height: 50,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFFFFD700).withValues(alpha: 0.4),
-                    const Color(0xFFFFA500).withValues(alpha: 0.3),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                  width: 1,
                 ),
-                border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.6), width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFFD700).withValues(alpha: 0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
               ),
-              child: ClipOval(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                  child: const Icon(FontAwesomeIcons.arrowRight, color: Colors.black87, size: 22),
-                ),
+              child: Icon(
+                FontAwesomeIcons.arrowRight,
+                color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                size: 18,
               ),
             ),
           ),
@@ -305,16 +292,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
               style: GoogleFonts.cairo(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: ThemeColors.textColor(isDark),
-                shadows: isDark
-                    ? [
-                        Shadow(
-                          color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : [],
+                color: isDark ? Colors.white : Colors.black87,
               ),
               textAlign: TextAlign.center,
             ),

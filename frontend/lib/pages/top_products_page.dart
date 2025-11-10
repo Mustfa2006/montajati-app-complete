@@ -61,14 +61,27 @@ class _TopProductsPageState extends State<TopProductsPage> {
 
       if (response.statusCode != 200) {
         debugPrint('❌ فشل في جلب المنتجات: ${response.statusCode}');
+        debugPrint('📥 Response body: ${response.body}');
         if (mounted) {
           setState(() => _isLoading = false);
         }
         return;
       }
 
+      debugPrint('✅ استجابة ناجحة من الخادم');
+
       final jsonData = jsonDecode(response.body);
-      if (jsonData['success'] != true || jsonData['data'] == null) {
+      debugPrint('📥 Response: $jsonData');
+
+      if (jsonData['success'] != true) {
+        debugPrint('⚠️ فشل الطلب: ${jsonData['error'] ?? 'خطأ غير معروف'}');
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+        return;
+      }
+
+      if (jsonData['data'] == null) {
         debugPrint('⚠️ لا توجد منتجات');
         if (mounted) {
           setState(() => _isLoading = false);
@@ -76,12 +89,24 @@ class _TopProductsPageState extends State<TopProductsPage> {
         return;
       }
 
-      final List<dynamic> data = jsonData['data'];
+      final List<dynamic> data = jsonData['data'] ?? [];
       debugPrint('📦 عدد المنتجات المسترجعة: ${data.length}');
+
+      if (data.isEmpty) {
+        debugPrint('⚠️ لا توجد منتجات - القائمة فارغة');
+        if (mounted) {
+          setState(() {
+            _topProducts = [];
+            _isLoading = false;
+          });
+        }
+        return;
+      }
 
       // تحويل النتائج إلى قائمة
       final List<Map<String, dynamic>> products = [];
       for (var item in data) {
+        debugPrint('📦 معالجة منتج: ${item['product_name']}');
         products.add({
           'product_id': item['product_id'],
           'product_name': item['product_name'],
@@ -94,12 +119,14 @@ class _TopProductsPageState extends State<TopProductsPage> {
         });
       }
 
-      debugPrint('✅ تم جلب ${products.length} منتج');
+      debugPrint('✅ تم جلب ${products.length} منتج بنجاح');
 
-      setState(() {
-        _topProducts = products;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _topProducts = products;
+          _isLoading = false;
+        });
+      }
     } catch (e, stackTrace) {
       debugPrint('❌ خطأ في جلب المنتجات الأكثر مبيعاً: $e');
       debugPrint('Stack trace: $stackTrace');
