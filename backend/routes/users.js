@@ -902,7 +902,7 @@ router.post('/withdraw', async (req, res) => {
       withdrawal_method: method, // ✅ استخدام withdrawal_method بدلاً من method
       account_details: accountDetails, // ✅ تخزين التفاصيل في account_details
       status: 'pending',
-      created_at: new Date().toISOString(),
+      // ✅ created_at يتم إنشاؤه تلقائياً بواسطة قاعدة البيانات
     };
 
     console.log(`📝 إنشاء سجل طلب السحب...`);
