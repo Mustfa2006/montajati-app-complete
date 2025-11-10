@@ -33,22 +33,30 @@ class _TopProductsPageState extends State<TopProductsPage> {
 
   Future<void> _loadTopProducts() async {
     try {
-      setState(() {
-        _isLoading = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+        });
+      }
+
+      debugPrint('🏆 === بدء جلب المنتجات الأكثر مبيعاً ===');
 
       final prefs = await SharedPreferences.getInstance();
       final currentUserPhone = prefs.getString('current_user_phone');
 
-      if (currentUserPhone == null) {
-        debugPrint('⚠️ لا يوجد رقم مستخدم');
-        setState(() {
-          _isLoading = false;
-        });
+      if (currentUserPhone == null || currentUserPhone.isEmpty) {
+        debugPrint('⚠️ لا يوجد رقم مستخدم محفوظ');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _topProducts = [];
+          });
+        }
         return;
       }
 
-      debugPrint('🔍 جلب المنتجات الأكثر مبيعاً للمستخدم: $currentUserPhone');
+      debugPrint('📱 رقم المستخدم: $currentUserPhone');
+      debugPrint('🌐 URL: ${ApiConfig.usersUrl}/top-products');
 
       // 🚀 استخدام الباك اند بدلاً من الاتصال المباشر بقاعدة البيانات
       final response = await http
@@ -59,11 +67,16 @@ class _TopProductsPageState extends State<TopProductsPage> {
           )
           .timeout(ApiConfig.defaultTimeout);
 
+      debugPrint('📡 استجابة الخادم: ${response.statusCode}');
+
       if (response.statusCode != 200) {
         debugPrint('❌ فشل في جلب المنتجات: ${response.statusCode}');
         debugPrint('📥 Response body: ${response.body}');
         if (mounted) {
-          setState(() => _isLoading = false);
+          setState(() {
+            _isLoading = false;
+            _topProducts = [];
+          });
         }
         return;
       }

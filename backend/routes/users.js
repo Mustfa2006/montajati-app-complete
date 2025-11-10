@@ -936,4 +936,62 @@ router.post('/withdraw', async (req, res) => {
   }
 });
 
+// 🔍 التحقق من وجود طلب سحب في قاعدة البيانات
+router.post('/verify-withdrawal', async (req, res) => {
+  try {
+    const { phone, transaction_id } = req.body;
+
+    if (!phone || !transaction_id) {
+      return res.status(400).json({ success: false, error: 'البيانات المطلوبة ناقصة' });
+    }
+
+    debugLog(`🔍 التحقق من طلب السحب: ${transaction_id}`);
+
+    // جلب بيانات المستخدم
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (userError || !user) {
+      debugLog('❌ المستخدم غير موجود');
+      return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
+    }
+
+    // التحقق من وجود طلب السحب
+    const { data: withdrawal, error: withdrawalError } = await supabase
+      .from('withdrawal_requests')
+      .select('id, status, amount')
+      .eq('id', transaction_id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (withdrawalError) {
+      debugLog(`❌ خطأ في التحقق: ${withdrawalError.message}`);
+      return res.status(500).json({ success: false, error: 'خطأ في التحقق' });
+    }
+
+    if (withdrawal) {
+      debugLog(`✅ طلب السحب موجود: ${withdrawal.id} - الحالة: ${withdrawal.status}`);
+      res.status(200).json({
+        success: true,
+        exists: true,
+        withdrawal_id: withdrawal.id,
+        status: withdrawal.status,
+        amount: withdrawal.amount,
+      });
+    } else {
+      debugLog('⚠️ طلب السحب غير موجود');
+      res.status(200).json({
+        success: true,
+        exists: false,
+      });
+    }
+  } catch (error) {
+    debugLog(`❌ خطأ في الخادم: ${error.message}`);
+    res.status(500).json({ success: false, error: 'خطأ في الخادم' });
+  }
+});
+
 module.exports = router;

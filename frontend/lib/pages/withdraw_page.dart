@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,8 @@ import '../utils/number_formatter.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 import '../widgets/custom_notification.dart';
+import '../widgets/error_animation_widget.dart';
+import '../widgets/success_animation_widget.dart';
 
 class WithdrawPage extends StatefulWidget {
   const WithdrawPage({super.key});
@@ -89,16 +92,20 @@ class _WithdrawPageState extends State<WithdrawPage> {
           .timeout(ApiConfig.defaultTimeout);
 
       debugPrint('📡 استجابة الخادم: ${response.statusCode}');
+      debugPrint('📥 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
+        debugPrint('📊 البيانات المستلمة: $jsonData');
 
         if (jsonData['success'] == true) {
           final balance = (jsonData['balance'] as num?)?.toDouble() ?? 0.0;
-          final userId = jsonData['user_id'];
-          final userName = jsonData['user_name'];
+          final userId = jsonData['user_id'] ?? '';
+          final userName = jsonData['user_name'] ?? 'مستخدم';
 
-          debugPrint('✅ الرصيد المتاح: $balance د.ع');
+          debugPrint('💰 الرصيد المستلم: $balance د.ع');
+          debugPrint('👤 معرف المستخدم: $userId');
+          debugPrint('📝 اسم المستخدم: $userName');
 
           // حفظ بيانات المستخدم
           await prefs.setString('current_user_id', userId);
@@ -200,6 +207,88 @@ class _WithdrawPageState extends State<WithdrawPage> {
   // حساب المبلغ الصافي (بدون رسوم)
   double _getNetAmount(double amount) {
     return amount; // جميع طرق السحب مجانية
+  }
+
+  // ✨ إظهار أنيميشن النجاح
+  void _showSuccessAnimation() {
+    debugPrint('🎬 بدء عرض أنيميشن النجاح');
+
+    if (!mounted) {
+      debugPrint('⚠️ الصفحة لم تعد موجودة - لن يتم إظهار الأنيميشن');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (context) => const SuccessAnimationWidget(),
+    );
+
+    Timer(const Duration(milliseconds: 2000), () {
+      debugPrint('🎬 انتهاء أنيميشن النجاح - إغلاق الحوار');
+
+      if (!mounted) {
+        debugPrint('⚠️ الصفحة لم تعد موجودة');
+        return;
+      }
+
+      try {
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+          debugPrint('✅ تم إغلاق حوار النجاح');
+        }
+
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) {
+            debugPrint('🎬 الانتقال إلى صفحة الأرباح');
+            try {
+              context.go('/profits?refresh=true');
+              debugPrint('✅ تم الانتقال بنجاح إلى صفحة الأرباح');
+            } catch (e) {
+              debugPrint('❌ خطأ في الانتقال: $e');
+            }
+          }
+        });
+      } catch (e) {
+        debugPrint('❌ خطأ في إغلاق الحوار أو الانتقال: $e');
+      }
+    });
+  }
+
+  // ❌ إظهار أنيميشن الخطأ
+  void _showErrorAnimation() {
+    debugPrint('🎬 بدء عرض أنيميشن الخطأ');
+
+    if (!mounted) {
+      debugPrint('⚠️ الصفحة لم تعد موجودة - لن يتم إظهار الأنيميشن');
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (context) => const ErrorAnimationWidget(),
+    );
+
+    Timer(const Duration(milliseconds: 2000), () {
+      debugPrint('🎬 انتهاء أنيميشن الخطأ - إغلاق الحوار');
+
+      if (!mounted) {
+        debugPrint('⚠️ الصفحة لم تعد موجودة');
+        return;
+      }
+
+      try {
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+          debugPrint('✅ تم إغلاق حوار الخطأ');
+        }
+      } catch (e) {
+        debugPrint('❌ خطأ في إغلاق الحوار: $e');
+      }
+    });
   }
 
   @override
@@ -869,14 +958,36 @@ class _WithdrawPageState extends State<WithdrawPage> {
 
       if (result['success']) {
         if (mounted) {
-          // عرض إشعار النجاح المخصص
-          CustomNotification.showSuccess(context, 'تم اجراء عملية السحب بنجاح');
+          debugPrint('✅ نجح طلب السحب - التحقق من قاعدة البيانات...');
 
-          // الانتظار قليلاً ثم الانتقال مع تحديث صفحة الأرباح
-          await Future.delayed(const Duration(milliseconds: 2000));
-          if (mounted) {
-            // العودة لصفحة الأرباح مع إجبار التحديث
-            context.go('/profits?refresh=true');
+          // 🔍 التحقق من أن الطلب تم إضافته فعلاً في قاعدة البيانات
+          try {
+            final verifyResponse = await http
+                .post(
+                  Uri.parse('${ApiConfig.usersUrl}/verify-withdrawal'),
+                  headers: ApiConfig.defaultHeaders,
+                  body: jsonEncode({
+                    'phone': (await SharedPreferences.getInstance()).getString('current_user_phone'),
+                    'transaction_id': result['transaction_id'],
+                  }),
+                )
+                .timeout(ApiConfig.defaultTimeout);
+
+            final verifyData = jsonDecode(verifyResponse.body);
+
+            if (verifyData['success'] == true && verifyData['exists'] == true) {
+              debugPrint('✅ تم التحقق: الطلب موجود في قاعدة البيانات');
+              // ✨ إظهار أنيميشن النجاح
+              _showSuccessAnimation();
+            } else {
+              debugPrint('❌ الطلب غير موجود في قاعدة البيانات');
+              // ✨ إظهار أنيميشن الخطأ
+              _showErrorAnimation();
+            }
+          } catch (verifyError) {
+            debugPrint('⚠️ خطأ في التحقق من قاعدة البيانات: $verifyError');
+            // في حالة فشل التحقق، نعرض أنيميشن النجاح لأن الـ API أرجع نجاح
+            _showSuccessAnimation();
           }
         }
       } else {
@@ -884,6 +995,8 @@ class _WithdrawPageState extends State<WithdrawPage> {
       }
     } catch (e) {
       if (mounted) {
+        debugPrint('❌ خطأ في عملية السحب: $e');
+
         String errorMessage = 'حدث خطأ في السحب، يرجى المحاولة لاحقاً';
 
         // رسائل خطأ واضحة للمستخدم
@@ -899,7 +1012,15 @@ class _WithdrawPageState extends State<WithdrawPage> {
           errorMessage = 'مشكلة في الاتصال، تحقق من الإنترنت';
         }
 
-        CustomNotification.showError(context, errorMessage);
+        // ✨ إظهار أنيميشن الخطأ
+        _showErrorAnimation();
+
+        // عرض رسالة الخطأ بعد الأنيميشن
+        Future.delayed(const Duration(milliseconds: 2200), () {
+          if (mounted) {
+            CustomNotification.showError(context, errorMessage);
+          }
+        });
       }
     } finally {
       if (mounted) {
