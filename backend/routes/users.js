@@ -834,7 +834,61 @@ router.post('/top-products', async (req, res) => {
   }
 });
 
-// 💰 جلب رصيد المستخدم المتاح للسحب
+// 💰 جلب رصيد المستخدم المتاح للسحب (GET - آمن جداً - يستخدم JWT فقط)
+router.get('/balance', async (req, res) => {
+  try {
+    // ✅ استخراج رقم الهاتف من JWT في الهيدر (أكثر أماناً)
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: 'غير مصرح - يجب تسجيل الدخول' });
+    }
+
+    const token = authHeader.substring(7);
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !authUser) {
+      console.log(`❌ خطأ في التحقق من التوكن: ${authError?.message}`);
+      return res.status(401).json({ success: false, error: 'توكن غير صالح' });
+    }
+
+    const phone = authUser.phone;
+    console.log(`💰 جلب رصيد المستخدم: ${phone}`);
+
+    // جلب بيانات المستخدم
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, name, achieved_profits, phone')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (userError) {
+      console.log(`❌ خطأ في جلب بيانات المستخدم: ${userError.message}`);
+      return res.status(500).json({ success: false, error: 'خطأ في جلب البيانات' });
+    }
+
+    if (!user) {
+      console.log('⚠️ المستخدم غير موجود');
+      return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
+    }
+
+    const balance = user.achieved_profits || 0;
+    console.log(`✅ رصيد المستخدم: ${balance} د.ع`);
+
+    res.status(200).json({
+      success: true,
+      balance: balance,
+      user_id: user.id,
+      user_name: user.name,
+      phone: user.phone,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.log(`❌ خطأ في الخادم: ${error.message}`);
+    res.status(500).json({ success: false, error: 'خطأ في الخادم' });
+  }
+});
+
+// 💰 جلب رصيد المستخدم المتاح للسحب (POST - للتوافق مع الإصدارات القديمة)
 router.post('/balance', async (req, res) => {
   try {
     const { phone } = req.body;

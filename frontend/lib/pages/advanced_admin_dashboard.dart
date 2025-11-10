@@ -3371,6 +3371,15 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with Ti
               ),
             ],
           ),
+          const SizedBox(height: 20),
+          // 🔒 زر التحكم في إعدادات السحب
+          _buildManagementButton(
+            title: '⚙️ إعدادات السحب',
+            subtitle: 'التحكم في تفعيل/تعطيل عمليات السحب وتخصيص الرسائل',
+            icon: FontAwesomeIcons.gear,
+            color: Colors.red,
+            onTap: () => _openWithdrawalSettings(),
+          ),
         ],
       ),
     );
@@ -7584,6 +7593,308 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with Ti
             ),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  // 🔒 فتح صفحة إعدادات السحب
+  void _openWithdrawalSettings() {
+    showDialog(context: context, barrierDismissible: false, builder: (context) => _WithdrawalSettingsDialog());
+  }
+}
+
+// 🔒 Dialog إعدادات السحب
+class _WithdrawalSettingsDialog extends StatefulWidget {
+  @override
+  State<_WithdrawalSettingsDialog> createState() => _WithdrawalSettingsDialogState();
+}
+
+class _WithdrawalSettingsDialogState extends State<_WithdrawalSettingsDialog> {
+  bool _isWithdrawalEnabled = true;
+  final TextEditingController _messageController = TextEditingController();
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  // تحميل الإعدادات الحالية
+  Future<void> _loadSettings() async {
+    try {
+      debugPrint('🔍 === تحميل إعدادات السحب ===');
+
+      final supabase = Supabase.instance.client;
+      final response = await supabase
+          .from('app_settings')
+          .select('setting_value, message')
+          .eq('setting_key', 'withdrawal_enabled')
+          .maybeSingle();
+
+      if (response != null) {
+        setState(() {
+          _isWithdrawalEnabled = response['setting_value'] == 'true';
+          _messageController.text = response['message'] ?? 'عملية السحب متوقفة حالياً';
+          _isLoading = false;
+        });
+        debugPrint('✅ تم تحميل الإعدادات: ${_isWithdrawalEnabled ? "مفعل" : "معطل"}');
+      } else {
+        setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تحميل الإعدادات: $e');
+      setState(() => _isLoading = false);
+      _showSnackBar('خطأ في تحميل الإعدادات', isError: true);
+    }
+  }
+
+  // حفظ الإعدادات
+  Future<void> _saveSettings() async {
+    if (_isSaving) return;
+
+    setState(() => _isSaving = true);
+
+    try {
+      debugPrint('💾 === حفظ إعدادات السحب ===');
+      debugPrint('📊 الحالة: ${_isWithdrawalEnabled ? "مفعل" : "معطل"}');
+      debugPrint('📝 الرسالة: ${_messageController.text}');
+
+      final supabase = Supabase.instance.client;
+      await supabase
+          .from('app_settings')
+          .update({
+            'setting_value': _isWithdrawalEnabled ? 'true' : 'false',
+            'message': _messageController.text.trim().isEmpty
+                ? 'عملية السحب متوقفة حالياً'
+                : _messageController.text.trim(),
+          })
+          .eq('setting_key', 'withdrawal_enabled');
+
+      debugPrint('✅ تم حفظ الإعدادات بنجاح');
+      _showSnackBar('✅ تم حفظ الإعدادات بنجاح!', isError: false);
+
+      // الانتظار قليلاً ثم إغلاق الـ dialog
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      debugPrint('❌ خطأ في حفظ الإعدادات: $e');
+      _showSnackBar('❌ خطأ في حفظ الإعدادات', isError: true);
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600)),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 600,
+        padding: const EdgeInsets.all(30),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1a1a2e),
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 2),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 30, spreadRadius: 5)],
+        ),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFffd700)))
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // العنوان
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(FontAwesomeIcons.gear, color: Color(0xFFffd700), size: 24),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '⚙️ إعدادات السحب',
+                              style: GoogleFonts.cairo(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'التحكم في تفعيل وتعطيل عمليات السحب',
+                              style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.7)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+
+                  // حالة السحب
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16213e),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(
+                        color: _isWithdrawalEnabled
+                            ? Colors.green.withValues(alpha: 0.3)
+                            : Colors.red.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'حالة السحب:',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: _isWithdrawalEnabled
+                                      ? Colors.green.withValues(alpha: 0.2)
+                                      : Colors.red.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  _isWithdrawalEnabled ? '✅ مفعل' : '🔒 معطل',
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: _isWithdrawalEnabled ? Colors.green : Colors.red,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Switch
+                        Transform.scale(
+                          scale: 1.3,
+                          child: Switch(
+                            value: _isWithdrawalEnabled,
+                            onChanged: (value) => setState(() => _isWithdrawalEnabled = value),
+                            activeThumbColor: Colors.green,
+                            inactiveThumbColor: Colors.red,
+                            inactiveTrackColor: Colors.red.withValues(alpha: 0.3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 25),
+
+                  // رسالة التعطيل
+                  Text(
+                    'رسالة التعطيل المخصصة:',
+                    style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF16213e),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
+                    ),
+                    child: TextField(
+                      controller: _messageController,
+                      maxLines: 3,
+                      style: GoogleFonts.cairo(fontSize: 16, color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'أدخل الرسالة التي ستظهر للمستخدمين عند تعطيل السحب...',
+                        hintStyle: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.4)),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // أزرار الإجراءات
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: _isSaving ? null : () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            backgroundColor: const Color(0xFF16213e),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text(
+                            'إلغاء',
+                            style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white70),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _saveSettings,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 15),
+                            backgroundColor: const Color(0xFFffd700),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 5,
+                          ),
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(color: Color(0xFF1a1a2e), strokeWidth: 2),
+                                )
+                              : Text(
+                                  '💾 حفظ التغييرات',
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF1a1a2e),
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
       ),
     );
   }

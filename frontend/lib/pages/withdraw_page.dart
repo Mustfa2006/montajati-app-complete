@@ -27,7 +27,7 @@ class WithdrawPage extends StatefulWidget {
   State<WithdrawPage> createState() => _WithdrawPageState();
 }
 
-class _WithdrawPageState extends State<WithdrawPage> {
+class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver {
   // بيانات المستخدم
   double _availableBalance = 0.0;
   bool _isLoadingBalance = true;
@@ -49,28 +49,55 @@ class _WithdrawPageState extends State<WithdrawPage> {
   // 🔒 حالة السحب
   bool _isWithdrawalEnabled = true;
   String _withdrawalMessage = 'عملية السحب متاحة حالياً';
-  bool _isCheckingStatus = true;
-  Timer? _statusCheckTimer;
+
+  // 📦 SharedPreferences instance واحد
+  SharedPreferences? _prefs;
+  String? _currentUserPhone;
 
   @override
   void initState() {
     super.initState();
-    _loadUserProfits();
-    _checkWithdrawalStatus();
-    // التحقق من الحالة كل 30 ثانية
-    _statusCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    WidgetsBinding.instance.addObserver(this);
+    // ✅ التحقق من القفل أولاً قبل أي شيء
+    _initializePage();
+  }
+
+  // 🔄 مراقبة حالة التطبيق (عند العودة للصفحة)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('🔄 التطبيق عاد للواجهة - التحقق من حالة السحب');
       _checkWithdrawalStatus();
-    });
+    }
+  }
+
+  // 🚀 تهيئة الصفحة
+  Future<void> _initializePage() async {
+    try {
+      // 1️⃣ تحميل SharedPreferences مرة واحدة
+      _prefs = await SharedPreferences.getInstance();
+      _currentUserPhone = _prefs?.getString('current_user_phone');
+
+      // 2️⃣ التحقق من القفل أولاً (أسرع)
+      await _checkWithdrawalStatus();
+
+      // 3️⃣ ثم تحميل الرصيد
+      if (mounted) {
+        await _loadUserProfits();
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تهيئة الصفحة: $e');
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _amountController.dispose();
     _accountController.dispose();
     _cardHolderController.dispose();
     _cardNumberController.dispose();
     _phoneController.dispose();
-    _statusCheckTimer?.cancel();
     super.dispose();
   }
 
@@ -89,11 +116,10 @@ class _WithdrawPageState extends State<WithdrawPage> {
         final jsonData = jsonDecode(response.body);
         debugPrint('📊 البيانات المستلمة: $jsonData');
 
-        if (jsonData['success'] == true) {
+        if (jsonData['success'] == true && mounted) {
           setState(() {
             _isWithdrawalEnabled = jsonData['enabled'] ?? true;
             _withdrawalMessage = jsonData['message'] ?? 'عملية السحب متاحة حالياً';
-            _isCheckingStatus = false;
           });
 
           debugPrint('✅ حالة السحب: ${_isWithdrawalEnabled ? "مفعل" : "معطل"}');
@@ -103,42 +129,25 @@ class _WithdrawPageState extends State<WithdrawPage> {
     } catch (e) {
       debugPrint('❌ خطأ في التحقق من حالة السحب: $e');
       // في حالة الخطأ، نسمح بالسحب افتراضياً
-      setState(() {
-        _isWithdrawalEnabled = true;
-        _withdrawalMessage = 'عملية السحب متاحة حالياً';
-        _isCheckingStatus = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isWithdrawalEnabled = true;
+          _withdrawalMessage = 'عملية السحب متاحة حالياً';
+        });
+      }
     }
   }
 
-  // 🔒 جلب رصيد المستخدم من الباك اند (آمن جداً)
+  // 🔒 جلب رصيد المستخدم من الباك اند (آمن جداً - بدون إرسال رقم الهاتف)
   Future<void> _loadUserProfits() async {
     try {
-      setState(() => _isLoadingBalance = true);
+      if (mounted) setState(() => _isLoadingBalance = true);
 
       debugPrint('💰 === جلب رصيد المستخدم من الـ API ===');
 
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserPhone = prefs.getString('current_user_phone');
-
-      if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        debugPrint('❌ لا يوجد رقم هاتف محفوظ');
-        setState(() {
-          _availableBalance = 0.0;
-          _isLoadingBalance = false;
-        });
-        return;
-      }
-
-      debugPrint('📱 رقم هاتف المستخدم: $currentUserPhone');
-
-      // 🌐 جلب الرصيد من الـ API (آمن جداً)
+      // ✅ استخدام JWT فقط - السيرفر يحدد المستخدم من التوكن
       final response = await http
-          .post(
-            Uri.parse('${ApiConfig.usersUrl}/balance'),
-            headers: ApiConfig.defaultHeaders,
-            body: jsonEncode({'phone': currentUserPhone}),
-          )
+          .get(Uri.parse('${ApiConfig.usersUrl}/balance'), headers: ApiConfig.defaultHeaders)
           .timeout(ApiConfig.defaultTimeout);
 
       debugPrint('📡 استجابة الخادم: ${response.statusCode}');
@@ -152,14 +161,19 @@ class _WithdrawPageState extends State<WithdrawPage> {
           final balance = (jsonData['balance'] as num?)?.toDouble() ?? 0.0;
           final userId = jsonData['user_id'] ?? '';
           final userName = jsonData['user_name'] ?? 'مستخدم';
+          final userPhone = jsonData['phone'] ?? '';
 
           debugPrint('💰 الرصيد المستلم: $balance د.ع');
           debugPrint('👤 معرف المستخدم: $userId');
           debugPrint('📝 اسم المستخدم: $userName');
 
           // حفظ بيانات المستخدم
-          await prefs.setString('current_user_id', userId);
-          await prefs.setString('current_user_name', userName ?? 'مستخدم');
+          if (_prefs != null) {
+            await _prefs!.setString('current_user_id', userId);
+            await _prefs!.setString('current_user_name', userName ?? 'مستخدم');
+            await _prefs!.setString('current_user_phone', userPhone);
+            _currentUserPhone = userPhone;
+          }
 
           if (mounted) {
             setState(() {
@@ -209,13 +223,9 @@ class _WithdrawPageState extends State<WithdrawPage> {
       debugPrint('🔍 === التحقق من الرصيد من الـ API ===');
       debugPrint('   المبلغ المطلوب: $requestedAmount د.ع');
 
-      // 🌐 جلب الرصيد الحقيقي من الـ API
+      // 🌐 جلب الرصيد الحقيقي من الـ API (استخدام JWT فقط)
       final response = await http
-          .post(
-            Uri.parse('${ApiConfig.usersUrl}/balance'),
-            headers: ApiConfig.defaultHeaders,
-            body: jsonEncode({'phone': currentUserPhone}),
-          )
+          .get(Uri.parse('${ApiConfig.usersUrl}/balance'), headers: ApiConfig.defaultHeaders)
           .timeout(ApiConfig.defaultTimeout);
 
       if (response.statusCode != 200) {
