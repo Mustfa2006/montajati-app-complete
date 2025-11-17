@@ -54,6 +54,10 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
   SharedPreferences? _prefs;
   String? _currentUserPhone;
 
+  // 💾 كاش الرصيد لتقليل الطلبات
+  double? _cachedBalance;
+  DateTime? _balanceCacheTime;
+
   @override
   void initState() {
     super.initState();
@@ -210,20 +214,29 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
     }
   }
 
-  /// 🔒 التحقق من الرصيد من الباك اند قبل السحب (حماية من التلاعب)
+  /// 🔒 التحقق من الرصيد من الباك اند قبل السحب (حماية من التلاعب + كاش ذكي)
   Future<bool> _verifyBalanceInDatabase(double requestedAmount) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserPhone = prefs.getString('current_user_phone');
-
-      if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        throw Exception('لا يوجد مستخدم مسجل دخول');
-      }
-
-      debugPrint('🔍 === التحقق من الرصيد من الـ API ===');
+      debugPrint('🔍 === التحقق من الرصيد ===');
       debugPrint('   المبلغ المطلوب: $requestedAmount د.ع');
 
-      // 🌐 جلب الرصيد الحقيقي من الـ API (استخدام JWT فقط)
+      // ✅ استخدام الكاش إذا كان حديثاً (أقل من 10 ثواني)
+      final now = DateTime.now();
+      if (_cachedBalance != null && _balanceCacheTime != null) {
+        final cacheAge = now.difference(_balanceCacheTime!);
+        if (cacheAge.inSeconds < 10) {
+          debugPrint('� استخدام الرصيد من الكاش: $_cachedBalance د.ع (عمر الكاش: ${cacheAge.inSeconds}ث)');
+
+          if (requestedAmount > _cachedBalance!) {
+            throw Exception('المبلغ المطلوب ($requestedAmount د.ع) أكبر من الرصيد المتاح ($_cachedBalance د.ع)');
+          }
+
+          return true;
+        }
+      }
+
+      // 🌐 جلب الرصيد الحقيقي من الـ API (استخدام JWT فقط - بدون إرسال phone)
+      debugPrint('🌐 جلب الرصيد من السيرفر...');
       final response = await http
           .get(Uri.parse('${ApiConfig.usersUrl}/balance'), headers: ApiConfig.defaultHeaders)
           .timeout(ApiConfig.defaultTimeout);
@@ -242,18 +255,20 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
 
       debugPrint('   الرصيد الفعلي: $actualBalance د.ع');
 
+      // ✅ تحديث الكاش
+      _cachedBalance = actualBalance;
+      _balanceCacheTime = now;
+
       // التحقق من كفاية الرصيد
       if (requestedAmount > actualBalance) {
         throw Exception('المبلغ المطلوب ($requestedAmount د.ع) أكبر من الرصيد المتاح ($actualBalance د.ع)');
       }
 
       // تحديث الرصيد المعروض إذا كان مختلف
-      if (_availableBalance != actualBalance) {
-        if (mounted) {
-          setState(() {
-            _availableBalance = actualBalance;
-          });
-        }
+      if (_availableBalance != actualBalance && mounted) {
+        setState(() {
+          _availableBalance = actualBalance;
+        });
       }
 
       debugPrint('✅ التحقق من الرصيد نجح');
@@ -466,47 +481,71 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // تضبيب قوي
         child: Container(
           color: Colors.red.withValues(alpha: 0.2), // طبقة حمراء إضافية
-          child: Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 30),
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1a1a1a) : Colors.white,
-                borderRadius: BorderRadius.circular(25),
-                border: Border.all(color: Colors.red.withValues(alpha: 0.5), width: 2),
-                boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5)],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // أيقونة القفل
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), shape: BoxShape.circle),
-                    child: const Icon(FontAwesomeIcons.lock, color: Colors.red, size: 40),
-                  ),
-                  const SizedBox(height: 25),
-                  // الرسالة
-                  Text(
-                    _withdrawalMessage,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.w800, color: Colors.red, height: 1.8),
-                  ),
-                  const SizedBox(height: 20),
-                  // نص إضافي
-                  Text(
-                    'يرجى المحاولة لاحقاً',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: ThemeColors.secondaryTextColor(isDark),
+          child: Stack(
+            children: [
+              // زر الرجوع في أعلى اليمين
+              Positioned(
+                top: 40,
+                right: 20,
+                child: GestureDetector(
+                  onTap: () => context.go('/profits'),
+                  child: Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFffd700),
+                      borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFffd700).withValues(alpha: 0.4),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
+                    child: const Icon(FontAwesomeIcons.arrowRight, color: Color(0xFF1a1a2e), size: 20),
                   ),
-                ],
+                ),
               ),
-            ),
+              // المحتوى في المنتصف
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 30),
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1a1a1a) : Colors.white,
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.5), width: 2),
+                    boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5)],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // أيقونة القفل
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), shape: BoxShape.circle),
+                        child: const Icon(FontAwesomeIcons.lock, color: Colors.red, size: 40),
+                      ),
+                      const SizedBox(height: 25),
+                      // الرسالة المخصصة من لوحة التحكم فقط
+                      if (_withdrawalMessage.isNotEmpty)
+                        Text(
+                          _withdrawalMessage,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.cairo(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.red,
+                            height: 1.8,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1266,20 +1305,11 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
   }) async {
     try {
       debugPrint('💸 === إرسال طلب السحب إلى الـ API ===');
-
-      final prefs = await SharedPreferences.getInstance();
-      String? currentUserPhone = prefs.getString('current_user_phone');
-
-      if (currentUserPhone == null) {
-        throw Exception('معرف المستخدم غير صحيح');
-      }
-
-      debugPrint('📱 رقم الهاتف: $currentUserPhone');
-      debugPrint('💰 المبلغ: $amount د.ع');
+      debugPrint(' المبلغ: $amount د.ع');
       debugPrint('🏦 الطريقة: $selectedMethod');
 
-      // إعداد البيانات حسب طريقة السحب
-      final Map<String, dynamic> requestData = {'phone': currentUserPhone, 'amount': amount, 'method': selectedMethod};
+      // ✅ إعداد البيانات بدون إرسال رقم الهاتف (السيرفر يحدده من JWT)
+      final Map<String, dynamic> requestData = {'amount': amount, 'method': selectedMethod};
 
       if (selectedMethod == 'ki_card') {
         requestData['card_holder'] = _cardHolderController.text.trim();
@@ -1291,7 +1321,7 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
         debugPrint('📞 رقم الهاتف: ${requestData['phone_number']}');
       }
 
-      // 🌐 إرسال الطلب إلى الـ API
+      // 🌐 إرسال الطلب إلى الـ API (JWT فقط - بدون phone في body)
       final response = await http
           .post(
             Uri.parse('${ApiConfig.usersUrl}/withdraw'),

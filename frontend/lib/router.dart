@@ -3,8 +3,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/design_system.dart';
 import 'pages/advanced_admin_dashboard.dart';
+import 'pages/battle_bracket_and_winner_pages.dart';
+import 'pages/battle_group_and_match_pages.dart';
 import 'pages/cart_page.dart';
+import 'pages/competitions_page.dart';
 import 'pages/edit_order_page.dart';
 import 'pages/favorites_page.dart';
 import 'pages/login_page.dart';
@@ -28,6 +32,7 @@ import 'pages/welcome_page.dart';
 import 'pages/withdraw_page.dart';
 import 'pages/withdrawal_history_page.dart';
 import 'services/real_auth_service.dart';
+import 'widgets/curved_navigation_bar.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -58,9 +63,6 @@ class AppRouter {
       }
     },
     routes: [
-      // المسار الجذر - يوجه إلى صفحة المنتجات
-      GoRoute(path: '/', name: 'home', builder: (context, state) => const NewProductsPage()),
-
       // صفحة الترحيب
       GoRoute(path: '/welcome', name: 'welcome', builder: (context, state) => const WelcomePage()),
 
@@ -70,48 +72,167 @@ class AppRouter {
       // صفحة إنشاء حساب
       GoRoute(path: '/register', name: 'register', builder: (context, state) => const RegisterPage()),
 
-      // صفحة المنتجات
-      GoRoute(
-        path: '/products',
-        name: 'products',
-        builder: (context, state) => const NewProductsPage(),
-        routes: [
-          // صفحة تفاصيل المنتج
-          GoRoute(
-            path: '/details/:productId',
-            name: 'product-details',
-            builder: (context, state) {
-              final productId = state.pathParameters['productId']!;
-              return ModernProductDetailsPage(productId: productId);
-            },
-          ),
-        ],
-      ),
+      // شيل رئيسي يحتوي على الشريط السفلي الموحد للصفحات الرئيسية
+      ShellRoute(
+        builder: (context, state, child) {
+          final location = state.uri.path;
 
-      // صفحة الطلبات
-      GoRoute(
-        path: '/orders',
-        name: 'orders',
-        builder: (context, state) => const OrdersPage(),
+          int currentIndex;
+          if (location == '/' || location.startsWith('/products') || location.startsWith('/details')) {
+            currentIndex = 0; // المنتجات
+          } else if (location.startsWith('/orders')) {
+            currentIndex = 1; // الطلبات
+          } else if (location.startsWith('/profits')) {
+            currentIndex = 2; // الأرباح
+          } else if (location.startsWith('/competitions') || location.startsWith('/battle-arena')) {
+            currentIndex = 3; // المسابقات / ساحة المعركة
+          } else if (location.startsWith('/account')) {
+            currentIndex = 4; // الحساب
+          } else {
+            currentIndex = 0;
+          }
+
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            extendBody: true,
+            body: child,
+            bottomNavigationBar: CurvedNavigationBar(
+              index: currentIndex,
+              items: const <Widget>[
+                Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // المنتجات
+                Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // الطلبات
+                Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // الأرباح
+                Icon(Icons.emoji_events_outlined, size: 28, color: Color(0xFFFFD700)), // المسابقات
+                Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // الحساب
+              ],
+              color: AppDesignSystem.bottomNavColor,
+              buttonBackgroundColor: AppDesignSystem.activeButtonColor,
+              backgroundColor: Colors.transparent,
+              onTap: (index) {
+                switch (index) {
+                  case 0:
+                    context.go('/products');
+                    break;
+                  case 1:
+                    context.go('/orders');
+                    break;
+                  case 2:
+                    context.go('/profits');
+                    break;
+                  case 3:
+                    context.go('/competitions');
+                    break;
+                  case 4:
+                    context.go('/account');
+                    break;
+                }
+              },
+              letIndexChange: (index) => true,
+            ),
+          );
+        },
         routes: [
-          // صفحة تفاصيل الطلب للمستخدم
+          // المسار الجذر - يوجه إلى صفحة المنتجات
+          GoRoute(path: '/', name: 'home', builder: (context, state) => const NewProductsPage()),
+
+          // صفحة المنتجات
           GoRoute(
-            path: '/details/:orderId',
-            name: 'user-order-details',
+            path: '/products',
+            name: 'products',
+            builder: (context, state) => const NewProductsPage(),
+            routes: [
+              // صفحة تفاصيل المنتج
+              GoRoute(
+                path: '/details/:productId',
+                name: 'product-details',
+                builder: (context, state) {
+                  final productId = state.pathParameters['productId']!;
+                  return ModernProductDetailsPage(productId: productId);
+                },
+              ),
+            ],
+          ),
+
+          // صفحة الطلبات
+          GoRoute(
+            path: '/orders',
+            name: 'orders',
+            builder: (context, state) => const OrdersPage(),
+            routes: [
+              // صفحة تفاصيل الطلب للمستخدم
+              GoRoute(
+                path: '/details/:orderId',
+                name: 'user-order-details',
+                builder: (context, state) {
+                  final orderId = state.pathParameters['orderId']!;
+                  return UserOrderDetailsPage(orderId: orderId);
+                },
+              ),
+              // صفحة تعديل الطلب
+              GoRoute(
+                path: '/edit/:orderId',
+                name: 'edit-order',
+                builder: (context, state) {
+                  final orderId = state.pathParameters['orderId']!;
+                  return EditOrderPage(orderId: orderId);
+                },
+              ),
+            ],
+          ),
+
+          // صفحة المسابقات
+          GoRoute(path: '/competitions', name: 'competitions', builder: (context, state) => const CompetitionsPage()),
+
+          // صفحة ساحة المعركة (خريطة البطولة)
+          GoRoute(
+            path: '/battle-arena',
+            name: 'battle-arena',
+            builder: (context, state) => const TournamentBracketPage(),
+          ),
+
+          // صفحة مجموعة A/B
+          GoRoute(
+            path: '/battle-arena/group/:groupId',
+            name: 'battle-group',
             builder: (context, state) {
-              final orderId = state.pathParameters['orderId']!;
-              return UserOrderDetailsPage(orderId: orderId);
+              final groupId = state.pathParameters['groupId'] ?? 'A';
+              return BattleGroupPage(groupId: groupId);
             },
           ),
-          // صفحة تعديل الطلب
+
+          // صفحة المباراة 1 ضد 1
           GoRoute(
-            path: '/edit/:orderId',
-            name: 'edit-order',
-            builder: (context, state) {
-              final orderId = state.pathParameters['orderId']!;
-              return EditOrderPage(orderId: orderId);
-            },
+            path: '/battle-arena/match',
+            name: 'battle-match',
+            builder: (context, state) => const BattleMatchPage(),
           ),
+
+          // صفحة خريطة البطولة
+          GoRoute(
+            path: '/battle-arena/bracket',
+            name: 'battle-bracket',
+            builder: (context, state) => const TournamentBracketPage(),
+          ),
+
+          // صفحة الفائز النهائي
+          GoRoute(
+            path: '/battle-arena/winner',
+            name: 'battle-winner',
+            builder: (context, state) => const WinnerCelebrationPage(),
+          ),
+
+          // صفحة إعدادات نظام المسابقات
+          GoRoute(
+            path: '/battle-arena/settings',
+            name: 'battle-settings',
+            builder: (context, state) => const CompetitionSettingsPage(),
+          ),
+
+          // صفحة الأرباح
+          GoRoute(path: '/profits', name: 'profits', builder: (context, state) => const ProfitsPage()),
+
+          // صفحة الحساب الشخصي
+          GoRoute(path: '/account', name: 'account', builder: (context, state) => const NewAccountPage()),
         ],
       ),
 
@@ -133,9 +254,6 @@ class AppRouter {
         ],
       ),
 
-      // صفحة الأرباح
-      GoRoute(path: '/profits', name: 'profits', builder: (context, state) => const ProfitsPage()),
-
       // صفحة الإحصائيات
       GoRoute(path: '/statistics', name: 'statistics', builder: (context, state) => const StatisticsPage()),
 
@@ -151,9 +269,6 @@ class AppRouter {
         name: 'withdrawal-history',
         builder: (context, state) => const WithdrawalHistoryPage(),
       ),
-
-      // صفحة الحساب الشخصي
-      GoRoute(path: '/account', name: 'account', builder: (context, state) => const NewAccountPage()),
 
       // صفحة السلة
       GoRoute(path: '/cart', name: 'cart', builder: (context, state) => const CartPage()),

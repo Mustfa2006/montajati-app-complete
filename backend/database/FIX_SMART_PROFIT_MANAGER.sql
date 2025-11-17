@@ -19,6 +19,8 @@ DECLARE
     was_cancelled_status BOOLEAN := FALSE;
     delivery_paid_amount NUMERIC := 0;
     last_transaction_time TIMESTAMP;
+    normalized_new_status TEXT;
+    normalized_old_status TEXT;
 BEGIN
     -- ⏭️ تخطي إذا لم تتغير الحالة
     IF TG_OP = 'UPDATE' AND OLD.status = NEW.status THEN
@@ -53,6 +55,27 @@ BEGIN
 
     IF user_uuid IS NULL THEN
         RAISE NOTICE '⚠️ لا يمكن العثور على معرف المستخدم للطلب: %', NEW.id;
+        RETURN NEW;
+    END IF;
+
+    -- 🧠 توحيد نصوص الحالات للتعامل مع null و الفراغ و الحالات غير المسموحة
+    normalized_new_status := lower(btrim(COALESCE(NEW.status, '')));
+
+    IF TG_OP = 'UPDATE' THEN
+        normalized_old_status := lower(btrim(COALESCE(OLD.status, '')));
+    ELSE
+        normalized_old_status := NULL;
+    END IF;
+
+    -- 🛡️ حماية مطلقة: إذا كانت الحالة الجديدة غير معروفة/غير صالحة لا نغيّر أي أرباح
+    IF normalized_new_status = '' OR normalized_new_status IN ('null', 'undefined', 'غير معروف', 'غير معروفة', 'unknown') THEN
+        RAISE NOTICE '⚠️ smart_profit_manager: تجاهل تحديث بسبب حالة جديدة غير معروفة للطلب %: %', NEW.id, NEW.status;
+        RETURN NEW;
+    END IF;
+
+    -- يمكن أن تكون الحالة القديمة null في INSERT، لذلك نفحص UPDATE فقط
+    IF TG_OP = 'UPDATE' AND (normalized_old_status = '' OR normalized_old_status IN ('null', 'undefined', 'غير معروف', 'غير معروفة', 'unknown')) THEN
+        RAISE NOTICE '⚠️ smart_profit_manager: تجاهل تحديث بسبب حالة سابقة غير معروفة للطلب %: %', NEW.id, OLD.status;
         RETURN NEW;
     END IF;
 

@@ -16,7 +16,6 @@ import '../providers/theme_provider.dart';
 import '../utils/number_formatter.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
-import '../widgets/curved_navigation_bar.dart';
 
 class ProfitsPage extends StatefulWidget {
   const ProfitsPage({super.key});
@@ -346,37 +345,6 @@ class _ProfitsPageState extends State<ProfitsPage> with TickerProviderStateMixin
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: CurvedNavigationBar(
-        index: 2, // الأرباح
-        items: <Widget>[
-          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)),
-          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)),
-          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)),
-          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)),
-        ],
-        color: const Color(0xFF2D3748),
-        buttonBackgroundColor: const Color(0xFF1A202C),
-        backgroundColor: Colors.transparent,
-        animationCurve: Curves.easeInOut,
-        animationDuration: Duration(milliseconds: 600),
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              context.go('/products');
-              break;
-            case 1:
-              context.go('/orders');
-              break;
-            case 2:
-              // الصفحة الحالية
-              break;
-            case 3:
-              context.go('/account');
-              break;
-          }
-        },
-        letIndexChange: (index) => true,
       ),
     );
   }

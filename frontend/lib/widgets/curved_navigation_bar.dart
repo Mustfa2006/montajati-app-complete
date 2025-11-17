@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
@@ -30,14 +31,14 @@ class CurvedNavigationBar extends StatefulWidget {
     this.backgroundColor = Colors.blueAccent,
     this.onTap,
     LetIndexPage? letIndexChange,
-    this.animationCurve = Curves.elasticOut, // منحنى مبهر
-    this.animationDuration = const Duration(milliseconds: 1200), // مدة أطول للتأثير المبهر
-    this.height = 75.0, // ارتفاع افتراضي محسن
+    this.animationCurve = Curves.easeOut,
+    this.animationDuration = const Duration(milliseconds: 600),
+    this.height = 75.0,
     this.maxWidth,
   }) : letIndexChange = letIndexChange ?? ((_) => true),
        assert(items.isNotEmpty),
        assert(0 <= index && index < items.length),
-       assert(0 <= height && height <= 100.0), // تحديث الحد الأقصى للارتفاع
+       assert(0 <= height && height <= 75.0),
        assert(maxWidth == null || 0 <= maxWidth);
 
   @override
@@ -98,37 +99,17 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTic
   @override
   Widget build(BuildContext context) {
     final textDirection = Directionality.of(context);
-    final screenWidth = MediaQuery.of(context).size.width;
-
-    // حساب الأحجام المتجاوبة بناءً على حجم الشاشة
-    final isSmallScreen = screenWidth < 360;
-    final isMediumScreen = screenWidth >= 360 && screenWidth < 400;
-
-    // ارتفاع الشريط متجاوب مع ضمان مساحة كافية
-    final responsiveHeight = isSmallScreen ? 68.0 : (isMediumScreen ? 72.0 : 75.0);
-
-    // حجم الكرة متجاوب مع ضمان وضوح جيد - مصغر قليلاً
-    final ballSize = isSmallScreen ? 48.0 : (isMediumScreen ? 52.0 : 55.0);
-
-    // موضع الكرة متجاوب مع ضمان عدم التداخل
-    final ballBottomPosition = isSmallScreen ? -38.0 : (isMediumScreen ? -40.0 : -42.0);
-
-    // ارتفاع الحركة متجاوب
-    final moveHeight = isSmallScreen ? 72.0 : (isMediumScreen ? 76.0 : 80.0);
-
-    // مساحة إضافية للشاشات الصغيرة لتجنب التداخل
-    final extraPadding = isSmallScreen ? 2.0 : 0.0;
 
     return SizedBox(
-      height: responsiveHeight,
-      width: double.infinity,
+      height: widget.height,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final maxWidth = constraints.maxWidth;
-          return Material(
-            color: Colors.transparent,
+          final maxWidth = min(constraints.maxWidth, widget.maxWidth ?? constraints.maxWidth);
+
+          return Align(
+            alignment: textDirection == TextDirection.ltr ? Alignment.bottomLeft : Alignment.bottomRight,
             child: Container(
-              color: Colors.transparent,
+              color: widget.backgroundColor,
               width: maxWidth,
               child: ClipRect(
                 clipper: NavCustomClipper(deviceHeight: MediaQuery.sizeOf(context).height),
@@ -137,150 +118,40 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTic
                   alignment: Alignment.bottomCenter,
                   children: <Widget>[
                     Positioned(
-                      bottom: ballBottomPosition, // موضع متجاوب للكرة
+                      bottom: -40 - (75.0 - widget.height),
                       left: textDirection == TextDirection.rtl ? null : _pos * maxWidth,
                       right: textDirection == TextDirection.rtl ? _pos * maxWidth : null,
                       width: maxWidth / _length,
                       child: Center(
                         child: Transform.translate(
-                          offset: Offset(0, -(1 - _buttonHide) * moveHeight),
-                          child: TweenAnimationBuilder<double>(
-                            duration: Duration(milliseconds: 800),
-                            curve: Curves.elasticOut,
-                            tween: Tween(begin: 0.8, end: 1.0),
-                            builder: (context, scale, child) {
-                              return Transform.scale(
-                                scale: scale,
-                                child: ClipOval(
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2), // تضبيب خفيف
-                                    child: AnimatedContainer(
-                                      duration: Duration(milliseconds: 600),
-                                      curve: Curves.easeInOutCubic,
-                                      width: ballSize, // حجم متجاوب للكرة
-                                      height: ballSize, // حجم متجاوب للكرة
-                                      decoration: BoxDecoration(
-                                        // تدرج عميق متناسق مع الصفحة
-                                        gradient: LinearGradient(
-                                          begin: Alignment.topCenter,
-                                          end: Alignment.bottomCenter,
-                                          colors: [
-                                            const Color(0xFF363940).withValues(alpha: 0.8), // نفس لون البطاقات
-                                            const Color(0xFF2D3748), // اللون الأساسي
-                                            const Color(0xFF1A202C), // عمق في الأسفل
-                                          ],
-                                        ),
-                                        shape: BoxShape.circle,
-                                        // إطار ذهبي مضيء متجاوب
-                                        border: Border.all(
-                                          color: const Color(0xFFFFD700).withValues(alpha: 0.9), // ذهبي مضيء
-                                          width: isSmallScreen ? 2.0 : (isMediumScreen ? 2.5 : 3.0),
-                                        ),
-                                        boxShadow: [
-                                          // ظل عميق للكرة
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.3),
-                                            blurRadius: 15,
-                                            offset: Offset(0, 6),
-                                            spreadRadius: 2,
-                                          ),
-                                          // توهج ذهبي مضيء حول الحدود
-                                          BoxShadow(
-                                            color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                                            blurRadius: 20,
-                                            offset: Offset(0, 0),
-                                            spreadRadius: 1,
-                                          ),
-                                          // توهج ذهبي إضافي للتأثير المبهر
-                                          BoxShadow(
-                                            color: const Color(0xFFFFD700).withValues(alpha: 0.2),
-                                            blurRadius: 30,
-                                            offset: Offset(0, 0),
-                                            spreadRadius: 3,
-                                          ),
-                                        ],
-                                      ),
-                                      child: Stack(
-                                        children: [
-                                          // تأثير إضاءة داخلية
-                                          Positioned.fill(
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                gradient: RadialGradient(
-                                                  colors: [
-                                                    const Color(0xFFFFD700).withValues(alpha: 0.1), // توهج ذهبي خفيف
-                                                    Colors.transparent,
-                                                  ],
-                                                  stops: [0.3, 1.0],
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          // الأيقونة
-                                          Center(
-                                            child: AnimatedScale(
-                                              duration: Duration(milliseconds: 400),
-                                              scale: 1.0,
-                                              child: AnimatedRotation(
-                                                duration: Duration(milliseconds: 800),
-                                                turns: 0.0,
-                                                child: IconTheme(
-                                                  data: IconThemeData(
-                                                    color: const Color(0xFFFFD700), // ذهبي مضيء
-                                                    size: isSmallScreen
-                                                        ? 24.0
-                                                        : (isMediumScreen ? 26.0 : 28.0), // حجم متجاوب
-                                                  ),
-                                                  child: _icon,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                          offset: Offset(0, -(1 - _buttonHide) * 80),
+                          child: _buildActiveBallSimple(),
                         ),
                       ),
                     ),
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: 0 - (responsiveHeight - responsiveHeight), // موضع متجاوب للرسم
+                      bottom: 0 - (75.0 - widget.height),
                       child: CustomPaint(
                         painter: NavCustomPainter(_pos, _length, widget.color, textDirection),
-                        child: Container(
-                          height: responsiveHeight, // ارتفاع متجاوب للرسم
-                          color: Colors.transparent, // شفاف تماماً لحل مشكلة السواد
-                        ),
+                        child: Container(height: 75.0),
                       ),
                     ),
                     Positioned(
-                      left: extraPadding, // مساحة إضافية للشاشات الصغيرة
-                      right: extraPadding, // مساحة إضافية للشاشات الصغيرة
-                      bottom: (isSmallScreen ? 8 : 10) - (responsiveHeight - responsiveHeight), // رفع متجاوب للأزرار
-                      child: Container(
-                        height: responsiveHeight, // ارتفاع متجاوب للشريط
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 4.0 : (isMediumScreen ? 6.0 : 8.0), // padding أفقي متجاوب
-                        ),
+                      left: 0,
+                      right: 0,
+                      bottom: 0 - (75.0 - widget.height),
+                      child: SizedBox(
+                        height: 100.0,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly, // توزيع متساوي للأزرار
                           children: widget.items.map((item) {
-                            return Expanded(
-                              child: NavButton(
-                                onTap: _buttonTap,
-                                position: _pos,
-                                length: _length,
-                                index: widget.items.indexOf(item),
-                                screenWidth: screenWidth,
-                                child: Center(child: item), // تمرير عرض الشاشة للأزرار
-                              ),
+                            return NavButton(
+                              onTap: _buttonTap,
+                              position: _pos,
+                              length: _length,
+                              index: widget.items.indexOf(item),
+                              child: Center(child: item),
                             );
                           }).toList(),
                         ),
@@ -293,6 +164,96 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTic
           );
         },
       ),
+    );
+  }
+
+  // كرة الزر النشطة بنفس تصميم المكتبة الأصلية (دائرة بسيطة بنفس الألوان الحالية)
+  Widget _buildActiveBallSimple() {
+    return Material(
+      color: widget.buttonBackgroundColor ?? widget.color,
+      type: MaterialType.circle,
+      child: Padding(padding: const EdgeInsets.all(8.0), child: _icon),
+    );
+  }
+
+  // كرة الزر النشطة بنفس ألوان وتصميم النسخة الحالية مع أبعاد ثابتة قريبة من المثال
+  Widget _buildActiveBall() {
+    const double ballSize = 55.0;
+
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.elasticOut,
+      tween: Tween(begin: 0.9, end: 1.0),
+      builder: (context, scale, child) {
+        return Transform.scale(
+          scale: scale,
+          child: ClipOval(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeInOutCubic,
+                width: ballSize,
+                height: ballSize,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF363940).withValues(alpha: 0.8),
+                      const Color(0xFF2D3748),
+                      const Color(0xFF1A202C),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.9), width: 3.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 6),
+                      spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      offset: const Offset(0, 0),
+                      spreadRadius: 1,
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+                      blurRadius: 30,
+                      offset: const Offset(0, 0),
+                      spreadRadius: 3,
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [const Color(0xFFFFD700).withValues(alpha: 0.1), Colors.transparent],
+                            stops: const [0.3, 1.0],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Center(
+                      child: IconTheme(
+                        data: const IconThemeData(color: Color(0xFFFFD700), size: 28.0),
+                        child: _icon,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

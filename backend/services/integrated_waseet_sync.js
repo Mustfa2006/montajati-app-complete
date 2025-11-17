@@ -178,6 +178,35 @@ class IntegratedWaseetSync extends EventEmitter {
   }
 
   /**
+   * التحقق من أن حالة الوسيط غير معروفة / غير صالحة
+   * في هذه الحالة لا نحدّث الطلب ولا نلمس الأرباح أبداً
+   */
+  _isUnknownWaseetStatus(rawStatusId, rawStatusText) {
+    const id = parseInt(rawStatusId);
+    const text = (rawStatusText || '').toString().trim();
+    const lower = text.toLowerCase();
+
+    // 1️⃣ لا يوجد أي حالة من الوسيط (id و text فارغان أو null)
+    if ((rawStatusId === null || rawStatusId === undefined || rawStatusId === '' || Number.isNaN(id)) && !text) {
+      return true;
+    }
+
+    // 2️⃣ قيم نصية تدل على أن الحالة غير معروفة / خطأ
+    if (lower === 'null' || lower === 'undefined' || lower === 'غير معروف' || lower === 'غير معروفة' || lower === 'unknown') {
+      return true;
+    }
+
+    // 3️⃣ إذا كان المعرف رقم لكن غير موجود في الخرائط المعتمدة نعتبره غير معروف
+    if (!Number.isNaN(id)) {
+      if (!this.statusMap.has(id) && !this.ignoredWaseetStatuses.has(id)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * بدء النظام تلقائياً مع الخادم
    */
   async autoStart() {
@@ -405,22 +434,48 @@ class IntegratedWaseetSync extends EventEmitter {
         const waseetStatusId = parseInt(waseetOrder.status_id);
         const waseetStatusText = waseetOrder.status;
 
-        // ✅ تجاهل الحالات غير المهمة
+        // 1️⃣ إذا كانت حالة الوسيط نفسها غير معروفة / غير صالحة → لا نلمس الطلب ولا الأرباح أبداً
+        if (this._isUnknownWaseetStatus(waseetStatusId, waseetStatusText)) {
+          if (this.logger && typeof this.logger.warn === 'function') {
+            this.logger.warn('⚠️ تم تجاهل تحديث من الوسيط بسبب حالة غير معروفة أو غير صالحة', {
+              orderId: dbOrder.id,
+              waseetStatusId,
+              waseetStatusText,
+            });
+          }
+          skippedCount++;
+          continue;
+        }
+
+        // 2️⃣ تجاهل الحالات غير المهمة
         if (this.ignoredWaseetStatuses.has(waseetStatusId)) {
           skippedCount++;
           continue;
         }
 
-        // ✅ تحويل الحالة
+        // 3️⃣ تحويل الحالة
         const appStatus = this._mapWaseetStatusToApp(waseetStatusId, waseetStatusText);
 
-        // ✅ فحص ذكي لمنع التكرار
+        // حماية إضافية: إذا فشل التحويل نعتبر الحالة غير معروفة
+        if (!appStatus) {
+          if (this.logger && typeof this.logger.warn === 'function') {
+            this.logger.warn('⚠️ تم تجاهل تحديث بسبب فشل تحويل حالة الوسيط إلى حالة التطبيق', {
+              orderId: dbOrder.id,
+              waseetStatusId,
+              waseetStatusText,
+            });
+          }
+          skippedCount++;
+          continue;
+        }
+
+        // 4️⃣ فحص ذكي لمنع التكرار
         if (this._shouldSkipUpdate(dbOrder, waseetStatusId, waseetStatusText, appStatus)) {
           skippedCount++;
           continue;
         }
 
-        // ✅ تحديث الطلب
+        // 5️⃣ تحديث الطلب
         const updateSuccess = await this._updateOrder(dbOrder, appStatus, waseetStatusId, waseetStatusText);
         if (updateSuccess) {
           updatedCount++;
@@ -821,26 +876,31 @@ class IntegratedWaseetSync extends EventEmitter {
   _mapWaseetStatusToApp(waseetStatusId, waseetStatusText) {
     try {
       const id = parseInt(waseetStatusId);
+      const text = (waseetStatusText || '').trim();
+
+      // 🛡️ إذا كانت حالة الوسيط غير معروفة أو غير صالحة نعيد null ولا نستخدم أي حالة افتراضية
+      if (this._isUnknownWaseetStatus(waseetStatusId, waseetStatusText)) {
+        return null;
+      }
 
       // ✅ البحث في الخريطة أولاً (O(1))
-      if (this.statusMap.has(id)) {
+      if (!Number.isNaN(id) && this.statusMap.has(id)) {
         return this.statusMap.get(id);
       }
 
       // ✅ البحث بالنص كبديل
-      const text = (waseetStatusText || '').trim();
       for (const [mapId, mapStatus] of this.statusMap) {
         if (text === this._getStatusTextForId(mapId)) {
           return mapStatus;
         }
       }
 
-      // ✅ الحالة الافتراضية الآمنة (لا نعود إلى نشط)
-      return 'قيد التوصيل الى الزبون (في عهدة المندوب)';
+      // في حال لم نجد أي حالة صالحة نعيد null أيضاً
+      return null;
 
     } catch (error) {
       console.error('❌ خطأ في تحويل حالة الوسيط:', error.message);
-      return 'قيد التوصيل الى الزبون (في عهدة المندوب)';
+      return null;
     }
   }
 

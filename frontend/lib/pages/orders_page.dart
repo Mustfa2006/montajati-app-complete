@@ -13,7 +13,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
-import '../core/design_system.dart';
 import '../models/order.dart';
 import '../models/order_item.dart';
 import '../providers/theme_provider.dart';
@@ -21,7 +20,6 @@ import '../utils/error_handler.dart';
 import '../utils/order_status_helper.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
-import '../widgets/curved_navigation_bar.dart';
 import '../widgets/order_card_skeleton.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
 
@@ -839,37 +837,6 @@ class _OrdersPageState extends State<OrdersPage> {
         backgroundColor: Colors.transparent,
         extendBody: true,
         body: _buildScrollableContent(isDark), // المحتوى دائماً (مع skeleton عند التحميل)
-        bottomNavigationBar: CurvedNavigationBar(
-          index: 1, // الطلبات
-          items: <Widget>[
-            Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-            Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-            Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-            Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          ],
-          color: AppDesignSystem.bottomNavColor, // لون الشريط موحد
-          buttonBackgroundColor: AppDesignSystem.activeButtonColor, // لون الكرة موحد
-          backgroundColor: Colors.transparent, // خلفية شفافة
-          animationCurve: Curves.elasticOut, // منحنى مبهر
-          animationDuration: Duration(milliseconds: 1200), // انتقال مبهر
-          onTap: (index) {
-            switch (index) {
-              case 0:
-                context.go('/products');
-                break;
-              case 1:
-                // الصفحة الحالية
-                break;
-              case 2:
-                context.go('/profits');
-                break;
-              case 3:
-                context.go('/account');
-                break;
-            }
-          },
-          letIndexChange: (index) => true,
-        ),
       ),
     );
   }

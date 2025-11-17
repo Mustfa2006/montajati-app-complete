@@ -3380,6 +3380,15 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with Ti
             color: Colors.red,
             onTap: () => _openWithdrawalSettings(),
           ),
+          const SizedBox(height: 15),
+          // 📋 زر التحكم في سياسات التطبيق
+          _buildManagementButton(
+            title: '📋 سياسات التطبيق',
+            subtitle: 'تعديل نصوص السياسات والشروط والأحكام',
+            icon: FontAwesomeIcons.fileContract,
+            color: Colors.blue,
+            onTap: () => _openPoliciesSettings(),
+          ),
         ],
       ),
     );
@@ -7601,6 +7610,11 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with Ti
   void _openWithdrawalSettings() {
     showDialog(context: context, barrierDismissible: false, builder: (context) => _WithdrawalSettingsDialog());
   }
+
+  // 📋 فتح صفحة سياسات التطبيق
+  void _openPoliciesSettings() {
+    showDialog(context: context, barrierDismissible: false, builder: (context) => _PoliciesSettingsDialog());
+  }
 }
 
 // 🔒 Dialog إعدادات السحب
@@ -7895,6 +7909,463 @@ class _WithdrawalSettingsDialogState extends State<_WithdrawalSettingsDialog> {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+// 📋 Dialog سياسات التطبيق
+class _PoliciesSettingsDialog extends StatefulWidget {
+  @override
+  State<_PoliciesSettingsDialog> createState() => _PoliciesSettingsDialogState();
+}
+
+class _PoliciesSettingsDialogState extends State<_PoliciesSettingsDialog> {
+  List<Map<String, dynamic>> _policies = [];
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPolicies();
+  }
+
+  // تحميل السياسات
+  Future<void> _loadPolicies() async {
+    try {
+      debugPrint('🔍 === تحميل السياسات ===');
+
+      final supabase = Supabase.instance.client;
+      final response = await supabase.from('app_policies').select('*').order('display_order', ascending: true);
+
+      setState(() {
+        _policies = List<Map<String, dynamic>>.from(response);
+        _isLoading = false;
+      });
+
+      debugPrint('✅ تم تحميل ${_policies.length} سياسة');
+    } catch (e) {
+      debugPrint('❌ خطأ في تحميل السياسات: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // حفظ السياسة
+  Future<void> _savePolicy(Map<String, dynamic> policy) async {
+    setState(() => _isSaving = true);
+
+    try {
+      final supabase = Supabase.instance.client;
+      await supabase
+          .from('app_policies')
+          .update({
+            'title': policy['title'],
+            'icon': policy['icon'],
+            'items': policy['items'],
+            'is_active': policy['is_active'],
+          })
+          .eq('id', policy['id']);
+
+      _showSnackBar('✅ تم حفظ التغييرات بنجاح!', isError: false);
+    } catch (e) {
+      debugPrint('❌ خطأ في حفظ السياسة: $e');
+      _showSnackBar('❌ خطأ في حفظ التغييرات', isError: true);
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: GoogleFonts.cairo(fontSize: 14, color: Colors.white)),
+        backgroundColor: isError ? Colors.red : Colors.green,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // فتح صفحة تعديل السياسة
+  void _editPolicy(Map<String, dynamic> policy) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => _EditPolicyDialog(
+        policy: policy,
+        onSave: (updatedPolicy) {
+          _savePolicy(updatedPolicy);
+          _loadPolicies();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 900,
+        height: 700,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1a1a2e), Color(0xFF16213e)],
+          ),
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFffd700).withValues(alpha: 0.3),
+              blurRadius: 30,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFffd700)))
+            : Column(
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(25),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFFffd700), Color(0xFFffa500)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(FontAwesomeIcons.fileContract, color: Color(0xFF1a1a2e), size: 28),
+                        const SizedBox(width: 15),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '📋 سياسات التطبيق',
+                                style: GoogleFonts.cairo(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              Text(
+                                'تعديل نصوص السياسات والشروط',
+                                style: GoogleFonts.cairo(fontSize: 14, color: Colors.white.withValues(alpha: 0.7)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(FontAwesomeIcons.xmark, color: Color(0xFF1a1a2e)),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Content
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: _policies.length,
+                      itemBuilder: (context, index) {
+                        final policy = _policies[index];
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 15),
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.05),
+                            borderRadius: BorderRadius.circular(15),
+                            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(policy['icon'] ?? '📋', style: const TextStyle(fontSize: 28)),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      policy['title'] ?? '',
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      '${(policy['items'] as List).length} عنصر',
+                                      style: GoogleFonts.cairo(
+                                        fontSize: 13,
+                                        color: Colors.white.withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () => _editPolicy(policy),
+                                icon: const Icon(FontAwesomeIcons.penToSquare, size: 16),
+                                label: Text(
+                                  'تعديل',
+                                  style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.bold),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFffd700),
+                                  foregroundColor: const Color(0xFF1a1a2e),
+                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+// 📝 Dialog تعديل سياسة واحدة
+class _EditPolicyDialog extends StatefulWidget {
+  final Map<String, dynamic> policy;
+  final Function(Map<String, dynamic>) onSave;
+
+  const _EditPolicyDialog({required this.policy, required this.onSave});
+
+  @override
+  State<_EditPolicyDialog> createState() => _EditPolicyDialogState();
+}
+
+class _EditPolicyDialogState extends State<_EditPolicyDialog> {
+  late TextEditingController _titleController;
+  late TextEditingController _iconController;
+  late List<TextEditingController> _itemControllers;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.policy['title']);
+    _iconController = TextEditingController(text: widget.policy['icon']);
+    _itemControllers = (widget.policy['items'] as List)
+        .map((item) => TextEditingController(text: item.toString()))
+        .toList();
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _iconController.dispose();
+    for (var controller in _itemControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _addItem() {
+    setState(() {
+      _itemControllers.add(TextEditingController());
+    });
+  }
+
+  void _removeItem(int index) {
+    setState(() {
+      _itemControllers[index].dispose();
+      _itemControllers.removeAt(index);
+    });
+  }
+
+  void _save() {
+    final updatedPolicy = Map<String, dynamic>.from(widget.policy);
+    updatedPolicy['title'] = _titleController.text.trim();
+    updatedPolicy['icon'] = _iconController.text.trim();
+    updatedPolicy['items'] = _itemControllers.map((c) => c.text.trim()).where((text) => text.isNotEmpty).toList();
+
+    widget.onSave(updatedPolicy);
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 800,
+        height: 650,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1a1a2e), Color(0xFF16213e)],
+          ),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFffa500)]),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(FontAwesomeIcons.penToSquare, color: Color(0xFF1a1a2e), size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'تعديل السياسة',
+                      style: GoogleFonts.cairo(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(FontAwesomeIcons.xmark, color: Color(0xFF1a1a2e)),
+                  ),
+                ],
+              ),
+            ),
+
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // العنوان
+                    Text(
+                      'العنوان:',
+                      style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _titleController,
+                      style: GoogleFonts.cairo(fontSize: 15, color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.1),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+
+                    // الأيقونة
+                    Text(
+                      'الأيقونة (Emoji):',
+                      style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _iconController,
+                      style: GoogleFonts.cairo(fontSize: 15, color: Colors.white),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.1),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // العناصر
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'العناصر:',
+                          style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: _addItem,
+                          icon: const Icon(FontAwesomeIcons.plus, size: 14),
+                          label: Text('إضافة عنصر', style: GoogleFonts.cairo(fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFffd700),
+                            foregroundColor: const Color(0xFF1a1a2e),
+                            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    ..._itemControllers.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final controller = entry.value;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: controller,
+                                maxLines: 3,
+                                style: GoogleFonts.cairo(fontSize: 14, color: Colors.white),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(alpha: 0.05),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.2)),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            IconButton(
+                              onPressed: () => _removeItem(index),
+                              icon: const Icon(FontAwesomeIcons.trash, color: Colors.red, size: 18),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+
+            // Footer
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFffd700),
+                  foregroundColor: const Color(0xFF1a1a2e),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  minimumSize: const Size(double.infinity, 0),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                ),
+                child: Text('💾 حفظ التغييرات', style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

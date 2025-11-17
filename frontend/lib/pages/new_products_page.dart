@@ -17,7 +17,8 @@ import '../services/user_service.dart';
 import '../utils/font_helper.dart';
 import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
-import '../widgets/curved_navigation_bar.dart';
+import '../widgets/drawer_menu.dart';
+import '../widgets/sliding_drawer.dart';
 
 // كلاس مساعد لترتيب نتائج البحث
 class ProductMatch {
@@ -34,10 +35,11 @@ class NewProductsPage extends StatefulWidget {
   State<NewProductsPage> createState() => _NewProductsPageState();
 }
 
-class _NewProductsPageState extends State<NewProductsPage> {
+class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProviderStateMixin {
   final SupabaseClient _supabase = Supabase.instance.client;
   final CartService _cartService = CartService();
   final FavoritesService _favoritesService = FavoritesService.instance;
+  final SlidingDrawerController _drawerController = SlidingDrawerController();
   List<Product> _products = [];
   bool _isLoadingProducts = false;
 
@@ -366,75 +368,53 @@ class _NewProductsPageState extends State<NewProductsPage> {
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
 
-    return Scaffold(
-      // 🎨 خلفية شفافة تماماً للوضع النهاري - لإظهار البطاقات بوضوح
-      backgroundColor: Colors.transparent,
-      extendBody: true,
-      body: AppBackground(
-        child: Stack(
-          children: [
-            // 🎨 الخلفية البيضاء الفاتحة جداً مع ظل خفيف للسواد
-            if (!isDark)
-              Container(
-                color: const Color(0xFFFAFAFA), // أبيض فاتح جداً يميل للسواد قليلاً
-              ),
-            // المحتوى الرئيسي
-            SingleChildScrollView(
-              controller: _scrollController,
-              child: Column(
-                children: [
-                  // مساحة للشريط العلوي (تقليل الفراغ)
-                  const SizedBox(height: 25),
-                  // الشريط العلوي
-                  _buildHeader(),
-                  // البانر الرئيسي
-                  _buildMainBanner(),
-                  // شريط البحث
-                  _buildSearchBar(),
-                  // شبكة المنتجات
-                  _buildProductsGrid(),
-                  // مساحة إضافية للشريط السفلي
-                  const SizedBox(height: 160),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: CurvedNavigationBar(
-        index: _currentNavIndex,
-        items: <Widget>[
-          Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // ذهبي
-          Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // ذهبي
-        ],
-        color: AppDesignSystem.bottomNavColor, // لون الشريط موحد
-        buttonBackgroundColor: AppDesignSystem.activeButtonColor, // لون الكرة موحد
-        backgroundColor: Colors.transparent, // خلفية شفافة
-        animationCurve: Curves.elasticOut, // منحنى مبهر
-        animationDuration: Duration(milliseconds: 1200), // انتقال مبهر
-        onTap: (index) {
-          setState(() {
-            _currentNavIndex = index;
-          });
-          // التنقل السلس حسب العنصر المحدد
-          switch (index) {
-            case 0:
-              // المنتجات الرئيسية - الصفحة الحالية
-              break;
-            case 1:
-              context.go('/orders'); // الطلبات
-              break;
-            case 2:
-              context.go('/profits'); // الأرباح
-              break;
-            case 3:
-              context.go('/account'); // الحساب
-              break;
-          }
+    return SlidingDrawer(
+      controller: _drawerController,
+      menuWidthFactor: 0.68,
+      endScale: 0.85,
+      rotationDegrees: -3,
+      backgroundColor: isDark ? const Color(0xFF1a1a2e) : const Color(0xFF2c3e50),
+      shadowColor: const Color(0xFFffd700),
+      menu: DrawerMenu(
+        onClose: () {
+          _drawerController.toggle();
         },
-        letIndexChange: (index) => true,
+      ),
+      child: Scaffold(
+        // 🎨 خلفية شفافة تماماً للوضع النهاري - لإظهار البطاقات بوضوح
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        body: AppBackground(
+          child: Stack(
+            children: [
+              // 🎨 الخلفية البيضاء الفاتحة جداً مع ظل خفيف للسواد
+              if (!isDark)
+                Container(
+                  color: const Color(0xFFFAFAFA), // أبيض فاتح جداً يميل للسواد قليلاً
+                ),
+              // المحتوى الرئيسي
+              SingleChildScrollView(
+                controller: _scrollController,
+                child: Column(
+                  children: [
+                    // مساحة للشريط العلوي (تقليل الفراغ)
+                    const SizedBox(height: 25),
+                    // الشريط العلوي
+                    _buildHeader(),
+                    // البانر الرئيسي
+                    _buildMainBanner(),
+                    // شريط البحث
+                    _buildSearchBar(),
+                    // شبكة المنتجات
+                    _buildProductsGrid(),
+                    // مساحة إضافية للشريط السفلي
+                    const SizedBox(height: 160),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -525,41 +505,20 @@ class _NewProductsPageState extends State<NewProductsPage> {
                   ),
                 ),
               ),
-              // الأزرار (اليمين)
+              // زر القائمة (اليمين)
               Expanded(
                 flex: 2,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    // زر المفضلة
+                    // زر القائمة الجانبية
                     GestureDetector(
                       onTap: () {
-                        context.go('/favorites');
+                        _drawerController.toggle();
                       },
                       child: Container(
-                        width: 36, // تكبير قليلاً من 32 إلى 36
-                        height: 36, // تكبير قليلاً من 32 إلى 36
-                        margin: const EdgeInsets.only(left: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF6B6B).withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFF6B6B).withValues(alpha: 0.3), width: 1),
-                        ),
-                        child: const Icon(
-                          Icons.favorite_outline,
-                          color: Color(0xFFFF6B6B),
-                          size: 18, // تكبير قليلاً من 16 إلى 18
-                        ),
-                      ),
-                    ),
-                    // زر السلة المحسن
-                    GestureDetector(
-                      onTap: () {
-                        context.go('/cart');
-                      },
-                      child: Container(
-                        width: 36, // تكبير قليلاً من 32 إلى 36
-                        height: 36, // تكبير قليلاً من 32 إلى 36
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
@@ -586,11 +545,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                             ),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.shopping_cart_outlined,
-                          color: Colors.white,
-                          size: 18, // تكبير قليلاً من 16 إلى 18
-                        ),
+                        child: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
                       ),
                     ),
                   ],

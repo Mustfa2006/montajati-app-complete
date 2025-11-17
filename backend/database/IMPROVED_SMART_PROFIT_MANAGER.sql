@@ -199,6 +199,8 @@ DECLARE
     v_transaction_type VARCHAR(50);
     v_success BOOLEAN;
     v_message TEXT;
+    v_status_new_normalized TEXT;
+    v_status_old_normalized TEXT;
 BEGIN
     -- ⏭️ تخطي إذا لم تتغير الحالة
     IF TG_OP = 'UPDATE' AND OLD.status IS NOT DISTINCT FROM NEW.status THEN
@@ -223,6 +225,27 @@ BEGIN
     -- تخطي إذا لم نتمكن من العثور على المستخدم
     IF v_user_id IS NULL THEN
         RAISE NOTICE '⚠️ لا يمكن العثور على المستخدم للطلب: %', NEW.id;
+        RETURN NEW;
+    END IF;
+
+    -- 🧠 توحيد نصوص الحالات للتعامل مع null و الفراغ و الحالات غير المسموحة
+    v_status_new_normalized := lower(btrim(COALESCE(NEW.status, '')));
+
+    IF TG_OP = 'UPDATE' THEN
+        v_status_old_normalized := lower(btrim(COALESCE(OLD.status, '')));
+    ELSE
+        v_status_old_normalized := NULL;
+    END IF;
+
+    -- 🛡️ حماية مطلقة: إذا كانت الحالة الجديدة غير معروفة/غير صالحة لا نغيّر أي أرباح
+    IF v_status_new_normalized = '' OR v_status_new_normalized IN ('null', 'undefined', 'غير معروف', 'غير معروفة', 'unknown') THEN
+        RAISE NOTICE '⚠️ smart_profit_manager: تجاهل تحديث بسبب حالة جديدة غير معروفة للطلب %: %', NEW.id, NEW.status;
+        RETURN NEW;
+    END IF;
+
+    -- يمكن أن تكون الحالة القديمة null في INSERT، لذلك نفحص UPDATE فقط
+    IF TG_OP = 'UPDATE' AND (v_status_old_normalized = '' OR v_status_old_normalized IN ('null', 'undefined', 'غير معروف', 'غير معروفة', 'unknown')) THEN
+        RAISE NOTICE '⚠️ smart_profit_manager: تجاهل تحديث بسبب حالة سابقة غير معروفة للطلب %: %', NEW.id, OLD.status;
         RETURN NEW;
     END IF;
 
