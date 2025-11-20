@@ -2,8 +2,14 @@
 -- المشكلة: الربح يُضاف لكن لا ينقص من expected_profits
 -- الحل: استخدام FOR UPDATE لقفل الصف وضمان دقة القيم
 
+-- 🧹 تنظيف أي Triggers قديمة مرتبطة بالأرباح لمنع التكرار
 DROP TRIGGER IF EXISTS smart_profit_trigger ON orders;
+DROP TRIGGER IF EXISTS trigger_auto_update_profits ON orders;
+
+-- 🧹 حذف الدوال القديمة لنظام الأرباح التلقائي (إن وُجدت)
 DROP FUNCTION IF EXISTS smart_profit_manager();
+DROP FUNCTION IF EXISTS auto_update_profits_on_status_change();
+DROP FUNCTION IF EXISTS get_profit_type(TEXT);
 
 CREATE OR REPLACE FUNCTION smart_profit_manager()
 RETURNS TRIGGER AS $$

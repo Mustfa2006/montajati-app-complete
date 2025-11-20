@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../config/api_config.dart';
 import '../core/design_system.dart';
 import '../models/product.dart';
 import '../providers/theme_provider.dart';
@@ -20,12 +22,88 @@ import '../widgets/app_background.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/sliding_drawer.dart';
 
-// كلاس مساعد لترتيب نتائج البحث
-class ProductMatch {
-  final Product product;
-  final int score;
+// 🧠 كاش بسيط لصور المنتجات داخل جلسة التطبيق
+class _ProductImageCache {
+  static final Map<String, ImageProvider> _cache = {};
 
-  ProductMatch(this.product, this.score);
+  static ImageProvider get(String url) {
+    if (_cache.containsKey(url)) {
+      return _cache[url]!;
+    }
+
+    final provider = NetworkImage(url);
+    _cache[url] = provider;
+    return provider;
+  }
+}
+
+// 🔁 ويدجت ذكية لعرض صورة المنتج مع إعادة المحاولة التلقائية + الكاش
+class _CachedAutoRetryProductImage extends StatefulWidget {
+  final String imageUrl;
+  final double height;
+  final bool isDark;
+
+  const _CachedAutoRetryProductImage({required this.imageUrl, required this.height, required this.isDark});
+
+  @override
+  State<_CachedAutoRetryProductImage> createState() => _CachedAutoRetryProductImageState();
+}
+
+class _CachedAutoRetryProductImageState extends State<_CachedAutoRetryProductImage> {
+  int _retryKey = 0;
+  Timer? _retryTimer;
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleRetry() {
+    if (!mounted) return;
+    if (_retryTimer != null && _retryTimer!.isActive) return;
+
+    _retryTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      setState(() {
+        _retryKey++;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageProvider = _ProductImageCache.get(widget.imageUrl);
+
+    return Image(
+      key: ValueKey('${widget.imageUrl}#$_retryKey'),
+      image: imageProvider,
+      fit: BoxFit.contain,
+      width: double.infinity,
+      height: widget.height,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppDesignSystem.goldColor),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        _scheduleRetry();
+        return Container(
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(Icons.camera_alt_outlined, color: widget.isDark ? Colors.white60 : Colors.grey, size: 50),
+        );
+      },
+    );
+  }
 }
 
 class NewProductsPage extends StatefulWidget {
@@ -36,7 +114,6 @@ class NewProductsPage extends StatefulWidget {
 }
 
 class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProviderStateMixin {
-  final SupabaseClient _supabase = Supabase.instance.client;
   final CartService _cartService = CartService();
   final FavoritesService _favoritesService = FavoritesService.instance;
   final SlidingDrawerController _drawerController = SlidingDrawerController();
@@ -58,10 +135,9 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  // البحث والـ hints
+  // البحث
   List<Product> _filteredProducts = [];
   Timer? _searchDebounceTimer;
-  int _currentNavIndex = 0;
 
   // 📄 نظام Pagination
   int _currentPage = 1;
@@ -76,7 +152,6 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     _initializeUserData();
     _loadBanners();
     _setupScrollListener();
-    _setupProductHints();
     _loadFavorites();
   }
 
@@ -88,7 +163,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
       try {
         // التحقق من الوصول للنهاية
         if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 500) {
-          if (!_isLoadingMore && _hasMoreProducts) {
+          if (!_isLoadingProducts && !_isLoadingMore && _hasMoreProducts) {
             _loadMoreProducts();
           }
         }
@@ -164,7 +239,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     }
   }
 
-  // تحميل البانرات الإعلانية من قاعدة البيانات
+  // تحميل البانرات الإعلانية عبر الباك إند
   Future<void> _loadBanners() async {
     if (!mounted) return;
 
@@ -173,15 +248,39 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     });
 
     try {
-      final response = await _supabase
-          .from('advertisement_banners')
-          .select('*')
-          .eq('is_active', true)
-          .order('created_at', ascending: false);
+      final uri = Uri.parse('${ApiConfig.productsUrl}/banners');
+      final response = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(ApiConfig.defaultTimeout);
+
+      if (response.statusCode != 200) {
+        debugPrint('❌ فشل في تحميل البانرات: ${response.statusCode}');
+        debugPrint('📥 Response body: ${response.body}');
+        if (mounted) {
+          setState(() {
+            _isLoadingBanners = false;
+            _banners = [];
+          });
+        }
+        return;
+      }
+
+      final jsonData = jsonDecode(response.body);
+      if (jsonData['success'] != true) {
+        debugPrint('❌ فشل في تحميل البانرات: ${jsonData['error'] ?? 'خطأ غير معروف'}');
+        if (mounted) {
+          setState(() {
+            _isLoadingBanners = false;
+            _banners = [];
+          });
+        }
+        return;
+      }
+
+      final List<dynamic> data = jsonData['data'] ?? [];
+      final List<Map<String, dynamic>> banners = List<Map<String, dynamic>>.from(data);
 
       if (mounted) {
         setState(() {
-          _banners = List<Map<String, dynamic>>.from(response);
+          _banners = banners;
           _isLoadingBanners = false;
         });
 
@@ -202,6 +301,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
       if (mounted) {
         setState(() {
           _isLoadingBanners = false;
+          _banners = [];
         });
       }
     }
@@ -262,15 +362,38 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     });
 
     try {
-      // تحميل أول 10 منتجات من الباك إند
-      final response = await _supabase
-          .from('products')
-          .select()
-          .eq('is_active', true)
-          .order('created_at', ascending: false)
-          .range(0, 9); // أول 10 منتجات
+      final uri = Uri.parse(
+        ApiConfig.productsUrl,
+      ).replace(queryParameters: {'page': '$_currentPage', 'limit': '$_itemsPerPage'});
 
-      final products = (response as List).map((json) => Product.fromJson(json)).toList();
+      final response = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(ApiConfig.defaultTimeout);
+
+      if (response.statusCode != 200) {
+        debugPrint('❌ فشل في تحميل المنتجات: ${response.statusCode}');
+        debugPrint('📥 Response body: ${response.body}');
+        if (mounted) {
+          setState(() {
+            _isLoadingProducts = false;
+            _hasMoreProducts = false;
+          });
+        }
+        return;
+      }
+
+      final jsonData = jsonDecode(response.body);
+      if (jsonData['success'] != true) {
+        debugPrint('❌ فشل في تحميل المنتجات: ${jsonData['error'] ?? 'خطأ غير معروف'}');
+        if (mounted) {
+          setState(() {
+            _isLoadingProducts = false;
+            _hasMoreProducts = false;
+          });
+        }
+        return;
+      }
+
+      final List<dynamic> data = jsonData['data']?['products'] ?? [];
+      final products = data.map<Product>((json) => Product.fromJson(json)).toList();
       final availableProducts = products.where((product) => product.availableQuantity > 0).toList();
 
       if (mounted) {
@@ -278,7 +401,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
           _products = availableProducts;
           _filteredProducts = List.from(availableProducts);
           _isLoadingProducts = false;
-          _hasMoreProducts = availableProducts.length >= 10;
+          _hasMoreProducts = products.length >= _itemsPerPage;
         });
       }
     } catch (e) {
@@ -286,6 +409,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
       if (mounted) {
         setState(() {
           _isLoadingProducts = false;
+          _hasMoreProducts = false;
         });
       }
     }
@@ -293,7 +417,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
 
   // 📄 تحميل المزيد من المنتجات
   Future<void> _loadMoreProducts() async {
-    if (!mounted || _isLoadingMore || !_hasMoreProducts) return;
+    if (!mounted || _isLoadingProducts || _isLoadingMore || !_hasMoreProducts) return;
 
     setState(() {
       _isLoadingMore = true;
@@ -301,16 +425,38 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
 
     try {
       _currentPage++;
-      final offset = (_currentPage - 1) * _itemsPerPage;
+      final uri = Uri.parse(
+        ApiConfig.productsUrl,
+      ).replace(queryParameters: {'page': '$_currentPage', 'limit': '$_itemsPerPage'});
 
-      final response = await _supabase
-          .from('products')
-          .select()
-          .eq('is_active', true)
-          .order('created_at', ascending: false)
-          .range(offset, offset + _itemsPerPage - 1);
+      final response = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(ApiConfig.defaultTimeout);
 
-      final newProducts = (response as List).map((json) => Product.fromJson(json)).toList();
+      if (response.statusCode != 200) {
+        debugPrint('❌ فشل في تحميل المزيد من المنتجات: ${response.statusCode}');
+        debugPrint('📥 Response body: ${response.body}');
+        if (mounted) {
+          setState(() {
+            _isLoadingMore = false;
+            _hasMoreProducts = false;
+          });
+        }
+        return;
+      }
+
+      final jsonData = jsonDecode(response.body);
+      if (jsonData['success'] != true) {
+        debugPrint('❌ فشل في تحميل المزيد من المنتجات: ${jsonData['error'] ?? 'خطأ غير معروف'}');
+        if (mounted) {
+          setState(() {
+            _isLoadingMore = false;
+            _hasMoreProducts = false;
+          });
+        }
+        return;
+      }
+
+      final List<dynamic> data = jsonData['data']?['products'] ?? [];
+      final newProducts = data.map<Product>((json) => Product.fromJson(json)).toList();
       final availableProducts = newProducts.where((product) => product.availableQuantity > 0).toList();
 
       if (mounted) {
@@ -318,7 +464,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
           _products.addAll(availableProducts);
           _filteredProducts = List.from(_products);
           _isLoadingMore = false;
-          _hasMoreProducts = availableProducts.length >= _itemsPerPage;
+          _hasMoreProducts = newProducts.length >= _itemsPerPage;
         });
       }
     } catch (e) {
@@ -326,14 +472,10 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
       if (mounted) {
         setState(() {
           _isLoadingMore = false;
+          _hasMoreProducts = false;
         });
       }
     }
-  }
-
-  // إعداد hints المنتجات
-  void _setupProductHints() {
-    // لا يوجد hints الآن - تم حذف شريط البحث الثانوي
   }
 
   // 🔍 البحث البسيط في المنتجات
@@ -387,30 +529,23 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
         body: AppBackground(
           child: Stack(
             children: [
-              // 🎨 الخلفية البيضاء الفاتحة جداً مع ظل خفيف للسواد
+              // 🎨 الخلفية الموحدة للوضع النهاري (backgroundPage = #F5F5F7)
               if (!isDark)
                 Container(
-                  color: const Color(0xFFFAFAFA), // أبيض فاتح جداً يميل للسواد قليلاً
+                  color: const Color(0xFFF5F5F7), // خلفية نهارية موحدة ناعمة جداً
                 ),
-              // المحتوى الرئيسي
-              SingleChildScrollView(
+              // المحتوى الرئيسي باستخدام CustomScrollView + Slivers لأداء أفضل
+              CustomScrollView(
                 controller: _scrollController,
-                child: Column(
-                  children: [
-                    // مساحة للشريط العلوي (تقليل الفراغ)
-                    const SizedBox(height: 25),
-                    // الشريط العلوي
-                    _buildHeader(),
-                    // البانر الرئيسي
-                    _buildMainBanner(),
-                    // شريط البحث
-                    _buildSearchBar(),
-                    // شبكة المنتجات
-                    _buildProductsGrid(),
-                    // مساحة إضافية للشريط السفلي
-                    const SizedBox(height: 160),
-                  ],
-                ),
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  const SliverToBoxAdapter(child: SizedBox(height: 25)),
+                  SliverToBoxAdapter(child: _buildHeader()),
+                  SliverToBoxAdapter(child: _buildMainBanner()),
+                  SliverToBoxAdapter(child: _buildSearchBar()),
+                  ..._buildProductsSlivers(context),
+                  const SliverToBoxAdapter(child: SizedBox(height: 160)),
+                ],
               ),
             ],
           ),
@@ -764,10 +899,10 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                   borderRadius: BorderRadius.circular(18),
                   child: Stack(
                     children: [
-                      // صورة البانر بأفضل جودة
+                      // صورة البانر بأفضل جودة مع كاش داخلي
                       Positioned.fill(
-                        child: Image.network(
-                          banner['image_url'] ?? '',
+                        child: Image(
+                          image: _ProductImageCache.get(banner['image_url'] ?? ''),
                           fit: BoxFit.cover,
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) return child;
@@ -903,7 +1038,8 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     return Container(
       height: 55,
       decoration: BoxDecoration(
-        color: isDark ? null : Colors.white,
+        // 🎨 في الوضع الليلي يبقى التصميم الغني كما هو، في النهاري نستخدم سطح حيادي ناعم
+        color: isDark ? null : const Color(0xFFF3F4F6), // surfaceSubtle للبحث والفلاتر
         gradient: isDark
             ? LinearGradient(
                 begin: Alignment.topCenter,
@@ -915,16 +1051,13 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                 ],
                 stops: const [0.0, 0.5, 1.0],
               )
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.white, const Color(0xFFF8F8F8)],
-                stops: const [0.0, 1.0],
-              ),
+            : null,
         borderRadius: BorderRadius.circular(50),
         border: Border.all(
-          color: AppDesignSystem.goldColor.withValues(alpha: isDark ? 0.4 : 0.3), // إطار ذهبي أقوى
-          width: isDark ? 1.2 : 1.5,
+          color: isDark
+              ? AppDesignSystem.goldColor.withValues(alpha: 0.4)
+              : const Color(0xFFE5E7EB), // borderSubtle في النهار
+          width: isDark ? 1.2 : 1.0,
         ),
         boxShadow: isDark
             ? [
@@ -941,21 +1074,14 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                   spreadRadius: 1,
                 ),
               ]
-            : [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.18),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                  spreadRadius: 2,
-                ),
-              ],
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(50),
         child: TextField(
           controller: _searchController,
           style: GoogleFonts.cairo(
-            color: isDark ? AppDesignSystem.primaryTextColor : Colors.black,
+            color: isDark ? AppDesignSystem.primaryTextColor : const Color(0xFF111827), // textPrimary
             fontSize: 16,
             fontWeight: FontWeight.w500,
           ),
@@ -979,14 +1105,16 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
             hintStyle: GoogleFonts.cairo(
               color: isDark
                   ? AppDesignSystem.primaryTextColor.withValues(alpha: 0.6)
-                  : Colors.black.withValues(alpha: 0.5),
+                  : const Color(0xFF9CA3AF), // textMuted
               fontSize: 14,
             ),
             prefixIcon: Container(
               padding: const EdgeInsets.all(14),
               child: Icon(
                 Icons.search_rounded,
-                color: AppDesignSystem.goldColor.withValues(alpha: 0.9),
+                color: isDark
+                    ? AppDesignSystem.goldColor.withValues(alpha: 0.9)
+                    : const Color(0xFFFFC727), // brandPrimary
                 size: AppDesignSystem.largeIconSize,
               ),
             ),
@@ -1000,7 +1128,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                       padding: const EdgeInsets.all(14),
                       child: Icon(
                         Icons.clear_rounded,
-                        color: isDark ? AppDesignSystem.secondaryTextColor : Colors.black.withValues(alpha: 0.6),
+                        color: isDark ? AppDesignSystem.secondaryTextColor : const Color(0xFF6B7280), // textSecondary
                         size: AppDesignSystem.mediumIconSize,
                       ),
                     ),
@@ -1016,114 +1144,98 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     );
   }
 
-  // بناء شبكة المنتجات
-  Widget _buildProductsGrid() {
+  // بناء شبكة المنتجات باستخدام Slivers لأداء أفضل
+  List<Widget> _buildProductsSlivers(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
     final screenWidth = MediaQuery.of(context).size.width;
     final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
     final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
     final mainAxisSpacing = screenWidth > 400 ? 20.0 : (screenWidth > 350 ? 18.0 : 16.0);
+    final int crossAxisCount = screenWidth > 600 ? 3 : 2;
 
-    int crossAxisCount = screenWidth > 600 ? 3 : 2;
-
-    // 📦 عند التحميل الأول - عرض skeleton loaders
+    // 📦 عند التحميل الأول - عرض skeleton loaders داخل SliverGrid
     if (_isLoadingProducts && _filteredProducts.isEmpty) {
-      return Container(
-        margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
-        child: GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: crossAxisSpacing,
-            mainAxisSpacing: mainAxisSpacing,
-            childAspectRatio: _calculateOptimalAspectRatio(context, crossAxisCount),
-          ),
-          itemCount: 10,
-          itemBuilder: (context, index) => _buildSkeletonLoader(isDark),
-        ),
-      );
-    }
-
-    if (_filteredProducts.isEmpty) {
-      return SizedBox(
-        height: 200,
-        child: Center(
-          child: Text(
-            _searchController.text.isNotEmpty
-                ? 'لا توجد نتائج للبحث "${_searchController.text}"'
-                : 'لا توجد منتجات متاحة',
-            style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.grey, fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: horizontalMargin),
-      child: Column(
-        children: [
-          GridView.builder(
-            key: ValueKey(_filteredProducts.length),
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+      return [
+        SliverPadding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
+          sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
               crossAxisSpacing: crossAxisSpacing,
               mainAxisSpacing: mainAxisSpacing,
               childAspectRatio: _calculateOptimalAspectRatio(context, crossAxisCount),
             ),
-            itemCount: _filteredProducts.length,
-            itemBuilder: (context, index) {
-              final product = _filteredProducts[index];
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                child: _buildProductCard(product),
-              );
-            },
+            delegate: SliverChildBuilderDelegate((context, index) => _buildSkeletonLoader(isDark), childCount: 10),
           ),
-          if (_isLoadingMore)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: CircularProgressIndicator(color: const Color(0xFFffd700), strokeWidth: 2),
+        ),
+      ];
+    }
+
+    if (_filteredProducts.isEmpty) {
+      return [
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 200,
+            child: Center(
+              child: Text(
+                _searchController.text.isNotEmpty
+                    ? 'لا توجد نتائج للبحث "${_searchController.text}"'
+                    : 'لا توجد منتجات متاحة',
+                style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.grey, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
             ),
-        ],
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
+        sliver: SliverGrid(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: crossAxisSpacing,
+            mainAxisSpacing: mainAxisSpacing,
+            childAspectRatio: _calculateOptimalAspectRatio(context, crossAxisCount),
+          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            if (index >= _filteredProducts.length) return null;
+            final product = _filteredProducts[index];
+            return AnimatedContainer(
+              key: ValueKey(product.id),
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: _buildProductCard(product),
+            );
+          }, childCount: _filteredProducts.length),
+        ),
       ),
-    );
+      if (_isLoadingMore)
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 2)),
+          ),
+        ),
+    ];
   }
 
   // 📦 بناء skeleton loader
   Widget _buildSkeletonLoader(bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.12)
-              : const Color(0xFFffd700).withValues(alpha: 0.3), // إطار ذهبي أقوى
-          width: isDark ? 1.2 : 1.5,
+          color: isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE5E7EB), // borderSubtle
+          width: 1,
         ),
         color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-        gradient: isDark
-            ? null
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.white, const Color(0xFFF8F8F8)],
-                stops: const [0.0, 1.0],
-              ),
+        gradient: isDark ? null : null,
         boxShadow: isDark
             ? []
-            : [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.18),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                  spreadRadius: 2,
-                ),
-              ],
+            : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3))],
       ),
       child: Column(
         children: [
@@ -1192,14 +1304,52 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
   static const double _cardBottomPadding = 15.0; // المسافة من الأسفل (مسافة أكبر لمنع القطع)
 
   // 🎯 حساب الارتفاع الكلي للبطاقة بذكاء - مجموع كل العناصر
-  double _calculateCardHeight() {
+  //    باستخدام ارتفاع صورة يعتمد على عرض البطاقة نفسه (نظام مرن لكل الشاشات)
+  double _calculateCardHeight(double screenWidth, double cardWidth) {
+    final double imageHeight = _getImageHeightForCard(cardWidth, screenWidth);
     return _cardTopPadding +
-        _imageHeight +
+        imageHeight +
         _imageBottomSpacing +
         _nameHeight +
         _nameBottomSpacing +
         _priceBarHeight +
         _cardBottomPadding;
+  }
+
+  // 🧠 دالة مساعدة ذكية لحساب ارتفاع الصورة حسب عرض البطاقة وحجم الشاشة
+  //    - في الهواتف الصغيرة: نجعل الصورة أطول قليلاً لتملأ البطاقة بقوة
+  //    - في الهواتف المتوسطة والكبيرة: نحافظ على توازن جميل بين الصورة والباقي
+  double _getImageHeightForCard(double cardWidth, double screenWidth) {
+    // النسبة الأساسية بين عرض البطاقة وارتفاع الصورة
+    double factor;
+
+    if (cardWidth < 160) {
+      // بطاقات ضيقة جداً (هواتف صغيرة) ⇒ نكبر الصورة أكثر
+      factor = 1.15; // الصورة أعلى من العرض بقليل
+    } else if (cardWidth < 190) {
+      // بطاقات متوسطة (أغلب الهواتف العادية)
+      factor = 1.05;
+    } else {
+      // بطاقات عريضة (هواتف كبيرة / شاشات واسعة)
+      factor = 0.95;
+    }
+
+    // تعديل بسيط جداً حسب عرض الشاشة بالكامل
+    if (screenWidth < 360) {
+      // هواتف أصغر من المعتاد ⇒ تكبير إضافي بسيط للصورة
+      factor += 0.05;
+    } else if (screenWidth > 600) {
+      // شاشات كبيرة مع 3 أعمدة ⇒ نقلل الارتفاع قليلاً حتى لا تكون البطاقة طويلة جداً
+      factor -= 0.05;
+    }
+
+    final double dynamicHeight = cardWidth * factor;
+
+    // ضمان أن يبقى الارتفاع في مدى منطقي (قريب من القيمة الأساسية 200)
+    const double minHeight = _imageHeight * 0.9; // 180
+    const double maxHeight = _imageHeight * 1.3; // 260
+
+    return dynamicHeight.clamp(minHeight, maxHeight).toDouble();
   }
 
   // 🧠 حساب النسبة المثالية للبطاقة بناءً على حجم الشاشة
@@ -1219,8 +1369,8 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     final totalSpacing = crossAxisSpacing * (actualColumns - 1);
     final cardWidth = (availableWidth - totalSpacing) / actualColumns;
 
-    // 🎯 حساب ارتفاع البطاقة من النظام الذكي
-    final cardHeight = _calculateCardHeight();
+    // 🎯 حساب ارتفاع البطاقة من النظام الذكي اعتماداً على عرض البطاقة الفعلي
+    final cardHeight = _calculateCardHeight(screenWidth, cardWidth);
 
     // 🎯 النسبة = العرض / الارتفاع
     final aspectRatio = cardWidth / cardHeight;
@@ -1242,9 +1392,12 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
 
     return TweenAnimationBuilder<double>(
-      duration: Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 800),
       tween: Tween(begin: 0.0, end: 1.0),
       builder: (context, animationValue, child) {
+        // 📱 قياس الشاشة (نستخدمها مع عرض البطاقة لحساب ارتفاع الصورة بدقة)
+        final screenWidth = MediaQuery.of(context).size.width;
+
         return Transform.translate(
           offset: Offset(0, 20 * (1 - animationValue)), // 🌊 تأثير الانزلاق من الأسفل
           child: Transform.scale(
@@ -1255,304 +1408,283 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                 onTap: () {
                   context.go('/products/details/${product.id}');
                 },
-                // 🎭 تأثير الطفو عند اللمس
-                onTapDown: (_) => setState(() {}),
-                onTapUp: (_) => setState(() {}),
-                onTapCancel: () => setState(() {}),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: AnimatedContainer(
-                    duration: Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    // إزالة الأبعاد الثابتة لتتكيف مع النسبة الذكية
-                    margin: const EdgeInsets.only(right: 5, bottom: 0), // تقليل المسافة الجانبية
-                    clipBehavior: Clip.none, // عدم قطع المحتوى - لضمان ظهور شريط السعر كاملاً
-                    decoration: BoxDecoration(
-                      // 🎨 بطاقة بتدرج من أبيض إلى رمادي فاتح
-                      color: isDark ? null : Colors.white,
-                      gradient: isDark
-                          ? LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white.withValues(alpha: 0.06), // شفاف أكثر
-                                Colors.white.withValues(alpha: 0.03), // شفاف جداً
-                                const Color(0xFF1A1F2E).withValues(alpha: 0.2), // يتناسق مع الخلفية
-                              ],
-                              stops: [0.0, 0.5, 1.0],
-                            )
-                          : LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                Colors.white, // أبيض من الأعلى اليسار
-                                const Color(0xFFF8F8F8), // رمادي فاتح جداً من الأسفل اليمين
-                              ],
-                              stops: const [0.0, 1.0],
-                            ),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.12)
-                            : const Color(0xFFffd700).withValues(alpha: 0.3), // إطار ذهبي أقوى قليلاً
-                        width: isDark ? 1.2 : 1.5,
-                      ),
-                      boxShadow: isDark
-                          ? []
-                          : [
-                              // ظل أقوى قليلاً للبروز الواضح
-                              BoxShadow(
-                                color: Colors.grey.withValues(alpha: 0.18),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
-                                spreadRadius: 2,
-                              ),
-                            ],
-                    ),
-                    child: Stack(
-                      children: [
-                        // شريط عدد القطع - تصميم بسيط وجميل في الزاوية
-                        Positioned(
-                          left: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppDesignSystem.goldColor.withValues(alpha: 0.9),
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(24),
-                                bottomRight: Radius.circular(16),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.inventory_2_rounded,
-                                  color: Colors.black,
-                                  size: 12, // أصغر قليلاً
-                                ),
-                                const SizedBox(width: 4), // مسافة أصغر
-                                Text(
-                                  '${product.availableFrom}-${product.availableTo}',
-                                  style: GoogleFonts.cairo(
-                                    color: Colors.black,
-                                    fontSize: 10, // أصغر قليلاً
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
+                  borderRadius: BorderRadius.circular(18),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final cardWidth = constraints.maxWidth;
+                      final double imageHeight = _getImageHeightForCard(cardWidth, screenWidth);
+
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeInOut,
+                        // إزالة الأبعاد الثابتة لتتكيف مع النسبة الذكية
+                        margin: const EdgeInsets.only(right: 5, bottom: 0), // تقليل المسافة الجانبية
+                        clipBehavior: Clip.none, // عدم قطع المحتوى - لضمان ظهور شريط السعر كاملاً
+                        decoration: BoxDecoration(
+                          // 🎨 تصميم عالمي لبطاقة المنتج في الوضع النهاري
+                          color: isDark ? null : Colors.white,
+                          gradient: isDark
+                              ? LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.06), // شفاف أكثر
+                                    Colors.white.withValues(alpha: 0.03), // شفاف جداً
+                                    const Color(0xFF1A1F2E).withValues(alpha: 0.2), // يتناسق مع الخلفية
+                                  ],
+                                  stops: [0.0, 0.5, 1.0],
+                                )
+                              : null,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.12)
+                                : Colors.black.withValues(alpha: 0.04), // 🧱 Hairline Border عالمي
+                            width: 1,
                           ),
-                        ),
-
-                        // 🎯 شريط التبليغات الذكي - يظهر فقط إذا كان هناك تبليغات
-                        if (product.notificationTags.isNotEmpty)
-                          Positioned(right: 0, top: 0, child: _buildSmartNotificationBar(product)),
-
-                        // منطقة الصورة - القياس الأصلي مع مسافة مناسبة من الحواف
-                        Positioned(
-                          left: 12,
-                          top: _cardTopPadding,
-                          right: 12,
-                          child: Container(
-                            height: _imageHeight - 8,
-                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(20)),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Stack(
-                                children: [
-                                  // منطقة الصورة موسعة لحد البطاقة
-                                  Positioned(
-                                    top: 0,
-                                    left: 0,
-                                    right: 0,
-                                    height: _imageHeight, // 🎯 من الثوابت
-                                    child: product.images.isNotEmpty
-                                        ? Container(
-                                            // 🎯 إزالة ClipRRect المزدوج لحل مشكلة الزاوية السوداء
-                                            width: double.infinity,
-                                            height: _imageHeight, // 🎯 من الثوابت
-                                            color: isDark
-                                                ? Colors.transparent
-                                                : Colors.white, // 🎯 خلفية بيضاء للصور الشفافة في الوضع النهاري
-                                            child: Image.network(
-                                              product.images.first,
-                                              fit: BoxFit.contain, // 🎯 إظهار الصورة بالقياس الحقيقي بدون قطع
-                                              width: double.infinity,
-                                              height: _imageHeight, // 🎯 من الثوابت
-                                              errorBuilder: (context, error, stackTrace) {
-                                                return Container(
-                                                  height: _imageHeight, // 🎯 من الثوابت
-                                                  decoration: BoxDecoration(
-                                                    color: isDark
-                                                        ? Colors.white.withValues(alpha: 0.05)
-                                                        : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-                                                    borderRadius: BorderRadius.circular(16),
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.camera_alt_outlined,
-                                                    color: isDark
-                                                        ? Colors.white60
-                                                        : Colors.grey, // 🎯 لون واضح في الوضع النهاري
-                                                    size: 50,
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                          )
-                                        : Container(
-                                            height: _imageHeight, // 🎯 من الثوابت
-                                            decoration: BoxDecoration(
-                                              color: isDark
-                                                  ? Colors.white.withValues(alpha: 0.05)
-                                                  : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-                                              borderRadius: BorderRadius.circular(16),
-                                            ),
-                                            child: Icon(
-                                              Icons.camera_alt_outlined,
-                                              color: isDark
-                                                  ? Colors.white60
-                                                  : Colors.grey, // 🎯 لون واضح في الوضع النهاري
-                                              size: 50,
-                                            ),
-                                          ),
+                          boxShadow: isDark
+                              ? []
+                              : [
+                                  // 🫧 Shadow خفي جداً يبرز البطاقة مثل Shein/AliExpress
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.06),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
                                   ),
                                 ],
-                              ),
-                            ),
-                          ),
                         ),
-
-                        // اسم المنتج أسفل الصورة مباشرة مع مسافة قليلة جداً
-                        Positioned(
-                          left: 6,
-                          right: 6,
-                          top: _cardTopPadding + _imageHeight + _imageBottomSpacing, // 🎯 حساب ذكي من الثوابت
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), // تقليل padding العمودي
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isDark
-                                    ? [
-                                        const Color(0xFF1A1F2E).withValues(alpha: 0.7), // متناسق مع الخلفية الليلية
-                                        const Color(0xFF0F1419).withValues(alpha: 0.4), // متناسق مع الخلفية الليلية
-                                      ]
-                                    : [
-                                        Colors.white.withValues(alpha: 0.95), // خلفية بيضاء في الوضع النهاري
-                                        Colors.white.withValues(alpha: 0.9), // خلفية بيضاء في الوضع النهاري
-                                      ],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.08)
-                                    : Colors.grey.withValues(alpha: 0.2), // حدود أوضح في الوضع النهاري
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              product.name,
-                              style: FontHelper.cairo(
-                                color: ThemeColors.textColor(isDark),
-                                fontSize: 12, // إرجاع الحجم الأصلي
-                                fontWeight: FontWeight.w700,
-                                height: 1.2, // إرجاع الارتفاع الأصلي
-                              ),
-                              maxLines: 1, // سطر واحد فقط مع النقاط
-                              overflow: TextOverflow.ellipsis, // تحويل إلى ...
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-
-                        // السعر وزر القلب وزر الإضافة - أسفل اسم المنتج مباشرة
-                        Positioned(
-                          left: 5,
-                          right: 5,
-                          top:
-                              _cardTopPadding +
-                              _imageHeight +
-                              _imageBottomSpacing +
-                              _nameHeight +
-                              _nameBottomSpacing, // 🎯 حساب ذكي من الثوابت
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ), // تقليل الـ padding العمودي لتقليل ارتفاع الشريط
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isDark
-                                    ? [Colors.black.withValues(alpha: 0.4), Colors.black.withValues(alpha: 0.2)]
-                                    : [
-                                        Colors.white.withValues(alpha: 0.95), // خلفية بيضاء في الوضع النهاري
-                                        Colors.white.withValues(alpha: 0.9), // خلفية بيضاء في الوضع النهاري
-                                      ],
-                              ),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.1)
-                                    : Colors.grey.withValues(alpha: 0.3), // حدود أوضح في الوضع النهاري
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                // السعر على اليسار - عرض محدد لمنع الدفع
-                                Container(
-                                  constraints: const BoxConstraints(maxWidth: 80), // عرض محدد
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.amber.withValues(alpha: 0.6),
-                                        Colors.orange.withValues(alpha: 0.4),
-                                      ],
+                        child: Stack(
+                          children: [
+                            // شريط عدد القطع - تصميم بسيط وجميل في الزاوية
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppDesignSystem.goldColor.withValues(alpha: 0.9),
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(24),
+                                    bottomRight: Radius.circular(16),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.inventory_2_rounded,
+                                      color: Colors.black,
+                                      size: 12, // أصغر قليلاً
                                     ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.amber.withValues(alpha: 0.2),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 1),
+                                    const SizedBox(width: 4), // مسافة أصغر
+                                    Text(
+                                      '${product.availableFrom}-${product.availableTo}',
+                                      style: GoogleFonts.cairo(
+                                        color: Colors.black,
+                                        fontSize: 10, // أصغر قليلاً
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // 🎯 شريط التبليغات الذكي - يظهر فقط إذا كان هناك تبليغات
+                            if (product.notificationTags.isNotEmpty)
+                              Positioned(right: 0, top: 0, child: _buildSmartNotificationBar(product)),
+
+                            // منطقة الصورة - القياس الأصلي مع مسافة مناسبة من الحواف
+                            Positioned(
+                              left: 8,
+                              top: _cardTopPadding,
+                              right: 8,
+                              child: Container(
+                                height: imageHeight - 8,
+                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(20)),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: Stack(
+                                    children: [
+                                      // منطقة الصورة موسعة لحد البطاقة
+                                      Positioned(
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        height: imageHeight, // 🎯 من الثوابت (متغيرة حسب حجم الشاشة)
+                                        child: product.images.isNotEmpty
+                                            ? Container(
+                                                width: double.infinity,
+                                                height: imageHeight,
+                                                color: isDark
+                                                    ? Colors.transparent
+                                                    : Colors.white, // 🎯 خلفية بيضاء للصور الشفافة في الوضع النهاري
+                                                child: _CachedAutoRetryProductImage(
+                                                  imageUrl: product.images.first,
+                                                  height: imageHeight,
+                                                  isDark: isDark,
+                                                ),
+                                              )
+                                            : Container(
+                                                height: imageHeight, // 🎯 من الثوابت (متغيّرة حسب حجم الشاشة)
+                                                decoration: BoxDecoration(
+                                                  color: isDark
+                                                      ? Colors.white.withValues(alpha: 0.05)
+                                                      : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
+                                                  borderRadius: BorderRadius.circular(16),
+                                                ),
+                                                child: Icon(
+                                                  Icons.camera_alt_outlined,
+                                                  color: isDark
+                                                      ? Colors.white60
+                                                      : Colors.grey, // 🎯 لون واضح في الوضع النهاري
+                                                  size: 50,
+                                                ),
+                                              ),
                                       ),
                                     ],
                                   ),
-                                  child: Text(
-                                    _formatPrice(product.wholesalePrice),
-                                    style: FontHelper.cairo(
-                                      color: isDark ? Colors.white : Colors.black,
-                                      fontSize: 12, // أصغر قليلاً
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
+                                ),
+                              ),
+                            ),
+
+                            // اسم المنتج أسفل الصورة مباشرة مع مسافة قليلة جداً
+                            Positioned(
+                              left: 6,
+                              right: 6,
+                              top:
+                                  _cardTopPadding +
+                                  imageHeight +
+                                  _imageBottomSpacing, // 🎯 حساب ذكي من الثوابت (تأخذ تكبير الصورة في الهواتف الصغيرة)
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ), // تقليل padding العمودي
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: isDark
+                                        ? [
+                                            const Color(0xFF1A1F2E).withValues(alpha: 0.7), // متناسق مع الخلفية الليلية
+                                            const Color(0xFF0F1419).withValues(alpha: 0.4), // متناسق مع الخلفية الليلية
+                                          ]
+                                        : [
+                                            Colors.white.withValues(alpha: 0.95), // خلفية بيضاء في الوضع النهاري
+                                            Colors.white.withValues(alpha: 0.9), // خلفية بيضاء في الوضع النهاري
+                                          ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : Colors.grey.withValues(alpha: 0.2), // حدود أوضح في الوضع النهاري
+                                    width: 1,
                                   ),
                                 ),
+                                child: Text(
+                                  product.name,
+                                  style: FontHelper.cairo(
+                                    color: ThemeColors.textColor(isDark),
+                                    fontSize: 12, // إرجاع الحجم الأصلي
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.2, // إرجاع الارتفاع الأصلي
+                                  ),
+                                  maxLines: 1, // سطر واحد فقط مع النقاط
+                                  overflow: TextOverflow.ellipsis, // تحويل إلى ...
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
 
-                                // مساحة مرنة لدفع الأزرار لليمين
-                                const Spacer(),
-
-                                // الأزرار في أقصى اليمين ملاصقين تماماً
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
+                            // السعر وزر القلب وزر الإضافة - أسفل اسم المنتج مباشرة
+                            Positioned(
+                              left: 5,
+                              right: 5,
+                              top:
+                                  _cardTopPadding +
+                                  imageHeight +
+                                  _imageBottomSpacing +
+                                  _nameHeight +
+                                  _nameBottomSpacing, // 🎯 حساب ذكي من الثوابت (يتبع تكبير الصورة في الهواتف الصغيرة)
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ), // تقليل الـ padding العمودي لتقليل ارتفاع الشريط
+                                decoration: BoxDecoration(
+                                  // 🎨 شريط السعر كـ surfaceSubtle في النهار
+                                  color: isDark ? null : const Color(0xFFF3F4F6),
+                                  gradient: isDark
+                                      ? LinearGradient(
+                                          colors: [
+                                            Colors.black.withValues(alpha: 0.4),
+                                            Colors.black.withValues(alpha: 0.2),
+                                          ],
+                                        )
+                                      : null,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.1)
+                                        : const Color(0xFFE5E7EB), // borderSubtle في النهار
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
                                   children: [
-                                    // زر القلب - أكبر قليلاً
-                                    Transform.scale(scale: 0.85, child: _buildHeartButton(product)),
+                                    // السعر على اليسار - عرض محدد لمنع الدفع
+                                    Container(
+                                      constraints: const BoxConstraints(maxWidth: 80), // عرض محدد
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? Colors.black.withValues(alpha: 0.6)
+                                            : const Color(0xFFF1F1F1), // بطاقة السعر في الوضع النهاري
+                                        borderRadius: BorderRadius.circular(12),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.05),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        _formatPrice(product.wholesalePrice),
+                                        style: FontHelper.cairo(
+                                          color: isDark ? Colors.white : Colors.black,
+                                          fontSize: 12, // أصغر قليلاً
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    ),
 
-                                    // زر الإضافة ملاصق للقلب تماماً - أكبر قليلاً
-                                    Transform.scale(scale: 0.75, child: _buildAnimatedAddButton(product)),
+                                    // مساحة مرنة لدفع الأزرار لليمين
+                                    const Spacer(),
+
+                                    // الأزرار في أقصى اليمين ملاصقين تماماً
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // زر القلب - أكبر قليلاً
+                                        Transform.scale(scale: 0.85, child: _buildHeartButton(product)),
+
+                                        // زر الإضافة ملاصق للقلب تماماً - أكبر قليلاً
+                                        Transform.scale(scale: 0.75, child: _buildAnimatedAddButton(product)),
+                                      ],
+                                    ),
                                   ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ],
-                    ), // إغلاق Stack
-                  ), // إغلاق AnimatedContainer
+                          ],
+                        ), // إغلاق Stack
+                      ); // إغلاق AnimatedContainer (return AnimatedContainer)
+                    }, // إغلاق LayoutBuilder.builder
+                  ), // إغلاق LayoutBuilder
                 ), // إغلاق ClipRRect
               ), // إغلاق GestureDetector
             ), // إغلاق Opacity

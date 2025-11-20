@@ -271,20 +271,11 @@ class _AppBackgroundState extends State<AppBackground> with TickerProviderStateM
     );
   }
 
-  /// 🌅 خلفية الوضع النهاري - داكنة مثل صفحة المنتجات
+  /// 🌅 خلفية الوضع النهاري الموحدة للتطبيق (نهاري فقط)
+  /// تستخدم لون backgroundPage = #F5F5F7 كما في نظام الألوان الحيادية
   Widget _buildLightModeBackground() {
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFFE8EAF6), // بنفسجي فاتح جداً
-            const Color(0xFFF3E5F5), // وردي فاتح جداً
-            const Color(0xFFE1F5FE), // أزرق فاتح جداً
-          ],
-        ),
-      ),
+      color: const Color(0xFFF5F5F7), // خلفية عامة نهارية ناعمة جداً لكل الصفحات
     );
   }
 }
