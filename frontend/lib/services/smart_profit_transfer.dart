@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class SmartProfitTransfer {
   static final _supabase = Supabase.instance.client;
 
-  /// 🎯 نقل ربح طلب واحد بذكاء (معطل حاليًا – إدارة الأرباح تتم في قاعدة البيانات)
+  /// 🎯 نقل ربح طلب واحد بذكاء
   static Future<bool> transferOrderProfit({
     required String userPhone,
     required double orderProfit,
@@ -14,15 +14,123 @@ class SmartProfitTransfer {
     required String orderId,
     required String orderNumber,
   }) async {
-    // ⚠️ ملاحظة مهمة:
-    // هذا الكود لم يعد يغير أرباح المستخدم نهائيًا.
-    // نظام الأرباح الآن يُدار بالكامل داخل PostgreSQL عبر ORDER_PROFIT_ENGINE.sql
-    // + التريغرات على جدول orders.
-
     try {
-      debugPrint('🧠 transferOrderProfit() معطلة – الربح يُدار في قاعدة البيانات فقط');
+      debugPrint('🧠 === نقل ربح الطلب الذكي ===');
+      debugPrint('📱 المستخدم: $userPhone');
+      debugPrint('💰 ربح الطلب: $orderProfit د.ع');
+      debugPrint('🔄 الحالة: "$oldStatus" → "$newStatus"');
+      debugPrint('📋 رقم الطلب: $orderNumber');
 
-      // نستمر في تسجيل لوج للتتبع (بدون أي تعديل على جدول users)
+      // 🚫 حماية إضافية: تجاهل الحالات غير المهمة
+      const ignoredStatuses = ['فعال', 'في موقع فرز بغداد', 'في الطريق الى مكتب المحافظة'];
+      if (ignoredStatuses.contains(oldStatus) || ignoredStatuses.contains(newStatus)) {
+        debugPrint('🚫 تجاهل نقل الربح - حالة غير مهمة (old=$oldStatus, new=$newStatus)');
+        return true;
+      }
+
+      // 🚫 حماية من الحالات الفارغة أو المتطابقة
+      if (oldStatus.isEmpty || newStatus.isEmpty || oldStatus == newStatus) {
+        debugPrint('⏭️ تجاهل نقل الربح - حالات فارغة أو متطابقة');
+        return true;
+      }
+
+      // تحديد نوع الربح للحالة القديمة والجديدة
+      final oldProfitType = getProfitType(oldStatus);
+      final newProfitType = getProfitType(newStatus);
+
+      debugPrint('📊 تحليل الحالات:');
+      debugPrint('   🔍 الحالة القديمة: "$oldStatus" → ${_getProfitTypeName(oldProfitType)}');
+      debugPrint('   🔍 الحالة الجديدة: "$newStatus" → ${_getProfitTypeName(newProfitType)}');
+      debugPrint('   🎯 هل تم التسليم؟ ${newStatus == 'تم التسليم للزبون'}');
+      debugPrint(
+        '   🎯 هل نشط؟ ${oldStatus == 'نشط' || oldStatus == 'تم تغيير محافظة الزبون' || oldStatus == 'تغيير المندوب'}',
+      );
+
+      // إذا لم يتغير نوع الربح، لا حاجة للتحديث
+      if (oldProfitType == newProfitType) {
+        debugPrint('ℹ️ لم يتغير نوع الربح - لا حاجة للتحديث');
+        debugPrint('   📊 كلا الحالتين من نوع: ${_getProfitTypeName(oldProfitType)}');
+        return true;
+      }
+
+      debugPrint('🔄 تغير نوع الربح - سيتم النقل!');
+
+      // جلب الأرباح الحالية للمستخدم
+      final userResponse = await _supabase
+          .from('users')
+          .select('achieved_profits, expected_profits')
+          .eq('phone', userPhone)
+          .maybeSingle();
+
+      if (userResponse == null) {
+        debugPrint('❌ لم يتم العثور على المستخدم');
+        return false;
+      }
+
+      double currentAchieved = (userResponse['achieved_profits'] ?? 0).toDouble();
+      double currentExpected = (userResponse['expected_profits'] ?? 0).toDouble();
+
+      debugPrint('💰 الأرباح الحالية:');
+      debugPrint('   📈 محقق: $currentAchieved د.ع');
+      debugPrint('   📊 منتظر: $currentExpected د.ع');
+
+      // حساب الأرباح الجديدة بناءً على التغيير
+      double newAchieved = currentAchieved;
+      double newExpected = currentExpected;
+
+      // تطبيق التغيير
+      if (oldProfitType == ProfitType.expected && newProfitType == ProfitType.achieved) {
+        // نقل من منتظر إلى محقق
+        newExpected -= orderProfit;
+        newAchieved += orderProfit;
+        debugPrint('⬆️ نقل $orderProfit د.ع من منتظر إلى محقق');
+      } else if (oldProfitType == ProfitType.achieved && newProfitType == ProfitType.expected) {
+        // نقل من محقق إلى منتظر
+        newAchieved -= orderProfit;
+        newExpected += orderProfit;
+        debugPrint('⬇️ نقل $orderProfit د.ع من محقق إلى منتظر');
+      } else if (oldProfitType == ProfitType.expected && newProfitType == ProfitType.none) {
+        // إزالة من منتظر
+        newExpected -= orderProfit;
+        debugPrint('➖ إزالة $orderProfit د.ع من منتظر');
+      } else if (oldProfitType == ProfitType.achieved && newProfitType == ProfitType.none) {
+        // إزالة من محقق
+        newAchieved -= orderProfit;
+        debugPrint('➖ إزالة $orderProfit د.ع من محقق');
+      } else if (oldProfitType == ProfitType.none && newProfitType == ProfitType.expected) {
+        // إضافة إلى منتظر
+        newExpected += orderProfit;
+        debugPrint('➕ إضافة $orderProfit د.ع إلى منتظر');
+      } else if (oldProfitType == ProfitType.none && newProfitType == ProfitType.achieved) {
+        // إضافة إلى محقق
+        newAchieved += orderProfit;
+        debugPrint('➕ إضافة $orderProfit د.ع إلى محقق');
+      }
+
+      // التأكد من عدم وجود أرقام سالبة
+      newAchieved = newAchieved < 0 ? 0 : newAchieved;
+      newExpected = newExpected < 0 ? 0 : newExpected;
+
+      debugPrint('💰 الأرباح الجديدة:');
+      debugPrint('   📈 محقق: $newAchieved د.ع (كان: $currentAchieved د.ع)');
+      debugPrint('   📊 منتظر: $newExpected د.ع (كان: $currentExpected د.ع)');
+
+      // تحديث قاعدة البيانات
+      debugPrint('💾 تحديث قاعدة البيانات...');
+      final updateResult = await _supabase
+          .from('users')
+          .update({
+            'achieved_profits': newAchieved,
+            'expected_profits': newExpected,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('phone', userPhone)
+          .select();
+
+      debugPrint('✅ تم تحديث الأرباح بنجاح');
+      debugPrint('📊 نتيجة التحديث: $updateResult');
+
+      // إضافة سجل للتتبع
       await _addProfitTransferLog(
         userPhone: userPhone,
         orderId: orderId,
@@ -30,15 +138,15 @@ class SmartProfitTransfer {
         orderProfit: orderProfit,
         oldStatus: oldStatus,
         newStatus: newStatus,
-        oldAchieved: 0,
-        newAchieved: 0,
-        oldExpected: 0,
-        newExpected: 0,
+        oldAchieved: currentAchieved,
+        newAchieved: newAchieved,
+        oldExpected: currentExpected,
+        newExpected: newExpected,
       );
 
       return true;
     } catch (e) {
-      debugPrint('❌ خطأ في transferOrderProfit (نسخة معطلة): $e');
+      debugPrint('❌ خطأ في نقل ربح الطلب: $e');
       return false;
     }
   }

@@ -231,7 +231,7 @@ class SimpleOrdersService extends ChangeNotifier {
       if (_currentPage == 0) {
         // الصفحة الأولى - استبدال القائمة
         _currentPage = 1; // ✅ تحديث للصفحة التالية
-        AppLogger.debug('✅ تم تحميل الصفحة الأولى، الصفحة التالية: $_currentPage');
+        debugPrint('✅ تم تحميل الصفحة الأولى، الصفحة التالية: $_currentPage');
       }
 
       // تحديث حالة التحميل التدريجي
