@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>اختبار نظام الإشعارات</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .loading {
+            display: none;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 اختبار نظام الإشعارات الجماعية</h1>
+        
+        <div class="test-section info">
+            <h3>📊 اختبار الإحصائيات</h3>
+            <button onclick="testStats()">جلب الإحصائيات</button>
+            <div class="loading" id="statsLoading">⏳ جاري التحميل...</div>
+            <div class="result" id="statsResult"></div>
+        </div>
+
+        <div class="test-section info">
+            <h3>📜 اختبار التاريخ</h3>
+            <button onclick="testHistory()">جلب تاريخ الإشعارات</button>
+            <div class="loading" id="historyLoading">⏳ جاري التحميل...</div>
+            <div class="result" id="historyResult"></div>
+        </div>
+
+        <div class="test-section info">
+            <h3>🔧 إنشاء جداول قاعدة البيانات</h3>
+            <button onclick="setupDatabase()">إنشاء الجداول</button>
+            <div class="loading" id="setupLoading">⏳ جاري التحميل...</div>
+            <div class="result" id="setupResult"></div>
+        </div>
+
+        <div class="test-section info">
+            <h3>🧪 اختبار النظام</h3>
+            <button onclick="testSystem()">اختبار النظام</button>
+            <div class="loading" id="testLoading">⏳ جاري التحميل...</div>
+            <div class="result" id="testResult"></div>
+        </div>
+
+        <div class="test-section info">
+            <h3>🚀 إرسال إشعار تجريبي</h3>
+            <input type="text" id="notifTitle" placeholder="عنوان الإشعار" value="🧪 اختبار النظام" style="width: 200px; margin: 5px;">
+            <input type="text" id="notifBody" placeholder="محتوى الإشعار" value="هذا إشعار تجريبي للتأكد من عمل النظام" style="width: 300px; margin: 5px;">
+            <br>
+            <button onclick="sendTestNotification()">إرسال الإشعار</button>
+            <div class="loading" id="sendLoading">⏳ جاري الإرسال...</div>
+            <div class="result" id="sendResult"></div>
+        </div>
+
+        <div class="test-section info">
+            <h3>🧪 اختبار النظام الشامل مع التشخيص</h3>
+            <button onclick="runSystemTest()">اختبار النظام الشامل</button>
+            <div class="loading" id="systemTestLoading">⏳ جاري التحميل...</div>
+            <div class="result" id="systemTestResult"></div>
+        </div>
+
+        <div class="test-section info">
+            <h3>🔄 اختبار شامل</h3>
+            <button onclick="runFullTest()">تشغيل جميع الاختبارات</button>
+            <div class="loading" id="fullLoading">⏳ جاري التحميل...</div>
+            <div class="result" id="fullResult"></div>
+        </div>
+    </div>
+
+    <script>
+    const API_BASE = 'https://montajati-official-backend-production.up.railway.app/api/notifications';
+
+        function showLoading(id) {
+            document.getElementById(id + 'Loading').style.display = 'block';
+        }
+
+        function hideLoading(id) {
+            document.getElementById(id + 'Loading').style.display = 'none';
+        }
+
+        function showResult(id, content, isError = false) {
+            const resultDiv = document.getElementById(id + 'Result');
+            resultDiv.textContent = content;
+            resultDiv.className = 'result ' + (isError ? 'error' : 'success');
+        }
+
+        async function testStats() {
+            showLoading('stats');
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const data = await response.json();
+                showResult('stats', JSON.stringify(data, null, 2));
+            } catch (error) {
+                showResult('stats', `خطأ: ${error.message}`, true);
+            } finally {
+                hideLoading('stats');
+            }
+        }
+
+        async function testHistory() {
+            showLoading('history');
+            try {
+                const response = await fetch(`${API_BASE}/history`);
+                const data = await response.json();
+                showResult('history', JSON.stringify(data, null, 2));
+            } catch (error) {
+                showResult('history', `خطأ: ${error.message}`, true);
+            } finally {
+                hideLoading('history');
+            }
+        }
+
+        async function setupDatabase() {
+            showLoading('setup');
+            try {
+                const response = await fetch(`${API_BASE}/setup-database`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: '{}'
+                });
+                const data = await response.json();
+                showResult('setup', JSON.stringify(data, null, 2));
+            } catch (error) {
+                showResult('setup', `خطأ: ${error.message}`, true);
+            } finally {
+                hideLoading('setup');
+            }
+        }
+
+        async function testSystem() {
+            showLoading('test');
+            try {
+                const response = await fetch(`${API_BASE}/test-system`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: '{}'
+                });
+                const data = await response.json();
+                showResult('test', JSON.stringify(data, null, 2));
+            } catch (error) {
+                showResult('test', `خطأ: ${error.message}`, true);
+            } finally {
+                hideLoading('test');
+            }
+        }
+
+        async function sendTestNotification() {
+            showLoading('send');
+            try {
+                const title = document.getElementById('notifTitle').value;
+                const body = document.getElementById('notifBody').value;
+                
+                const response = await fetch(`${API_BASE}/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        body: body,
+                        type: 'general',
+                        isScheduled: false
+                    })
+                });
+                const data = await response.json();
+                showResult('send', JSON.stringify(data, null, 2));
+            } catch (error) {
+                showResult('send', `خطأ: ${error.message}`, true);
+            } finally {
+                hideLoading('send');
+            }
+        }
+
+        async function runSystemTest() {
+            showLoading('systemTest');
+            try {
+                const response = await fetch(`${API_BASE}/system-test`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: '{}'
+                });
+                const data = await response.json();
+
+                let result = '=== نتائج الاختبار الشامل للنظام ===\n\n';
+
+                if (data.success) {
+                    result += `✅ الحالة العامة: ${data.systemHealth.overall}\n\n`;
+                    result += '🏥 حالة المكونات:\n';
+                    Object.entries(data.systemHealth.components).forEach(([component, status]) => {
+                        const icon = status === 'صحي' ? '✅' : status === 'مشكلة' ? '❌' : '⚠️';
+                        result += `${icon} ${component}: ${status}\n`;
+                    });
+
+                    result += '\n📊 تفاصيل التشخيص:\n';
+                    result += `⏱️ الوقت الإجمالي: ${data.diagnostics.performance.totalTime}ms\n`;
+                    result += `👥 المستخدمين النشطين: ${data.diagnostics.details.activeUsersCount || 0}\n`;
+                    result += `🔥 حالة Firebase: ${data.diagnostics.details.firebaseStatus}\n`;
+
+                    if (data.diagnostics.details.testResult) {
+                        result += `📱 نتيجة الاختبار: ${data.diagnostics.details.testResult.success ? 'نجح' : 'فشل'}\n`;
+                    }
+
+                    if (data.diagnostics.warnings.length > 0) {
+                        result += '\n⚠️ تحذيرات:\n';
+                        data.diagnostics.warnings.forEach(warning => {
+                            result += `- ${warning}\n`;
+                        });
+                    }
+                } else {
+                    result += `❌ فشل الاختبار: ${data.message}\n\n`;
+                    if (data.diagnostics && data.diagnostics.errors.length > 0) {
+                        result += '❌ الأخطاء:\n';
+                        data.diagnostics.errors.forEach(error => {
+                            result += `- ${error.message}\n`;
+                        });
+                    }
+                }
+
+                result += '\n📋 التشخيص الكامل:\n';
+                result += JSON.stringify(data.diagnostics, null, 2);
+
+                showResult('systemTest', result);
+            } catch (error) {
+                showResult('systemTest', `خطأ في الاختبار الشامل: ${error.message}`, true);
+            } finally {
+                hideLoading('systemTest');
+            }
+        }
+
+        async function runFullTest() {
+            showLoading('full');
+            let results = [];
+
+            try {
+                // اختبار الإحصائيات
+                results.push('=== اختبار الإحصائيات ===');
+                const statsResponse = await fetch(`${API_BASE}/stats`);
+                const statsData = await statsResponse.json();
+                results.push(`✅ الإحصائيات: ${JSON.stringify(statsData)}`);
+
+                // اختبار التاريخ
+                results.push('\n=== اختبار التاريخ ===');
+                const historyResponse = await fetch(`${API_BASE}/history`);
+                const historyData = await historyResponse.json();
+                results.push(`✅ التاريخ: ${JSON.stringify(historyData)}`);
+
+                // إنشاء قاعدة البيانات
+                results.push('\n=== إنشاء قاعدة البيانات ===');
+                try {
+                    const setupResponse = await fetch(`${API_BASE}/setup-database`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: '{}'
+                    });
+                    const setupData = await setupResponse.json();
+                    results.push(`✅ إنشاء قاعدة البيانات: ${JSON.stringify(setupData)}`);
+                } catch (e) {
+                    results.push(`⚠️ إنشاء قاعدة البيانات: ${e.message}`);
+                }
+
+                // اختبار النظام الشامل
+                results.push('\n=== اختبار النظام الشامل ===');
+                try {
+                    const systemTestResponse = await fetch(`${API_BASE}/system-test`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: '{}'
+                    });
+                    const systemTestData = await systemTestResponse.json();
+                    results.push(`✅ اختبار النظام الشامل: ${systemTestData.success ? 'نجح' : 'فشل'}`);
+                    if (systemTestData.systemHealth) {
+                        results.push(`🏥 حالة النظام: ${systemTestData.systemHealth.overall}`);
+                    }
+                } catch (e) {
+                    results.push(`⚠️ اختبار النظام الشامل: ${e.message}`);
+                }
+
+                showResult('full', results.join('\n'));
+            } catch (error) {
+                showResult('full', `خطأ عام: ${error.message}`, true);
+            } finally {
+                hideLoading('full');
+            }
+        }
+
+        // تشغيل اختبار أولي عند تحميل الصفحة
+        window.onload = function() {
+            testStats();
+            testHistory();
+        };
+    </script>
+</body>
+</html>

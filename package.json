@@ -1,0 +1,12 @@
+{
+  "name": "montajati-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node backend/official_montajati_server.js"
+  },
+  "postinstall": "cd backend && npm install --omit=dev",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
