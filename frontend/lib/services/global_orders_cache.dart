@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/order.dart';
 import '../models/scheduled_order.dart';
-import 'simple_orders_service.dart';
 import 'scheduled_orders_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'simple_orders_service.dart';
 
 /// 🚀 Global Orders Cache - Singleton للاحتفاظ بالطلبات في الذاكرة
 /// يضمن العرض الفوري للطلبات بدون أي تأخير
@@ -21,9 +23,8 @@ class GlobalOrdersCache extends ChangeNotifier {
   bool _isUpdating = false;
 
   // 🔄 Stream للتحديثات الفورية
-  final StreamController<List<Order>> _ordersStreamController = 
-      StreamController<List<Order>>.broadcast();
-  final StreamController<List<ScheduledOrder>> _scheduledOrdersStreamController = 
+  final StreamController<List<Order>> _ordersStreamController = StreamController<List<Order>>.broadcast();
+  final StreamController<List<ScheduledOrder>> _scheduledOrdersStreamController =
       StreamController<List<ScheduledOrder>>.broadcast();
 
   // ⚡ Getters للوصول الفوري للبيانات
@@ -40,27 +41,21 @@ class GlobalOrdersCache extends ChangeNotifier {
   /// 🚀 تهيئة الكاش - يتم استدعاؤها مرة واحدة عند بدء التطبيق
   Future<void> initialize() async {
     if (_isInitialized) {
-      debugPrint('⚡ GlobalOrdersCache مهيأ بالفعل - عرض فوري');
       return;
     }
 
-    debugPrint('🚀 تهيئة GlobalOrdersCache...');
-    
     try {
       // تحميل البيانات مرة واحدة فقط
       await _loadAllData();
-      
+
       _isInitialized = true;
-      debugPrint('✅ تم تهيئة GlobalOrdersCache بنجاح');
-      debugPrint('📊 الطلبات العادية: ${_orders.length}');
-      debugPrint('📅 الطلبات المجدولة: ${_scheduledOrders.length}');
-      
+
       // إشعار المستمعين
       notifyListeners();
       _ordersStreamController.add(_orders);
       _scheduledOrdersStreamController.add(_scheduledOrders);
-      
     } catch (e) {
+      // نطبع فقط الأخطاء الضرورية
       debugPrint('❌ خطأ في تهيئة GlobalOrdersCache: $e');
     }
   }
@@ -68,25 +63,22 @@ class GlobalOrdersCache extends ChangeNotifier {
   /// 🔄 تحديث البيانات في الخلفية
   Future<void> updateInBackground() async {
     if (_isUpdating) {
-      debugPrint('⚠️ التحديث جاري بالفعل - تجاهل الطلب');
       return;
     }
 
     _isUpdating = true;
-    debugPrint('🔄 تحديث البيانات في الخلفية...');
-    
+
     try {
       await _loadAllData();
-      
+
       _lastUpdate = DateTime.now();
-      debugPrint('✅ تم تحديث البيانات في الخلفية');
-      
+
       // إشعار المستمعين بالتحديث
       notifyListeners();
       _ordersStreamController.add(_orders);
       _scheduledOrdersStreamController.add(_scheduledOrders);
-      
     } catch (e) {
+      // نطبع فقط الأخطاء الضرورية
       debugPrint('❌ خطأ في تحديث البيانات: $e');
     } finally {
       _isUpdating = false;
@@ -121,7 +113,7 @@ class GlobalOrdersCache extends ChangeNotifier {
     if (statusFilter == null || statusFilter == 'all') {
       return _orders;
     }
-    
+
     return _orders.where((order) {
       final statusString = order.status.toString().split('.').last;
       return statusString == statusFilter;
@@ -154,7 +146,6 @@ class GlobalOrdersCache extends ChangeNotifier {
 
   /// 🔄 فرض التحديث
   Future<void> forceRefresh() async {
-    debugPrint('🔄 فرض تحديث GlobalOrdersCache...');
     _isInitialized = false;
     await initialize();
   }

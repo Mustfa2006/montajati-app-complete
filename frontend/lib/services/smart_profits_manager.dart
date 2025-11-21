@@ -11,22 +11,22 @@ class SmartProfitsManager {
     if (_isCompletedStatus(orderStatus)) {
       return ProfitType.achieved;
     }
-    
+
     // 🔵 الحالات النشطة وقيد التوصيل → ربح منتظر
     if (_isActiveOrInDeliveryStatus(orderStatus)) {
       return ProfitType.expected;
     }
-    
+
     // 🔴 الحالات الملغية → لا ربح
     if (_isCancelledStatus(orderStatus)) {
       return ProfitType.none;
     }
-    
+
     // 🟡 الحالات المؤجلة → ربح منتظر
     if (_isPostponedStatus(orderStatus)) {
       return ProfitType.expected;
     }
-    
+
     // افتراضي → ربح منتظر
     return ProfitType.expected;
   }
@@ -39,34 +39,33 @@ class SmartProfitsManager {
   /// 🔵 الحالات النشطة وقيد التوصيل (ربح منتظر)
   static bool _isActiveOrInDeliveryStatus(String status) {
     return status == 'نشط' ||
-           status == 'تم تغيير محافظة الزبون' ||
-           status == 'تغيير المندوب' ||
-           status == 'قيد التوصيل الى الزبون (في عهدة المندوب)';
+        status == 'تم تغيير محافظة الزبون' ||
+        status == 'تغيير المندوب' ||
+        status == 'قيد التوصيل الى الزبون (في عهدة المندوب)';
   }
 
   /// 🔴 الحالات الملغية (لا ربح)
   static bool _isCancelledStatus(String status) {
     return status == 'لا يرد' ||
-           status == 'لا يرد بعد الاتفاق' ||
-           status == 'مغلق' ||
-           status == 'مغلق بعد الاتفاق' ||
-           status == 'الغاء الطلب' ||
-           status == 'رفض الطلب' ||
-           status == 'مفصول عن الخدمة' ||
-           status == 'طلب مكرر' ||
-           status == 'مستلم مسبقا' ||
-           status == 'الرقم غير معرف' ||
-           status == 'الرقم غير داخل في الخدمة' ||
-           status == 'لا يمكن الاتصال بالرقم' ||
-           status == 'العنوان غير دقيق' ||
-           status == 'لم يطلب' ||
-           status == 'حظر المندوب';
+        status == 'لا يرد بعد الاتفاق' ||
+        status == 'مغلق' ||
+        status == 'مغلق بعد الاتفاق' ||
+        status == 'الغاء الطلب' ||
+        status == 'رفض الطلب' ||
+        status == 'مفصول عن الخدمة' ||
+        status == 'طلب مكرر' ||
+        status == 'مستلم مسبقا' ||
+        status == 'الرقم غير معرف' ||
+        status == 'الرقم غير داخل في الخدمة' ||
+        status == 'لا يمكن الاتصال بالرقم' ||
+        status == 'العنوان غير دقيق' ||
+        status == 'لم يطلب' ||
+        status == 'حظر المندوب';
   }
 
   /// 🟡 الحالات المؤجلة (ربح منتظر)
   static bool _isPostponedStatus(String status) {
-    return status == 'مؤجل' ||
-           status == 'مؤجل لحين اعادة الطلب لاحقا';
+    return status == 'مؤجل' || status == 'مؤجل لحين اعادة الطلب لاحقا';
   }
 
   /// 🔄 إعادة حساب أرباح المستخدم بالطريقة الذكية
@@ -82,13 +81,8 @@ class SmartProfitsManager {
 
       double achievedProfits = 0.0;
       double expectedProfits = 0.0;
-      
-      Map<String, int> statusCounts = {
-        'achieved': 0,
-        'expected': 0,
-        'cancelled': 0,
-        'postponed': 0,
-      };
+
+      Map<String, int> statusCounts = {'achieved': 0, 'expected': 0, 'cancelled': 0, 'postponed': 0};
 
       debugPrint('📊 تحليل ${ordersResponse.length} طلب:');
 
@@ -129,10 +123,7 @@ class SmartProfitsManager {
       debugPrint('⏳ الطلبات المؤجلة: ${statusCounts['postponed']} طلب');
       debugPrint('❌ الطلبات الملغية: ${statusCounts['cancelled']} طلب');
 
-      return {
-        'achieved_profits': achievedProfits,
-        'expected_profits': expectedProfits,
-      };
+      return {'achieved_profits': achievedProfits, 'expected_profits': expectedProfits};
     } catch (e) {
       debugPrint('❌ خطأ في إعادة حساب الأرباح الذكية: $e');
       return {'achieved_profits': 0.0, 'expected_profits': 0.0};
@@ -145,27 +136,9 @@ class SmartProfitsManager {
     double achievedProfits,
     double expectedProfits,
   ) async {
-    try {
-      debugPrint('💾 تحديث أرباح المستخدم في قاعدة البيانات:');
-      debugPrint('   📱 المستخدم: $userPhone');
-      debugPrint('   💰 الأرباح المحققة: $achievedProfits د.ع');
-      debugPrint('   📊 الأرباح المنتظرة: $expectedProfits د.ع');
-
-      await _supabase
-          .from('users')
-          .update({
-            'achieved_profits': achievedProfits,
-            'expected_profits': expectedProfits,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('phone', userPhone);
-
-      debugPrint('✅ تم تحديث الأرباح بنجاح');
-      return true;
-    } catch (e) {
-      debugPrint('❌ خطأ في تحديث الأرباح: $e');
-      return false;
-    }
+    // لم يعد مسموحاً تعديل أرباح المستخدم مباشرة من الفرونت إند
+    debugPrint('updateUserProfitsInDatabase() معطلة – الأرباح تُدار فقط من خلال Profit Engine في قاعدة البيانات');
+    return false;
   }
 
   /// 🎯 إعادة حساب وتحديث أرباح المستخدم (دالة شاملة)
@@ -173,13 +146,9 @@ class SmartProfitsManager {
     try {
       // إعادة حساب الأرباح
       final profits = await recalculateUserProfits(userPhone);
-      
+
       // تحديث قاعدة البيانات
-      return await updateUserProfitsInDatabase(
-        userPhone,
-        profits['achieved_profits']!,
-        profits['expected_profits']!,
-      );
+      return await updateUserProfitsInDatabase(userPhone, profits['achieved_profits']!, profits['expected_profits']!);
     } catch (e) {
       debugPrint('❌ خطأ في العملية الشاملة: $e');
       return false;
@@ -192,9 +161,7 @@ class SmartProfitsManager {
       debugPrint('🌍 === إعادة حساب أرباح جميع المستخدمين ===');
 
       // جلب جميع المستخدمين
-      final usersResponse = await _supabase
-          .from('users')
-          .select('phone, name');
+      final usersResponse = await _supabase.from('users').select('phone, name');
 
       debugPrint('👥 معالجة ${usersResponse.length} مستخدم...');
 
@@ -203,9 +170,9 @@ class SmartProfitsManager {
         final userName = user['name'] as String;
 
         debugPrint('🔄 معالجة: $userName ($userPhone)');
-        
+
         await smartRecalculateAndUpdate(userPhone);
-        
+
         // تأخير قصير لتجنب الضغط على قاعدة البيانات
         await Future.delayed(const Duration(milliseconds: 100));
       }
@@ -220,30 +187,25 @@ class SmartProfitsManager {
   static Future<Map<String, dynamic>> getUserProfitsStats(String userPhone) async {
     try {
       final profits = await recalculateUserProfits(userPhone);
-      
+
       return {
         'achieved_profits': profits['achieved_profits'],
         'expected_profits': profits['expected_profits'],
         'total_profits': profits['achieved_profits']! + profits['expected_profits']!,
-        'achievement_rate': profits['expected_profits']! > 0 
+        'achievement_rate': profits['expected_profits']! > 0
             ? (profits['achieved_profits']! / (profits['achieved_profits']! + profits['expected_profits']!)) * 100
             : 100.0,
       };
     } catch (e) {
       debugPrint('❌ خطأ في جلب إحصائيات الأرباح: $e');
-      return {
-        'achieved_profits': 0.0,
-        'expected_profits': 0.0,
-        'total_profits': 0.0,
-        'achievement_rate': 0.0,
-      };
+      return {'achieved_profits': 0.0, 'expected_profits': 0.0, 'total_profits': 0.0, 'achievement_rate': 0.0};
     }
   }
 }
 
 /// 🎯 أنواع الأرباح
 enum ProfitType {
-  achieved,  // ربح محقق
-  expected,  // ربح منتظر
-  none,      // لا ربح
+  achieved, // ربح محقق
+  expected, // ربح منتظر
+  none, // لا ربح
 }

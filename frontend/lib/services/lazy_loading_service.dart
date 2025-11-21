@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import '../utils/app_logger.dart';
 
 /// خدمة التحميل التدريجي للصفحات
 /// كل صفحة تُحمل عند الحاجة فقط لتسريع بدء التشغيل
@@ -26,7 +26,7 @@ class LazyLoadingService {
   /// تحميل صفحة محددة
   static Future<void> _loadPage(String pageName) async {
     try {
-      debugPrint('🔄 تحميل صفحة: $pageName');
+      AppLogger.debug('🔄 تحميل صفحة: $pageName');
 
       switch (pageName) {
         case 'products':
@@ -48,15 +48,14 @@ class LazyLoadingService {
           await _loadSettingsPage();
           break;
         default:
-          debugPrint('⚠️ صفحة غير معروفة: $pageName');
+          AppLogger.debug('⚠️ صفحة غير معروفة: $pageName');
       }
 
       _loadedPages[pageName] = true;
       _loadingFutures.remove(pageName);
-      debugPrint('✅ تم تحميل صفحة: $pageName');
-
+      AppLogger.debug('✅ تم تحميل صفحة: $pageName');
     } catch (e) {
-      debugPrint('❌ خطأ في تحميل صفحة $pageName: $e');
+      AppLogger.error('❌ خطأ في تحميل صفحة $pageName: $e');
       _loadingFutures.remove(pageName);
     }
   }
@@ -65,46 +64,46 @@ class LazyLoadingService {
   static Future<void> _loadProductsPage() async {
     // تحميل بيانات المنتجات فقط عند الحاجة
     await Future.delayed(const Duration(milliseconds: 100));
-    debugPrint('📦 تم تحميل بيانات المنتجات');
+    AppLogger.debug('📦 تم تحميل بيانات المنتجات');
   }
 
   /// تحميل صفحة الطلبات
   static Future<void> _loadOrdersPage() async {
     // تحميل بيانات الطلبات وتهيئة المزامنة
     await Future.delayed(const Duration(milliseconds: 200));
-    debugPrint('📋 تم تحميل بيانات الطلبات');
+    AppLogger.debug('📋 تم تحميل بيانات الطلبات');
   }
 
   /// تحميل صفحة الأرباح
   static Future<void> _loadProfitsPage() async {
     // تحميل بيانات الأرباح وتهيئة الحسابات
-    debugPrint('💰 بدء تحميل صفحة الأرباح...');
+    AppLogger.debug('💰 بدء تحميل صفحة الأرباح...');
 
     // محاكاة تحميل البيانات
     await Future.delayed(const Duration(milliseconds: 100));
 
-    debugPrint('💰 تم تحميل بيانات الأرباح بنجاح');
+    AppLogger.debug('💰 تم تحميل بيانات الأرباح بنجاح');
   }
 
   /// تحميل صفحة العملاء
   static Future<void> _loadCustomersPage() async {
     // تحميل بيانات العملاء
     await Future.delayed(const Duration(milliseconds: 100));
-    debugPrint('👥 تم تحميل بيانات العملاء');
+    AppLogger.debug('👥 تم تحميل بيانات العملاء');
   }
 
   /// تحميل صفحة التحليلات
   static Future<void> _loadAnalyticsPage() async {
     // تحميل بيانات التحليلات والإحصائيات
     await Future.delayed(const Duration(milliseconds: 300));
-    debugPrint('📊 تم تحميل بيانات التحليلات');
+    AppLogger.debug('📊 تم تحميل بيانات التحليلات');
   }
 
   /// تحميل صفحة الإعدادات
   static Future<void> _loadSettingsPage() async {
     // تحميل إعدادات التطبيق
     await Future.delayed(const Duration(milliseconds: 50));
-    debugPrint('⚙️ تم تحميل إعدادات التطبيق');
+    AppLogger.debug('⚙️ تم تحميل إعدادات التطبيق');
   }
 
   /// التحقق من حالة تحميل صفحة

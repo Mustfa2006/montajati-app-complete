@@ -13,6 +13,11 @@ class ImmersiveModeService {
   /// 🎯 إخفاء Navigation Bar فقط - Status Bar ثابت (شامل لجميع الأجهزة)
   static Future<void> enableImmersiveMode() async {
     try {
+      // على الويب أو الأنظمة غير أندرويد لا نفعل شيئاً لتجنب الأخطاء غير الضرورية
+      if (kIsWeb) {
+        return;
+      }
+
       if (Platform.isAndroid) {
         // طريقة 1: Flutter SystemChrome
         await SystemChrome.setEnabledSystemUIMode(
@@ -24,13 +29,14 @@ class ImmersiveModeService {
         try {
           await _channel.invokeMethod('hideNavigationBar');
         } catch (e) {
+          // في حال عدم توفر الميثود، نتجاهل الخطأ بهدوء
           debugPrint('⚠️ Native method غير متوفر: $e');
         }
       }
 
       _isNavigationBarVisible = false;
-      debugPrint('✅ Navigation Bar مخفي - Status Bar ثابت');
     } catch (e) {
+      // نطبع فقط الأخطاء الضرورية
       debugPrint('❌ خطأ في إخفاء Navigation Bar: $e');
     }
   }
@@ -38,6 +44,11 @@ class ImmersiveModeService {
   /// 👆 إظهار Navigation Bar مؤقتاً - Status Bar ثابت (شامل لجميع الأجهزة)
   static Future<void> showNavigationBarTemporarily() async {
     try {
+      // على الويب لا حاجة لأي تغيير في System UI
+      if (kIsWeb) {
+        return;
+      }
+
       // إلغاء أي مؤقت سابق
       _hideTimer?.cancel();
 
@@ -52,18 +63,19 @@ class ImmersiveModeService {
         try {
           await _channel.invokeMethod('showNavigationBar');
         } catch (e) {
+          // في حال عدم توفر الميثود، نتجاهل الخطأ بهدوء
           debugPrint('⚠️ Native method غير متوفر: $e');
         }
       }
 
       _isNavigationBarVisible = true;
-      debugPrint('👆 Navigation Bar ظاهر مؤقتاً - Status Bar ثابت');
 
       // إخفاء Navigation Bar فقط بعد 3 ثوانٍ
       _hideTimer = Timer(const Duration(seconds: 3), () {
         enableImmersiveMode();
       });
     } catch (e) {
+      // نطبع فقط الأخطاء الضرورية
       debugPrint('❌ خطأ في إظهار Navigation Bar: $e');
     }
   }

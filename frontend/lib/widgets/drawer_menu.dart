@@ -15,6 +15,7 @@ import '../config/api_config.dart';
 import '../providers/theme_provider.dart';
 import '../services/real_auth_service.dart';
 import '../services/user_service.dart';
+import '../utils/app_logger.dart';
 
 class DrawerMenu extends StatefulWidget {
   const DrawerMenu({super.key, this.onClose});
@@ -64,7 +65,7 @@ class _DrawerMenuState extends State<DrawerMenu> with SingleTickerProviderStateM
 
   Future<void> _loadUserData() async {
     try {
-      debugPrint('📥 [DrawerMenu] تحميل بيانات المستخدم والأرباح...');
+      AppLogger.debug('📥 [DrawerMenu] تحميل بيانات المستخدم والأرباح...');
 
       // 1) جلب رقم الهاتف من SharedPreferences (نفس منطق صفحة الأرباح)
       final prefs = await SharedPreferences.getInstance();
@@ -74,9 +75,9 @@ class _DrawerMenuState extends State<DrawerMenu> with SingleTickerProviderStateM
       if (phone.isEmpty) {
         try {
           phone = await UserService.getPhoneNumber();
-          debugPrint('📱 [DrawerMenu] رقم الهاتف من UserService: $phone');
+          AppLogger.debug('📱 [DrawerMenu] رقم الهاتف من UserService: $phone');
         } catch (e) {
-          debugPrint('⚠️ [DrawerMenu] فشل جلب رقم الهاتف من UserService: $e');
+          AppLogger.error('⚠️ [DrawerMenu] فشل جلب رقم الهاتف من UserService: $e');
         }
       }
 
@@ -88,7 +89,7 @@ class _DrawerMenuState extends State<DrawerMenu> with SingleTickerProviderStateM
           name = fetchedName;
         }
       } catch (e) {
-        debugPrint('⚠️ [DrawerMenu] فشل جلب اسم المستخدم من UserService: $e');
+        AppLogger.error('⚠️ [DrawerMenu] فشل جلب اسم المستخدم من UserService: $e');
       }
 
       Map<String, double>? profits;

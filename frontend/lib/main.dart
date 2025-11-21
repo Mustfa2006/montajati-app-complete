@@ -1,4 +1,6 @@
 // تطبيق منتجاتي - نظام إدارة الدروب شيبنگ
+import 'utils/app_logger.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,13 +8,11 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import 'config/api_config.dart';
 import 'config/supabase_config.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/order_status_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router.dart';
-import 'services/database_migration_service.dart';
 import 'services/fcm_service.dart';
 import 'services/global_orders_cache.dart';
 import 'services/lazy_loading_service.dart';
@@ -120,13 +120,10 @@ void _initializeAllServicesInBackground() {
   // تشغيل في الخلفية فوراً بدون انتظار
   Future.microtask(() async {
     try {
-      debugPrint('🔄 بدء تحميل جميع الخدمات في الخلفية...');
-
-      // تحميل الخدمات بالتوازي لتوفير الوقت
+      // تحميل الخدمات الأساسية بالتوازي لتقليل وقت البدء
       await Future.wait([_initializeSupabase(), _initializeOtherServices()], eagerError: false);
-
-      debugPrint('✅ تم تحميل جميع الخدمات في الخلفية بنجاح');
     } catch (e) {
+      // نطبع فقط الأخطاء الضرورية
       debugPrint('❌ خطأ في تحميل الخدمات في الخلفية: $e');
       // لا نوقف التطبيق حتى لو فشلت الخدمات
     }
@@ -136,9 +133,7 @@ void _initializeAllServicesInBackground() {
 // تهيئة Supabase
 Future<void> _initializeSupabase() async {
   try {
-    debugPrint('🔄 تهيئة Supabase...');
     await SupabaseConfig.initialize();
-    debugPrint('✅ تم تهيئة Supabase');
   } catch (e) {
     debugPrint('❌ خطأ في تهيئة Supabase: $e');
   }
@@ -147,28 +142,16 @@ Future<void> _initializeSupabase() async {
 // تهيئة باقي الخدمات
 Future<void> _initializeOtherServices() async {
   try {
-    // إعدادات API (سريع جداً)
-    try {
-      ApiConfig.printConfig();
-      debugPrint('✅ تم تحميل إعدادات API');
-    } catch (e) {
-      debugPrint('❌ خطأ في إعدادات API: $e');
-    }
-
     // تهيئة الكاش العالمي للطلبات
     try {
-      debugPrint('⚡ تهيئة الكاش العالمي للطلبات...');
       await GlobalOrdersCache().initialize();
-      debugPrint('✅ تم تهيئة الكاش العالمي بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في تهيئة الكاش العالمي: $e');
     }
 
     // تهيئة خدمة الإشعارات
     try {
-      debugPrint('⚡ تهيئة خدمة الإشعارات...');
       await FCMService().initialize();
-      debugPrint('✅ تم تهيئة خدمة الإشعارات بنجاح');
     } catch (e) {
       debugPrint('❌ خطأ في تهيئة خدمة الإشعارات: $e');
     }
@@ -183,23 +166,9 @@ Future<void> _initializeOtherServices() async {
 // دالة تهيئة جميع الخدمات (الآن تُستخدم في الخلفية)
 Future<void> _initializeAllServices() async {
   try {
-    // طباعة إعدادات API
-    try {
-      ApiConfig.printConfig();
-      debugPrint('✅ تم تحميل إعدادات API بنجاح');
-    } catch (e) {
-      debugPrint('❌ خطأ في إعدادات API: $e');
-    }
-
-    // Supabase تم تهيئته بالفعل في الخدمات الأساسية
-
-    // 🚀 التحميل الذكي: فقط الأساسيات عند البدء
-    debugPrint('🚀 بدء التحميل الذكي - الأساسيات فقط...');
-
     // تهيئة خدمة المواقع فقط (مطلوبة للصفحة الرئيسية)
     try {
       await LocationCacheService.initialize();
-      debugPrint('✅ تم تهيئة خدمة المواقع');
     } catch (e) {
       debugPrint('❌ خطأ في خدمة المواقع: $e');
     }
@@ -210,30 +179,8 @@ Future<void> _initializeAllServices() async {
     // بدء التحميل المسبق للصفحات المهمة
     LazyLoadingService.preloadImportantPages();
 
-    debugPrint('✅ تم بدء التطبيق بسرعة - الخدمات تُحمل في الخلفية');
-
-    // تم تعطيل المراقبة التلقائية لتسريع بدء التشغيل
-    // يمكن تفعيلها من إعدادات التطبيق عند الحاجة
-    debugPrint('⏩ تم تخطي المراقبة التلقائية لتسريع التشغيل');
-
     // انتظار قليل قبل بدء الخدمات التي تحتاج الشبكة
     await Future.delayed(const Duration(seconds: 2));
-
-    // ❌ تم تعطيل OrderMonitoringService لأنه يسبب تكرار الأرباح
-    // ✅ OrderStatusProvider يتولى مراقبة الطلبات بالكامل
-    debugPrint('ℹ️ OrderMonitoringService معطل - OrderStatusProvider يتولى المراقبة');
-
-    // // بدء مراقبة الطلبات في الوقت الفعلي للإشعارات الفورية
-    // try {
-    //   debugPrint('🔄 بدء مراقبة الطلبات للإشعارات الفورية...');
-    //   await OrderMonitoringService.startMonitoring();
-    //   debugPrint('✅ تم بدء مراقبة الطلبات للإشعارات الفورية بنجاح');
-    // } catch (e) {
-    //   debugPrint('❌ خطأ في بدء مراقبة الطلبات للإشعارات الفورية: $e');
-    //   // نكمل بدون المراقبة الفورية
-    // }
-
-    debugPrint('✅ تم تهيئة جميع الخدمات بنجاح - المراقبة التلقائية والإشعارات الفورية نشطة');
   } catch (e, stackTrace) {
     // في حالة فشل تهيئة الخدمات، استمر في تشغيل التطبيق
     debugPrint('❌ خطأ عام في تهيئة الخدمات: $e');
@@ -345,34 +292,6 @@ class MontajatiApp extends StatelessWidget {
 
 /// جدولة الخدمات في الخلفية بدون تأثير على سرعة التشغيل
 void _scheduleBackgroundServices() {
-  // تأخير 3 ثوان ثم بدء الخدمات في الخلفية
-  Future.delayed(const Duration(seconds: 3), () async {
-    debugPrint('🔄 بدء تحميل الخدمات في الخلفية...');
-
-    // خدمة الإشعارات تم تهيئتها بالفعل في الخدمات الأساسية
-    debugPrint('✅ خدمة الإشعارات جاهزة بالفعل');
-
-    // ❌ تم تعطيل OrderStatusMonitor لأنه يسبب تضاعف الأرباح
-    // ✅ الأرباح تُدار بالكامل من قاعدة البيانات عبر smart_profit_manager trigger
-    debugPrint('ℹ️ OrderStatusMonitor معطل - الأرباح تُدار من قاعدة البيانات فقط');
-
-    // تهيئة مراقبة الأرباح - معطلة مؤقتاً
-    // try {
-    //   OrderStatusMonitor.startMonitoring();
-    //   await SmartProfitTransfer.testTransfer();
-    //   debugPrint('✅ تم تهيئة مراقبة الأرباح في الخلفية');
-    // } catch (e) {
-    //   debugPrint('❌ خطأ في مراقبة الأرباح: $e');
-    // }
-
-    // تم حذف BackgroundOrderSyncService - كان معطلاً ولا يؤثر على التطبيق
-
-    // تشغيل تحديثات قاعدة البيانات في الخلفية
-    try {
-      await DatabaseMigrationService.runAllMigrations();
-      debugPrint('✅ تم تشغيل تحديثات قاعدة البيانات في الخلفية');
-    } catch (e) {
-      debugPrint('❌ خطأ في تحديثات قاعدة البيانات: $e');
-    }
-  });
+  // حالياً لا نقوم بتشغيل أي خدمات خلفية ثقيلة من هنا
+  // يمكن إضافة خدمات خفيفة أو مجدولة عند الحاجة (مثلاً إرسال إحصائيات بسيطة)
 }

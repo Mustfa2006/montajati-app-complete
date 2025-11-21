@@ -169,8 +169,6 @@ class _OrdersPageState extends State<OrdersPage> {
   /// ✅ يستخدم Backend API - آمن وسريع
   Future<List<Order>> _getScheduledOrders(String userPhone) async {
     try {
-      debugPrint('� جلب الطلبات المجدولة من Backend API للمستخدم: $userPhone');
-
       // بناء URL للـ Backend API
       final url = Uri.parse(AppConfig.getScheduledOrdersUrl(userPhone, page: 0, limit: 100));
 

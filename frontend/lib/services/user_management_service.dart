@@ -1,10 +1,12 @@
 import 'dart:convert';
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../config/supabase_config.dart';
 import '../models/admin_user.dart';
 import '../models/user_statistics.dart';
-import '../config/supabase_config.dart';
 
 class UserManagementService {
   static final SupabaseClient _supabase = SupabaseConfig.client;
@@ -31,9 +33,7 @@ class UserManagementService {
         response = await _supabase
             .from('users')
             .select('*')
-            .or(
-              'name.ilike.%$searchQuery%,phone.ilike.%$searchQuery%,email.ilike.%$searchQuery%',
-            )
+            .or('name.ilike.%$searchQuery%,phone.ilike.%$searchQuery%,email.ilike.%$searchQuery%')
             .order('created_at', ascending: false)
             .limit(limit ?? 20); // تقليل العدد لتحسين الأداء
       } else {
@@ -77,15 +77,9 @@ class UserManagementService {
       debugPrint('🔄 حساب إحصائيات المستخدم: $userId');
 
       // جلب بيانات المستخدم أولاً
-      final userData = await _supabase
-          .from('users')
-          .select('name, phone, email')
-          .eq('id', userId)
-          .single();
+      final userData = await _supabase.from('users').select('name, phone, email').eq('id', userId).single();
 
-      debugPrint(
-        '👤 بيانات المستخدم: ${userData['name']} - ${userData['phone']}',
-      );
+      debugPrint('👤 بيانات المستخدم: ${userData['name']} - ${userData['phone']}');
 
       // محاولة جلب الطلبات بطرق مختلفة
       List<dynamic> orders = [];
@@ -94,9 +88,7 @@ class UserManagementService {
       try {
         orders = await _supabase
             .from('orders')
-            .select(
-              'status, total, profit, customer_id, customer_name, customer_phone',
-            )
+            .select('status, total, profit, customer_id, customer_name, customer_phone')
             .eq('customer_id', userId);
         debugPrint('✅ تم العثور على ${orders.length} طلب باستخدام customer_id');
       } catch (e) {
@@ -136,10 +128,7 @@ class UserManagementService {
       // الطريقة 2: إذا لم نجد طلبات، جرب user_id
       if (orders.isEmpty) {
         try {
-          orders = await _supabase
-              .from('orders')
-              .select('status, total, profit, user_id')
-              .eq('user_id', userId);
+          orders = await _supabase.from('orders').select('status, total, profit, user_id').eq('user_id', userId);
           debugPrint('✅ تم العثور على ${orders.length} طلب باستخدام user_id');
         } catch (e) {
           debugPrint('⚠️ فشل البحث بـ user_id: $e');
@@ -153,17 +142,12 @@ class UserManagementService {
               .from('orders')
               .select('status, total, profit, customer_phone')
               .eq('customer_phone', userData['phone']);
-          debugPrint(
-            '✅ تم العثور على ${orders.length} طلب باستخدام رقم الهاتف',
-          );
+          debugPrint('✅ تم العثور على ${orders.length} طلب باستخدام رقم الهاتف');
 
           // إذا وجدنا طلبات بالهاتف، قم بتحديث customer_id
           if (orders.isNotEmpty) {
             try {
-              await _supabase
-                  .from('orders')
-                  .update({'customer_id': userId})
-                  .eq('customer_phone', userData['phone']);
+              await _supabase.from('orders').update({'customer_id': userId}).eq('customer_phone', userData['phone']);
               debugPrint('✅ تم تحديث customer_id للطلبات (بالهاتف)');
             } catch (e) {
               debugPrint('⚠️ فشل في تحديث customer_id (بالهاتف): $e');
@@ -176,22 +160,13 @@ class UserManagementService {
 
       // حساب الإحصائيات
       final totalOrders = orders.length;
-      final completedOrders = orders
-          .where((o) => o['status'] == 'delivered')
-          .length;
-      final cancelledOrders = orders
-          .where((o) => o['status'] == 'cancelled')
-          .length;
-      final pendingOrders = orders
-          .where((o) => o['status'] == 'active' || o['status'] == 'in_delivery')
-          .length;
+      final completedOrders = orders.where((o) => o['status'] == 'delivered').length;
+      final cancelledOrders = orders.where((o) => o['status'] == 'cancelled').length;
+      final pendingOrders = orders.where((o) => o['status'] == 'active' || o['status'] == 'in_delivery').length;
 
       final totalProfits = orders
           .where((o) => o['status'] == 'delivered')
-          .fold<double>(
-            0.0,
-            (sum, o) => sum + (o['profit']?.toDouble() ?? 0.0),
-          );
+          .fold<double>(0.0, (sum, o) => sum + (o['profit']?.toDouble() ?? 0.0));
 
       debugPrint('📊 إحصائيات المستخدم $userId:');
       debugPrint('   إجمالي الطلبات: $totalOrders');
@@ -209,13 +184,7 @@ class UserManagementService {
       };
     } catch (e) {
       debugPrint('❌ خطأ في حساب إحصائيات المستخدم: $e');
-      return {
-        'total_orders': 0,
-        'completed_orders': 0,
-        'cancelled_orders': 0,
-        'pending_orders': 0,
-        'total_sales': 0.0,
-      };
+      return {'total_orders': 0, 'completed_orders': 0, 'cancelled_orders': 0, 'pending_orders': 0, 'total_sales': 0.0};
     }
   }
 
@@ -224,11 +193,7 @@ class UserManagementService {
     try {
       debugPrint('🔄 جلب تفاصيل المستخدم: $userId');
 
-      final response = await _supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single();
+      final response = await _supabase.from('users').select('*').eq('id', userId).single();
 
       // حساب الإحصائيات الحقيقية للمستخدم
       final ordersStats = await _getUserOrdersStats(userId);
@@ -257,14 +222,10 @@ class UserManagementService {
       debugPrint('🔄 جلب إحصائيات المستخدمين...');
 
       // جلب إحصائيات المستخدمين (استخدام الأعمدة الموجودة فقط)
-      final usersResponse = await _supabase
-          .from('users')
-          .select('id, is_active, is_admin, created_at, last_login');
+      final usersResponse = await _supabase.from('users').select('id, is_active, is_admin, created_at, last_login');
 
       // جلب إحصائيات الطلبات (جلب جميع الطلبات)
-      final ordersResponse = await _supabase
-          .from('orders')
-          .select('status, total, created_at');
+      final ordersResponse = await _supabase.from('orders').select('status, total, created_at');
 
       debugPrint('📊 تم جلب ${ordersResponse.length} طلب من قاعدة البيانات');
 
@@ -275,13 +236,9 @@ class UserManagementService {
 
       // حساب إحصائيات المستخدمين
       final totalUsers = usersResponse.length;
-      final activeUsers = usersResponse
-          .where((u) => u['is_active'] == true)
-          .length;
+      final activeUsers = usersResponse.where((u) => u['is_active'] == true).length;
       final inactiveUsers = totalUsers - activeUsers;
-      final adminUsers = usersResponse
-          .where((u) => u['is_admin'] == true)
-          .length;
+      final adminUsers = usersResponse.where((u) => u['is_admin'] == true).length;
       final regularUsers = totalUsers - adminUsers;
       // تعيين قيم افتراضية للمستخدمين المعتمدين (لأن العمود قد لا يكون موجود)
       final verifiedUsers = totalUsers; // افتراض أن جميع المستخدمين معتمدين
@@ -312,23 +269,15 @@ class UserManagementService {
 
       // حساب إحصائيات الطلبات
       final totalOrders = ordersResponse.length;
-      final completedOrders = ordersResponse
-          .where((o) => o['status'] == 'delivered')
-          .length;
-      final cancelledOrders = ordersResponse
-          .where((o) => o['status'] == 'cancelled')
-          .length;
-      final pendingOrders = ordersResponse
-          .where((o) => o['status'] == 'active' || o['status'] == 'in_delivery')
-          .length;
+      final completedOrders = ordersResponse.where((o) => o['status'] == 'delivered').length;
+      final cancelledOrders = ordersResponse.where((o) => o['status'] == 'cancelled').length;
+      final pendingOrders = ordersResponse.where((o) => o['status'] == 'active' || o['status'] == 'in_delivery').length;
 
       final totalProfits = ordersResponse
           .where((o) => o['status'] == 'delivered')
           .fold<double>(0.0, (sum, o) => sum + (o['profit'] ?? 0.0));
 
-      final averageProfitPerOrder = completedOrders > 0
-          ? totalProfits / completedOrders
-          : 0.0;
+      final averageProfitPerOrder = completedOrders > 0 ? totalProfits / completedOrders : 0.0;
 
       debugPrint('📊 إحصائيات الطلبات:');
       debugPrint('   إجمالي الطلبات: $totalOrders');
@@ -381,9 +330,7 @@ class UserManagementService {
       for (final user in users) {
         try {
           final stats = await _getUserOrdersStats(user['id']);
-          debugPrint(
-            '📊 المستخدم ${user['name']}: ${stats['total_orders']} طلب',
-          );
+          debugPrint('📊 المستخدم ${user['name']}: ${stats['total_orders']} طلب');
           updatedCount++;
         } catch (e) {
           debugPrint('❌ خطأ في حساب إحصائيات ${user['name']}: $e');
@@ -405,18 +352,12 @@ class UserManagementService {
       final users = await _supabase.from('users').select('id, name, phone');
 
       // جلب جميع الطلبات
-      final allOrders = await _supabase
-          .from('orders')
-          .select('id, customer_name, customer_phone, customer_id');
+      final allOrders = await _supabase.from('orders').select('id, customer_name, customer_phone, customer_id');
 
       // فلترة الطلبات التي لا تحتوي على customer_id
-      final ordersWithoutCustomerId = allOrders
-          .where((order) => order['customer_id'] == null)
-          .toList();
+      final ordersWithoutCustomerId = allOrders.where((order) => order['customer_id'] == null).toList();
 
-      debugPrint(
-        '🔍 وُجد ${ordersWithoutCustomerId.length} طلب بدون customer_id',
-      );
+      debugPrint('🔍 وُجد ${ordersWithoutCustomerId.length} طلب بدون customer_id');
 
       int fixedCount = 0;
       for (final order in ordersWithoutCustomerId) {
@@ -424,9 +365,7 @@ class UserManagementService {
         Map<String, dynamic>? matchingUser;
         try {
           matchingUser = users.firstWhere(
-            (user) =>
-                user['name'] == order['customer_name'] ||
-                user['phone'] == order['customer_phone'],
+            (user) => user['name'] == order['customer_name'] || user['phone'] == order['customer_phone'],
           );
         } catch (e) {
           matchingUser = null;
@@ -434,10 +373,7 @@ class UserManagementService {
 
         if (matchingUser != null) {
           try {
-            await _supabase
-                .from('orders')
-                .update({'customer_id': matchingUser['id']})
-                .eq('id', order['id']);
+            await _supabase.from('orders').update({'customer_id': matchingUser['id']}).eq('id', order['id']);
             fixedCount++;
           } catch (e) {
             debugPrint('⚠️ فشل في تحديث الطلب ${order['id']}: $e');
@@ -460,9 +396,7 @@ class UserManagementService {
       final users = await _supabase.from('users').select('id, name, phone');
 
       // جلب جميع الطلبات
-      final allOrders = await _supabase
-          .from('orders')
-          .select('id, customer_name, customer_phone, customer_id');
+      final allOrders = await _supabase.from('orders').select('id, customer_name, customer_phone, customer_id');
 
       debugPrint('📊 إجمالي الطلبات: ${allOrders.length}');
       debugPrint('📊 إجمالي المستخدمين: ${users.length}');
@@ -482,10 +416,8 @@ class UserManagementService {
         try {
           matchingUser = users.firstWhere(
             (user) =>
-                (user['name'] != null &&
-                    user['name'] == order['customer_name']) ||
-                (user['phone'] != null &&
-                    user['phone'] == order['customer_phone']),
+                (user['name'] != null && user['name'] == order['customer_name']) ||
+                (user['phone'] != null && user['phone'] == order['customer_phone']),
           );
         } catch (e) {
           matchingUser = null;
@@ -493,22 +425,15 @@ class UserManagementService {
 
         if (matchingUser != null) {
           try {
-            await _supabase
-                .from('orders')
-                .update({'customer_id': matchingUser['id']})
-                .eq('id', order['id']);
+            await _supabase.from('orders').update({'customer_id': matchingUser['id']}).eq('id', order['id']);
             fixedCount++;
-            debugPrint(
-              '✅ ربط الطلب ${order['id']} بالمستخدم ${matchingUser['name']}',
-            );
+            debugPrint('✅ ربط الطلب ${order['id']} بالمستخدم ${matchingUser['name']}');
           } catch (e) {
             debugPrint('⚠️ فشل في تحديث الطلب ${order['id']}: $e');
           }
         } else {
           notFoundCount++;
-          debugPrint(
-            '⚠️ لم يتم العثور على مستخدم للطلب: ${order['customer_name']} - ${order['customer_phone']}',
-          );
+          debugPrint('⚠️ لم يتم العثور على مستخدم للطلب: ${order['customer_name']} - ${order['customer_phone']}');
         }
       }
 
@@ -577,11 +502,7 @@ class UserManagementService {
         userData['notes'] = notes;
       }
 
-      final response = await _supabase
-          .from('users')
-          .insert(userData)
-          .select()
-          .single();
+      final response = await _supabase.from('users').insert(userData).select().single();
 
       debugPrint('✅ تم إنشاء المستخدم بنجاح');
       return AdminUser.fromJson({
@@ -612,11 +533,7 @@ class UserManagementService {
           'is_admin': isAdmin,
         };
 
-        final response = await _supabase
-            .from('users')
-            .insert(basicUserData)
-            .select()
-            .single();
+        final response = await _supabase.from('users').insert(basicUserData).select().single();
 
         debugPrint('✅ تم إنشاء المستخدم بالحقول الأساسية');
         return AdminUser.fromJson({
@@ -639,10 +556,7 @@ class UserManagementService {
   }
 
   // تحديث بيانات المستخدم
-  static Future<AdminUser?> updateUser(
-    String userId,
-    Map<String, dynamic> updates,
-  ) async {
+  static Future<AdminUser?> updateUser(String userId, Map<String, dynamic> updates) async {
     try {
       debugPrint('🔄 تحديث بيانات المستخدم: $userId');
 
@@ -660,12 +574,7 @@ class UserManagementService {
       // إضافة تاريخ التحديث
       updates['updated_at'] = DateTime.now().toIso8601String();
 
-      final response = await _supabase
-          .from('users')
-          .update(updates)
-          .eq('id', userId)
-          .select()
-          .single();
+      final response = await _supabase.from('users').update(updates).eq('id', userId).select().single();
 
       debugPrint('✅ تم تحديث بيانات المستخدم');
 
@@ -693,10 +602,7 @@ class UserManagementService {
 
       await _supabase
           .from('users')
-          .update({
-            'is_active': isActive,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
+          .update({'is_active': isActive, 'updated_at': DateTime.now().toIso8601String()})
           .eq('id', userId);
 
       debugPrint('✅ تم ${isActive ? 'تفعيل' : 'تعطيل'} المستخدم');
@@ -723,10 +629,7 @@ class UserManagementService {
   }
 
   // تغيير كلمة المرور
-  static Future<bool> changeUserPassword(
-    String userId,
-    String newPassword,
-  ) async {
+  static Future<bool> changeUserPassword(String userId, String newPassword) async {
     try {
       debugPrint('🔄 تغيير كلمة مرور المستخدم: $userId');
 
@@ -767,9 +670,7 @@ class UserManagementService {
       // إضافة الإحصائيات لكل مستخدم
       List<AdminUser> users = [];
       for (var userData in response) {
-        final ordersStats = await _getUserOrdersStats(
-          userData['id'].toString(),
-        );
+        final ordersStats = await _getUserOrdersStats(userData['id'].toString());
         users.add(AdminUser.fromJson({...userData, ...ordersStats}));
       }
 
@@ -798,9 +699,7 @@ class UserManagementService {
       // إضافة الإحصائيات لكل مستخدم
       List<AdminUser> users = [];
       for (var userData in response) {
-        final ordersStats = await _getUserOrdersStats(
-          userData['id'].toString(),
-        );
+        final ordersStats = await _getUserOrdersStats(userData['id'].toString());
         users.add(AdminUser.fromJson({...userData, ...ordersStats}));
       }
 
@@ -812,30 +711,10 @@ class UserManagementService {
   }
 
   // تحديث أرباح المستخدم
-  static Future<bool> updateUserProfits(
-    String userId,
-    double achievedProfits,
-    double expectedProfits,
-  ) async {
-    try {
-      debugPrint('🔄 تحديث أرباح المستخدم: $userId');
-
-      // يمكن إضافة جدول منفصل للأرباح أو تحديث في جدول المستخدمين
-      await _supabase
-          .from('users')
-          .update({
-            'achieved_profits': achievedProfits,
-            'expected_profits': expectedProfits,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', userId);
-
-      debugPrint('✅ تم تحديث الأرباح');
-      return true;
-    } catch (e) {
-      debugPrint('❌ خطأ في تحديث الأرباح: $e');
-      return false;
-    }
+  static Future<bool> updateUserProfits(String userId, double achievedProfits, double expectedProfits) async {
+    // تحديث الأرباح يدار الآن عبر الباك إند وTriggers – هذه الدالة تبقى فقط للتوافق ولا تعدّل القيم
+    debugPrint('updateUserProfits() معطلة – يجب تعديل الأرباح من لوحة تحكم الباك إند أو SQL فقط');
+    return false;
   }
 
   // جلب المستخدمين الجدد
@@ -856,9 +735,7 @@ class UserManagementService {
       // إضافة الإحصائيات لكل مستخدم
       List<AdminUser> users = [];
       for (var userData in response) {
-        final ordersStats = await _getUserOrdersStats(
-          userData['id'].toString(),
-        );
+        final ordersStats = await _getUserOrdersStats(userData['id'].toString());
         users.add(AdminUser.fromJson({...userData, ...ordersStats}));
       }
 

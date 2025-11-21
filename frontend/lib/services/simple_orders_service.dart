@@ -2,14 +2,18 @@
 // تطبيق منتجاتي - نظام إدارة الدروب شيبنگ
 
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/order.dart';
 import '../models/order_item.dart' as order_models;
-import 'inventory_service.dart';
+import '../utils/app_logger.dart';
 import 'admin_service.dart';
+import 'inventory_service.dart';
 import 'support_status_cache.dart';
+
 // تم حذف Smart Cache
 
 class SimpleOrdersService extends ChangeNotifier {
@@ -34,13 +38,7 @@ class SimpleOrdersService extends ChangeNotifier {
   String? _currentFilter;
 
   // عدادات الطلبات الكاملة (من قاعدة البيانات)
-  Map<String, int> _fullOrderCounts = {
-    'all': 0,
-    'active': 0,
-    'in_delivery': 0,
-    'delivered': 0,
-    'cancelled': 0,
-  };
+  Map<String, int> _fullOrderCounts = {'all': 0, 'active': 0, 'in_delivery': 0, 'delivered': 0, 'cancelled': 0};
 
   // Getters
   List<Order> get orders => List.unmodifiable(_orders);
@@ -53,16 +51,18 @@ class SimpleOrdersService extends ChangeNotifier {
 
   /// جلب الطلبات من قاعدة البيانات مباشرة (الصفحة الأولى فقط)
   Future<void> loadOrders({bool forceRefresh = false, String? statusFilter}) async {
-    debugPrint('🚀 loadOrders استدعي - forceRefresh: $forceRefresh, statusFilter: $statusFilter, isLoading: $_isLoading');
+    AppLogger.debug(
+      '🚀 loadOrders استدعي - forceRefresh: $forceRefresh, statusFilter: $statusFilter, isLoading: $_isLoading',
+    );
     if (_isLoading) {
-      debugPrint('⚠️ تم تجاهل loadOrders لأن التحميل جاري بالفعل');
+      AppLogger.debug('⚠️ تم تجاهل loadOrders لأن التحميل جاري بالفعل');
       return;
     }
 
     // ✅ إذا تغير الفلتر، أجبر إعادة التحميل
     bool filterChanged = _currentFilter != statusFilter;
     if (filterChanged) {
-      debugPrint('🔄 تغير الفلتر من "$_currentFilter" إلى "$statusFilter" - إجبار إعادة التحميل');
+      AppLogger.debug('🔄 تغير الفلتر من "$_currentFilter" إلى "$statusFilter" - إجبار إعادة التحميل');
       _currentFilter = statusFilter;
       forceRefresh = true;
     }
@@ -71,7 +71,7 @@ class SimpleOrdersService extends ChangeNotifier {
     if (!forceRefresh && _lastUpdate != null && !filterChanged) {
       final timeSinceLastUpdate = DateTime.now().difference(_lastUpdate!);
       if (timeSinceLastUpdate < _cacheTimeout) {
-        debugPrint('⚡ استخدام البيانات المحفوظة (${_orders.length} طلب) - عرض فوري');
+        AppLogger.debug('⚡ استخدام البيانات المحفوظة (${_orders.length} طلب) - عرض فوري');
         // عرض البيانات المخزنة فوراً
         notifyListeners();
         return;
@@ -80,16 +80,16 @@ class SimpleOrdersService extends ChangeNotifier {
 
     // ⚡ عرض البيانات المخزنة فوراً (إن وجدت) قبل التحديث
     if (_orders.isNotEmpty && !filterChanged) {
-      debugPrint('⚡ عرض البيانات المخزنة فوراً: ${_orders.length} طلب');
+      AppLogger.debug('⚡ عرض البيانات المخزنة فوراً: ${_orders.length} طلب');
       notifyListeners();
     }
 
     // إعادة تعيين التحميل التدريجي للتحديث الكامل (بدون مسح البيانات إذا كان الكاش صالح)
-    debugPrint('🔄 إعادة تعيين التحميل التدريجي...');
+    AppLogger.debug('🔄 إعادة تعيين التحميل التدريجي...');
     resetPagination(clearData: forceRefresh || filterChanged);
 
     _isLoading = true;
-    debugPrint('🔄 بدء التحميل - currentPage: $_currentPage, hasMoreData: $_hasMoreData');
+    AppLogger.debug('🔄 بدء التحميل - currentPage: $_currentPage, hasMoreData: $_hasMoreData');
     notifyListeners();
 
     // ✅ حساب العدادات الكاملة أولاً (بدون تحميل البيانات)
@@ -102,14 +102,12 @@ class SimpleOrdersService extends ChangeNotifier {
       if (currentUserPhone == null || currentUserPhone.isEmpty) {
         currentUserPhone = '07503597589';
         await prefs.setString('current_user_phone', currentUserPhone);
-        debugPrint(
-          '⚠️ لم يتم العثور على رقم المستخدم، استخدام الافتراضي: $currentUserPhone',
-        );
+        AppLogger.debug('⚠️ لم يتم العثور على رقم المستخدم، استخدام الافتراضي: $currentUserPhone');
       } else {
-        debugPrint('✅ تم العثور على رقم المستخدم: $currentUserPhone');
+        AppLogger.debug('✅ تم العثور على رقم المستخدم: $currentUserPhone');
       }
 
-      debugPrint('🚀 جلب الطلبات للمستخدم: $currentUserPhone');
+      AppLogger.debug('🚀 جلب الطلبات للمستخدم: $currentUserPhone');
 
       // ✅ جلب الطلبات مباشرة للمستخدم من قاعدة البيانات (أسرع)
       List<AdminOrder> userOrders;
@@ -120,34 +118,29 @@ class SimpleOrdersService extends ChangeNotifier {
           pageSize: _pageSize,
           statusFilter: _currentFilter,
         );
-        debugPrint(
-          '✅ تم جلب ${userOrders.length} طلب للمستخدم من قاعدة البيانات مباشرة مع فلتر: $_currentFilter',
-        );
+        AppLogger.debug('✅ تم جلب ${userOrders.length} طلب للمستخدم من قاعدة البيانات مباشرة مع فلتر: $_currentFilter');
       } catch (e) {
         debugPrint('❌ فشل الجلب المباشر، استخدام الطريقة الاحتياطية: $e');
         // في حالة الفشل، استخدم AdminService كطريقة احتياطية
         final allOrders = await AdminService.getOrders();
         userOrders = allOrders.where((order) {
-          return order.userPhone == currentUserPhone ||
-              order.customerPhone == currentUserPhone;
+          return order.userPhone == currentUserPhone || order.customerPhone == currentUserPhone;
         }).toList();
-        debugPrint(
-          '✅ تم جلب ${userOrders.length} طلب للمستخدم من الطريقة الاحتياطية',
-        );
+        AppLogger.debug('✅ تم جلب ${userOrders.length} طلب للمستخدم من الطريقة الاحتياطية');
       }
 
       // تحويل AdminOrder إلى Order مع معالجة الأخطاء
       // ⚡ مسح البيانات فقط إذا كان التحديث مطلوباً
       if (forceRefresh || filterChanged) {
         _orders = [];
-        debugPrint('🔄 مسح البيانات القديمة للتحديث الكامل');
+        AppLogger.debug('🔄 مسح البيانات القديمة للتحديث الكامل');
       } else {
-        debugPrint('⚡ الاحتفاظ بالبيانات المخزنة أثناء التحديث');
+        AppLogger.debug('⚡ الاحتفاظ بالبيانات المخزنة أثناء التحديث');
       }
 
       // ✅ ضمان الترتيب الصحيح قبل التحويل
       userOrders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      debugPrint('🔄 تم ترتيب ${userOrders.length} طلب حسب التاريخ (الأحدث أولاً)');
+      AppLogger.debug('🔄 تم ترتيب ${userOrders.length} طلب حسب التاريخ (الأحدث أولاً)');
 
       for (final adminOrder in userOrders) {
         try {
@@ -159,7 +152,7 @@ class SimpleOrdersService extends ChangeNotifier {
             final localStatus = await SupportStatusCache.getSupportRequested(adminOrder.id);
             if (localStatus == true) {
               supportRequested = true;
-              debugPrint('🔄 استخدام حالة الدعم من التخزين المحلي للطلب: ${adminOrder.id}');
+              AppLogger.debug('🔄 استخدام حالة الدعم من التخزين المحلي للطلب: ${adminOrder.id}');
             }
           }
           final order = Order(
@@ -172,8 +165,7 @@ class SimpleOrdersService extends ChangeNotifier {
             notes: adminOrder.customerNotes ?? '',
             totalCost: adminOrder.totalAmount.toInt(),
             totalProfit: adminOrder.profitAmount.toInt(),
-            subtotal: (adminOrder.totalAmount - adminOrder.deliveryCost)
-                .toInt(),
+            subtotal: (adminOrder.totalAmount - adminOrder.deliveryCost).toInt(),
             total: adminOrder.totalAmount.toInt(),
             status: _convertAdminStatusToOrderStatus(adminOrder.status),
             rawStatus: adminOrder.status, // الاحتفاظ بالنص الأصلي
@@ -198,7 +190,7 @@ class SimpleOrdersService extends ChangeNotifier {
           );
           _orders.add(order);
         } catch (e) {
-          debugPrint('❌ خطأ في تحويل الطلب ${adminOrder.id}: $e');
+          AppLogger.error('❌ خطأ في تحويل الطلب ${adminOrder.id}: $e');
           // إنشاء طلب بدون عناصر في حالة الخطأ
           final order = Order(
             id: adminOrder.id,
@@ -210,8 +202,7 @@ class SimpleOrdersService extends ChangeNotifier {
             notes: adminOrder.customerNotes ?? '',
             totalCost: adminOrder.totalAmount.toInt(),
             totalProfit: adminOrder.profitAmount.toInt(),
-            subtotal: (adminOrder.totalAmount - adminOrder.deliveryCost)
-                .toInt(),
+            subtotal: (adminOrder.totalAmount - adminOrder.deliveryCost).toInt(),
             total: adminOrder.totalAmount.toInt(),
             status: _convertAdminStatusToOrderStatus(adminOrder.status),
             rawStatus: adminOrder.status, // الاحتفاظ بالنص الأصلي
@@ -227,14 +218,12 @@ class SimpleOrdersService extends ChangeNotifier {
       }
 
       // ✅ طباعة تفاصيل أول 3 طلبات بعد التحويل النهائي إلى Order
-      debugPrint('📊 تم تحويل ${_orders.length} طلب إلى تنسيق Order النهائي');
+      AppLogger.debug('📊 تم تحويل ${_orders.length} طلب إلى تنسيق Order النهائي');
       if (_orders.isNotEmpty) {
-        debugPrint('📋 أول 3 طلبات بعد التحويل النهائي:');
+        AppLogger.debug('📋 أول 3 طلبات بعد التحويل النهائي:');
         for (int i = 0; i < _orders.length && i < 3; i++) {
           final order = _orders[i];
-          debugPrint(
-            '   ${i + 1}. ${order.customerName} - ${order.id} - ${order.createdAt}',
-          );
+          AppLogger.debug('   ${i + 1}. ${order.customerName} - ${order.id} - ${order.createdAt}');
         }
       }
 
@@ -242,12 +231,14 @@ class SimpleOrdersService extends ChangeNotifier {
       if (_currentPage == 0) {
         // الصفحة الأولى - استبدال القائمة
         _currentPage = 1; // ✅ تحديث للصفحة التالية
-        debugPrint('✅ تم تحميل الصفحة الأولى، الصفحة التالية: $_currentPage');
+        AppLogger.debug('✅ تم تحميل الصفحة الأولى، الصفحة التالية: $_currentPage');
       }
 
       // تحديث حالة التحميل التدريجي
       _hasMoreData = userOrders.length == _pageSize;
-      debugPrint('✅ حالة التحميل التدريجي: hasMoreData=$_hasMoreData, currentPage=$_currentPage, loadedCount=${userOrders.length}');
+      debugPrint(
+        '✅ حالة التحميل التدريجي: hasMoreData=$_hasMoreData, currentPage=$_currentPage, loadedCount=${userOrders.length}',
+      );
 
       // ✅ ترتيب نهائي للطلبات لضمان أن الأحدث دائماً في المقدمة
       _orders.sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -265,7 +256,9 @@ class SimpleOrdersService extends ChangeNotifier {
   /// تحميل المزيد من الطلبات (للتحميل التدريجي)
   Future<void> loadMoreOrders() async {
     if (_isLoadingMore || !_hasMoreData || _isLoading) {
-      debugPrint('⚠️ تم تجاهل loadMoreOrders - isLoadingMore: $_isLoadingMore, hasMoreData: $_hasMoreData, isLoading: $_isLoading');
+      AppLogger.debug(
+        '⚠️ تم تجاهل loadMoreOrders - isLoadingMore: $_isLoadingMore, hasMoreData: $_hasMoreData, isLoading: $_isLoading',
+      );
       return;
     }
 
@@ -280,7 +273,7 @@ class SimpleOrdersService extends ChangeNotifier {
         currentUserPhone = '07503597589';
       }
 
-      debugPrint('🔄 تحميل المزيد من الطلبات - الصفحة: $_currentPage');
+      AppLogger.debug('🔄 تحميل المزيد من الطلبات - الصفحة: $_currentPage');
 
       // جلب الطلبات للصفحة التالية مع نفس الفلتر
       final userOrders = await _getUserOrdersDirectly(
@@ -302,7 +295,7 @@ class SimpleOrdersService extends ChangeNotifier {
             final localStatus = await SupportStatusCache.getSupportRequested(adminOrder.id);
             if (localStatus == true) {
               supportRequested = true;
-              debugPrint('🔄 استخدام حالة الدعم من التخزين المحلي للطلب: ${adminOrder.id}');
+              AppLogger.debug('🔄 استخدام حالة الدعم من التخزين المحلي للطلب: ${adminOrder.id}');
             }
           }
 
@@ -342,7 +335,7 @@ class SimpleOrdersService extends ChangeNotifier {
         final existingOrderIds = _orders.map((order) => order.id).toSet();
         final newOrders = convertedOrders.where((order) => !existingOrderIds.contains(order.id)).toList();
 
-        debugPrint('🔍 فلترة الطلبات المكررة: ${convertedOrders.length} طلب جديد، ${newOrders.length} طلب فريد');
+        AppLogger.debug('🔍 فلترة الطلبات المكررة: ${convertedOrders.length} طلب جديد، ${newOrders.length} طلب فريد');
 
         // إضافة الطلبات الجديدة غير المكررة فقط
         _orders.addAll(newOrders);
@@ -354,10 +347,12 @@ class SimpleOrdersService extends ChangeNotifier {
         _hasMoreData = userOrders.length == _pageSize;
         _currentPage++;
 
-        debugPrint('✅ تم تحميل ${newOrders.length} طلب إضافي جديد من أصل ${convertedOrders.length}. المجموع: ${_orders.length}');
+        AppLogger.debug(
+          '✅ تم تحميل ${newOrders.length} طلب إضافي جديد من أصل ${convertedOrders.length}. المجموع: ${_orders.length}',
+        );
       } else {
         _hasMoreData = false;
-        debugPrint('✅ لا توجد طلبات إضافية');
+        AppLogger.debug('✅ لا توجد طلبات إضافية');
       }
     } catch (e) {
       debugPrint('❌ خطأ في تحميل المزيد من الطلبات: $e');
@@ -376,17 +371,16 @@ class SimpleOrdersService extends ChangeNotifier {
     // ⚡ مسح البيانات فقط إذا كان مطلوباً
     if (clearData) {
       _orders.clear();
-      debugPrint('🔄 تم إعادة تعيين التحميل التدريجي مع مسح البيانات');
+      AppLogger.debug('🔄 تم إعادة تعيين التحميل التدريجي مع مسح البيانات');
     } else {
-      debugPrint('⚡ تم إعادة تعيين التحميل التدريجي مع الاحتفاظ بالبيانات');
+      AppLogger.debug('⚡ تم إعادة تعيين التحميل التدريجي مع الاحتفاظ بالبيانات');
     }
   }
 
   /// دالة تحويل حالة الطلب من AdminOrder إلى OrderStatus
   OrderStatus _convertAdminStatusToOrderStatus(String adminStatus) {
     // التحقق من النص العربي أولاً
-    if (adminStatus == 'قيد التوصيل الى الزبون (في عهدة المندوب)' ||
-        adminStatus == 'قيد التوصيل') {
+    if (adminStatus == 'قيد التوصيل الى الزبون (في عهدة المندوب)' || adminStatus == 'قيد التوصيل') {
       return OrderStatus.inDelivery;
     }
 
@@ -421,11 +415,11 @@ class SimpleOrdersService extends ChangeNotifier {
       final currentUserPhone = prefs.getString('current_user_phone');
 
       if (currentUserPhone == null) {
-        debugPrint('❌ لا يوجد رقم هاتف للمستخدم الحالي');
+        AppLogger.error('❌ لا يوجد رقم هاتف للمستخدم الحالي');
         return;
       }
 
-      debugPrint('🔢 حساب العدادات الكاملة للمستخدم: $currentUserPhone');
+      AppLogger.debug('🔢 حساب العدادات الكاملة للمستخدم: $currentUserPhone');
 
       // ✅ جلب عدد الطلبات لكل حالة باستخدام العمود الصحيح user_phone
       final allOrdersResponse = await Supabase.instance.client
@@ -449,32 +443,20 @@ class SimpleOrdersService extends ChangeNotifier {
             'pending',
             'قيد التوصيل',
             'في الطريق',
-            'قيد التوصيل الى الزبون (في عهدة المندوب)'
+            'قيد التوصيل الى الزبون (في عهدة المندوب)',
           ]);
 
       final deliveredOrdersResponse = await Supabase.instance.client
           .from('orders')
           .select('id')
           .eq('user_phone', currentUserPhone)
-          .inFilter('status', [
-            'delivered',
-            'تم التسليم للزبون',
-            'مكتمل'
-          ]);
+          .inFilter('status', ['delivered', 'تم التسليم للزبون', 'مكتمل']);
 
       final cancelledOrdersResponse = await Supabase.instance.client
           .from('orders')
           .select('id')
           .eq('user_phone', currentUserPhone)
-          .inFilter('status', [
-            'cancelled',
-            'الغاء الطلب',
-            'ملغي',
-            'رفض الطلب',
-            'الرقم غير معرف',
-            'لا يرد',
-            'مؤجل'
-          ]);
+          .inFilter('status', ['cancelled', 'الغاء الطلب', 'ملغي', 'رفض الطلب', 'الرقم غير معرف', 'لا يرد', 'مؤجل']);
 
       _fullOrderCounts = {
         'all': allOrdersResponse.length,
@@ -484,9 +466,9 @@ class SimpleOrdersService extends ChangeNotifier {
         'cancelled': cancelledOrdersResponse.length,
       };
 
-      debugPrint('✅ تم حساب العدادات الكاملة: $_fullOrderCounts');
+      AppLogger.debug('✅ تم حساب العدادات الكاملة: $_fullOrderCounts');
     } catch (e) {
-      debugPrint('❌ خطأ في حساب العدادات الكاملة: $e');
+      AppLogger.error('❌ خطأ في حساب العدادات الكاملة: $e');
     }
   }
 
@@ -600,11 +582,7 @@ class SimpleOrdersService extends ChangeNotifier {
   /// فلترة الطلبات حسب التاريخ
   List<Order> getOrdersByDate(DateTime date) {
     return _orders.where((order) {
-      final orderDate = DateTime(
-        order.createdAt.year,
-        order.createdAt.month,
-        order.createdAt.day,
-      );
+      final orderDate = DateTime(order.createdAt.year, order.createdAt.month, order.createdAt.day);
       final targetDate = DateTime(date.year, date.month, date.day);
       return orderDate.isAtSameMomentAs(targetDate);
     }).toList();
@@ -677,14 +655,9 @@ class SimpleOrdersService extends ChangeNotifier {
       for (final item in items) {
         try {
           // تقليل الكمية المتاحة
-          await InventoryService.reserveProduct(
-            productId: item.productId,
-            reservedQuantity: item.quantity,
-          );
+          await InventoryService.reserveProduct(productId: item.productId, reservedQuantity: item.quantity);
 
-          debugPrint(
-            '✅ تم تقليل كمية المنتج ${item.productId} بمقدار ${item.quantity}',
-          );
+          debugPrint('✅ تم تقليل كمية المنتج ${item.productId} بمقدار ${item.quantity}');
         } catch (e) {
           debugPrint('⚠️ خطأ في تقليل كمية المنتج ${item.productId}: $e');
         }
@@ -709,11 +682,7 @@ class SimpleOrdersService extends ChangeNotifier {
         // لا نوقف العملية بسبب خطأ في Cache
       }
 
-      return {
-        'success': true,
-        'orderId': newOrder.id,
-        'message': 'تم إنشاء الطلب بنجاح',
-      };
+      return {'success': true, 'orderId': newOrder.id, 'message': 'تم إنشاء الطلب بنجاح'};
     } catch (e) {
       debugPrint('❌ خطأ في إنشاء الطلب: $e');
       return {'success': false, 'error': 'فشل في إنشاء الطلب: $e'};
@@ -810,7 +779,12 @@ class SimpleOrdersService extends ChangeNotifier {
   }
 
   /// ✅ جلب الطلبات مباشرة للمستخدم من قاعدة البيانات (محسّن للأداء مع التحميل التدريجي)
-  Future<List<AdminOrder>> _getUserOrdersDirectly(String userPhone, {int page = 0, int pageSize = 25, String? statusFilter}) async {
+  Future<List<AdminOrder>> _getUserOrdersDirectly(
+    String userPhone, {
+    int page = 0,
+    int pageSize = 25,
+    String? statusFilter,
+  }) async {
     try {
       debugPrint('📊 جلب الطلبات مباشرة للمستخدم: $userPhone');
       debugPrint('📄 معاملات التحميل: page=$page, pageSize=$pageSize');
@@ -866,9 +840,7 @@ class SimpleOrdersService extends ChangeNotifier {
         debugPrint('📋 أول 3 طلبات من قاعدة البيانات:');
         for (int i = 0; i < response.length && i < 3; i++) {
           final orderData = response[i];
-          debugPrint(
-            '   ${i + 1}. ${orderData['customer_name']} - ${orderData['id']} - ${orderData['created_at']}',
-          );
+          debugPrint('   ${i + 1}. ${orderData['customer_name']} - ${orderData['id']} - ${orderData['created_at']}');
         }
       }
 
@@ -880,16 +852,12 @@ class SimpleOrdersService extends ChangeNotifier {
                 id: (item['id'] ?? '').toString(), // ✅ تحويل إلى String
                 productName: item['product_name'] ?? '',
                 productImage: item['product_image'],
-                productPrice:
-                    (item['customer_price'] as num?)?.toDouble() ?? 0.0,
-                wholesalePrice:
-                    (item['wholesale_price'] as num?)?.toDouble() ?? 0.0,
-                customerPrice:
-                    (item['customer_price'] as num?)?.toDouble() ?? 0.0,
+                productPrice: (item['customer_price'] as num?)?.toDouble() ?? 0.0,
+                wholesalePrice: (item['wholesale_price'] as num?)?.toDouble() ?? 0.0,
+                customerPrice: (item['customer_price'] as num?)?.toDouble() ?? 0.0,
                 quantity: item['quantity'] ?? 1,
                 totalPrice: (item['total_price'] as num?)?.toDouble() ?? 0.0,
-                profitPerItem:
-                    (item['profit_per_item'] as num?)?.toDouble() ?? 0.0,
+                profitPerItem: (item['profit_per_item'] as num?)?.toDouble() ?? 0.0,
               );
             }).toList() ??
             [];
@@ -915,8 +883,7 @@ class SimpleOrdersService extends ChangeNotifier {
           customerAlternatePhone: orderData['secondary_phone'],
           customerProvince: orderData['province'],
           customerCity: orderData['city'],
-          customerAddress:
-              '${orderData['province'] ?? 'غير محدد'} - ${orderData['city'] ?? 'غير محدد'}',
+          customerAddress: '${orderData['province'] ?? 'غير محدد'} - ${orderData['city'] ?? 'غير محدد'}',
           customerNotes: orderData['notes'],
           totalAmount: (orderData['total'] as num?)?.toDouble() ?? 0.0,
           deliveryCost: (orderData['delivery_fee'] as num?)?.toDouble() ?? 0.0,
@@ -940,9 +907,7 @@ class SimpleOrdersService extends ChangeNotifier {
         debugPrint('📋 أول 3 طلبات بعد التحويل إلى AdminOrder:');
         for (int i = 0; i < adminOrders.length && i < 3; i++) {
           final order = adminOrders[i];
-          debugPrint(
-            '   ${i + 1}. ${order.customerName} - ${order.id} - ${order.createdAt}',
-          );
+          debugPrint('   ${i + 1}. ${order.customerName} - ${order.id} - ${order.createdAt}');
         }
       }
 
@@ -991,7 +956,7 @@ class SimpleOrdersService extends ChangeNotifier {
           'مستلم مسبقا',
           'العنوان غير دقيق',
           'لم يطلب',
-          'حظر المندوب'
+          'حظر المندوب',
         ];
       default:
         return [];
