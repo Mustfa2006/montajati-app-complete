@@ -1,0 +1,204 @@
+name: montajati_app
+description: "تطبيق منتجاتي - منصة الدروب شوبينغ الأولى في العراق"
+homepage: https://montajati.com
+repository: https://github.com/montajati/montajati-app
+publish_to: 'none'
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 3.7.1+16
+
+environment:
+  sdk: ^3.8.1
+  flutter: ">=3.24.0"
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # أيقونات التطبيق
+  cupertino_icons: ^1.0.8
+
+  # التنقل والتوجيه - router.dart
+  go_router: ^16.2.0
+
+  # إدارة الحالة
+  provider: ^6.1.2
+
+  # طلبات HTTP للاتصال بالـ Backend
+  http: ^1.2.2
+  dio: ^5.7.0
+
+  # تخزين محلي
+  shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.2
+
+  # الإشعارات والأذونات
+  permission_handler: ^12.0.1
+
+  # JSON والتشفير
+  json_annotation: ^4.9.0
+  crypto: ^3.0.6
+
+  # واجهة المستخدم والرسوم المتحركة
+  flutter_svg: ^2.0.10+1
+  lottie: ^3.1.2
+  animations: ^2.0.11
+  flutter_staggered_animations: ^1.1.1
+
+  # الخطوط والأيقونات
+  google_fonts: ^6.2.1
+  font_awesome_flutter: ^10.7.0
+
+  # شريط التنقل المنحني
+  curved_navigation_bar: ^1.0.6
+
+  # التعامل مع الصور
+  image_picker: ^1.1.2
+  cached_network_image: ^3.4.1
+
+  # دمج JavaScript
+  flutter_js: ^0.8.5
+
+  # مكتبة الخرائط التفاعلية
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # مكتبة الرسوم البيانية
+  fl_chart: ^0.69.0
+
+  # أدوات إضافية
+  intl: ^0.20.2
+  flutter_localizations:
+    sdk: flutter
+  url_launcher: ^6.3.1
+
+  # تحميل الملفات
+  universal_html: ^2.2.4
+  path_provider: ^2.1.4
+  package_info_plus: ^8.0.2
+  open_file: ^3.5.7
+
+  # مكتبة لحفظ الصور في معرض الهاتف
+  saver_gallery: ^4.0.1
+
+  # Supabase
+  supabase_flutter: ^2.8.2
+
+
+
+  # توليد UUID
+  uuid: ^4.5.1
+
+  # Firebase للإشعارات الفورية - إصدارات متوافقة مع الويب
+  firebase_core: ^4.0.0
+  firebase_messaging: ^16.0.0
+  flutter_local_notifications: ^19.4.0
+  device_info_plus: ^11.5.0
+  shimmer: ^3.0.0
+
+
+
+
+
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
+
+  # لتوليد أيقونات التطبيق
+  flutter_launcher_icons: ^0.14.1
+  build_runner: ^2.4.13
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  # إضافة الأصول (الصور والخطوط)
+  assets:
+    - assets/images/
+    - assets/fonts/
+    - assets/animations/
+    - assets/js/
+    - assets/data/
+    - assets/l10n/
+    - iconfree/
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/to/resolution-aware-images
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/to/asset-from-package
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/to/font-from-package
+
+# إعدادات أيقونات التطبيق - حجم كبير
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/app_logo.png"
+  min_sdk_android: 21 # android min sdk min:16, default 21
+  # إعدادات Android محسنة للحجم الكبير
+  adaptive_icon_background: "#ffffff"
+  adaptive_icon_foreground: "assets/images/app_logo.png"
+  web:
+    generate: true
+    image_path: "assets/images/app_logo.png"
+    background_color: "#ffffff"
+    theme_color: "#ffd700"
+  windows:
+    generate: true
+    image_path: "assets/images/app_logo.png"
+    icon_size: 256 # حجم كبير للوضوح
+  macos:
+    generate: true
+    image_path: "assets/images/app_logo.png"
