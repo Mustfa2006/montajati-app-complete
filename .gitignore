@@ -224,3 +224,11 @@ Thumbs.db
 *.backup
 *.old
 *.orig
+
+.env
+*.env
+backend/.env
+backend/config/*.json
+backend/secrets.js
+backend/supabase_keys.js
+
