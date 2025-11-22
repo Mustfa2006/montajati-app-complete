@@ -1176,22 +1176,13 @@ router.put('/:id/status', async (req, res) => {
             const deltaAchieved = achievedAfter - __deliveredGuardBefore.achieved;
             const deltaExpected = expectedAfter - __deliveredGuardBefore.expected;
 
-            console.warn(`🛡️ [${requestId}] DeliveredGuard: anomaly detected. Auto-correcting to single movement.`, {
+            console.warn(`🛡️ [${requestId}] DeliveredGuard: anomaly detected in profits after delivered status.`, {
               before: __deliveredGuardBefore,
               after: { achieved: achievedAfter, expected: expectedAfter },
               deltas: { achieved: deltaAchieved, expected: deltaExpected },
-              willSet: { achieved: expectedAchieved, expected: expectedExpected }
+              expectedSingleMove: { achieved: expectedAchieved, expected: expectedExpected }
             });
-
-            await supabase
-              .from('users')
-              .update({
-                achieved_profits: expectedAchieved,
-                expected_profits: expectedExpected,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('phone', __deliveredGuardUserPhone);
-            console.log(`✅ [${requestId}] DeliveredGuard: correction applied to enforce single profit move.`);
+            console.warn(`🛡️ [${requestId}] DeliveredGuard: NO AUTO CORRECTION APPLIED. Database trigger is the single source of truth for profits.`);
           }
         } else {
           console.warn(`⚠️ [${requestId}] DeliveredGuard could not read user profits after:`, __afterErr?.message);
@@ -1223,22 +1214,12 @@ router.put('/:id/status', async (req, res) => {
             if (isOkLater) {
               console.log(`✅ [${requestId}] DeliveredGuard (delayed): check passed - single profit move confirmed.`);
             } else {
-              console.warn(`🛡️ [${requestId}] DeliveredGuard (delayed): anomaly detected. Auto-correcting to single movement.`, {
+              console.warn(`🛡️ [${requestId}] DeliveredGuard (delayed): anomaly detected in profits after delivered status.`, {
                 before: __deliveredGuardBefore,
                 after: { achieved: achievedLater, expected: expectedLater },
-                willSet: { achieved: expectedAchievedLater, expected: expectedExpectedLater }
+                expectedSingleMove: { achieved: expectedAchievedLater, expected: expectedExpectedLater }
               });
-
-              await supabase
-                .from('users')
-                .update({
-                  achieved_profits: expectedAchievedLater,
-                  expected_profits: expectedExpectedLater,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('phone', __deliveredGuardUserPhone);
-
-              console.log(`✅ [${requestId}] DeliveredGuard (delayed): correction applied to enforce single profit move.`);
+              console.warn(`🛡️ [${requestId}] DeliveredGuard (delayed): NO AUTO CORRECTION. Database trigger is the only authority for profits.`);
             }
           } else {
             console.warn(`⚠️ [${requestId}] DeliveredGuard (delayed) could not read user profits:`, __laterErr?.message);
@@ -1430,16 +1411,8 @@ router.put('/:id/status', async (req, res) => {
           const __changed = (__after.achieved !== __profitGuardBefore.achieved) || (__after.expected !== __profitGuardBefore.expected);
 
           if (__changed) {
-            console.warn(`🛡️ [${requestId}] ProfitGuard: unexpected user profit change on in-delivery transition. Reverting.`, { before: __profitGuardBefore, after: __after });
-            await supabase
-              .from('users')
-              .update({
-                achieved_profits: __profitGuardBefore.achieved,
-                expected_profits: __profitGuardBefore.expected,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('phone', __profitGuardUserPhone);
-            console.log(`✅ [${requestId}] ProfitGuard: user profits reverted to snapshot.`);
+            console.warn(`🛡️ [${requestId}] ProfitGuard: unexpected user profit change on in-delivery transition.`, { before: __profitGuardBefore, after: __after });
+            console.warn(`🛡️ [${requestId}] ProfitGuard: NO AUTO REVERT. Database trigger is the single source of truth for profits.`);
           } else {
             console.log(`✅ [${requestId}] ProfitGuard: check passed - no profit changes.`);
           }

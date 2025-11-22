@@ -121,6 +121,23 @@ BEGIN
             v_new_expected := GREATEST(v_current_expected - p_profit_amount, 0);
         WHEN 'REMOVE_ACHIEVED' THEN
             v_new_achieved := GREATEST(v_current_achieved - p_profit_amount, 0);
+        WHEN 'CANCEL_ORDER' THEN
+            -- إلغاء طلب: إزالة الربح من المكان الذي كان موجودًا فيه (منتظر أو محقق)
+            IF lower(btrim(COALESCE(p_old_status, ''))) IN ('delivered', 'تم التسليم للزبون') THEN
+                v_new_achieved := GREATEST(v_current_achieved - p_profit_amount, 0);
+            ELSE
+                v_new_expected := GREATEST(v_current_expected - p_profit_amount, 0);
+            END IF;
+        WHEN 'RESTORE_ORDER' THEN
+            -- إعادة تفعيل طلب بعد الإلغاء: إعادة الربح إلى المكان الصحيح (منتظر أو محقق)
+            IF lower(btrim(COALESCE(p_new_status, ''))) IN ('delivered', 'تم التسليم للزبون') THEN
+                v_new_achieved := v_current_achieved + p_profit_amount;
+            ELSE
+                v_new_expected := v_current_expected + p_profit_amount;
+            END IF;
+        WHEN 'CANCELLED_NEW' THEN
+            -- طلب جديد ملغى من البداية: لا تغيير في الأرباح، فقط تسجيل في سجل الأرباح
+            NULL;
     END CASE;
 
     -- التحقق من صحة الانتقال
