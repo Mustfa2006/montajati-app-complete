@@ -115,36 +115,7 @@ class InstantStatusUpdater {
         throw new Error(`انتقال حالة غير صحيح: ${currentOrder.status} → ${newLocalStatus}`);
       }
 
-      // 8. تحديث الطلب في قاعدة البيانات مع ProfitGuard على "قيد التوصيل"
-      const isInDeliveryStatus = (s) => {
-        const t = (s || '').toString().toLowerCase();
-        return t.includes('in_delivery') || t.includes('قيد التوصيل');
-      };
-      let __profitGuardShouldRun = hasStatusChanged && isInDeliveryStatus(newLocalStatus);
-      const __profitGuardUserPhone = currentOrder.user_phone || currentOrder.primary_phone;
-      let __profitGuardBefore = null;
-
-      if (__profitGuardShouldRun && __profitGuardUserPhone) {
-        try {
-          const { data: __u, error: __uErr } = await this.supabase
-            .from('users')
-            .select('achieved_profits, expected_profits')
-            .eq('phone', __profitGuardUserPhone)
-            .single();
-          if (!__uErr && __u) {
-            __profitGuardBefore = {
-              achieved: Number(__u.achieved_profits) || 0,
-              expected: Number(__u.expected_profits) || 0,
-            };
-            if (process.env.LOG_LEVEL === 'debug') console.log(`🛡️ [INSTANT] ProfitGuard snapshot for ${__profitGuardUserPhone} (order ${orderId}):`, __profitGuardBefore);
-          } else {
-            __profitGuardShouldRun = false;
-          }
-        } catch (_) {
-          __profitGuardShouldRun = false;
-        }
-      }
-
+      // 8. تحديث الطلب في قاعدة البيانات (بدون أي تعديل مباشر على أرباح المستخدم)
       const updateData = {
         waseet_status: newWaseetStatus,
         last_status_check: new Date().toISOString(),
@@ -176,69 +147,8 @@ class InstantStatusUpdater {
         throw new Error(`خطأ في تحديث الطلب: ${updateError.message}`);
       }
 
-      // 🛡️ ProfitGuard: فحص فوري بعد التحديث
-      if (__profitGuardShouldRun && __profitGuardBefore && __profitGuardUserPhone) {
-        try {
-          const { data: __after, error: __afterErr } = await this.supabase
-            .from('users')
-            .select('achieved_profits, expected_profits')
-            .eq('phone', __profitGuardUserPhone)
-            .single();
-          if (!__afterErr && __after) {
-            const achievedAfter = Number(__after.achieved_profits) || 0;
-            const expectedAfter = Number(__after.expected_profits) || 0;
-            const __changed = achievedAfter !== __profitGuardBefore.achieved || expectedAfter !== __profitGuardBefore.expected;
-            if (__changed) {
-              console.warn(`🛡️ [INSTANT] ProfitGuard: unexpected change detected after in-delivery update. Reverting.`, {
-                orderId,
-                before: __profitGuardBefore,
-                after: { achieved: achievedAfter, expected: expectedAfter }
-              });
-              await this.supabase
-                .from('users')
-                .update({
-                  achieved_profits: __profitGuardBefore.achieved,
-                  expected_profits: __profitGuardBefore.expected,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('phone', __profitGuardUserPhone);
-              if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [INSTANT] ProfitGuard: user profits reverted to snapshot for ${__profitGuardUserPhone}.`);
-            }
-          }
-        } catch (_) { }
-
-        // 🔁 تحقق متأخر
-        setTimeout(async () => {
-          try {
-            const { data: __later, error: __laterErr } = await this.supabase
-              .from('users')
-              .select('achieved_profits, expected_profits')
-              .eq('phone', __profitGuardUserPhone)
-              .single();
-            if (!__laterErr && __later) {
-              const achievedLater = Number(__later.achieved_profits) || 0;
-              const expectedLater = Number(__later.expected_profits) || 0;
-              const __lateChanged = achievedLater !== __profitGuardBefore.achieved || expectedLater !== __profitGuardBefore.expected;
-              if (__lateChanged) {
-                console.warn(`🛡️ [INSTANT] ProfitGuard (delayed): late change detected. Reverting now.`, {
-                  orderId,
-                  before: __profitGuardBefore,
-                  later: { achieved: achievedLater, expected: expectedLater }
-                });
-                await this.supabase
-                  .from('users')
-                  .update({
-                    achieved_profits: __profitGuardBefore.achieved,
-                    expected_profits: __profitGuardBefore.expected,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq('phone', __profitGuardUserPhone);
-                if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [INSTANT] ProfitGuard (delayed): user profits reverted for ${__profitGuardUserPhone}.`);
-              }
-            }
-          } catch (_) { }
-        }, 1500);
-      }
+      // 🛡️ ProfitGuard: تم نقل إدارة الأرباح بالكامل إلى smart_profit_manager في قاعدة البيانات
+      // لا يوجد أي تعديل مباشر على users.achieved_profits أو users.expected_profits من هنا.
 
       // 6. إضافة سجل في تاريخ الحالات
       if (this.config.enableHistory && hasStatusChanged) {
