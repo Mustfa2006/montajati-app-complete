@@ -115,20 +115,9 @@ class SmartProfitTransfer {
       debugPrint('   📈 محقق: $newAchieved د.ع (كان: $currentAchieved د.ع)');
       debugPrint('   📊 منتظر: $newExpected د.ع (كان: $currentExpected د.ع)');
 
-      // تحديث قاعدة البيانات
-      debugPrint('💾 تحديث قاعدة البيانات...');
-      final updateResult = await _supabase
-          .from('users')
-          .update({
-            'achieved_profits': newAchieved,
-            'expected_profits': newExpected,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('phone', userPhone)
-          .select();
-
-      debugPrint('✅ تم تحديث الأرباح بنجاح');
-      debugPrint('📊 نتيجة التحديث: $updateResult');
+      // ⛔ ممنوع تحديث الأرباح من الفرونت إند
+      // نظام الأرباح الآن بالكامل داخل قاعدة البيانات (Triggers)
+      debugPrint('🚫 SmartProfitTransfer: محاولة تحديث أرباح المستخدم $userPhone تم إلغاؤها (DB-only profits system)');
 
       // إضافة سجل للتتبع
       await _addProfitTransferLog(

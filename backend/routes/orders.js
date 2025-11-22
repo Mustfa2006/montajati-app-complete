@@ -1425,6 +1425,8 @@ router.put('/:id/status', async (req, res) => {
     }
 
     // 🛡️ Profit Guard: تحقق متأخر (بعد 1.5 ثانية) لإيقاف أي تعديل لاحق حدث بسبب مستمعين خارجيين
+    // ⛔ تم تحويل هذا الحارس إلى نظام مراقبة فقط (Logging فقط)
+    // ⛔ ممنوع تماماً تعديل أرباح المستخدمين من الباك إند؛ المصدر الوحيد هو التريغرات داخل قاعدة البيانات
     if (__profitGuardShouldRun && __profitGuardBefore && __profitGuardUserPhone) {
       setTimeout(async () => {
         try {
@@ -1442,19 +1444,13 @@ router.put('/:id/status', async (req, res) => {
 
             const __lateChanged = (__later.achieved !== __profitGuardBefore.achieved) || (__later.expected !== __profitGuardBefore.expected);
             if (__lateChanged) {
-              console.warn(`🛡️ [${requestId}] ProfitGuard: late-change detected. Reverting now.`, { before: __profitGuardBefore, later: __later });
-              await supabase
-                .from('users')
-                .update({
-                  achieved_profits: __profitGuardBefore.achieved,
-                  expected_profits: __profitGuardBefore.expected,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('phone', __profitGuardUserPhone);
-              console.log(`✅ [${requestId}] ProfitGuard: late-change reverted.`);
+              console.warn(`⚠️ [${requestId}] ProfitGuard detected late external profit change (monitor-only)`, { before: __profitGuardBefore, later: __later });
+              // 🚫 لا يوجد أي تعديل هنا، فقط تسجيل للمراقبة
             } else {
               console.log(`✅ [${requestId}] ProfitGuard: late-check passed - no changes.`);
             }
+          } else {
+            console.warn(`⚠️ [${requestId}] ProfitGuard could not read user profits later:`, __laterErr?.message);
           }
         } catch (lateErr) {
           console.warn(`⚠️ [${requestId}] ProfitGuard late-check error:`, lateErr.message);
