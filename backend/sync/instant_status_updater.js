@@ -176,7 +176,7 @@ class InstantStatusUpdater {
         throw new Error(`خطأ في تحديث الطلب: ${updateError.message}`);
       }
 
-      // 🛡️ ProfitGuard: فحص فوري بعد التحديث
+      // 🛡️ ProfitGuard: فحص فوري بعد التحديث - مراقبة فقط بدون أي تعديل للأرباح
       if (__profitGuardShouldRun && __profitGuardBefore && __profitGuardUserPhone) {
         try {
           const { data: __after, error: __afterErr } = await this.supabase
@@ -189,25 +189,17 @@ class InstantStatusUpdater {
             const expectedAfter = Number(__after.expected_profits) || 0;
             const __changed = achievedAfter !== __profitGuardBefore.achieved || expectedAfter !== __profitGuardBefore.expected;
             if (__changed) {
-              console.warn(`🛡️ [INSTANT] ProfitGuard: unexpected change detected after in-delivery update. Reverting.`, {
+              console.warn(`🛡️ [INSTANT] ProfitGuard: unexpected change detected after in-delivery update.`, {
                 orderId,
                 before: __profitGuardBefore,
                 after: { achieved: achievedAfter, expected: expectedAfter }
               });
-              await this.supabase
-                .from('users')
-                .update({
-                  achieved_profits: __profitGuardBefore.achieved,
-                  expected_profits: __profitGuardBefore.expected,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('phone', __profitGuardUserPhone);
-              if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [INSTANT] ProfitGuard: user profits reverted to snapshot for ${__profitGuardUserPhone}.`);
+              console.warn(`🛡️ [INSTANT] ProfitGuard: NO AUTO REVERT. Database trigger is the single source of truth for profits.`);
             }
           }
         } catch (_) { }
 
-        // 🔁 تحقق متأخر
+        // 🔁 تحقق متأخر - مراقبة فقط
         setTimeout(async () => {
           try {
             const { data: __later, error: __laterErr } = await this.supabase
@@ -220,20 +212,12 @@ class InstantStatusUpdater {
               const expectedLater = Number(__later.expected_profits) || 0;
               const __lateChanged = achievedLater !== __profitGuardBefore.achieved || expectedLater !== __profitGuardBefore.expected;
               if (__lateChanged) {
-                console.warn(`🛡️ [INSTANT] ProfitGuard (delayed): late change detected. Reverting now.`, {
+                console.warn(`🛡️ [INSTANT] ProfitGuard (delayed): late change detected in user profits.`, {
                   orderId,
                   before: __profitGuardBefore,
                   later: { achieved: achievedLater, expected: expectedLater }
                 });
-                await this.supabase
-                  .from('users')
-                  .update({
-                    achieved_profits: __profitGuardBefore.achieved,
-                    expected_profits: __profitGuardBefore.expected,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq('phone', __profitGuardUserPhone);
-                if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [INSTANT] ProfitGuard (delayed): user profits reverted for ${__profitGuardUserPhone}.`);
+                console.warn(`🛡️ [INSTANT] ProfitGuard (delayed): NO AUTO REVERT. Database trigger is the only authority for profits.`);
               }
             }
           } catch (_) { }
