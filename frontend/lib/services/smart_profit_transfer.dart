@@ -115,9 +115,20 @@ class SmartProfitTransfer {
       debugPrint('   📈 محقق: $newAchieved د.ع (كان: $currentAchieved د.ع)');
       debugPrint('   📊 منتظر: $newExpected د.ع (كان: $currentExpected د.ع)');
 
-      // ⛔ ممنوع تحديث الأرباح من الفرونت إند
-      // نظام الأرباح الآن بالكامل داخل قاعدة البيانات (Triggers)
-      debugPrint('🚫 SmartProfitTransfer: محاولة تحديث أرباح المستخدم $userPhone تم إلغاؤها (DB-only profits system)');
+      // تحديث قاعدة البيانات
+      debugPrint('💾 تحديث قاعدة البيانات...');
+      final updateResult = await _supabase
+          .from('users')
+          .update({
+            'achieved_profits': newAchieved,
+            'expected_profits': newExpected,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('phone', userPhone)
+          .select();
+
+      debugPrint('✅ تم تحديث الأرباح بنجاح');
+      debugPrint('📊 نتيجة التحديث: $updateResult');
 
       // إضافة سجل للتتبع
       await _addProfitTransferLog(
@@ -230,14 +241,19 @@ class SmartProfitTransfer {
         }
       }
 
-      debugPrint('🔧 الأرباح المحسوبة (للتحقق فقط – لا يوجد أي تعديل من الفرونت):');
+      debugPrint('🔧 الأرباح المحسوبة:');
       debugPrint('   📈 محقق: $totalAchieved د.ع');
       debugPrint('   📊 منتظر: $totalExpected د.ع');
 
-      // ⛔ ممنوع تماماً تعديل أرباح المستخدم من الفرونت إند.
-      // نظام الأرباح بالكامل يُدار من داخل قاعدة البيانات عبر smart_profit_manager + safe_update_user_profits.
-      // هنا نكتفي فقط بالـ logging والنجاح الشكلي حتى لا ينكسر أي كود قديم يعتمد على القيمة المرجعة.
-      debugPrint('🛡️ [SmartProfitTransfer] منع أي تحديث مباشر لأرباح المستخدم من التطبيق.');
+      // تحديث قاعدة البيانات
+      await _supabase
+          .from('users')
+          .update({
+            'achieved_profits': totalAchieved,
+            'expected_profits': totalExpected,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('phone', userPhone);
 
       debugPrint('✅ تم إصلاح الأرباح بنجاح');
       return true;

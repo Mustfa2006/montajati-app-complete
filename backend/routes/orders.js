@@ -1176,13 +1176,22 @@ router.put('/:id/status', async (req, res) => {
             const deltaAchieved = achievedAfter - __deliveredGuardBefore.achieved;
             const deltaExpected = expectedAfter - __deliveredGuardBefore.expected;
 
-            console.warn(`🛡️ [${requestId}] DeliveredGuard: anomaly detected in profits after delivered status.`, {
+            console.warn(`🛡️ [${requestId}] DeliveredGuard: anomaly detected. Auto-correcting to single movement.`, {
               before: __deliveredGuardBefore,
               after: { achieved: achievedAfter, expected: expectedAfter },
               deltas: { achieved: deltaAchieved, expected: deltaExpected },
-              expectedSingleMove: { achieved: expectedAchieved, expected: expectedExpected }
+              willSet: { achieved: expectedAchieved, expected: expectedExpected }
             });
-            console.warn(`🛡️ [${requestId}] DeliveredGuard: NO AUTO CORRECTION APPLIED. Database trigger is the single source of truth for profits.`);
+
+            await supabase
+              .from('users')
+              .update({
+                achieved_profits: expectedAchieved,
+                expected_profits: expectedExpected,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('phone', __deliveredGuardUserPhone);
+            console.log(`✅ [${requestId}] DeliveredGuard: correction applied to enforce single profit move.`);
           }
         } else {
           console.warn(`⚠️ [${requestId}] DeliveredGuard could not read user profits after:`, __afterErr?.message);
@@ -1214,12 +1223,22 @@ router.put('/:id/status', async (req, res) => {
             if (isOkLater) {
               console.log(`✅ [${requestId}] DeliveredGuard (delayed): check passed - single profit move confirmed.`);
             } else {
-              console.warn(`🛡️ [${requestId}] DeliveredGuard (delayed): anomaly detected in profits after delivered status.`, {
+              console.warn(`🛡️ [${requestId}] DeliveredGuard (delayed): anomaly detected. Auto-correcting to single movement.`, {
                 before: __deliveredGuardBefore,
                 after: { achieved: achievedLater, expected: expectedLater },
-                expectedSingleMove: { achieved: expectedAchievedLater, expected: expectedExpectedLater }
+                willSet: { achieved: expectedAchievedLater, expected: expectedExpectedLater }
               });
-              console.warn(`🛡️ [${requestId}] DeliveredGuard (delayed): NO AUTO CORRECTION. Database trigger is the only authority for profits.`);
+
+              await supabase
+                .from('users')
+                .update({
+                  achieved_profits: expectedAchievedLater,
+                  expected_profits: expectedExpectedLater,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('phone', __deliveredGuardUserPhone);
+
+              console.log(`✅ [${requestId}] DeliveredGuard (delayed): correction applied to enforce single profit move.`);
             }
           } else {
             console.warn(`⚠️ [${requestId}] DeliveredGuard (delayed) could not read user profits:`, __laterErr?.message);
@@ -1411,8 +1430,16 @@ router.put('/:id/status', async (req, res) => {
           const __changed = (__after.achieved !== __profitGuardBefore.achieved) || (__after.expected !== __profitGuardBefore.expected);
 
           if (__changed) {
-            console.warn(`🛡️ [${requestId}] ProfitGuard: unexpected user profit change on in-delivery transition.`, { before: __profitGuardBefore, after: __after });
-            console.warn(`🛡️ [${requestId}] ProfitGuard: NO AUTO REVERT. Database trigger is the single source of truth for profits.`);
+            console.warn(`🛡️ [${requestId}] ProfitGuard: unexpected user profit change on in-delivery transition. Reverting.`, { before: __profitGuardBefore, after: __after });
+            await supabase
+              .from('users')
+              .update({
+                achieved_profits: __profitGuardBefore.achieved,
+                expected_profits: __profitGuardBefore.expected,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('phone', __profitGuardUserPhone);
+            console.log(`✅ [${requestId}] ProfitGuard: user profits reverted to snapshot.`);
           } else {
             console.log(`✅ [${requestId}] ProfitGuard: check passed - no profit changes.`);
           }
@@ -1425,8 +1452,6 @@ router.put('/:id/status', async (req, res) => {
     }
 
     // 🛡️ Profit Guard: تحقق متأخر (بعد 1.5 ثانية) لإيقاف أي تعديل لاحق حدث بسبب مستمعين خارجيين
-    // ⛔ تم تحويل هذا الحارس إلى نظام مراقبة فقط (Logging فقط)
-    // ⛔ ممنوع تماماً تعديل أرباح المستخدمين من الباك إند؛ المصدر الوحيد هو التريغرات داخل قاعدة البيانات
     if (__profitGuardShouldRun && __profitGuardBefore && __profitGuardUserPhone) {
       setTimeout(async () => {
         try {
@@ -1444,13 +1469,19 @@ router.put('/:id/status', async (req, res) => {
 
             const __lateChanged = (__later.achieved !== __profitGuardBefore.achieved) || (__later.expected !== __profitGuardBefore.expected);
             if (__lateChanged) {
-              console.warn(`⚠️ [${requestId}] ProfitGuard detected late external profit change (monitor-only)`, { before: __profitGuardBefore, later: __later });
-              // 🚫 لا يوجد أي تعديل هنا، فقط تسجيل للمراقبة
+              console.warn(`🛡️ [${requestId}] ProfitGuard: late-change detected. Reverting now.`, { before: __profitGuardBefore, later: __later });
+              await supabase
+                .from('users')
+                .update({
+                  achieved_profits: __profitGuardBefore.achieved,
+                  expected_profits: __profitGuardBefore.expected,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('phone', __profitGuardUserPhone);
+              console.log(`✅ [${requestId}] ProfitGuard: late-change reverted.`);
             } else {
               console.log(`✅ [${requestId}] ProfitGuard: late-check passed - no changes.`);
             }
-          } else {
-            console.warn(`⚠️ [${requestId}] ProfitGuard could not read user profits later:`, __laterErr?.message);
           }
         } catch (lateErr) {
           console.warn(`⚠️ [${requestId}] ProfitGuard late-check error:`, lateErr.message);

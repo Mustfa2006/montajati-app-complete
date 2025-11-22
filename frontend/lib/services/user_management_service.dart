@@ -1,12 +1,10 @@
 import 'dart:convert';
-
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../config/supabase_config.dart';
 import '../models/admin_user.dart';
 import '../models/user_statistics.dart';
+import '../config/supabase_config.dart';
 
 class UserManagementService {
   static final SupabaseClient _supabase = SupabaseConfig.client;
@@ -710,17 +708,25 @@ class UserManagementService {
     }
   }
 
-  // ⛔ تحديث أرباح المستخدم من الفرونت ممنوع الآن
-  // هذه الدالة أصبحت للـ Logging فقط للحفاظ على التوافق مع الشاشات القديمة
+  // تحديث أرباح المستخدم
   static Future<bool> updateUserProfits(String userId, double achievedProfits, double expectedProfits) async {
     try {
-      debugPrint(
-        '🚫 updateUserProfits($userId, achieved=$achievedProfits, expected=$expectedProfits) تم استدعاؤها لكن نظام الأرباح أصبح بالكامل داخل قاعدة البيانات',
-      );
-      // لا تعديل على users.achieved_profits أو users.expected_profits من هنا
+      debugPrint('🔄 تحديث أرباح المستخدم: $userId');
+
+      // يمكن إضافة جدول منفصل للأرباح أو تحديث في جدول المستخدمين
+      await _supabase
+          .from('users')
+          .update({
+            'achieved_profits': achievedProfits,
+            'expected_profits': expectedProfits,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', userId);
+
+      debugPrint('✅ تم تحديث الأرباح');
       return true;
     } catch (e) {
-      debugPrint('❌ خطأ في updateUserProfits (لا يجب أن يحدث): $e');
+      debugPrint('❌ خطأ في تحديث الأرباح: $e');
       return false;
     }
   }

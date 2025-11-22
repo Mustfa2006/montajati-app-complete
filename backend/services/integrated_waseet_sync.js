@@ -688,12 +688,20 @@ class IntegratedWaseetSync extends EventEmitter {
             const expectedAfter = Number(__after.expected_profits) || 0;
             const __changed = achievedAfter !== __profitGuardBefore.achieved || expectedAfter !== __profitGuardBefore.expected;
             if (__changed) {
-              console.warn(`🛡️ [SYNC] ProfitGuard: unexpected change detected after in-delivery sync update.`, {
+              console.warn(`🛡️ [SYNC] ProfitGuard: unexpected change detected after in-delivery sync update. Reverting.`, {
                 orderId: __orderId,
                 before: __profitGuardBefore,
                 after: { achieved: achievedAfter, expected: expectedAfter }
               });
-              console.warn(`🛡️ [SYNC] ProfitGuard: NO AUTO REVERT. Database trigger is the single source of truth for profits.`);
+              await this.supabase
+                .from('users')
+                .update({
+                  achieved_profits: __profitGuardBefore.achieved,
+                  expected_profits: __profitGuardBefore.expected,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('phone', __profitGuardUserPhone);
+              if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [SYNC] ProfitGuard: user profits reverted to snapshot for ${__profitGuardUserPhone}.`);
             }
           }
         } catch (pgErr2) {
@@ -713,12 +721,20 @@ class IntegratedWaseetSync extends EventEmitter {
               const expectedLater = Number(__later.expected_profits) || 0;
               const __lateChanged = achievedLater !== __profitGuardBefore.achieved || expectedLater !== __profitGuardBefore.expected;
               if (__lateChanged) {
-                console.warn(`🛡️ [SYNC] ProfitGuard (delayed): late change detected in user profits.`, {
+                console.warn(`🛡️ [SYNC] ProfitGuard (delayed): late change detected. Reverting now.`, {
                   orderId: __orderId,
                   before: __profitGuardBefore,
                   later: { achieved: achievedLater, expected: expectedLater }
                 });
-                console.warn(`🛡️ [SYNC] ProfitGuard (delayed): NO AUTO REVERT. Database trigger is the only authority for profits.`);
+                await this.supabase
+                  .from('users')
+                  .update({
+                    achieved_profits: __profitGuardBefore.achieved,
+                    expected_profits: __profitGuardBefore.expected,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('phone', __profitGuardUserPhone);
+                if (process.env.LOG_LEVEL === 'debug') console.log(`✅ [SYNC] ProfitGuard (delayed): user profits reverted for ${__profitGuardUserPhone}.`);
               }
             }
           } catch (pgErr3) {

@@ -41,10 +41,17 @@ class SmartProfitsManager {
     return status == 'نشط' ||
         status == 'تم تغيير محافظة الزبون' ||
         status == 'تغيير المندوب' ||
-        status == 'لا يرد' ||
+        status == 'قيد التوصيل الى الزبون (في عهدة المندوب)';
+  }
+
+  /// 🔴 الحالات الملغية (لا ربح)
+  static bool _isCancelledStatus(String status) {
+    return status == 'لا يرد' ||
         status == 'لا يرد بعد الاتفاق' ||
         status == 'مغلق' ||
         status == 'مغلق بعد الاتفاق' ||
+        status == 'الغاء الطلب' ||
+        status == 'رفض الطلب' ||
         status == 'مفصول عن الخدمة' ||
         status == 'طلب مكرر' ||
         status == 'مستلم مسبقا' ||
@@ -53,13 +60,7 @@ class SmartProfitsManager {
         status == 'لا يمكن الاتصال بالرقم' ||
         status == 'العنوان غير دقيق' ||
         status == 'لم يطلب' ||
-        status == 'حظر المندوب' ||
-        status == 'قيد التوصيل الى الزبون (في عهدة المندوب)';
-  }
-
-  /// 🔴 الحالات الملغية (لا ربح)
-  static bool _isCancelledStatus(String status) {
-    return status == 'الغاء الطلب' || status == 'رفض الطلب';
+        status == 'حظر المندوب';
   }
 
   /// 🟡 الحالات المؤجلة (ربح منتظر)
@@ -129,30 +130,43 @@ class SmartProfitsManager {
     }
   }
 
-  /// 🔄 تحديث أرباح المستخدم في قاعدة البيانات - ❌ معطلة: المصدر الوحيد هو التريجر في قاعدة البيانات
+  /// 🔄 تحديث أرباح المستخدم في قاعدة البيانات
   static Future<bool> updateUserProfitsInDatabase(
     String userPhone,
     double achievedProfits,
     double expectedProfits,
   ) async {
-    debugPrint(
-      '⚠️ [SmartProfitsManager] محاولة تحديث أرباح المستخدم يدويًا سيتم تجاهلها. النظام الجديد يعتمد على التريجر فقط.',
-    );
-    return false;
+    try {
+      debugPrint('💾 تحديث أرباح المستخدم في قاعدة البيانات:');
+      debugPrint('   📱 المستخدم: $userPhone');
+      debugPrint('   💰 الأرباح المحققة: $achievedProfits د.ع');
+      debugPrint('   📊 الأرباح المنتظرة: $expectedProfits د.ع');
+
+      await _supabase
+          .from('users')
+          .update({
+            'achieved_profits': achievedProfits,
+            'expected_profits': expectedProfits,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('phone', userPhone);
+
+      debugPrint('✅ تم تحديث الأرباح بنجاح');
+      return true;
+    } catch (e) {
+      debugPrint('❌ خطأ في تحديث الأرباح: $e');
+      return false;
+    }
   }
 
-  /// 🎯 إعادة حساب وتحديث أرباح المستخدم (دالة شاملة) - الآن للعرض والتحليل فقط
+  /// 🎯 إعادة حساب وتحديث أرباح المستخدم (دالة شاملة)
   static Future<bool> smartRecalculateAndUpdate(String userPhone) async {
     try {
-      // إعادة حساب الأرباح (للعرض فقط)
+      // إعادة حساب الأرباح
       final profits = await recalculateUserProfits(userPhone);
-      debugPrint(
-        'ℹ️ [SmartProfitsManager] smartRecalculateAndUpdate(): لن يتم حفظ النتائج في users. النظام الجديد يحسب الأرباح داخل قاعدة البيانات فقط.',
-      );
-      debugPrint(
-        '   💰 achieved_profits=${profits['achieved_profits']} د.ع, expected_profits=${profits['expected_profits']} د.ع',
-      );
-      return true;
+
+      // تحديث قاعدة البيانات
+      return await updateUserProfitsInDatabase(userPhone, profits['achieved_profits']!, profits['expected_profits']!);
     } catch (e) {
       debugPrint('❌ خطأ في العملية الشاملة: $e');
       return false;
