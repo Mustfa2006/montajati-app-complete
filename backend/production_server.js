@@ -21,6 +21,7 @@ const statisticsRoutes = require('./routes/statistics_simple');
 const uploadRoutes = require('./routes/upload');
 const usersRoutes = require('./routes/users');
 const targetedNotificationsRoutes = require('./routes/targeted_notifications');
+const competitionsRoutes = require('./routes/competitions');
 
 // استيراد الخدمات
 const OrderStatusSyncService = require('./sync/order_status_sync_service');
@@ -77,7 +78,7 @@ app.use(limiter);
 // إعدادات CORS
 // ===================================
 
-const allowedOrigins = process.env.CORS_ORIGINS 
+const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
   : ['http://localhost:3002', 'http://localhost:3000'];
 
@@ -85,7 +86,7 @@ app.use(cors({
   origin: function (origin, callback) {
     // السماح للطلبات بدون origin (مثل التطبيقات المحمولة)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -167,6 +168,7 @@ app.use('/api/statistics', statisticsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/notifications', targetedNotificationsRoutes);
+app.use('/api/competitions', competitionsRoutes);
 
 // ===================================
 // مسارات نظام التلغرام والمخزون
@@ -374,7 +376,7 @@ app.use((error, req, res, next) => {
 
   // عدم إظهار تفاصيل الأخطاء في الإنتاج
   const isDevelopment = process.env.NODE_ENV !== 'production';
-  
+
   res.status(error.status || 500).json({
     error: 'حدث خطأ في الخادم',
     message: isDevelopment ? error.message : 'خطأ داخلي في الخادم',
@@ -464,8 +466,8 @@ async function startServer() {
 
       // عرض الرابط الصحيح حسب البيئة
       if (process.env.NODE_ENV === 'production' && process.env.RENDER) {
-  console.log(`🌐 الرابط: https://montajati-official-backend-production.up.railway.app`);
-  console.log(`🔗 فحص الصحة: https://montajati-official-backend-production.up.railway.app/health`);
+        console.log(`🌐 الرابط: https://montajati-official-backend-production.up.railway.app`);
+        console.log(`🔗 فحص الصحة: https://montajati-official-backend-production.up.railway.app/health`);
       } else {
         console.log(`🌐 الرابط: http://localhost:${PORT}`);
         console.log(`🔗 فحص الصحة: http://localhost:${PORT}/health`);

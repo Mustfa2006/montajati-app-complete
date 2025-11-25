@@ -708,25 +708,35 @@ class UserManagementService {
     }
   }
 
-  // تحديث أرباح المستخدم
-  static Future<bool> updateUserProfits(String userId, double achievedProfits, double expectedProfits) async {
+  // تحديث أرباح المستخدم عبر دالة قاعدة البيانات الآمنة
+  static Future<bool> updateUserProfits(
+    String userId,
+    double achievedProfits,
+    double expectedProfits, {
+    String? reason,
+  }) async {
     try {
-      debugPrint('🔄 تحديث أرباح المستخدم: $userId');
+      debugPrint('🔄 تحديث أرباح المستخدم عبر admin_update_user_profits: $userId');
 
-      // يمكن إضافة جدول منفصل للأرباح أو تحديث في جدول المستخدمين
-      await _supabase
-          .from('users')
-          .update({
-            'achieved_profits': achievedProfits,
-            'expected_profits': expectedProfits,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', userId);
+      final result = await _supabase.rpc(
+        'admin_update_user_profits',
+        params: {
+          'p_user_id': userId,
+          'p_new_expected': expectedProfits,
+          'p_new_achieved': achievedProfits,
+          'p_reason': reason ?? 'Manual adjustment from admin panel',
+        },
+      );
 
-      debugPrint('✅ تم تحديث الأرباح');
-      return true;
+      if (result is Map && result['success'] == true) {
+        debugPrint('✅ تم تحديث الأرباح بنجاح (RPC)');
+        return true;
+      } else {
+        debugPrint('❌ فشل في تحديث الأرباح عبر RPC: $result');
+        return false;
+      }
     } catch (e) {
-      debugPrint('❌ خطأ في تحديث الأرباح: $e');
+      debugPrint('❌ خطأ في تحديث الأرباح عبر RPC: $e');
       return false;
     }
   }

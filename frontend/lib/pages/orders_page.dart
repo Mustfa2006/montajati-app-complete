@@ -96,6 +96,15 @@ class _OrdersPageState extends State<OrdersPage> {
   /// عدد محاولات إعادة الطلب (لا حد أقصى - إعادة محاولة مستمرة)
   int _retryCount = 0;
 
+  /// إغلاق Dialog التحميل بأمان في حال كان مفتوحاً
+  void _dismissLoadingDialogIfOpen() {
+    if (!mounted) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
   // ===================================
   // عدادات الطلبات حسب الحالة
   // ===================================
@@ -2103,6 +2112,7 @@ class _OrdersPageState extends State<OrdersPage> {
       showDialog(
         context: context,
         barrierDismissible: false,
+        useRootNavigator: true,
         builder: (context) => const Center(child: CircularProgressIndicator(color: Color(0xFFffd700))),
       );
 
@@ -2182,7 +2192,7 @@ class _OrdersPageState extends State<OrdersPage> {
       });
 
       // إخفاء مؤشر التحميل
-      if (mounted) Navigator.pop(context);
+      _dismissLoadingDialogIfOpen();
 
       // إظهار رسالة نجاح مع تحديد نوع الطلب
       if (mounted) {
@@ -2196,7 +2206,7 @@ class _OrdersPageState extends State<OrdersPage> {
       }
     } catch (e) {
       // إخفاء مؤشر التحميل
-      if (mounted) Navigator.pop(context);
+      _dismissLoadingDialogIfOpen();
 
       // إظهار رسالة خطأ محسنة
       if (mounted) {

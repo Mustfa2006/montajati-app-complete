@@ -13,6 +13,8 @@ import 'l10n/app_localizations.dart';
 import 'providers/order_status_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router.dart';
+import 'providers/competitions_provider.dart';
+
 import 'services/fcm_service.dart';
 import 'services/global_orders_cache.dart';
 import 'services/lazy_loading_service.dart';
@@ -82,6 +84,7 @@ void main() async {
         providers: [
           ChangeNotifierProvider(create: (_) => OrderStatusProvider()),
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider(create: (_) => CompetitionsProvider()..load()),
         ],
         child: const MontajatiApp(),
       ),

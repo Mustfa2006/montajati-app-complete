@@ -27,6 +27,8 @@ import 'scheduled_orders_test_page.dart';
 import 'settings_page.dart';
 import 'users_management_page.dart';
 
+import 'admin_competitions_page.dart';
+
 class AdvancedAdminDashboard extends StatefulWidget {
   const AdvancedAdminDashboard({super.key});
 
@@ -371,6 +373,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with Ti
       {'icon': Icons.notifications, 'title': 'الإشعارات', 'index': 5},
       {'icon': Icons.account_balance_wallet, 'title': 'المالية', 'index': 6},
       {'icon': Icons.analytics, 'title': 'التقارير', 'index': 7},
+      {'icon': Icons.emoji_events, 'title': 'المسابقات', 'index': 9},
       {'icon': Icons.settings, 'title': 'الإعدادات', 'index': 8},
     ];
 
@@ -460,6 +463,8 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with Ti
         return _buildReportsSection();
       case 8:
         return _buildSettingsSection();
+      case 9:
+        return const AdminCompetitionsPage();
       default:
         return _buildDashboardOverview();
     }
@@ -7551,6 +7556,7 @@ class _AdvancedAdminDashboardState extends State<AdvancedAdminDashboard> with Ti
       {'icon': Icons.shopping_cart, 'title': 'الطلبات', 'index': 1},
       {'icon': Icons.people, 'title': 'المستخدمين', 'index': 2},
       {'icon': Icons.inventory, 'title': 'المنتجات', 'index': 3},
+      {'icon': Icons.emoji_events, 'title': 'المسابقات', 'index': 9},
       {'icon': Icons.settings, 'title': 'الإعدادات', 'index': 8},
     ];
 

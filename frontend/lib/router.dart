@@ -5,8 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'core/design_system.dart';
 import 'pages/advanced_admin_dashboard.dart';
-import 'pages/battle_bracket_and_winner_pages.dart';
-import 'pages/battle_group_and_match_pages.dart';
+
 import 'pages/cart_page.dart';
 import 'pages/competitions_page.dart';
 import 'pages/edit_order_page.dart';
@@ -84,8 +83,8 @@ class AppRouter {
             currentIndex = 1; // الطلبات
           } else if (location.startsWith('/profits')) {
             currentIndex = 2; // الأرباح
-          } else if (location.startsWith('/competitions') || location.startsWith('/battle-arena')) {
-            currentIndex = 3; // المسابقات / ساحة المعركة
+          } else if (location.startsWith('/competitions')) {
+            currentIndex = 3; // المسابقات
           } else if (location.startsWith('/account')) {
             currentIndex = 4; // الحساب
           } else {
@@ -182,51 +181,6 @@ class AppRouter {
 
           // صفحة المسابقات
           GoRoute(path: '/competitions', name: 'competitions', builder: (context, state) => const CompetitionsPage()),
-
-          // صفحة ساحة المعركة (خريطة البطولة)
-          GoRoute(
-            path: '/battle-arena',
-            name: 'battle-arena',
-            builder: (context, state) => const TournamentBracketPage(),
-          ),
-
-          // صفحة مجموعة A/B
-          GoRoute(
-            path: '/battle-arena/group/:groupId',
-            name: 'battle-group',
-            builder: (context, state) {
-              final groupId = state.pathParameters['groupId'] ?? 'A';
-              return BattleGroupPage(groupId: groupId);
-            },
-          ),
-
-          // صفحة المباراة 1 ضد 1
-          GoRoute(
-            path: '/battle-arena/match',
-            name: 'battle-match',
-            builder: (context, state) => const BattleMatchPage(),
-          ),
-
-          // صفحة خريطة البطولة
-          GoRoute(
-            path: '/battle-arena/bracket',
-            name: 'battle-bracket',
-            builder: (context, state) => const TournamentBracketPage(),
-          ),
-
-          // صفحة الفائز النهائي
-          GoRoute(
-            path: '/battle-arena/winner',
-            name: 'battle-winner',
-            builder: (context, state) => const WinnerCelebrationPage(),
-          ),
-
-          // صفحة إعدادات نظام المسابقات
-          GoRoute(
-            path: '/battle-arena/settings',
-            name: 'battle-settings',
-            builder: (context, state) => const CompetitionSettingsPage(),
-          ),
 
           // صفحة الأرباح
           GoRoute(path: '/profits', name: 'profits', builder: (context, state) => const ProfitsPage()),

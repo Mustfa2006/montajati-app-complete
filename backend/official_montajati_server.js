@@ -444,6 +444,16 @@ class OfficialMontajatiServer {
       console.warn('⚠️ تحذير في تحميل مسارات المنتجات:', error.message);
     }
 
+    // مسارات المسابقات
+    try {
+      const competitionsRoutes = require('./routes/competitions');
+      this.app.use('/api/competitions', competitionsRoutes);
+      console.log('✅ تم تحميل مسارات المسابقات');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات المسابقات:', error.message);
+    }
+
+
     // مسارات المصادقة
     try {
       const authRoutes = require('./routes/auth');
