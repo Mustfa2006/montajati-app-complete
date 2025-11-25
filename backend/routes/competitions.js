@@ -51,7 +51,7 @@ router.get('/public', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('competitions')
-      .select('id, name, description, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
+      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
@@ -61,7 +61,12 @@ router.get('/public', async (req, res) => {
     const now = new Date();
     const filtered = (data || []).filter((c) => {
       const s = c.starts_at ? new Date(c.starts_at) : null;
-      const e = c.ends_at ? new Date(c.ends_at) : null;
+      let e = c.ends_at ? new Date(c.ends_at) : null;
+      // إذا لم يتم تحديد وقت النهاية (00:00:00.000)، اعتبر نهاية اليوم كاملة
+      if (e && e.getHours() === 0 && e.getMinutes() === 0 && e.getSeconds() === 0 && e.getMilliseconds() === 0) {
+        e = new Date(e.getTime());
+        e.setHours(23, 59, 59, 999);
+      }
       const afterStart = !s || s <= now;
       const beforeEnd = !e || e >= now;
       return afterStart && beforeEnd;
@@ -83,7 +88,7 @@ router.get('/', requireAdmin, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('competitions')
-      .select('id, name, description, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
+      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -122,7 +127,7 @@ router.post('/', requireAdmin, async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('competitions')
       .insert(payload)
-      .select('id, name, description, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
+      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
       .single();
 
     if (error) throw error;
@@ -156,7 +161,7 @@ router.patch('/:id', requireAdmin, async (req, res) => {
       .from('competitions')
       .update(payload)
       .eq('id', id)
-      .select('id, name, description, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
+      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
       .single();
 
     if (error) throw error;

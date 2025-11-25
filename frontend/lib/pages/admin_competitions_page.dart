@@ -86,7 +86,8 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
     );
     if (picked != null) {
       setState(() {
-        _endAt = DateTime(picked.year, picked.month, picked.day);
+        // اضبط النهاية لنهاية اليوم حتى تكون "إلى" شاملة لليوم المختار
+        _endAt = DateTime(picked.year, picked.month, picked.day, 23, 59, 59, 999);
         _endCtrl.text = _fmtDate(_endAt);
       });
     }
