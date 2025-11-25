@@ -10,6 +10,9 @@ import '../widgets/app_background.dart';
 import '../models/competition.dart';
 import '../providers/competitions_provider.dart';
 
+String _two(int n) => n.toString().padLeft(2, '0');
+String _fmtDate(DateTime? d) => d == null ? '-' : '${d.year}-${_two(d.month)}-${_two(d.day)}';
+
 class CompetitionsPage extends StatelessWidget {
   const CompetitionsPage({super.key});
 
@@ -90,15 +93,21 @@ class _CompetitionCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-
-                Text(
-                  competition.description,
-                  textAlign: TextAlign.right,
-                  style: GoogleFonts.cairo(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: ThemeColors.secondaryTextColor(isDark),
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Icon(Icons.event, size: 16, color: Colors.blueGrey),
+                    const SizedBox(width: 4),
+                    Text(
+                      'من: ${_fmtDate(competition.startsAt)} • إلى: ${_fmtDate(competition.endsAt)}',
+                      textAlign: TextAlign.right,
+                      style: GoogleFonts.cairo(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: ThemeColors.secondaryTextColor(isDark),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Row(

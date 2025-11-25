@@ -57,8 +57,16 @@ router.get('/public', async (req, res) => {
 
     if (error) throw error;
 
-    // Map product_name -> product to match frontend model
-    const mapped = (data || []).map((c) => ({
+    // Filter by date range and map product_name -> product
+    const now = new Date();
+    const filtered = (data || []).filter((c) => {
+      const s = c.starts_at ? new Date(c.starts_at) : null;
+      const e = c.ends_at ? new Date(c.ends_at) : null;
+      const afterStart = !s || s <= now;
+      const beforeEnd = !e || e >= now;
+      return afterStart && beforeEnd;
+    });
+    const mapped = filtered.map((c) => ({
       ...c,
       product: c.product_name,
     }));

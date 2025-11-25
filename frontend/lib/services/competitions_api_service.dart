@@ -35,13 +35,8 @@ class CompetitionsApiService {
   static Future<List<Competition>> fetchAllAdmin() async {
     try {
       final token = await AuthService.getToken();
-      final headers = {
-        ...ApiConfig.defaultHeaders,
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
-      final res = await http
-          .get(_u('/competitions'), headers: headers)
-          .timeout(ApiConfig.defaultTimeout);
+      final headers = {...ApiConfig.defaultHeaders, if (token != null) 'Authorization': 'Bearer $token'};
+      final res = await http.get(_u('/competitions'), headers: headers).timeout(ApiConfig.defaultTimeout);
       if (res.statusCode == 200) {
         final List data = json.decode(res.body)['data'] ?? json.decode(res.body);
         return data.map((e) => Competition.fromMap(e as Map<String, dynamic>)).cast<Competition>().toList();
@@ -58,21 +53,19 @@ class CompetitionsApiService {
   static Future<Competition?> createAdmin(Competition c) async {
     try {
       final token = await AuthService.getToken();
-      final headers = {
-        ...ApiConfig.defaultHeaders,
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
+      final headers = {...ApiConfig.defaultHeaders, if (token != null) 'Authorization': 'Bearer $token'};
       final res = await http
           .post(
             _u('/competitions'),
             headers: headers,
             body: json.encode({
               'name': c.name,
-              'description': c.description,
               'product_name': c.product,
               'prize': c.prize,
               'target': c.target,
               'completed': c.completed,
+              'starts_at': c.startsAt?.toIso8601String(),
+              'ends_at': c.endsAt?.toIso8601String(),
             }),
           )
           .timeout(ApiConfig.defaultTimeout);
@@ -92,21 +85,19 @@ class CompetitionsApiService {
   static Future<Competition?> updateAdmin(Competition c) async {
     try {
       final token = await AuthService.getToken();
-      final headers = {
-        ...ApiConfig.defaultHeaders,
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
+      final headers = {...ApiConfig.defaultHeaders, if (token != null) 'Authorization': 'Bearer $token'};
       final res = await http
           .patch(
             _u('/competitions/${c.id}'),
             headers: headers,
             body: json.encode({
               'name': c.name,
-              'description': c.description,
               'product_name': c.product,
               'prize': c.prize,
               'target': c.target,
               'completed': c.completed,
+              'starts_at': c.startsAt?.toIso8601String(),
+              'ends_at': c.endsAt?.toIso8601String(),
             }),
           )
           .timeout(ApiConfig.defaultTimeout);
@@ -126,13 +117,8 @@ class CompetitionsApiService {
   static Future<bool> deleteAdmin(String id) async {
     try {
       final token = await AuthService.getToken();
-      final headers = {
-        ...ApiConfig.defaultHeaders,
-        if (token != null) 'Authorization': 'Bearer $token',
-      };
-      final res = await http
-          .delete(_u('/competitions/$id'), headers: headers)
-          .timeout(ApiConfig.defaultTimeout);
+      final headers = {...ApiConfig.defaultHeaders, if (token != null) 'Authorization': 'Bearer $token'};
+      final res = await http.delete(_u('/competitions/$id'), headers: headers).timeout(ApiConfig.defaultTimeout);
       return res.statusCode == 200;
     } catch (e) {
       if (kDebugMode) debugPrint('❌ deleteAdmin error: $e');
@@ -140,4 +126,3 @@ class CompetitionsApiService {
     }
   }
 }
-
