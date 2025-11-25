@@ -24,7 +24,6 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
   final _productCtrl = TextEditingController();
   final _prizeCtrl = TextEditingController();
   final _targetCtrl = TextEditingController();
-  final _completedCtrl = TextEditingController();
 
   DateTime? _startAt;
   DateTime? _endAt;
@@ -47,7 +46,7 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
     _productCtrl.dispose();
     _prizeCtrl.dispose();
     _targetCtrl.dispose();
-    _completedCtrl.dispose();
+
     super.dispose();
   }
 
@@ -103,7 +102,6 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
     _productCtrl.text = existing?.product ?? '';
     _prizeCtrl.text = existing?.prize ?? '';
     _targetCtrl.text = existing?.target.toString() ?? '';
-    _completedCtrl.text = existing?.completed.toString() ?? '';
 
     showModalBottomSheet(
       context: context,
@@ -172,15 +170,6 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
                       Expanded(
                         child: _field(_targetCtrl, 'هدف الطلبات', icon: Icons.flag, keyboardType: TextInputType.number),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _field(
-                          _completedCtrl,
-                          'المنجز',
-                          icon: Icons.check_circle,
-                          keyboardType: TextInputType.number,
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -205,7 +194,6 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
                       onPressed: () async {
                         if (!_formKey.currentState!.validate()) return;
                         final target = int.tryParse(_targetCtrl.text.trim()) ?? 0;
-                        final completed = int.tryParse(_completedCtrl.text.trim()) ?? 0;
                         final provider = context.read<CompetitionsProvider>();
                         if (isEdit) {
                           final updated = Competition(
@@ -214,7 +202,7 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
                             startsAt: _startAt,
                             endsAt: _endAt,
                             product: _productCtrl.text.trim(),
-                            completed: completed,
+                            completed: 0,
                             target: target,
                             prize: _prizeCtrl.text.trim(),
                           );
@@ -226,7 +214,7 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
                               startsAt: _startAt,
                               endsAt: _endAt,
                               product: _productCtrl.text.trim(),
-                              completed: completed,
+                              completed: 0,
                               target: target,
                               prize: _prizeCtrl.text.trim(),
                             ),

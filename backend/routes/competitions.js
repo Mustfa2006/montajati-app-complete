@@ -3,6 +3,63 @@ const router = express.Router();
 
 const { supabase, supabaseAdmin } = require('../config/supabase');
 
+// Helpers to compute delivered count per competition
+function isDeliveredStatus(s) {
+  const t = (s || '').toString().toLowerCase();
+  return t.includes('delivered') || t.includes('تم التسليم');
+}
+
+async function computeDeliveredCount({ productName, startsAt, endsAt }) {
+  try {
+    // Build inclusive window: from start 00:00 up to end-of-next-day 23:59:59.999
+    const start = startsAt ? new Date(startsAt) : null;
+    const end = endsAt ? new Date(endsAt) : null;
+
+    let windowStart = start ? new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0) : new Date('2000-01-01T00:00:00.000Z');
+    let windowEnd = end
+      ? new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999)
+      : new Date('2100-01-01T23:59:59.999Z');
+    // include next day entirely as requested
+    windowEnd = new Date(windowEnd.getTime() + 24 * 60 * 60 * 1000);
+
+    // 1) Fetch status history within window, then filter to delivered
+    const { data: hist, error: histErr } = await supabaseAdmin
+      .from('order_status_history')
+      .select('order_id, new_status, created_at')
+      .gte('created_at', windowStart.toISOString())
+      .lte('created_at', windowEnd.toISOString());
+
+    if (histErr) throw histErr;
+
+    const deliveredOrderIds = new Set((hist || [])
+      .filter((h) => isDeliveredStatus(h.new_status))
+      .map((h) => h.order_id));
+
+    if (deliveredOrderIds.size === 0) return 0;
+
+    // 2) Filter by product via order_items
+    const ids = Array.from(deliveredOrderIds);
+    // Chunk to avoid URL length issues
+    const chunkSize = 500;
+    const found = new Set();
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const slice = ids.slice(i, i + chunkSize);
+      const { data: items, error: itemsErr } = await supabaseAdmin
+        .from('order_items')
+        .select('order_id, product_name')
+        .in('order_id', slice)
+        .eq('product_name', productName);
+      if (itemsErr) throw itemsErr;
+      (items || []).forEach((it) => found.add(it.order_id));
+    }
+
+    return found.size;
+  } catch (e) {
+    console.error('computeDeliveredCount error:', e.message);
+    return 0;
+  }
+}
+
 // Helpers
 function getToken(req) {
   const h = req.headers['authorization'] || '';
@@ -71,12 +128,20 @@ router.get('/public', async (req, res) => {
       const beforeEnd = !e || e >= now;
       return afterStart && beforeEnd;
     });
-    const mapped = filtered.map((c) => ({
-      ...c,
-      product: c.product_name,
-    }));
 
-    return res.json({ success: true, data: mapped });
+    // enrich with computed "completed" based on delivered orders for the product within [start .. end+1day]
+    const enriched = await Promise.all(
+      filtered.map(async (c) => {
+        const completed = await computeDeliveredCount({
+          productName: c.product_name,
+          startsAt: c.starts_at,
+          endsAt: c.ends_at,
+        });
+        return { ...c, product: c.product_name, completed };
+      })
+    );
+
+    return res.json({ success: true, data: enriched });
   } catch (e) {
     console.error('GET /public error:', e.message);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -93,12 +158,18 @@ router.get('/', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
-    const mapped = (data || []).map((c) => ({
-      ...c,
-      product: c.product_name,
-    }));
+    const enriched = await Promise.all(
+      (data || []).map(async (c) => {
+        const completed = await computeDeliveredCount({
+          productName: c.product_name,
+          startsAt: c.starts_at,
+          endsAt: c.ends_at,
+        });
+        return { ...c, product: c.product_name, completed };
+      })
+    );
 
-    return res.json({ success: true, data: mapped });
+    return res.json({ success: true, data: enriched });
   } catch (e) {
     console.error('GET /competitions error:', e.message);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -108,7 +179,7 @@ router.get('/', requireAdmin, async (req, res) => {
 // POST /api/competitions -> create (admin)
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { name, description, product_name, prize, target, completed, is_active, starts_at, ends_at } = req.body || {};
+    const { name, description, product_name, prize, target, is_active, starts_at, ends_at } = req.body || {};
 
     if (!name) return res.status(400).json({ success: false, message: 'name is required' });
 
@@ -118,7 +189,6 @@ router.post('/', requireAdmin, async (req, res) => {
       product_name: product_name || '',
       prize: prize || '',
       target: Number.isFinite(target) ? target : parseInt(target || 0, 10),
-      completed: Number.isFinite(completed) ? completed : parseInt(completed || 0, 10),
       is_active: typeof is_active === 'boolean' ? is_active : true,
       starts_at: starts_at || null,
       ends_at: ends_at || null,
@@ -144,7 +214,7 @@ router.post('/', requireAdmin, async (req, res) => {
 router.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, product_name, prize, target, completed, is_active, starts_at, ends_at } = req.body || {};
+    const { name, description, product_name, prize, target, is_active, starts_at, ends_at } = req.body || {};
 
     const payload = {};
     if (name !== undefined) payload.name = name;
@@ -152,7 +222,6 @@ router.patch('/:id', requireAdmin, async (req, res) => {
     if (product_name !== undefined) payload.product_name = product_name;
     if (prize !== undefined) payload.prize = prize;
     if (target !== undefined) payload.target = Number.isFinite(target) ? target : parseInt(target || 0, 10);
-    if (completed !== undefined) payload.completed = Number.isFinite(completed) ? completed : parseInt(completed || 0, 10);
     if (is_active !== undefined) payload.is_active = !!is_active;
     if (starts_at !== undefined) payload.starts_at = starts_at;
     if (ends_at !== undefined) payload.ends_at = ends_at;
