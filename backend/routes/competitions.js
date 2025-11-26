@@ -176,19 +176,11 @@ router.get('/public', async (req, res) => {
 
     if (error) throw error;
 
-    // Filter by date range and map product_name -> product
+    // لا نخفي المسابقات المنتهية؛ نظهر كل مسابقة بدأت (سواء مستمرة أو منتهية)
     const now = new Date();
     const filtered = (data || []).filter((c) => {
       const s = c.starts_at ? new Date(c.starts_at) : null;
-      let e = c.ends_at ? new Date(c.ends_at) : null;
-      // إذا لم يتم تحديد وقت النهاية (00:00:00.000)، اعتبر نهاية اليوم كاملة
-      if (e && e.getHours() === 0 && e.getMinutes() === 0 && e.getSeconds() === 0 && e.getMilliseconds() === 0) {
-        e = new Date(e.getTime());
-        e.setHours(23, 59, 59, 999);
-      }
-      const afterStart = !s || s <= now;
-      const beforeEnd = !e || e >= now;
-      return afterStart && beforeEnd;
+      return !s || s <= now; // بدأت بالفعل
     });
 
     // enrich with computed "completed" based on delivered orders for the product within [start .. end]
