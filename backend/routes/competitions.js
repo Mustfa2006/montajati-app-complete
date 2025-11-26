@@ -171,7 +171,6 @@ router.get('/public', async (req, res) => {
     const { data, error } = await supabase
       .from('competitions')
       .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
-      .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
