@@ -64,24 +64,45 @@ async function computeDeliveredCount({ productName, startsAt, endsAt }) {
 async function countCompetitionOrders(productId, startDate, endDate) {
   try {
     if (!productId) return 0;
-    const startIso = startDate ? new Date(startDate).toISOString() : null;
-    const endIso = endDate ? new Date(endDate).toISOString() : null;
 
-    let q = supabaseAdmin
-      .from('order_status_history')
-      .select('order_id, new_status, created_at');
-    if (startIso) q = q.gte('created_at', startIso);
-    if (endIso) q = q.lte('created_at', endIso);
-    // Arabic delivered phrase match (covers "تم التسليم" and variants containing it)
-    q = q.ilike('new_status', '%تم التسليم%');
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+    if (!start || !end) return 0;
 
-    const { data: hist, error: histErr } = await q;
-    if (histErr) throw histErr;
+    const startIso = start.toISOString();
+    const endIso = end.toISOString();
 
-    const deliveredIds = Array.from(new Set((hist || []).map((h) => h.order_id)));
-    if (deliveredIds.length === 0) return 0;
+    // 1) Orders created within the window
+    const { data: ordersInWindow, error: ordersErr } = await supabaseAdmin
+      .from('orders')
+      .select('id, created_at')
+      .gte('created_at', startIso)
+      .lte('created_at', endIso);
+    if (ordersErr) throw ordersErr;
 
+    const createdIds = Array.from(new Set((ordersInWindow || []).map((o) => o.id)));
+    if (createdIds.length === 0) return 0;
+
+    // 2) Those orders that reached "تم التسليم" within the window
     const chunk = 500;
+    const deliveredSet = new Set();
+    for (let i = 0; i < createdIds.length; i += chunk) {
+      const slice = createdIds.slice(i, i + chunk);
+      const { data: hist, error: histErr } = await supabaseAdmin
+        .from('order_status_history')
+        .select('order_id, new_status, created_at')
+        .in('order_id', slice)
+        .gte('created_at', startIso)
+        .lte('created_at', endIso)
+        .ilike('new_status', '%تم التسليم%');
+      if (histErr) throw histErr;
+      (hist || []).forEach((h) => deliveredSet.add(h.order_id));
+    }
+
+    if (deliveredSet.size === 0) return 0;
+
+    // 3) Intersect with items of the target product
+    const deliveredIds = Array.from(deliveredSet);
     const matched = new Set();
     for (let i = 0; i < deliveredIds.length; i += chunk) {
       const slice = deliveredIds.slice(i, i + chunk);
