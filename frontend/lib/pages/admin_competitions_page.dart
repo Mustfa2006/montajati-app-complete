@@ -27,11 +27,12 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
 
   DateTime? _startAt;
   DateTime? _endAt;
+  String _targetType = 'all';
+  List<Map<String, dynamic>> _selectedUsers = [];
 
   @override
   void initState() {
     super.initState();
-    // تحميل قائمة المسابقات (وضع إداري)
     final provider = context.read<CompetitionsProvider>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       provider.loadAdmin();
@@ -46,7 +47,6 @@ class _AdminCompetitionsPageState extends State<AdminCompetitionsPage> {
     _productCtrl.dispose();
     _prizeCtrl.dispose();
     _targetCtrl.dispose();
-
     super.dispose();
   }
 

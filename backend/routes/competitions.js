@@ -165,27 +165,39 @@ async function requireAdmin(req, res, next) {
   }
 }
 
-// GET /api/competitions/public -> active competitions for users
+// GET /api/competitions/public -> competitions for users (supports filter: all, mine)
 router.get('/public', async (req, res) => {
   try {
+    const token = getToken(req);
+    const userId = getUserIdFromLocalToken(token);
+    const filter = req.query.filter || 'all';
+
     const { data, error } = await supabaseAdmin
       .from('competitions')
-      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
+      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, target_type, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // لا نخفي المسابقات المنتهية؛ نظهر كل مسابقة بدأت (سواء مستمرة أو منتهية)
     const now = new Date();
-    const filtered = (data || []).filter((c) => {
+    let filtered = (data || []).filter((c) => {
       const s = c.starts_at ? new Date(c.starts_at) : null;
-      return !s || s <= now; // بدأت بالفعل
+      return !s || s <= now;
     });
 
-    // enrich with computed "completed" based on delivered orders for the product within [start .. end]
+    if (filter === 'all') {
+      filtered = filtered.filter((c) => c.target_type === 'all');
+    } else if (filter === 'mine' && userId) {
+      const { data: userComps } = await supabaseAdmin
+        .from('competition_users')
+        .select('competition_id')
+        .eq('user_id', userId);
+      const myCompIds = new Set((userComps || []).map((uc) => uc.competition_id));
+      filtered = filtered.filter((c) => c.target_type === 'specific' && myCompIds.has(c.id));
+    }
+
     const enriched = await Promise.all(
       filtered.map(async (c) => {
-        // resolve product id by name (fallback if competitions lack product_id)
         let productId = null;
         try {
           const { data: prodRows } = await supabaseAdmin
@@ -195,7 +207,6 @@ router.get('/public', async (req, res) => {
             .limit(1);
           if (Array.isArray(prodRows) && prodRows.length > 0) productId = prodRows[0].id;
         } catch (_) { }
-
         const s = c.starts_at ? new Date(c.starts_at).toISOString() : null;
         const e = c.ends_at ? new Date(c.ends_at).toISOString() : null;
         const completed = productId ? await countCompetitionOrders(productId, s, e) : 0;
@@ -215,7 +226,7 @@ router.get('/', requireAdmin, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('competitions')
-      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
+      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, target_type, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -234,7 +245,17 @@ router.get('/', requireAdmin, async (req, res) => {
         const s = c.starts_at ? new Date(c.starts_at).toISOString() : null;
         const e = c.ends_at ? new Date(c.ends_at).toISOString() : null;
         const completed = productId ? await countCompetitionOrders(productId, s, e) : 0;
-        return { ...c, product: c.product_name, product_id: productId, completed };
+
+        // جلب المستخدمين المخصصين لهذه المسابقة
+        let assignedUsers = [];
+        if (c.target_type === 'specific') {
+          const { data: cuRows } = await supabaseAdmin
+            .from('competition_users')
+            .select('user_id')
+            .eq('competition_id', c.id);
+          assignedUsers = (cuRows || []).map((r) => r.user_id);
+        }
+        return { ...c, product: c.product_name, product_id: productId, completed, assigned_user_ids: assignedUsers };
       })
     );
 
@@ -248,7 +269,7 @@ router.get('/', requireAdmin, async (req, res) => {
 // POST /api/competitions -> create (admin)
 router.post('/', requireAdmin, async (req, res) => {
   try {
-    const { name, description, product_name, prize, target, is_active, starts_at, ends_at } = req.body || {};
+    const { name, description, product_name, prize, target, is_active, starts_at, ends_at, target_type, user_ids } = req.body || {};
 
     if (!name) return res.status(400).json({ success: false, message: 'name is required' });
 
@@ -261,17 +282,24 @@ router.post('/', requireAdmin, async (req, res) => {
       is_active: typeof is_active === 'boolean' ? is_active : true,
       starts_at: starts_at || null,
       ends_at: ends_at || null,
+      target_type: target_type || 'all',
     };
 
     const { data, error } = await supabaseAdmin
       .from('competitions')
       .insert(payload)
-      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
+      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, target_type, created_at, updated_at')
       .single();
 
     if (error) throw error;
 
-    const mapped = { ...data, product: data.product_name };
+    // إضافة المستخدمين المحددين إذا كانت المسابقة مخصصة
+    if (data.target_type === 'specific' && Array.isArray(user_ids) && user_ids.length > 0) {
+      const cuRows = user_ids.map((uid) => ({ competition_id: data.id, user_id: uid }));
+      await supabaseAdmin.from('competition_users').insert(cuRows);
+    }
+
+    const mapped = { ...data, product: data.product_name, assigned_user_ids: user_ids || [] };
     return res.status(201).json({ success: true, data: mapped });
   } catch (e) {
     console.error('POST /competitions error:', e.message);
@@ -283,7 +311,7 @@ router.post('/', requireAdmin, async (req, res) => {
 router.patch('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, product_name, prize, target, is_active, starts_at, ends_at } = req.body || {};
+    const { name, description, product_name, prize, target, is_active, starts_at, ends_at, target_type, user_ids } = req.body || {};
 
     const payload = {};
     if (name !== undefined) payload.name = name;
@@ -294,17 +322,27 @@ router.patch('/:id', requireAdmin, async (req, res) => {
     if (is_active !== undefined) payload.is_active = !!is_active;
     if (starts_at !== undefined) payload.starts_at = starts_at;
     if (ends_at !== undefined) payload.ends_at = ends_at;
+    if (target_type !== undefined) payload.target_type = target_type;
 
     const { data, error } = await supabaseAdmin
       .from('competitions')
       .update(payload)
       .eq('id', id)
-      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
+      .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, target_type, created_at, updated_at')
       .single();
 
     if (error) throw error;
 
-    const mapped = { ...data, product: data.product_name };
+    // تحديث المستخدمين المحددين إذا تم إرسال user_ids
+    if (user_ids !== undefined) {
+      await supabaseAdmin.from('competition_users').delete().eq('competition_id', id);
+      if (data.target_type === 'specific' && Array.isArray(user_ids) && user_ids.length > 0) {
+        const cuRows = user_ids.map((uid) => ({ competition_id: id, user_id: uid }));
+        await supabaseAdmin.from('competition_users').insert(cuRows);
+      }
+    }
+
+    const mapped = { ...data, product: data.product_name, assigned_user_ids: user_ids || [] };
     return res.json({ success: true, data: mapped });
   } catch (e) {
     console.error('PATCH /competitions/:id error:', e.message);

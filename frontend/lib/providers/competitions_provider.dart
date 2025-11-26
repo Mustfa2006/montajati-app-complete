@@ -4,32 +4,65 @@ import '../models/competition.dart';
 import '../services/competitions_api_service.dart';
 
 class CompetitionsProvider with ChangeNotifier {
-  final List<Competition> _items = [];
+  final List<Competition> _allItems = [];
+  final List<Competition> _mineItems = [];
   bool _loaded = false;
+  String _currentFilter = 'all';
 
-  List<Competition> get competitions => List.unmodifiable(_items);
+  List<Competition> get competitions =>
+      _currentFilter == 'all' ? List.unmodifiable(_allItems) : List.unmodifiable(_mineItems);
+  List<Competition> get allCompetitions => List.unmodifiable(_allItems);
+  List<Competition> get myCompetitions => List.unmodifiable(_mineItems);
   bool get isLoaded => _loaded;
+  String get currentFilter => _currentFilter;
 
-  // تحميل عام (للمستخدمين): المسابقات النشطة فقط من الباك اند
-  Future<void> load() async {
+  void setFilter(String filter) {
+    if (_currentFilter != filter) {
+      _currentFilter = filter;
+      notifyListeners();
+    }
+  }
+
+  // تحميل للجميع
+  Future<void> loadAll() async {
     try {
-      final data = await CompetitionsApiService.fetchPublic();
-      _items
+      final data = await CompetitionsApiService.fetchPublic(filter: 'all');
+      _allItems
         ..clear()
         ..addAll(data);
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ Error loading public competitions: $e');
+      if (kDebugMode) debugPrint('❌ Error loading all competitions: $e');
     } finally {
       _loaded = true;
       notifyListeners();
     }
   }
 
+  // تحميل مسابقاتي
+  Future<void> loadMine() async {
+    try {
+      final data = await CompetitionsApiService.fetchPublic(filter: 'mine');
+      _mineItems
+        ..clear()
+        ..addAll(data);
+    } catch (e) {
+      if (kDebugMode) debugPrint('❌ Error loading my competitions: $e');
+    } finally {
+      _loaded = true;
+      notifyListeners();
+    }
+  }
+
+  // تحميل كلاهما
+  Future<void> load() async {
+    await Future.wait([loadAll(), loadMine()]);
+  }
+
   // تحميل إداري: كل المسابقات
   Future<void> loadAdmin() async {
     try {
       final data = await CompetitionsApiService.fetchAllAdmin();
-      _items
+      _allItems
         ..clear()
         ..addAll(data);
     } catch (e) {
@@ -55,7 +88,7 @@ class CompetitionsProvider with ChangeNotifier {
     try {
       final created = await CompetitionsApiService.createAdmin(c);
       if (created != null) {
-        _items.add(created);
+        _allItems.add(created);
         notifyListeners();
       }
     } catch (e) {
@@ -67,9 +100,9 @@ class CompetitionsProvider with ChangeNotifier {
     try {
       final updated = await CompetitionsApiService.updateAdmin(c);
       if (updated != null) {
-        final idx = _items.indexWhere((x) => x.id == updated.id);
+        final idx = _allItems.indexWhere((x) => x.id == updated.id);
         if (idx != -1) {
-          _items[idx] = updated;
+          _allItems[idx] = updated;
           notifyListeners();
         }
       }
@@ -82,7 +115,7 @@ class CompetitionsProvider with ChangeNotifier {
     try {
       final ok = await CompetitionsApiService.deleteAdmin(id);
       if (ok) {
-        _items.removeWhere((x) => x.id == id);
+        _allItems.removeWhere((x) => x.id == id);
         notifyListeners();
       }
     } catch (e) {
@@ -93,7 +126,7 @@ class CompetitionsProvider with ChangeNotifier {
   // Helpers
   Competition? getById(String id) {
     try {
-      return _items.firstWhere((x) => x.id == id);
+      return _allItems.firstWhere((x) => x.id == id);
     } catch (_) {
       return null;
     }

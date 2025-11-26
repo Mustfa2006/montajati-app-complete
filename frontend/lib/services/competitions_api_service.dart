@@ -13,11 +13,13 @@ class CompetitionsApiService {
     return Uri.parse(base).replace(queryParameters: q);
   }
 
-  // Public: list active competitions for users
-  static Future<List<Competition>> fetchPublic() async {
+  // Public: list competitions for users with filter (all or mine)
+  static Future<List<Competition>> fetchPublic({String filter = 'all'}) async {
     try {
+      final token = await AuthService.getToken();
+      final headers = {...ApiConfig.defaultHeaders, if (token != null) 'Authorization': 'Bearer $token'};
       final res = await http
-          .get(_u('/competitions/public'), headers: ApiConfig.defaultHeaders)
+          .get(_u('/competitions/public', {'filter': filter}), headers: headers)
           .timeout(ApiConfig.defaultTimeout);
       if (res.statusCode == 200) {
         final List data = json.decode(res.body)['data'] ?? json.decode(res.body);
@@ -65,6 +67,8 @@ class CompetitionsApiService {
               'target': c.target,
               'starts_at': c.startsAt?.toIso8601String(),
               'ends_at': c.endsAt?.toIso8601String(),
+              'target_type': c.targetType,
+              'user_ids': c.assignedUserIds,
             }),
           )
           .timeout(ApiConfig.defaultTimeout);
@@ -96,6 +100,8 @@ class CompetitionsApiService {
               'target': c.target,
               'starts_at': c.startsAt?.toIso8601String(),
               'ends_at': c.endsAt?.toIso8601String(),
+              'target_type': c.targetType,
+              'user_ids': c.assignedUserIds,
             }),
           )
           .timeout(ApiConfig.defaultTimeout);

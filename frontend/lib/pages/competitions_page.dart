@@ -16,13 +16,33 @@ String _fmtNumber(dynamic n) {
   return NumberFormat('#,###', 'en_US').format(value);
 }
 
-class CompetitionsPage extends StatelessWidget {
+String _fmtDate(DateTime? d) {
+  if (d == null) return '-';
+  return DateFormat('yyyy/MM/dd', 'ar').format(d);
+}
+
+class CompetitionsPage extends StatefulWidget {
   const CompetitionsPage({super.key});
+
+  @override
+  State<CompetitionsPage> createState() => _CompetitionsPageState();
+}
+
+class _CompetitionsPageState extends State<CompetitionsPage> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CompetitionsProvider>().load();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-    final competitions = context.watch<CompetitionsProvider>().competitions;
+    final provider = context.watch<CompetitionsProvider>();
+    final competitions = provider.competitions;
+    final currentFilter = provider.currentFilter;
 
     return AppBackground(
       child: Scaffold(
@@ -33,8 +53,13 @@ class CompetitionsPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
             children: [
               _buildHeader(isDark),
-              const SizedBox(height: 16),
-              ...competitions.map((c) => _CompetitionCard(competition: c, isDark: isDark)),
+              const SizedBox(height: 12),
+              _buildTabs(isDark, currentFilter, provider),
+              const SizedBox(height: 12),
+              if (competitions.isEmpty)
+                _buildEmptyState(isDark, currentFilter)
+              else
+                ...competitions.map((c) => _CompetitionCard(competition: c, isDark: isDark)),
             ],
           ),
         ),
@@ -78,7 +103,7 @@ class CompetitionsPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'مسابقاتي',
+                  'المسابقات',
                   style: GoogleFonts.cairo(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -98,6 +123,75 @@ class CompetitionsPage extends StatelessWidget {
             ),
           ),
           Icon(Icons.star, size: 20, color: const Color(0xFFFFD700).withValues(alpha: 0.7)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabs(bool isDark, String currentFilter, CompetitionsProvider provider) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: _buildTab(isDark, 'للجميع', 'all', currentFilter, provider)),
+          const SizedBox(width: 6),
+          Expanded(child: _buildTab(isDark, 'مسابقاتي', 'mine', currentFilter, provider)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTab(bool isDark, String label, String filter, String currentFilter, CompetitionsProvider provider) {
+    final isActive = currentFilter == filter;
+    return GestureDetector(
+      onTap: () => provider.setFilter(filter),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? (isDark ? Colors.white.withValues(alpha: 0.12) : Colors.white) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isActive
+              ? [BoxShadow(color: ThemeColors.shadowColor(isDark), blurRadius: 4, offset: const Offset(0, 2))]
+              : null,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.cairo(
+              fontSize: 13,
+              fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+              color: isActive ? ThemeColors.textColor(isDark) : ThemeColors.secondaryTextColor(isDark),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark, String filter) {
+    return Container(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        children: [
+          Icon(
+            Icons.emoji_events_outlined,
+            size: 64,
+            color: ThemeColors.secondaryTextColor(isDark).withValues(alpha: 0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            filter == 'all' ? 'لا توجد مسابقات عامة حالياً' : 'لا توجد مسابقات مخصصة لك',
+            style: GoogleFonts.cairo(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: ThemeColors.secondaryTextColor(isDark),
+            ),
+          ),
         ],
       ),
     );
@@ -132,7 +226,7 @@ class _CompetitionCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(color: ThemeColors.shadowColor(isDark), blurRadius: 8, offset: const Offset(0, 2)),
-            if (achieved) BoxShadow(color: const Color(0xFFFFD700).withValues(alpha: 0.2), blurRadius: 12),
+            if (achieved) BoxShadow(color: const Color(0xFFFFD700).withValues(alpha: 0.08), blurRadius: 6),
           ],
         ),
         clipBehavior: Clip.antiAlias,
@@ -154,7 +248,6 @@ class _CompetitionCard extends StatelessWidget {
               ),
             ),
             if (ended) const Positioned(top: 0, left: 0, child: _EndedChip()),
-            if (achieved && !ended) const Positioned(top: 0, right: 0, child: _AchievedChip()),
           ],
         ),
       ),
@@ -213,6 +306,21 @@ class _CompetitionCard extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Icon(Icons.event, size: 12, color: ThemeColors.secondaryTextColor(isDark)),
+            const SizedBox(width: 4),
+            Text(
+              'تنتهي: ${_fmtDate(competition.endsAt)}',
+              style: GoogleFonts.cairo(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: ThemeColors.secondaryTextColor(isDark),
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -265,58 +373,6 @@ class _EndedChipState extends State<_EndedChip> with SingleTickerProviderStateMi
           const SizedBox(width: 4),
           Text(
             'منتهية',
-            style: GoogleFonts.cairo(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AchievedChip extends StatefulWidget {
-  const _AchievedChip();
-
-  @override
-  State<_AchievedChip> createState() => _AchievedChipState();
-}
-
-class _AchievedChipState extends State<_AchievedChip> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFFFFD700), Color(0xFFFFA000)]),
-        borderRadius: const BorderRadius.only(topRight: Radius.circular(16), bottomLeft: Radius.circular(10)),
-        boxShadow: [BoxShadow(color: const Color(0xFFFFD700).withValues(alpha: 0.4), blurRadius: 6)],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedBuilder(
-            animation: _ctrl,
-            builder: (_, __) => Transform.scale(
-              scale: 0.9 + _ctrl.value * 0.15,
-              child: const Icon(Icons.emoji_events, size: 12, color: Colors.white),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'فائز',
             style: GoogleFonts.cairo(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
           ),
         ],
