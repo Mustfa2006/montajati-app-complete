@@ -53,17 +53,36 @@ router.get('/withdrawal-status', async (req, res) => {
   }
 });
 
-// الحصول على جميع المستخدمين (للأدمن فقط)
+// الحصول على جميع المستخدمين (للأدمن فقط) - مع pagination والبحث
 router.get('/', async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const search = req.query.search || '';
+    const offset = (page - 1) * limit;
+
+    let query = supabase
+      .from('users')
+      .select('id, name, phone, created_at', { count: 'exact' });
+
+    // البحث بالاسم أو الهاتف
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%`);
+    }
+
+    const { data: users, error, count } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
 
     res.status(200).json({
       success: true,
-      results: users.length,
-      data: {
-        users,
-      },
+      results: users?.length || 0,
+      total: count || 0,
+      page,
+      limit,
+      data: users || [],
     });
   } catch (error) {
     console.error('خطأ في الحصول على المستخدمين:', error);

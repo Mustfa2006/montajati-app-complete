@@ -174,28 +174,168 @@ class _CompetitionsPageState extends State<CompetitionsPage> {
   }
 
   Widget _buildEmptyState(bool isDark, String filter) {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        children: [
-          Icon(
-            Icons.emoji_events_outlined,
-            size: 64,
-            color: ThemeColors.secondaryTextColor(isDark).withValues(alpha: 0.5),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            filter == 'all' ? 'لا توجد مسابقات عامة حالياً' : 'لا توجد مسابقات مخصصة لك',
-            style: GoogleFonts.cairo(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: ThemeColors.secondaryTextColor(isDark),
+    final isMine = filter == 'mine';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AnimatedEmptyIcon(isDark: isDark, isMine: isMine),
+            const SizedBox(height: 24),
+            Text(
+              isMine ? 'لا توجد مسابقات مخصصة لك حالياً' : 'لا توجد مسابقات عامة حالياً',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w700, color: ThemeColors.textColor(isDark)),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              isMine ? 'ترقب! قد تُخصص لك مسابقة قريباً' : 'عد لاحقاً للاطلاع على المسابقات الجديدة',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.cairo(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: ThemeColors.secondaryTextColor(isDark),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _AnimatedEmptyIcon extends StatefulWidget {
+  final bool isDark;
+  final bool isMine;
+  const _AnimatedEmptyIcon({required this.isDark, required this.isMine});
+  @override
+  State<_AnimatedEmptyIcon> createState() => _AnimatedEmptyIconState();
+}
+
+class _AnimatedEmptyIconState extends State<_AnimatedEmptyIcon> with TickerProviderStateMixin {
+  late AnimationController _rotateCtrl;
+  late AnimationController _bounceCtrl;
+  late AnimationController _pulseCtrl;
+  late Animation<double> _rotateAnim;
+  late Animation<double> _bounceAnim;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _rotateCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 6))..repeat();
+    _bounceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat(reverse: true);
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000))..repeat(reverse: true);
+    _rotateAnim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _rotateCtrl, curve: Curves.linear));
+    _bounceAnim = Tween<double>(
+      begin: 0,
+      end: 12,
+    ).animate(CurvedAnimation(parent: _bounceCtrl, curve: Curves.easeInOut));
+    _pulseAnim = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _rotateCtrl.dispose();
+    _bounceCtrl.dispose();
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = widget.isMine ? const Color(0xFF6366F1) : const Color(0xFFFFD700);
+    return AnimatedBuilder(
+      animation: Listenable.merge([_rotateAnim, _bounceAnim, _pulseAnim]),
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, -_bounceAnim.value),
+          child: Transform.scale(
+            scale: _pulseAnim.value,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [baseColor.withValues(alpha: 0.15), baseColor.withValues(alpha: 0.05), Colors.transparent],
+                ),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Rotating ring
+                  Transform.rotate(
+                    angle: _rotateAnim.value * 6.28,
+                    child: Container(
+                      width: 90,
+                      height: 90,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: baseColor.withValues(alpha: 0.3),
+                          width: 2,
+                          strokeAlign: BorderSide.strokeAlignOutside,
+                        ),
+                      ),
+                      child: CustomPaint(painter: _DashedCirclePainter(color: baseColor)),
+                    ),
+                  ),
+                  // Inner glow
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(colors: [baseColor.withValues(alpha: 0.2), Colors.transparent]),
+                    ),
+                  ),
+                  // Icon
+                  Icon(
+                    widget.isMine ? Icons.person_outline_rounded : Icons.emoji_events_outlined,
+                    size: 48,
+                    color: baseColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DashedCirclePainter extends CustomPainter {
+  final Color color;
+  _DashedCirclePainter({required this.color});
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    const dashCount = 12;
+    final radius = size.width / 2;
+    for (var i = 0; i < dashCount; i++) {
+      final startAngle = (i * 2 * 3.14159) / dashCount;
+      const sweepAngle = 3.14159 / dashCount;
+      canvas.drawArc(
+        Rect.fromCircle(center: Offset(radius, radius), radius: radius),
+        startAngle,
+        sweepAngle,
+        false,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _CompetitionCard extends StatelessWidget {
