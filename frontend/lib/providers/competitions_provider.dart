@@ -41,12 +41,14 @@ class CompetitionsProvider with ChangeNotifier {
   // تحميل مسابقاتي
   Future<void> loadMine() async {
     try {
+      debugPrint('🔄 loadMine() called');
       final data = await CompetitionsApiService.fetchPublic(filter: 'mine');
+      debugPrint('📦 loadMine() received ${data.length} items');
       _mineItems
         ..clear()
         ..addAll(data);
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ Error loading my competitions: $e');
+      debugPrint('❌ Error loading my competitions: $e');
     } finally {
       _loaded = true;
       notifyListeners();
@@ -55,6 +57,7 @@ class CompetitionsProvider with ChangeNotifier {
 
   // تحميل كلاهما
   Future<void> load() async {
+    debugPrint('🚀 load() - loading both all and mine competitions');
     await Future.wait([loadAll(), loadMine()]);
   }
 

@@ -180,12 +180,16 @@ router.get('/public', async (req, res) => {
     const userId = getUserIdFromLocalToken(token);
     const filter = req.query.filter || 'all';
 
+    console.log(`🔍 /public filter=${filter}, userId=${userId}, token=${token ? 'exists' : 'null'}`);
+
     const { data, error } = await supabaseAdmin
       .from('competitions')
       .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, target_type, created_at, updated_at')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+
+    console.log(`📦 Found ${(data || []).length} total competitions`);
 
     const now = new Date();
     let filtered = (data || []).filter((c) => {
@@ -196,12 +200,17 @@ router.get('/public', async (req, res) => {
     if (filter === 'all') {
       filtered = filtered.filter((c) => c.target_type === 'all');
     } else if (filter === 'mine' && userId) {
-      const { data: userComps } = await supabaseAdmin
+      const { data: userComps, error: ucErr } = await supabaseAdmin
         .from('competition_users')
         .select('competition_id')
         .eq('user_id', userId);
+      console.log(`👤 competition_users for userId=${userId}:`, userComps, ucErr);
       const myCompIds = new Set((userComps || []).map((uc) => uc.competition_id));
-      filtered = filtered.filter((c) => c.target_type === 'specific' && myCompIds.has(c.id));
+      console.log(`🎯 myCompIds:`, Array.from(myCompIds));
+      const specificComps = filtered.filter((c) => c.target_type === 'specific');
+      console.log(`📋 Specific competitions:`, specificComps.map(c => ({ id: c.id, name: c.name })));
+      filtered = specificComps.filter((c) => myCompIds.has(c.id));
+      console.log(`✅ Filtered mine:`, filtered.length);
     }
 
     const enriched = await Promise.all(

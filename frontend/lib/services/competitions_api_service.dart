@@ -17,18 +17,21 @@ class CompetitionsApiService {
   static Future<List<Competition>> fetchPublic({String filter = 'all'}) async {
     try {
       final token = await AuthService.getToken();
+      debugPrint('🔍 fetchPublic filter=$filter, token=${token != null ? "exists" : "null"}');
       final headers = {...ApiConfig.defaultHeaders, if (token != null) 'Authorization': 'Bearer $token'};
       final res = await http
           .get(_u('/competitions/public', {'filter': filter}), headers: headers)
           .timeout(ApiConfig.defaultTimeout);
+      debugPrint('📥 fetchPublic response: ${res.statusCode} - ${res.body}');
       if (res.statusCode == 200) {
         final List data = json.decode(res.body)['data'] ?? json.decode(res.body);
+        debugPrint('📊 fetchPublic found ${data.length} competitions');
         return data.map((e) => Competition.fromMap(e as Map<String, dynamic>)).cast<Competition>().toList();
       }
-      if (kDebugMode) debugPrint('⚠️ fetchPublic status ${res.statusCode}: ${res.body}');
+      debugPrint('⚠️ fetchPublic status ${res.statusCode}: ${res.body}');
       return [];
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ fetchPublic error: $e');
+      debugPrint('❌ fetchPublic error: $e');
       return [];
     }
   }
