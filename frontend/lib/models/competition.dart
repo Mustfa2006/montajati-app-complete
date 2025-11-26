@@ -4,6 +4,7 @@ class Competition {
   final String id; // معرّف محلي بسيط
   String name;
   String product;
+  String? productId; // معرّف المنتج للانتقال لصفحة التفاصيل
   int completed; // عدد الطلبات المنجزة
   int target; // هدف الطلبات
   String prize; // قيمة الجائزة (نص)
@@ -14,6 +15,7 @@ class Competition {
     required this.id,
     required this.name,
     required this.product,
+    this.productId,
     required this.completed,
     required this.target,
     required this.prize,
@@ -47,6 +49,7 @@ class Competition {
     'id': id,
     'name': name,
     'product': product,
+    'product_id': productId,
     'completed': completed,
     'target': target,
     'prize': prize,
@@ -65,6 +68,7 @@ class Competition {
     id: map['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
     name: map['name'] ?? '',
     product: map['product'] ?? '',
+    productId: map['product_id']?.toString(),
     completed: (map['completed'] is int)
         ? map['completed'] as int
         : int.tryParse(map['completed']?.toString() ?? '0') ?? 0,

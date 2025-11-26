@@ -199,7 +199,7 @@ router.get('/public', async (req, res) => {
         const s = c.starts_at ? new Date(c.starts_at).toISOString() : null;
         const e = c.ends_at ? new Date(c.ends_at).toISOString() : null;
         const completed = productId ? await countCompetitionOrders(productId, s, e) : 0;
-        return { ...c, product: c.product_name, completed };
+        return { ...c, product: c.product_name, product_id: productId, completed };
       })
     );
 
@@ -234,7 +234,7 @@ router.get('/', requireAdmin, async (req, res) => {
         const s = c.starts_at ? new Date(c.starts_at).toISOString() : null;
         const e = c.ends_at ? new Date(c.ends_at).toISOString() : null;
         const completed = productId ? await countCompetitionOrders(productId, s, e) : 0;
-        return { ...c, product: c.product_name, completed };
+        return { ...c, product: c.product_name, product_id: productId, completed };
       })
     );
 
