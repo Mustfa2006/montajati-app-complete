@@ -55,31 +55,31 @@ class CompetitionsApiService {
   static Future<Competition?> createAdmin(Competition c) async {
     try {
       final token = await AuthService.getToken();
+      debugPrint('🔐 createAdmin token: ${token != null ? "exists" : "null"}');
       final headers = {...ApiConfig.defaultHeaders, if (token != null) 'Authorization': 'Bearer $token'};
+      final bodyData = {
+        'name': c.name,
+        'product_name': c.product,
+        'prize': c.prize,
+        'target': c.target,
+        'starts_at': c.startsAt?.toIso8601String(),
+        'ends_at': c.endsAt?.toIso8601String(),
+        'target_type': c.targetType,
+        'user_ids': c.assignedUserIds,
+      };
+      debugPrint('📤 createAdmin body: $bodyData');
       final res = await http
-          .post(
-            _u('/competitions'),
-            headers: headers,
-            body: json.encode({
-              'name': c.name,
-              'product_name': c.product,
-              'prize': c.prize,
-              'target': c.target,
-              'starts_at': c.startsAt?.toIso8601String(),
-              'ends_at': c.endsAt?.toIso8601String(),
-              'target_type': c.targetType,
-              'user_ids': c.assignedUserIds,
-            }),
-          )
+          .post(_u('/competitions'), headers: headers, body: json.encode(bodyData))
           .timeout(ApiConfig.defaultTimeout);
+      debugPrint('📥 createAdmin response: ${res.statusCode} - ${res.body}');
       if (res.statusCode == 200 || res.statusCode == 201) {
         final Map<String, dynamic> data = json.decode(res.body)['data'] ?? json.decode(res.body);
         return Competition.fromMap(data);
       }
-      if (kDebugMode) debugPrint('⚠️ createAdmin status ${res.statusCode}: ${res.body}');
+      debugPrint('⚠️ createAdmin status ${res.statusCode}: ${res.body}');
       return null;
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ createAdmin error: $e');
+      debugPrint('❌ createAdmin error: $e');
       return null;
     }
   }

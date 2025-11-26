@@ -61,7 +61,8 @@ async function computeDeliveredCount({ productName, startsAt, endsAt }) {
 }
 
 // Count delivered orders for a product within [startDate..endDate]
-async function countCompetitionOrders(productId, startDate, endDate) {
+// userId is optional - if provided, only count orders for that user
+async function countCompetitionOrders(productId, startDate, endDate, userId = null) {
   try {
     if (!productId) return 0;
 
@@ -73,11 +74,18 @@ async function countCompetitionOrders(productId, startDate, endDate) {
     const endIso = end.toISOString();
 
     // 1) Orders created within the window
-    const { data: ordersInWindow, error: ordersErr } = await supabaseAdmin
+    let ordersQuery = supabaseAdmin
       .from('orders')
       .select('id, created_at')
       .gte('created_at', startIso)
       .lte('created_at', endIso);
+
+    // If userId is provided, filter by user
+    if (userId) {
+      ordersQuery = ordersQuery.eq('user_id', userId);
+    }
+
+    const { data: ordersInWindow, error: ordersErr } = await ordersQuery;
     if (ordersErr) throw ordersErr;
 
     const createdIds = Array.from(new Set((ordersInWindow || []).map((o) => o.id)));
@@ -209,7 +217,9 @@ router.get('/public', async (req, res) => {
         } catch (_) { }
         const s = c.starts_at ? new Date(c.starts_at).toISOString() : null;
         const e = c.ends_at ? new Date(c.ends_at).toISOString() : null;
-        const completed = productId ? await countCompetitionOrders(productId, s, e) : 0;
+        // For specific competitions, count only the current user's orders
+        const targetUserId = c.target_type === 'specific' ? userId : null;
+        const completed = productId ? await countCompetitionOrders(productId, s, e, targetUserId) : 0;
         return { ...c, product: c.product_name, product_id: productId, completed };
       })
     );

@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 
 import '../models/competition.dart';
 import '../providers/competitions_provider.dart';
@@ -640,12 +641,13 @@ class _UserPickerSheetState extends State<_UserPickerSheet> {
   final _searchCtrl = TextEditingController();
   final _scroll = ScrollController();
   final int _limit = 20;
-  final List<Map<String, dynamic>> _items = [];
-  List<Map<String, dynamic>> _filtered = [];
+  List<Map<String, dynamic>> _items = [];
   late List<Map<String, dynamic>> _selected;
   bool _loading = true;
   bool _hasMore = true;
   int _page = 1;
+  String _currentSearch = '';
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -653,14 +655,29 @@ class _UserPickerSheetState extends State<_UserPickerSheet> {
     _selected = List.from(widget.selectedUsers);
     _load();
     _scroll.addListener(_onScroll);
-    _searchCtrl.addListener(_applyFilter);
+    _searchCtrl.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _scroll.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      final q = _searchCtrl.text.trim();
+      if (q != _currentSearch) {
+        _currentSearch = q;
+        _items = [];
+        _page = 1;
+        _hasMore = true;
+        _load();
+      }
+    });
   }
 
   void _onScroll() {
@@ -672,33 +689,26 @@ class _UserPickerSheetState extends State<_UserPickerSheet> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final uri = Uri.parse(
-        '${ApiConfig.apiUrl}/users',
-      ).replace(queryParameters: {'page': '$_page', 'limit': '$_limit'});
-      final res = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(ApiConfig.defaultTimeout);
-      final body = json.decode(res.body);
-      final List raw = (body['data'] as List?) ?? [];
-      final bool more = raw.length >= _limit;
-      for (var u in raw) {
-        _items.add(Map<String, dynamic>.from(u));
+      final params = {'page': '$_page', 'limit': '$_limit'};
+      if (_currentSearch.isNotEmpty) {
+        params['search'] = _currentSearch;
       }
-      _page++;
-      _hasMore = more;
-      _applyFilter();
-    } catch (_) {}
+      final uri = Uri.parse('${ApiConfig.apiUrl}/users').replace(queryParameters: params);
+      final res = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(ApiConfig.defaultTimeout);
+      if (res.statusCode == 200) {
+        final body = json.decode(res.body);
+        final List raw = (body['data'] as List?) ?? [];
+        final bool more = raw.length >= _limit;
+        for (var u in raw) {
+          _items.add(Map<String, dynamic>.from(u));
+        }
+        _page++;
+        _hasMore = more;
+      }
+    } catch (e) {
+      debugPrint('Error loading users: $e');
+    }
     if (mounted) setState(() => _loading = false);
-  }
-
-  void _applyFilter() {
-    final q = _searchCtrl.text.trim().toLowerCase();
-    _filtered = q.isEmpty
-        ? List.from(_items)
-        : _items.where((u) {
-            final name = (u['name'] ?? '').toString().toLowerCase();
-            final phone = (u['phone'] ?? '').toString().toLowerCase();
-            return name.contains(q) || phone.contains(q);
-          }).toList();
-    if (mounted) setState(() {});
   }
 
   bool _isSelected(Map<String, dynamic> u) => _selected.any((s) => s['id'] == u['id']);
@@ -746,11 +756,11 @@ class _UserPickerSheetState extends State<_UserPickerSheet> {
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.separated(
                       controller: _scroll,
-                      itemCount: _filtered.length + (_hasMore ? 1 : 0),
+                      itemCount: _items.length + (_hasMore ? 1 : 0),
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (ctx, i) {
-                        if (i < _filtered.length) {
-                          final u = _filtered[i];
+                        if (i < _items.length) {
+                          final u = _items[i];
                           final selected = _isSelected(u);
                           return CheckboxListTile(
                             value: selected,

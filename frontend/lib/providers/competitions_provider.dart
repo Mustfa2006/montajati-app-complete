@@ -86,13 +86,17 @@ class CompetitionsProvider with ChangeNotifier {
   // CRUD عبر الباك اند (يتطلب صلاحيات للمشرف)
   Future<void> addCompetition(Competition c) async {
     try {
+      debugPrint('📤 addCompetition: name=${c.name}, targetType=${c.targetType}, userIds=${c.assignedUserIds}');
       final created = await CompetitionsApiService.createAdmin(c);
+      debugPrint('📥 addCompetition result: ${created?.id}');
       if (created != null) {
         _allItems.add(created);
         notifyListeners();
+      } else {
+        debugPrint('⚠️ addCompetition: created is null');
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('❌ addCompetition error: $e');
+      debugPrint('❌ addCompetition error: $e');
     }
   }
 
