@@ -168,7 +168,7 @@ async function requireAdmin(req, res, next) {
 // GET /api/competitions/public -> active competitions for users
 router.get('/public', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('competitions')
       .select('id, name, product_name, prize, target, completed, is_active, starts_at, ends_at, created_at, updated_at')
       .order('created_at', { ascending: false });
