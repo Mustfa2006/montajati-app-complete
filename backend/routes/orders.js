@@ -101,7 +101,7 @@ function validateOrderData(data) {
   if (!data.customer_name || typeof data.customer_name !== 'string' || data.customer_name.trim().length === 0) {
     errors.push('اسم العميل مطلوب وصحيح');
   }
-  if (!data.customer_phone || typeof data.customer_phone !== 'string' || data.customer_phone.trim().length === 0) {
+  if (!data.primary_phone || typeof data.primary_phone !== 'string' || data.primary_phone.trim().length === 0) {
     errors.push('رقم هاتف العميل مطلوب');
   }
   if (!data.user_phone || typeof data.user_phone !== 'string' || data.user_phone.trim().length === 0) {
