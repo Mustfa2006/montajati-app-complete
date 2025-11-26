@@ -60,6 +60,47 @@ async function computeDeliveredCount({ productName, startsAt, endsAt }) {
   }
 }
 
+// Count delivered orders for a product within [startDate..endDate]
+async function countCompetitionOrders(productId, startDate, endDate) {
+  try {
+    if (!productId) return 0;
+    const startIso = startDate ? new Date(startDate).toISOString() : null;
+    const endIso = endDate ? new Date(endDate).toISOString() : null;
+
+    let q = supabaseAdmin
+      .from('order_status_history')
+      .select('order_id, new_status, created_at');
+    if (startIso) q = q.gte('created_at', startIso);
+    if (endIso) q = q.lte('created_at', endIso);
+    // Arabic delivered phrase match (covers "تم التسليم" and variants containing it)
+    q = q.ilike('new_status', '%تم التسليم%');
+
+    const { data: hist, error: histErr } = await q;
+    if (histErr) throw histErr;
+
+    const deliveredIds = Array.from(new Set((hist || []).map((h) => h.order_id)));
+    if (deliveredIds.length === 0) return 0;
+
+    const chunk = 500;
+    const matched = new Set();
+    for (let i = 0; i < deliveredIds.length; i += chunk) {
+      const slice = deliveredIds.slice(i, i + chunk);
+      const { data: items, error: itemsErr } = await supabaseAdmin
+        .from('order_items')
+        .select('order_id')
+        .in('order_id', slice)
+        .eq('product_id', productId);
+      if (itemsErr) throw itemsErr;
+      (items || []).forEach((it) => matched.add(it.order_id));
+    }
+
+    return matched.size;
+  } catch (e) {
+    console.error('countCompetitionOrders error:', e.message);
+    return 0;
+  }
+}
+
 // Helpers
 function getToken(req) {
   const h = req.headers['authorization'] || '';
@@ -129,14 +170,23 @@ router.get('/public', async (req, res) => {
       return afterStart && beforeEnd;
     });
 
-    // enrich with computed "completed" based on delivered orders for the product within [start .. end+1day]
+    // enrich with computed "completed" based on delivered orders for the product within [start .. end]
     const enriched = await Promise.all(
       filtered.map(async (c) => {
-        const completed = await computeDeliveredCount({
-          productName: c.product_name,
-          startsAt: c.starts_at,
-          endsAt: c.ends_at,
-        });
+        // resolve product id by name (fallback if competitions lack product_id)
+        let productId = null;
+        try {
+          const { data: prodRows } = await supabaseAdmin
+            .from('products')
+            .select('id')
+            .eq('name', c.product_name)
+            .limit(1);
+          if (Array.isArray(prodRows) && prodRows.length > 0) productId = prodRows[0].id;
+        } catch (_) { }
+
+        const s = c.starts_at ? new Date(c.starts_at).toISOString() : null;
+        const e = c.ends_at ? new Date(c.ends_at).toISOString() : null;
+        const completed = productId ? await countCompetitionOrders(productId, s, e) : 0;
         return { ...c, product: c.product_name, completed };
       })
     );
@@ -160,11 +210,18 @@ router.get('/', requireAdmin, async (req, res) => {
 
     const enriched = await Promise.all(
       (data || []).map(async (c) => {
-        const completed = await computeDeliveredCount({
-          productName: c.product_name,
-          startsAt: c.starts_at,
-          endsAt: c.ends_at,
-        });
+        let productId = null;
+        try {
+          const { data: prodRows } = await supabaseAdmin
+            .from('products')
+            .select('id')
+            .eq('name', c.product_name)
+            .limit(1);
+          if (Array.isArray(prodRows) && prodRows.length > 0) productId = prodRows[0].id;
+        } catch (_) { }
+        const s = c.starts_at ? new Date(c.starts_at).toISOString() : null;
+        const e = c.ends_at ? new Date(c.ends_at).toISOString() : null;
+        const completed = productId ? await countCompetitionOrders(productId, s, e) : 0;
         return { ...c, product: c.product_name, completed };
       })
     );

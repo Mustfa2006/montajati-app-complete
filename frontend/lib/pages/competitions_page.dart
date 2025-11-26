@@ -99,11 +99,11 @@ class _CompetitionCard extends StatelessWidget {
                     const Icon(Icons.event, size: 16, color: Colors.blueGrey),
                     const SizedBox(width: 4),
                     Text(
-                      'من: ${_fmtDate(competition.startsAt)} • إلى: ${_fmtDate(competition.endsAt)}',
+                      '${_fmtDate(competition.startsAt)} → ${_fmtDate(competition.endsAt)}',
                       textAlign: TextAlign.right,
                       style: GoogleFonts.cairo(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: ThemeColors.secondaryTextColor(isDark),
                       ),
                     ),
