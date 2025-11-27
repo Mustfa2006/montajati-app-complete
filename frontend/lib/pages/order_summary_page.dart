@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order_item.dart';
 import '../models/scheduled_order.dart';
@@ -34,6 +33,8 @@ class OrderSummaryPage extends StatefulWidget {
 
 class _OrderSummaryPageState extends State<OrderSummaryPage> {
   bool _isProcessing = false;
+  String _processingStatus = ''; // حالة الإرسال للعرض
+  int _currentAttempt = 0; // المحاولة الحالية
 
   /// الحصول على معرف المحافظة بناءً على اسم المحافظة
   String? _getProvinceId(String? provinceName) {
@@ -623,7 +624,28 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
             ),
             child: Center(
               child: _isProcessing
-                  ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.black54, strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            _processingStatus.isNotEmpty
+                                ? (_currentAttempt > 1
+                                      ? '$_processingStatus (المحاولة $_currentAttempt)'
+                                      : _processingStatus)
+                                : 'جاري إرسال الطلب...',
+                            style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black54),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    )
                   : Text(
                       _orderConfirmed ? 'تم تأكيد طلبك بالفعل ❤️' : 'تأكيد الطلب',
                       style: GoogleFonts.cairo(
@@ -776,58 +798,81 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     });
   }
 
-  // ⚠️ إظهار رسالة تحذير Timeout
-  void _showTimeoutWarning() {
-    debugPrint('⏰ إظهار رسالة تحذير Timeout');
+  // ❌ إظهار أنيميشن الخطأ مع رسالة مفصلة
+  void _showErrorAnimationWithMessage(String errorMessage) {
+    debugPrint('🎬 بدء عرض أنيميشن الخطأ مع رسالة: $errorMessage');
 
     if (!mounted) {
-      debugPrint('⚠️ الصفحة لم تعد موجودة');
+      debugPrint('⚠️ الصفحة لم تعد موجودة - لن يتم إظهار الأنيميشن');
       return;
+    }
+
+    // تحديد رسالة مناسبة للمستخدم
+    String userMessage = 'حدث خطأ أثناء إنشاء الطلب';
+    if (errorMessage.contains('timeout') || errorMessage.contains('مهلة')) {
+      userMessage = 'الإنترنت بطيء جداً - يرجى المحاولة مرة أخرى';
+    } else if (errorMessage.contains('network') ||
+        errorMessage.contains('fetch') ||
+        errorMessage.contains('connection')) {
+      userMessage = 'لا يوجد اتصال بالإنترنت - يرجى التحقق من الاتصال';
+    } else if (errorMessage.contains('server') || errorMessage.contains('500')) {
+      userMessage = 'خطأ في الخادم - يرجى المحاولة لاحقاً';
     }
 
     showDialog(
       context: context,
       barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 32),
-            SizedBox(width: 12),
-            Text('انتهت مهلة الانتظار'),
-          ],
-        ),
-        content: const Column(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('استغرق إنشاء الطلب وقتاً أطول من المتوقع.', style: TextStyle(fontSize: 16)),
-            SizedBox(height: 12),
-            Text('يرجى التحقق من:', style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(height: 8),
-            Text('• اتصال الإنترنت'),
-            Text('• صفحة الطلبات للتأكد من إضافة الطلب'),
-            SizedBox(height: 12),
-            Text('إذا لم يظهر الطلب، يمكنك المحاولة مرة أخرى.', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const Icon(FontAwesomeIcons.circleExclamation, color: Color(0xFFdc3545), size: 60),
+            const SizedBox(height: 16),
+            Text(
+              'فشل إنشاء الطلب',
+              style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              userMessage,
+              style: GoogleFonts.cairo(fontSize: 14, color: Colors.black54),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _confirmOrder(); // إعادة المحاولة
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFffd700),
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text('إعادة المحاولة', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.black54,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: Text('إلغاء', style: GoogleFonts.cairo()),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // الانتقال لصفحة الطلبات للتحقق
-              context.go('/orders');
-            },
-            child: const Text('التحقق من الطلبات'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // الرجوع لصفحة المنتجات
-              context.go('/products');
-            },
-            child: const Text('حسناً'),
-          ),
-        ],
       ),
     );
   }
@@ -869,32 +914,16 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
     setState(() {
       _isProcessing = true;
+      _processingStatus = 'جاري تحضير الطلب...';
+      _currentAttempt = 0;
     });
 
-    // ⏰ Timeout محسّن - 30 ثانية لإعطاء الباك إند وقت كافٍ
+    // 🚀 النظام الذكي - لا timeout خارجي، النظام يدير نفسه
     try {
-      await _createOrderInternal().timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          debugPrint('⏰ انتهت مهلة إنشاء الطلب (30 ثانية)');
-          throw TimeoutException('انتهت مهلة إنشاء الطلب - يرجى التحقق من الإنترنت', const Duration(seconds: 30));
-        },
-      );
+      await _createOrderInternal();
 
       // ✅ إذا وصلنا هنا، فالطلب تم إنشاؤه بنجاح
       debugPrint('✅ تم إنشاء الطلب بنجاح - لا أخطاء');
-    } on TimeoutException catch (e) {
-      debugPrint('⏰ خطأ Timeout: $e');
-
-      if (mounted) {
-        setState(() {
-          _isProcessing = false;
-          _orderConfirmed = false;
-        });
-
-        // ⚠️ إظهار رسالة تحذير بدلاً من خطأ
-        _showTimeoutWarning();
-      }
     } catch (e) {
       debugPrint('❌ خطأ في إنشاء الطلب: $e');
       debugPrint('🔍 نوع الخطأ: ${e.runtimeType}');
@@ -903,10 +932,11 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
         setState(() {
           _isProcessing = false;
           _orderConfirmed = false;
+          _processingStatus = '';
         });
 
-        // ✨ إظهار أنيميشن الخطأ
-        _showErrorAnimation();
+        // ✨ إظهار أنيميشن الخطأ مع رسالة مفصلة
+        _showErrorAnimationWithMessage(e.toString());
       }
     }
   }
@@ -1140,37 +1170,39 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
         final ordersService = OfficialOrdersService();
 
-        // ✅ إضافة timeout محسّن (30 ثانية) - استخدام البيانات النهائية من ملخص الطلب
-        result = await ordersService
-            .createOrder(
-              customerName: finalOrderData['customerName'] ?? '',
-              primaryPhone: finalOrderData['primaryPhone'] ?? '',
-              secondaryPhone: finalOrderData['secondaryPhone'],
-              province: finalOrderData['province'] ?? 'غير محدد',
-              city: finalOrderData['city'] ?? 'غير محدد',
-              // ✅ استخدام المعرفات الفعلية من بيانات الطلب (من شركة الوسيط)
-              provinceId: finalOrderData['provinceId']?.toString() ?? _getProvinceId(finalOrderData['province']),
-              cityId:
-                  finalOrderData['cityId']?.toString() ??
-                  _getCityId(finalOrderData['province'], finalOrderData['city']),
-              regionId: widget.orderData['regionId']?.toString() ?? '1', // استخدام regionId من البيانات الأصلية
-              notes: finalOrderData['notes'],
-              items: finalOrderData['items'], // استخدام items من البيانات النهائية
-              totals: {
-                'subtotal': finalOrderData['subtotal'].toInt(),
-                'delivery_fee': finalOrderData['deliveryFee'].toInt(),
-                'total': finalOrderData['total'].toInt(),
-                'profit': finalOrderData['profit'].toInt(), // ✅ إضافة الربح النهائي
-              },
-              userPhone: currentUserPhone, // ✅ إضافة رقم هاتف المستخدم الحالي
-            )
-            .timeout(
-              const Duration(seconds: 30), // ✅ timeout محسّن بعد 30 ثانية
-              onTimeout: () {
-                debugPrint('⏰ انتهت مهلة إنشاء الطلب العادي (30 ثانية)');
-                throw TimeoutException('انتهت مهلة إنشاء الطلب العادي', const Duration(seconds: 30));
-              },
-            );
+        // 🚀 النظام الذكي - لا timeout خارجي، النظام يدير نفسه
+        result = await ordersService.createOrder(
+          customerName: finalOrderData['customerName'] ?? '',
+          primaryPhone: finalOrderData['primaryPhone'] ?? '',
+          secondaryPhone: finalOrderData['secondaryPhone'],
+          province: finalOrderData['province'] ?? 'غير محدد',
+          city: finalOrderData['city'] ?? 'غير محدد',
+          // ✅ استخدام المعرفات الفعلية من بيانات الطلب (من شركة الوسيط)
+          provinceId: finalOrderData['provinceId']?.toString() ?? _getProvinceId(finalOrderData['province']),
+          cityId:
+              finalOrderData['cityId']?.toString() ?? _getCityId(finalOrderData['province'], finalOrderData['city']),
+          regionId: widget.orderData['regionId']?.toString() ?? '1', // استخدام regionId من البيانات الأصلية
+          notes: finalOrderData['notes'],
+          items: finalOrderData['items'], // استخدام items من البيانات النهائية
+          totals: {
+            'subtotal': finalOrderData['subtotal'].toInt(),
+            'delivery_fee': finalOrderData['deliveryFee'].toInt(),
+            'total': finalOrderData['total'].toInt(),
+            'profit': finalOrderData['profit'].toInt(),
+            'deliveryPaidFromProfit': (finalOrderData['deliveryPaidFromProfit'] ?? 0)
+                .toInt(), // ✅ المبلغ المخصوم من الربح
+          },
+          userPhone: currentUserPhone, // ✅ إضافة رقم هاتف المستخدم الحالي
+          // 🚀 callback لتحديث حالة الإرسال في الواجهة
+          onStatusChange: (status, attempt) {
+            if (mounted) {
+              setState(() {
+                _processingStatus = status;
+                _currentAttempt = attempt;
+              });
+            }
+          },
+        );
 
         debugPrint('✅ تم إنشاء الطلب العادي بنجاح');
       }
@@ -1194,6 +1226,7 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       }
 
       debugPrint('✅ تم إنشاء الطلب بنجاح - معرف الطلب: $orderId');
+      debugPrint('✅ تم إنشاء الطلب بنجاح - لا أخطاء');
 
       // ✅ تحديث حالة الطلب
       debugPrint('🔄 تحديث حالة الطلب إلى confirmed...');
@@ -1206,47 +1239,21 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       cartService.clearCart();
 
       if (mounted) {
-        // 🔍 التحقق الذكي من وجود الطلب في قاعدة البيانات
-        debugPrint('🔍 بدء التحقق من وجود الطلب في قاعدة البيانات...');
+        // 🎉 الطلب نجح بالفعل! عرض رسالة النجاح فوراً
+        debugPrint('🎉 عرض أنيميشن النجاح فوراً - الطلب تم إنشاؤه بنجاح');
+        _showSuccessAnimation();
 
-        final supabase = Supabase.instance.client;
-        final tableName = scheduledDate != null ? 'scheduled_orders' : 'orders';
-
-        try {
-          final verification = await supabase
-              .from(tableName)
-              .select('id')
-              .eq('id', orderId)
-              .maybeSingle()
-              .timeout(const Duration(seconds: 5));
-
-          if (verification != null) {
-            debugPrint('✅ تم التحقق: الطلب موجود في قاعدة البيانات');
-
-            // ✅ إعادة تحميل الطلبات في الخلفية (بدون انتظار)
-            final ordersService = SimpleOrdersService();
-            ordersService.clearCache();
-            ordersService
-                .loadOrders(forceRefresh: true)
-                .then((_) {
-                  debugPrint('✅ تم إعادة تحميل الطلبات في الخلفية');
-                })
-                .catchError((e) {
-                  debugPrint('⚠️ خطأ في إعادة تحميل الطلبات: $e');
-                });
-
-            // ✨ إظهار أنيميشن النجاح
-            _showSuccessAnimation();
-          } else {
-            debugPrint('❌ الطلب غير موجود في قاعدة البيانات');
-            // ✨ إظهار أنيميشن الخطأ
-            _showErrorAnimation();
-          }
-        } catch (e) {
-          debugPrint('❌ خطأ في التحقق من الطلب: $e');
-          // ✨ إظهار أنيميشن الخطأ
-          _showErrorAnimation();
-        }
+        // ✅ إعادة تحميل الطلبات في الخلفية (بدون انتظار - لا تأثر على المستخدم)
+        final ordersService = SimpleOrdersService();
+        ordersService.clearCache();
+        ordersService
+            .loadOrders(forceRefresh: true)
+            .then((_) {
+              debugPrint('✅ تم إعادة تحميل الطلبات في الخلفية');
+            })
+            .catchError((e) {
+              debugPrint('⚠️ خطأ في إعادة تحميل الطلبات (غير مهم): $e');
+            });
 
         // ✅ إعادة تعيين حالة المعالجة
         setState(() => _isProcessing = false);

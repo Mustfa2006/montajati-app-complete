@@ -1296,51 +1296,435 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // ===================================
-// POST /api/orders - إنشاء طلب جديد (مع العناصر)
+// 🔐 POST /api/orders - إنشاء طلب جديد (نظام آمن 100%)
+// ===================================
+// ✅ Flutter يرسل فقط: customer_name, phone, province_id, city_id, items [{product_id, quantity, customer_price}]
+// ✅ Backend يحسب: الأسعار الحقيقية، الربح، التوصيل، المجموع، التحقق من المخزون
+// ❌ لا نثق بأي حسابات من Flutter
 // ===================================
 router.post('/', async (req, res) => {
+  const startTime = Date.now();
+  logger.info('🔐 ══════════════════════════════════════════');
+  logger.info('🔐 بدء إنشاء طلب آمن (Server-Side Calculations)');
+
   try {
-    const { items, ...orderData } = req.body;
+    const {
+      items,                    // [{product_id, quantity, customer_price}]
+      customer_name,
+      primary_phone,
+      secondary_phone,
+      province,                 // اسم المحافظة
+      city,                     // اسم المدينة
+      province_id,              // معرف المحافظة (اختياري)
+      city_id,                  // معرف المدينة (اختياري)
+      customer_address,
+      customer_notes,
+      user_phone,               // رقم هاتف التاجر
+      user_id,                  // معرف التاجر (اختياري)
+      delivery_option,          // 'customer_pays' أو 'from_profit' أو المبلغ المخصوم
+      ...otherData              // أي بيانات إضافية (سيتم تجاهل الحسابات)
+    } = req.body;
 
-    // استخدام الدالة الموحدة (3️⃣)
-    const result = await createOrderUnified(
-      'orders',
-      'order_items',
-      orderData,
-      items,
-      (item) => ({
-        product_id: item.product_id,
-        product_name: item.product_name,
-        product_image: item.product_image,
-        wholesale_price: item.wholesale_price,
-        customer_price: item.customer_price,
-        quantity: item.quantity,
-        total_price: item.total_price,
-        profit_per_item: item.profit_per_item,
-      }),
-      'order_id'
-    );
-
-    if (result.error) {
-      if (result.validationErrors) {
-        return res.status(400).json({
-          success: false,
-          error: 'بيانات غير صحيحة',
-          details: result.validationErrors
-        });
-      }
-      return apiError(res, 'إنشاء الطلب', result.error);
+    // ═══════════════════════════════════════════
+    // 1️⃣ التحقق من البيانات الأساسية المطلوبة
+    // ═══════════════════════════════════════════
+    const validationErrors = [];
+    if (!customer_name?.trim()) validationErrors.push('اسم العميل مطلوب');
+    if (!primary_phone?.trim()) validationErrors.push('رقم الهاتف مطلوب');
+    if (!user_phone?.trim()) validationErrors.push('رقم هاتف التاجر مطلوب');
+    if (!province?.trim()) validationErrors.push('المحافظة مطلوبة');
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      validationErrors.push('يجب إضافة منتج واحد على الأقل');
     }
 
-    return apiSuccess(res, {
-      id: result.orderResult.id,
-      itemsSaved: result.itemsSaved,
-      itemsCount: items ? items.length : 0
-    }, 'تم إنشاء الطلب بنجاح');
+    if (validationErrors.length > 0) {
+      logger.warn('❌ بيانات غير صحيحة:', validationErrors);
+      return res.status(400).json({
+        success: false,
+        error: 'بيانات غير صحيحة',
+        details: validationErrors
+      });
+    }
+
+    logger.info(`👤 العميل: ${customer_name}`);
+    logger.info(`📱 الهاتف: ${primary_phone}`);
+    logger.info(`🏪 التاجر: ${user_phone}`);
+    logger.info(`📦 عدد المنتجات: ${items.length}`);
+
+    // ═══════════════════════════════════════════
+    // 2️⃣ جلب أسعار المنتجات الحقيقية من قاعدة البيانات
+    // ═══════════════════════════════════════════
+    logger.info('💰 جلب الأسعار الحقيقية من قاعدة البيانات...');
+
+    const productIds = items.map(item => item.product_id).filter(Boolean);
+    if (productIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'لا توجد منتجات صالحة في الطلب'
+      });
+    }
+
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('id, name, image, wholesale_price, quantity, min_quantity')
+      .in('id', productIds);
+
+    if (productsError || !products) {
+      logger.error('❌ فشل جلب المنتجات:', productsError?.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في جلب بيانات المنتجات'
+      });
+    }
+
+    // إنشاء map للوصول السريع
+    const productMap = {};
+    products.forEach(p => { productMap[p.id] = p; });
+
+    // ═══════════════════════════════════════════
+    // 3️⃣ حساب الأسعار والأرباح (SERVER-SIDE فقط!)
+    // ═══════════════════════════════════════════
+    logger.info('🧮 حساب الأسعار والأرباح (Server-Side)...');
+
+    let calculatedSubtotal = 0;      // المجموع الفرعي (سعر الجملة × الكمية)
+    let calculatedCustomerTotal = 0; // مجموع سعر العميل
+    let calculatedProfit = 0;         // الربح الإجمالي
+    const processedItems = [];
+    const stockErrors = [];
+
+    for (const item of items) {
+      const product = productMap[item.product_id];
+
+      if (!product) {
+        stockErrors.push(`المنتج ${item.product_id} غير موجود`);
+        continue;
+      }
+
+      const quantity = parseInt(item.quantity) || 1;
+
+      // ✅ التحقق من المخزون
+      if (product.quantity < quantity) {
+        stockErrors.push(`المنتج "${product.name}" غير متوفر بالكمية المطلوبة (المتاح: ${product.quantity})`);
+        continue;
+      }
+
+      // ✅ سعر الجملة الحقيقي من قاعدة البيانات (لا نثق بـ Flutter)
+      const wholesalePrice = parseInt(product.wholesale_price) || 0;
+
+      // ✅ سعر العميل من Flutter (هذا يحدده التاجر)
+      const customerPrice = parseInt(item.customer_price) || wholesalePrice;
+
+      // ✅ حساب الربح لكل منتج
+      const itemProfit = (customerPrice - wholesalePrice) * quantity;
+      const itemTotal = customerPrice * quantity;
+      const itemWholesaleTotal = wholesalePrice * quantity;
+
+      // ✅ منع الخسارة (سعر العميل لا يمكن أن يكون أقل من سعر الجملة)
+      if (customerPrice < wholesalePrice) {
+        logger.warn(`⚠️ محاولة بيع بخسارة: ${product.name} (جملة: ${wholesalePrice}, عميل: ${customerPrice})`);
+        // نسمح بها ولكن نسجلها (أو يمكن رفضها)
+      }
+
+      calculatedSubtotal += itemWholesaleTotal;
+      calculatedCustomerTotal += itemTotal;
+      calculatedProfit += itemProfit;
+
+      processedItems.push({
+        product_id: product.id,
+        product_name: product.name,
+        product_image: product.image || '',
+        wholesale_price: wholesalePrice,
+        customer_price: customerPrice,
+        quantity: quantity,
+        total_price: itemTotal,
+        profit_per_item: itemProfit
+      });
+
+      logger.info(`   ✅ ${product.name}: ${quantity} × ${customerPrice} = ${itemTotal} (ربح: ${itemProfit})`);
+    }
+
+    // التحقق من أخطاء المخزون
+    if (stockErrors.length > 0) {
+      logger.warn('❌ أخطاء في المخزون:', stockErrors);
+      return res.status(400).json({
+        success: false,
+        error: 'بعض المنتجات غير متوفرة',
+        details: stockErrors
+      });
+    }
+
+    if (processedItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'لا توجد منتجات صالحة في الطلب'
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    // 4️⃣ جلب رسوم التوصيل من قاعدة البيانات
+    // ═══════════════════════════════════════════
+    logger.info('🚚 جلب رسوم التوصيل...');
+
+    let deliveryFee = 5000; // القيمة الافتراضية
+
+    // محاولة جلب رسوم التوصيل من جدول المحافظات
+    if (province_id || province) {
+      let provinceQuery = supabase.from('provinces').select('delivery_fee, name');
+
+      if (province_id) {
+        provinceQuery = provinceQuery.eq('id', province_id);
+      } else {
+        provinceQuery = provinceQuery.ilike('name', province);
+      }
+
+      const { data: provinceData } = await provinceQuery.maybeSingle();
+
+      if (provinceData?.delivery_fee) {
+        deliveryFee = parseInt(provinceData.delivery_fee);
+        logger.info(`   ✅ رسوم توصيل ${provinceData.name}: ${deliveryFee} د.ع`);
+      }
+    }
+
+    // ═══════════════════════════════════════════
+    // 5️⃣ حساب الربح النهائي بعد خصم التوصيل
+    // ═══════════════════════════════════════════
+    logger.info('💎 حساب الربح النهائي...');
+
+    let deliveryPaidFromProfit = 0;
+    let finalProfit = calculatedProfit;
+    let customerTotal = calculatedCustomerTotal;
+
+    // معالجة خيار التوصيل
+    if (delivery_option === 'from_profit' || delivery_option === 'مجاني') {
+      // التوصيل من الربح (مجاني للعميل)
+      deliveryPaidFromProfit = Math.min(deliveryFee, calculatedProfit);
+      finalProfit = calculatedProfit - deliveryPaidFromProfit;
+      // العميل يدفع فقط سعر المنتجات
+      customerTotal = calculatedCustomerTotal;
+      logger.info(`   🎁 توصيل مجاني - خصم ${deliveryPaidFromProfit} من الربح`);
+    } else if (typeof delivery_option === 'number' || !isNaN(parseInt(delivery_option))) {
+      // مبلغ مخصص يُخصم من الربح
+      deliveryPaidFromProfit = Math.min(parseInt(delivery_option), deliveryFee, calculatedProfit);
+      finalProfit = calculatedProfit - deliveryPaidFromProfit;
+      const customerPaysDelivery = deliveryFee - deliveryPaidFromProfit;
+      customerTotal = calculatedCustomerTotal + customerPaysDelivery;
+      logger.info(`   💰 خصم ${deliveryPaidFromProfit} من الربح، العميل يدفع ${customerPaysDelivery}`);
+    } else {
+      // العميل يدفع كل التوصيل
+      customerTotal = calculatedCustomerTotal + deliveryFee;
+      logger.info(`   💵 العميل يدفع كل التوصيل: ${deliveryFee}`);
+    }
+
+    // ✅ منع الربح السلبي
+    if (finalProfit < 0) {
+      logger.warn('⚠️ محاولة إنشاء طلب بربح سلبي - تم التصحيح إلى 0');
+      finalProfit = 0;
+    }
+
+    logger.info('📊 ═══════════════════════════════════════════');
+    logger.info(`📊 المجموع الفرعي (جملة): ${calculatedSubtotal} د.ع`);
+    logger.info(`📊 مجموع سعر العميل: ${calculatedCustomerTotal} د.ع`);
+    logger.info(`📊 رسوم التوصيل: ${deliveryFee} د.ع`);
+    logger.info(`📊 المخصوم من الربح: ${deliveryPaidFromProfit} د.ع`);
+    logger.info(`📊 المجموع النهائي للعميل: ${customerTotal} د.ع`);
+    logger.info(`📊 الربح الإجمالي: ${calculatedProfit} د.ع`);
+    logger.info(`📊 الربح النهائي: ${finalProfit} د.ع`);
+    logger.info('📊 ═══════════════════════════════════════════');
+
+    // ═══════════════════════════════════════════
+    // 6️⃣ إنشاء معرف الطلب ورقم الطلب
+    // ═══════════════════════════════════════════
+    const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const orderNumber = `ORD-${Date.now()}`;
+
+    // ═══════════════════════════════════════════
+    // 7️⃣ إعداد بيانات الطلب النهائية
+    // ═══════════════════════════════════════════
+    const finalOrderData = {
+      id: orderId,
+      order_number: orderNumber,
+      customer_name: customer_name.trim(),
+      primary_phone: primary_phone.trim(),
+      secondary_phone: secondary_phone?.trim() || null,
+      province: province,
+      city: city || province,
+      customer_address: customer_address || `${province} - ${city || ''}`,
+      customer_notes: customer_notes || null,
+      user_phone: user_phone,
+      user_id: user_id || null,
+      // ✅ القيم المحسوبة في السيرفر (لا نثق بـ Flutter)
+      subtotal: calculatedSubtotal,
+      delivery_fee: deliveryFee,
+      total: customerTotal,
+      profit: finalProfit,
+      profit_amount: finalProfit,
+      delivery_paid_from_profit: deliveryPaidFromProfit,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // ═══════════════════════════════════════════
+    // 8️⃣ حفظ الطلب والعناصر
+    // ═══════════════════════════════════════════
+    logger.info('💾 حفظ الطلب في قاعدة البيانات...');
+
+    const { data: orderResult, error: orderError } = await supabase
+      .from('orders')
+      .insert(finalOrderData)
+      .select()
+      .single();
+
+    if (orderError) {
+      logger.error('❌ فشل في حفظ الطلب:', orderError.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في حفظ الطلب',
+        details: orderError.message
+      });
+    }
+
+    // حفظ عناصر الطلب
+    const orderItems = processedItems.map(item => ({
+      ...item,
+      order_id: orderId,
+      created_at: new Date().toISOString()
+    }));
+
+    const { error: itemsError } = await supabase
+      .from('order_items')
+      .insert(orderItems);
+
+    if (itemsError) {
+      logger.error('❌ فشل في حفظ عناصر الطلب:', itemsError.message);
+      // حذف الطلب لأن العناصر فشلت
+      await supabase.from('orders').delete().eq('id', orderId);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في حفظ عناصر الطلب'
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    // 9️⃣ تحديث المخزون
+    // ═══════════════════════════════════════════
+    logger.info('📦 تحديث المخزون...');
+
+    for (const item of processedItems) {
+      const product = productMap[item.product_id];
+      if (product) {
+        const newQuantity = product.quantity - item.quantity;
+        await supabase
+          .from('products')
+          .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+          .eq('id', item.product_id);
+
+        logger.info(`   📦 ${item.product_name}: ${product.quantity} → ${newQuantity}`);
+      }
+    }
+
+    // ═══════════════════════════════════════════
+    // 🎉 النجاح!
+    // ═══════════════════════════════════════════
+    const duration = Date.now() - startTime;
+    logger.info('🎉 ══════════════════════════════════════════');
+    logger.info(`🎉 تم إنشاء الطلب بنجاح!`);
+    logger.info(`🆔 معرف الطلب: ${orderId}`);
+    logger.info(`📦 عدد المنتجات: ${processedItems.length}`);
+    logger.info(`💰 المجموع: ${customerTotal} د.ع`);
+    logger.info(`💎 الربح: ${finalProfit} د.ع`);
+    logger.info(`⏱️ الوقت: ${duration}ms`);
+    logger.info('🎉 ══════════════════════════════════════════');
+
+    return res.status(201).json({
+      success: true,
+      message: 'تم إنشاء الطلب بنجاح',
+      orderId: orderId,
+      orderNumber: orderNumber,
+      // ✅ إرجاع القيم المحسوبة للعرض في Flutter
+      calculatedValues: {
+        subtotal: calculatedSubtotal,
+        customerTotal: calculatedCustomerTotal,
+        deliveryFee: deliveryFee,
+        deliveryPaidFromProfit: deliveryPaidFromProfit,
+        total: customerTotal,
+        profit: calculatedProfit,
+        finalProfit: finalProfit
+      },
+      itemsCount: processedItems.length,
+      duration: duration
+    });
 
   } catch (error) {
-    logger.error('خطأ حرج في API إنشاء الطلب', error.message);
-    return apiError(res, 'إنشاء الطلب', error);
+    logger.error('❌ خطأ حرج في إنشاء الطلب:', error.message);
+    logger.error('Stack:', error.stack);
+    return res.status(500).json({
+      success: false,
+      error: 'حدث خطأ غير متوقع',
+      details: error.message
+    });
+  }
+});
+
+// ===================================
+// 🔍 GET /api/orders/verify-recent - التحقق من آخر طلب تم إنشاؤه
+// ===================================
+// يستخدم للتحقق من نجاح إنشاء الطلب عند انتهاء المهلة
+router.get('/verify-recent', async (req, res) => {
+  try {
+    const { phone } = req.query;
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        error: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    logger.info(`🔍 التحقق من آخر طلب للرقم: ${phone}`);
+
+    // البحث عن آخر طلب تم إنشاؤه لهذا الرقم في آخر دقيقتين
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('id, order_number, created_at')
+      .eq('primary_phone', phone)
+      .gte('created_at', twoMinutesAgo)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      logger.error('خطأ في البحث عن الطلب:', error.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في البحث عن الطلب'
+      });
+    }
+
+    if (order) {
+      logger.info(`✅ تم العثور على الطلب: ${order.id}`);
+      return res.json({
+        success: true,
+        orderId: order.id,
+        orderNumber: order.order_number,
+        createdAt: order.created_at
+      });
+    }
+
+    logger.info('❌ لم يتم العثور على طلب حديث');
+    return res.json({
+      success: false,
+      message: 'لم يتم العثور على طلب حديث'
+    });
+
+  } catch (error) {
+    logger.error('خطأ في التحقق من الطلب:', error.message);
+    return res.status(500).json({
+      success: false,
+      error: 'حدث خطأ غير متوقع'
+    });
   }
 });
 

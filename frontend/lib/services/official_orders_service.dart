@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/order_item.dart';
 import 'api_service.dart'; // ✅ استخدام ApiService للتواصل مع الباك إند
-import 'inventory_service.dart';
+// ❌ تم حذف inventory_service - Backend يتولى المخزون
 // تم حذف Smart Cache
 
 /// خدمة رسمية لإدارة الطلبات مع هيكل قاعدة بيانات موحد
@@ -19,181 +19,101 @@ class OfficialOrdersService extends ChangeNotifier {
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// إضافة طلب جديد بالهيكل الرسمي
+  /// 🔐 إضافة طلب جديد (نظام آمن - الحسابات في السيرفر)
+  /// ✅ Flutter يرسل فقط البيانات الأساسية
+  /// ✅ Backend يحسب الأسعار، الربح، التوصيل، المجموع
   Future<Map<String, dynamic>> createOrder({
     required String customerName,
     required String primaryPhone,
     String? secondaryPhone,
     required String province,
     required String city,
-    String? provinceId, // ✅ إضافة معرف المحافظة
-    String? cityId, // ✅ إضافة معرف المدينة
-    String? regionId, // ✅ إضافة معرف المنطقة
+    String? provinceId,
+    String? cityId,
+    String? regionId,
     String? customerAddress,
     String? notes,
     required List<OrderItem> items,
-    required Map<String, int> totals,
-    String? userPhone, // ✅ إضافة رقم هاتف المستخدم
+    required Map<String, int> totals, // سيتم تجاهلها في السيرفر
+    String? userPhone,
+    Function(String status, int attempt)? onStatusChange,
   }) async {
     try {
-      debugPrint('🏛️ === بدء إنشاء طلب رسمي ===');
+      debugPrint('🔐 ══════════════════════════════════════════');
+      debugPrint('🔐 إنشاء طلب آمن (Server-Side Calculations)');
       debugPrint('👤 العميل: $customerName');
       debugPrint('📱 الهاتف: $primaryPhone');
       debugPrint('📦 عدد العناصر: ${items.length}');
+      debugPrint('🔐 ══════════════════════════════════════════');
 
-      // 1. توليد معرف طلب فريد
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final orderId = 'order_${timestamp}_${primaryPhone.substring(primaryPhone.length - 4)}';
-      final orderNumber = 'ORD-$timestamp';
+      // ═══════════════════════════════════════════
+      // 🔐 إعداد البيانات الأساسية فقط (لا حسابات!)
+      // ═══════════════════════════════════════════
+      // ✅ Flutter يرسل: المنتجات، الكميات، سعر العميل، خيار التوصيل
+      // ✅ Backend يحسب: سعر الجملة، الربح، التوصيل، المجموع
 
-      debugPrint('🆔 معرف الطلب: $orderId');
-      debugPrint('🔢 رقم الطلب: $orderNumber');
+      // تحضير بيانات العناصر (الأساسية فقط)
+      final List<Map<String, dynamic>> itemsData = items.map((item) {
+        return <String, dynamic>{
+          'product_id': item.productId,
+          'quantity': item.quantity,
+          'customer_price': item.customerPrice.toInt(), // سعر العميل (يحدده التاجر)
+        };
+      }).toList();
 
-      // 2. ✅ استخدام الربح النهائي المحسوب في ملخص الطلب (بعد خصم تكلفة التوصيل)
-      debugPrint('🔍 فحص البيانات المستلمة من ملخص الطلب:');
-      debugPrint('   - totals: $totals');
-
-      // 🔍 تشخيص مفصل للربح المستلم
-      debugPrint('🔍 === تشخيص الربح في الخدمة ===');
-      debugPrint('   - totals[profit]: ${totals['profit']}');
-      debugPrint('   - نوع totals[profit]: ${totals['profit'].runtimeType}');
-      debugPrint('   - القيمة الخام: ${totals['profit']}');
-
-      int finalProfit = totals['profit'] ?? 0;
-
-      debugPrint('💰 الربح النهائي من ملخص الطلب (بعد خصم التوصيل): $finalProfit د.ع');
-
-      // ✅ استخدام الربح النهائي من ملخص الطلب دائماً (يشمل خصم التوصيل)
-      debugPrint('✅ تم استلام الربح النهائي من ملخص الطلب: $finalProfit د.ع');
-      debugPrint('ℹ️ هذا الربح يشمل خصم تكلفة التوصيل إذا تم دفعها من الربح');
-
-      // ✅ تحقق نهائي من الربح
-      if (finalProfit < 0) {
-        debugPrint('🚨 تحذير: الربح النهائي سالب! سيتم تعيينه إلى 0');
-        finalProfit = 0;
-      } else if (finalProfit == 0) {
-        debugPrint('ℹ️ الربح النهائي = 0 (طلب بدون ربح - هذا طبيعي)');
+      // تحديد خيار التوصيل
+      final deliveryPaidFromProfit = totals['deliveryPaidFromProfit'] ?? 0;
+      String deliveryOption;
+      if (deliveryPaidFromProfit > 0) {
+        deliveryOption = deliveryPaidFromProfit.toString(); // المبلغ المخصوم من الربح
+      } else {
+        deliveryOption = 'customer_pays'; // العميل يدفع كل التوصيل
       }
 
-      debugPrint('💰 الربح النهائي المؤكد: $finalProfit د.ع');
-
-      // 3. إعداد بيانات الطلب الرسمية (أسماء الأعمدة الصحيحة)
-      debugPrint('🔍 إعداد البيانات للحفظ في قاعدة البيانات:');
-      debugPrint('   - subtotal: ${totals['subtotal']} د.ع');
-      debugPrint('   - delivery_fee: ${totals['delivery_fee']} د.ع');
-      debugPrint('   - total: ${totals['total']} د.ع');
-      debugPrint('   - profit (finalProfit): $finalProfit د.ع');
-
-      // الحصول على user_id من رقم الهاتف
-      String? userId;
-      if (userPhone != null) {
-        try {
-          final userResponse = await _supabase.from('users').select('id').eq('phone', userPhone).maybeSingle();
-
-          if (userResponse != null) {
-            userId = userResponse['id'];
-            debugPrint('✅ تم العثور على user_id: $userId');
-          } else {
-            debugPrint('⚠️ لم يتم العثور على مستخدم برقم: $userPhone');
-          }
-        } catch (e) {
-          debugPrint('❌ خطأ في البحث عن المستخدم: $e');
-        }
-      }
-
+      // بيانات الطلب الأساسية (بدون حسابات!)
       final orderData = {
-        'id': orderId,
-        'order_number': orderNumber,
         'customer_name': customerName,
         'primary_phone': primaryPhone,
         'secondary_phone': secondaryPhone,
         'province': province,
         'city': city,
+        'province_id': provinceId,
+        'city_id': cityId,
         'customer_address': customerAddress ?? '$province - $city',
-        'customer_notes': notes, // ✅ حفظ في عمود customer_notes
-        'subtotal': totals['subtotal'] ?? 0,
-        'delivery_fee': totals['delivery_fee'] ?? 0,
-        'total': totals['total'] ?? 0,
-        'profit': finalProfit, // ✅ الربح النهائي بعد خصم تكلفة التوصيل
-        'profit_amount': finalProfit, // ✅ إضافة profit_amount أيضاً
-        'delivery_paid_from_profit': totals['deliveryPaidFromProfit'] ?? 0, // ✅ المبلغ المدفوع من الربح
-        'status': 'active',
-        'created_at': DateTime.now().toIso8601String(),
-        'updated_at': DateTime.now().toIso8601String(),
-        'user_phone': userPhone ?? '07503597589', // ✅ استخدام رقم المستخدم الحالي
-        'user_id': userId, // ✅ إضافة user_id
+        'customer_notes': notes,
+        'user_phone': userPhone,
+        'delivery_option': deliveryOption, // ✅ خيار التوصيل
       };
 
-      debugPrint('📋 بيانات الطلب: $orderData');
+      debugPrint('📤 إرسال البيانات الأساسية فقط إلى Backend...');
+      debugPrint('📦 عدد العناصر: ${itemsData.length}');
+      debugPrint('🚚 خيار التوصيل: $deliveryOption');
 
-      // 4. ✅ إرسال الطلب إلى الباك إند (آمن وسريع)
-      debugPrint('🚀 إرسال الطلب إلى الباك إند...');
+      // ═══════════════════════════════════════════
+      // 🚀 إرسال الطلب إلى الباك إند
+      // ═══════════════════════════════════════════
+      // Backend يحسب كل شيء: الأسعار، الربح، التوصيل، المجموع
 
-      // تحضير بيانات العناصر
-      final itemsData = items
-          .map(
-            (item) => {
-              'product_id': item.productId,
-              'product_name': item.name,
-              'product_image': item.image,
-              'wholesale_price': item.wholesalePrice.toInt(),
-              'customer_price': item.customerPrice.toInt(),
-              'quantity': item.quantity,
-              'total_price': (item.customerPrice * item.quantity).toInt(),
-              'profit_per_item': ((item.customerPrice - item.wholesalePrice) * item.quantity).toInt(),
-            },
-          )
-          .toList();
+      final createdOrderId = await ApiService.createOrder(
+        orderData: orderData,
+        items: itemsData,
+        onStatusChange: onStatusChange,
+      );
 
-      // إرسال الطلب عبر ApiService
-      final createdOrderId = await ApiService.createOrder(orderData: orderData, items: itemsData);
+      debugPrint('✅ ══════════════════════════════════════════');
+      debugPrint('✅ تم إنشاء الطلب بنجاح!');
+      debugPrint('🆔 معرف الطلب: $createdOrderId');
+      debugPrint('✅ Backend حسب الأسعار والربح والتوصيل');
+      debugPrint('✅ ══════════════════════════════════════════');
 
-      debugPrint('✅ تم إنشاء الطلب عبر الباك إند - ID: $createdOrderId');
+      // ❌ لا نقلل المخزون هنا - Backend يتولى ذلك
+      debugPrint('ℹ️ Backend يتولى تحديث المخزون');
 
-      // ✅ الباك إند يتولى حفظ العناصر والأرباح تلقائياً
-      debugPrint('✅ الباك إند يتولى حفظ العناصر والأرباح');
-
-      // 7. 🔔 تقليل كمية المنتجات ومراقبة المخزون
-      for (final item in items) {
-        try {
-          // تقليل الكمية المتاحة
-          await InventoryService.reserveProduct(productId: item.productId, reservedQuantity: item.quantity);
-
-          debugPrint('✅ تم تقليل كمية المنتج ${item.productId} بمقدار ${item.quantity}');
-        } catch (e) {
-          debugPrint('⚠️ خطأ في تقليل كمية المنتج ${item.productId}: $e');
-        }
-      }
-
-      debugPrint('🎉 تم إنشاء الطلب بنجاح!');
-
-      // 🚀 تحديث Smart Cache فوراً بعد إنشاء الطلب
-      try {
-        if (userPhone != null && userPhone.isNotEmpty) {
-          debugPrint('🔄 تحديث Smart Cache بعد إنشاء الطلب للمستخدم: $userPhone');
-
-          // تم حذف Smart Cache - لا حاجة لتحديث الكاش
-
-          debugPrint('✅ تم تحديث Smart Cache بنجاح');
-        }
-      } catch (e) {
-        debugPrint('⚠️ خطأ في تحديث Smart Cache: $e');
-        // لا نوقف العملية بسبب خطأ في Cache
-      }
-
-      return {
-        'success': true,
-        'message': 'تم إنشاء الطلب بنجاح',
-        'orderId': createdOrderId, // ✅ معرف الطلب من الباك إند
-        'orderNumber': orderNumber,
-        'totalProfit': finalProfit, // ✅ الربح النهائي
-      };
+      return {'success': true, 'message': 'تم إنشاء الطلب بنجاح', 'orderId': createdOrderId};
     } catch (e) {
       debugPrint('❌ خطأ في إنشاء الطلب: $e');
       debugPrint('🔍 نوع الخطأ: ${e.runtimeType}');
-      debugPrint('📋 تفاصيل الخطأ: ${e.toString()}');
 
-      // إضافة تفاصيل أكثر للخطأ
       String errorMessage = 'فشل في إنشاء الطلب';
       if (e.toString().contains('timeout')) {
         errorMessage = 'انتهت مهلة الاتصال - تحقق من الإنترنت';
