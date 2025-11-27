@@ -1295,6 +1295,232 @@ router.put('/:id/status', async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧮 POST /api/orders/calculate - حساب ملخص الطلب (بدون إنشاء)
+// ═══════════════════════════════════════════════════════════════════════════
+// ✅ للمعاينة فقط - يحسب كل شيء ويرجعه لـ Flutter للعرض
+// ✅ لا يحفظ شيء في قاعدة البيانات
+// ═══════════════════════════════════════════════════════════════════════════
+router.post('/calculate', async (req, res) => {
+  const startTime = Date.now();
+  logger.info('🧮 ══════════════════════════════════════════');
+  logger.info('🧮 بدء حساب ملخص الطلب (Calculate Only)');
+
+  try {
+    const {
+      items,                    // [{product_id, quantity, customer_price}]
+      province,                 // اسم المحافظة
+      province_id,              // معرف المحافظة (اختياري)
+      city,                     // اسم المدينة (اختياري)
+      city_id,                  // معرف المدينة (اختياري)
+      slider_delivery_fee,      // رسوم التوصيل التي اختارها التاجر (السلايدر)
+    } = req.body;
+
+    // ═══════════════════════════════════════════
+    // 1️⃣ التحقق من البيانات المطلوبة
+    // ═══════════════════════════════════════════
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'يجب إضافة منتج واحد على الأقل',
+        validated: false
+      });
+    }
+
+    if (!province?.trim() && !province_id) {
+      return res.status(400).json({
+        success: false,
+        error: 'المحافظة مطلوبة',
+        validated: false
+      });
+    }
+
+    logger.info(`📍 المحافظة: ${province || province_id}`);
+    logger.info(`📦 عدد المنتجات: ${items.length}`);
+    logger.info(`🎚️ السلايدر: ${slider_delivery_fee}`);
+
+    // ═══════════════════════════════════════════
+    // 2️⃣ جلب رسوم التوصيل من جدول المحافظات
+    // ═══════════════════════════════════════════
+    let baseDeliveryFee = 5000; // القيمة الافتراضية
+    let provinceName = province;
+
+    // محاولة جلب رسوم التوصيل من قاعدة البيانات
+    let provinceQuery = supabase.from('provinces').select('id, name, delivery_fee');
+    if (province_id) {
+      provinceQuery = provinceQuery.eq('id', province_id);
+    } else if (province) {
+      provinceQuery = provinceQuery.ilike('name', `%${province}%`);
+    }
+
+    const { data: provinceData, error: provinceError } = await provinceQuery.limit(1).maybeSingle();
+
+    if (provinceData) {
+      baseDeliveryFee = provinceData.delivery_fee || 5000;
+      provinceName = provinceData.name;
+      logger.info(`✅ المحافظة: ${provinceName} - التوصيل: ${baseDeliveryFee}`);
+    } else {
+      logger.warn(`⚠️ لم يتم العثور على المحافظة - استخدام القيمة الافتراضية: ${baseDeliveryFee}`);
+    }
+
+    // ═══════════════════════════════════════════
+    // 3️⃣ جلب أسعار المنتجات من قاعدة البيانات
+    // ═══════════════════════════════════════════
+    const productIds = items.map(item => item.product_id).filter(Boolean);
+
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select('id, name, wholesale_price, retail_price, stock_quantity')
+      .in('id', productIds);
+
+    if (productsError) {
+      logger.error('❌ خطأ في جلب المنتجات:', productsError.message);
+      return res.status(500).json({
+        success: false,
+        error: 'فشل في جلب بيانات المنتجات',
+        validated: false
+      });
+    }
+
+    // إنشاء خريطة للمنتجات
+    const productMap = new Map(products.map(p => [p.id, p]));
+
+    // ═══════════════════════════════════════════
+    // 4️⃣ حساب القيم لكل منتج
+    // ═══════════════════════════════════════════
+    let subtotal = 0;           // المجموع الفرعي (سعر الجملة)
+    let customerTotal = 0;      // مجموع سعر العميل
+    let profitInitial = 0;      // الربح الأولي
+    const stockErrors = [];     // أخطاء المخزون
+    const calculatedItems = []; // العناصر المحسوبة
+
+    for (const item of items) {
+      const product = productMap.get(item.product_id);
+      const quantity = parseInt(item.quantity) || 1;
+      const customerPrice = parseInt(item.customer_price) || 0;
+
+      if (!product) {
+        logger.warn(`⚠️ منتج غير موجود: ${item.product_id}`);
+        continue;
+      }
+
+      // التحقق من المخزون
+      if (product.stock_quantity !== null && product.stock_quantity < quantity) {
+        stockErrors.push({
+          product_id: product.id,
+          product_name: product.name,
+          requested: quantity,
+          available: product.stock_quantity
+        });
+      }
+
+      // الحسابات
+      const wholesalePrice = product.wholesale_price || 0;
+      const itemSubtotal = wholesalePrice * quantity;
+      const itemCustomerTotal = customerPrice * quantity;
+      const itemProfit = (customerPrice - wholesalePrice) * quantity;
+
+      subtotal += itemSubtotal;
+      customerTotal += itemCustomerTotal;
+      profitInitial += itemProfit;
+
+      calculatedItems.push({
+        product_id: product.id,
+        product_name: product.name,
+        quantity: quantity,
+        wholesale_price: wholesalePrice,
+        customer_price: customerPrice,
+        item_subtotal: itemSubtotal,
+        item_customer_total: itemCustomerTotal,
+        item_profit: itemProfit,
+        stock_available: product.stock_quantity
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    // 5️⃣ حساب رسوم التوصيل والخصم
+    // ═══════════════════════════════════════════
+    // السلايدر يحدد كم يدفع العميل للتوصيل
+    // الباقي يخصم من ربح التاجر
+    const sliderFee = parseInt(slider_delivery_fee) || 0;
+    const deliveryPaidFromProfit = Math.max(0, baseDeliveryFee - sliderFee);
+
+    // ═══════════════════════════════════════════
+    // 6️⃣ حساب الربح النهائي (بعد خصم التوصيل)
+    // ═══════════════════════════════════════════
+    let profitFinal = profitInitial - deliveryPaidFromProfit;
+
+    // منع الربح السلبي
+    if (profitFinal < 0) {
+      logger.warn(`⚠️ الربح سالب! الأولي: ${profitInitial}, الخصم: ${deliveryPaidFromProfit}`);
+      profitFinal = 0;
+    }
+
+    // ═══════════════════════════════════════════
+    // 7️⃣ حساب المجاميع النهائية
+    // ═══════════════════════════════════════════
+    // total_customer = ما يدفعه العميل = سعر المنتجات + رسوم التوصيل للعميل
+    const totalCustomer = customerTotal + sliderFee;
+
+    // total_waseet = المبلغ الكامل = سعر المنتجات + رسوم التوصيل الأساسية
+    const totalWaseet = customerTotal + baseDeliveryFee;
+
+    // ═══════════════════════════════════════════
+    // 8️⃣ تحديد حالة التحقق
+    // ═══════════════════════════════════════════
+    const validated = stockErrors.length === 0 && profitFinal >= 0;
+
+    const duration = Date.now() - startTime;
+    logger.info('🧮 ══════════════════════════════════════════');
+    logger.info(`✅ تم حساب الملخص في ${duration}ms`);
+    logger.info(`   المجموع الفرعي: ${subtotal}`);
+    logger.info(`   مجموع العميل: ${customerTotal}`);
+    logger.info(`   رسوم التوصيل الأساسية: ${baseDeliveryFee}`);
+    logger.info(`   السلايدر: ${sliderFee}`);
+    logger.info(`   الخصم من الربح: ${deliveryPaidFromProfit}`);
+    logger.info(`   الربح الأولي: ${profitInitial}`);
+    logger.info(`   الربح النهائي: ${profitFinal}`);
+    logger.info('🧮 ══════════════════════════════════════════');
+
+    return res.json({
+      success: true,
+      validated: validated,
+
+      // القيم المحسوبة
+      subtotal: subtotal,
+      customer_total: customerTotal,
+      delivery_fee: sliderFee,               // ما يدفعه العميل
+      base_delivery_fee: baseDeliveryFee,    // رسوم التوصيل الأساسية
+      delivery_paid_from_profit: deliveryPaidFromProfit,
+      profit_initial: profitInitial,
+      profit_final: profitFinal,
+      total_customer: totalCustomer,
+      total_waseet: totalWaseet,
+
+      // بيانات إضافية
+      province_name: provinceName,
+      items_count: calculatedItems.length,
+      items: calculatedItems,
+
+      // أخطاء (إن وجدت)
+      stock_errors: stockErrors.length > 0 ? stockErrors : null,
+      warnings: profitFinal === 0 && profitInitial > 0 ? ['الربح صفر بسبب خصم التوصيل'] : null,
+
+      // معلومات الأداء
+      duration: `${duration}ms`
+    });
+
+  } catch (error) {
+    logger.error('❌ خطأ في حساب الملخص:', error.message);
+    logger.error('Stack:', error.stack);
+    return res.status(500).json({
+      success: false,
+      error: 'حدث خطأ في حساب الملخص',
+      validated: false
+    });
+  }
+});
+
 // ===================================
 // 🔐 POST /api/orders - إنشاء طلب جديد (نظام آمن 100%)
 // ===================================

@@ -12,9 +12,9 @@ import '../models/order_item.dart';
 import '../models/scheduled_order.dart';
 import '../providers/theme_provider.dart';
 import '../services/cart_service.dart';
-// تم حذف Smart Cache
 import '../services/inventory_service.dart';
 import '../services/official_orders_service.dart';
+import '../services/order_calculator_service.dart'; // 🧮 خدمة الحساب من السيرفر
 import '../services/scheduled_orders_service.dart';
 import '../services/simple_orders_service.dart';
 import '../widgets/app_background.dart';
@@ -103,15 +103,14 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   }
 
   bool _orderConfirmed = false; // ✅ لإخفاء أيقونة كلفة التوصيل بعد التأكيد
-  int _deliveryFee = 5000; // ✅ البدء من 5000 بدلاً من 0 (سيتم تحديثه حسب المحافظة)
-  List<int> _deliveryOptions = [
-    5000,
-    4000,
-    3000,
-    2000,
-    1000,
-    0,
-  ]; // ✅ عكس الترتيب: من 5000 إلى مجاني (سيتم تحديثه حسب المحافظة)
+  int _deliveryFee = 5000; // ✅ رسوم التوصيل التي اختارها المستخدم (السلايدر)
+  List<int> _deliveryOptions = [5000, 4000, 3000, 2000, 1000, 0];
+
+  // 🧮 بيانات الحساب من السيرفر
+  OrderCalculation? _serverCalculation;
+  bool _isCalculating = false;
+  String? _calculationError;
+  Timer? _calculateDebounce; // لتأخير استدعاء API عند تغيير السلايدر
 
   @override
   void initState() {
@@ -122,15 +121,82 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     _deliveryOptions = _getDeliveryOptionsByProvince(provinceName);
     debugPrint('🚚 تم تحديد سعر التوصيل للمحافظة "$provinceName": $_deliveryFee د.ع');
     debugPrint('🎛️ خيارات السلايدر: $_deliveryOptions');
+
+    // 🧮 استدعاء API لحساب القيم من السيرفر
+    _calculateFromServer();
+  }
+
+  @override
+  void dispose() {
+    _calculateDebounce?.cancel();
+    super.dispose();
+  }
+
+  /// 🧮 استدعاء API لحساب القيم من السيرفر
+  Future<void> _calculateFromServer() async {
+    if (_isCalculating) return;
+
+    setState(() {
+      _isCalculating = true;
+      _calculationError = null;
+    });
+
+    try {
+      // تحضير بيانات المنتجات
+      final itemsData = widget.orderData['items'] as List?;
+      final items = <Map<String, dynamic>>[];
+
+      if (itemsData != null) {
+        for (final item in itemsData) {
+          if (item is Map) {
+            items.add({
+              'product_id': item['productId']?.toString() ?? '',
+              'quantity': item['quantity'] ?? 1,
+              'customer_price': item['customerPrice'] ?? 0,
+            });
+          }
+        }
+      }
+
+      debugPrint('🧮 استدعاء /calculate مع ${items.length} منتج');
+
+      final result = await OrderCalculatorService.calculate(
+        items: items,
+        province: widget.orderData['province'],
+        provinceId: widget.orderData['provinceId']?.toString(),
+        city: widget.orderData['city'],
+        cityId: widget.orderData['cityId']?.toString(),
+        sliderDeliveryFee: _deliveryFee,
+      );
+
+      if (mounted) {
+        setState(() {
+          _serverCalculation = result;
+          _isCalculating = false;
+          if (!result.success) {
+            _calculationError = result.error;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في الحساب: $e');
+      if (mounted) {
+        setState(() {
+          _isCalculating = false;
+          _calculationError = e.toString();
+        });
+      }
+    }
   }
 
   /// تحديث البيانات عند السحب للأسفل
   Future<void> _refreshData() async {
     debugPrint('🔄 تحديث بيانات صفحة ملخص الطلب...');
 
-    // إعادة حساب الرسوم والمجاميع
+    // إعادة حساب من السيرفر
+    await _calculateFromServer();
+
     setState(() {
-      // إعادة تعيين حالة المعالجة إذا كانت فاشلة
       if (!_orderConfirmed) {
         _isProcessing = false;
       }
@@ -274,30 +340,41 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
               divisions: _deliveryOptions.length - 1,
               onChanged: (value) {
                 final newFee = _deliveryOptions[value.round()];
-                final totalsData = widget.orderData['totals'];
-                Map<String, int> totals = {};
 
-                if (totalsData != null) {
-                  if (totalsData is Map<String, int>) {
-                    totals = totalsData;
-                  } else if (totalsData is Map<String, dynamic>) {
-                    totals = totalsData.map((key, value) => MapEntry(key, (value as num).toInt()));
+                // 🧮 استخدام الربح من السيرفر أو fallback
+                int profitInitial = 0;
+                int baseDeliveryFee = _getDeliveryFeeByProvince(widget.orderData['province'] as String?);
+
+                if (_serverCalculation != null && _serverCalculation!.success) {
+                  profitInitial = _serverCalculation!.profitInitial;
+                  baseDeliveryFee = _serverCalculation!.baseDeliveryFee;
+                } else {
+                  // Fallback
+                  final totalsData = widget.orderData['totals'];
+                  if (totalsData != null) {
+                    if (totalsData is Map<String, int>) {
+                      profitInitial = totalsData['profit'] ?? 0;
+                    } else if (totalsData is Map<String, dynamic>) {
+                      profitInitial = (totalsData['profit'] as num?)?.toInt() ?? 0;
+                    }
                   }
                 }
 
-                final profit = totals['profit'] ?? 0;
-                final provinceName = widget.orderData['province'] as String?;
-                final baseDeliveryFee = _getDeliveryFeeByProvince(provinceName);
-                final deliveryPaidByUser = baseDeliveryFee - newFee; // المبلغ المدفوع من الربح
-                final newProfit = profit - deliveryPaidByUser;
+                final deliveryPaidByUser = baseDeliveryFee - newFee;
+                final newProfit = profitInitial - deliveryPaidByUser;
 
                 // ✅ منع التقليل إذا وصل الربح لـ 0 أو أقل
                 if (newProfit >= 0) {
                   setState(() {
                     _deliveryFee = newFee;
                   });
+
+                  // 🧮 استدعاء API لإعادة الحساب (مع debounce)
+                  _calculateDebounce?.cancel();
+                  _calculateDebounce = Timer(const Duration(milliseconds: 300), () {
+                    _calculateFromServer();
+                  });
                 } else {
-                  // ✅ إظهار تنبيه جميل عند الوصول للحد الأقصى
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
@@ -321,45 +398,31 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
             children: _deliveryOptions.map((fee) {
               final isSelected = _deliveryFee == fee;
 
-              // ✅ حساب ما إذا كان هذا الخيار محظور
-              final totalsData = widget.orderData['totals'];
-              Map<String, int> totals = {};
+              // 🧮 استخدام الربح من السيرفر أو fallback
+              int profitInitial = 0;
+              int baseDeliveryFee = _getDeliveryFeeByProvince(widget.orderData['province'] as String?);
 
-              if (totalsData != null) {
-                if (totalsData is Map<String, int>) {
-                  totals = totalsData;
-                } else if (totalsData is Map<String, dynamic>) {
-                  totals = totalsData.map((key, value) => MapEntry(key, (value as num).toInt()));
+              if (_serverCalculation != null && _serverCalculation!.success) {
+                profitInitial = _serverCalculation!.profitInitial;
+                baseDeliveryFee = _serverCalculation!.baseDeliveryFee;
+              } else {
+                final totalsData = widget.orderData['totals'];
+                if (totalsData != null) {
+                  if (totalsData is Map<String, int>) {
+                    profitInitial = totalsData['profit'] ?? 0;
+                  } else if (totalsData is Map<String, dynamic>) {
+                    profitInitial = (totalsData['profit'] as num?)?.toInt() ?? 0;
+                  }
                 }
               }
 
-              final profit = totals['profit'] ?? 0;
-              final deliveryPaidByUser = 5000 - fee; // المبلغ المدفوع من الربح
-              final newProfit = profit - deliveryPaidByUser;
+              final deliveryPaidByUser = baseDeliveryFee - fee;
+              final newProfit = profitInitial - deliveryPaidByUser;
               final isDisabled = newProfit < 0;
 
               return GestureDetector(
                 onTap: () {
-                  final totalsData = widget.orderData['totals'];
-                  Map<String, int> totals = {};
-
-                  if (totalsData != null) {
-                    if (totalsData is Map<String, int>) {
-                      totals = totalsData;
-                    } else if (totalsData is Map<String, dynamic>) {
-                      totals = totalsData.map((key, value) => MapEntry(key, (value as num).toInt()));
-                    }
-                  }
-
-                  final profit = totals['profit'] ?? 0;
-                  final deliveryPaidByUser = 5000 - fee; // المبلغ المدفوع من الربح
-                  final newProfit = profit - deliveryPaidByUser;
-
-                  // ✅ منع التقليل إذا وصل الربح لـ 0 أو أقل
-                  if (newProfit >= 0) {
-                    setState(() => _deliveryFee = fee);
-                  } else {
-                    // ✅ إظهار تنبيه جميل عند الوصول للحد الأقصى
+                  if (isDisabled) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
@@ -370,7 +433,16 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
                         duration: const Duration(seconds: 2),
                       ),
                     );
+                    return;
                   }
+
+                  setState(() => _deliveryFee = fee);
+
+                  // 🧮 استدعاء API لإعادة الحساب
+                  _calculateDebounce?.cancel();
+                  _calculateDebounce = Timer(const Duration(milliseconds: 300), () {
+                    _calculateFromServer();
+                  });
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -411,9 +483,24 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     );
   }
 
-  // ✅ دالة مشتركة لحساب القيم النهائية
+  // ✅ دالة مشتركة للحصول على القيم النهائية (من السيرفر أو fallback)
   Map<String, int> _calculateFinalValues() {
-    // التعامل مع البيانات بطريقة آمنة
+    // 🧮 إذا لدينا حساب من السيرفر، نستخدمه
+    if (_serverCalculation != null && _serverCalculation!.success) {
+      final calc = _serverCalculation!;
+      return {
+        'subtotal': calc.customerTotal, // مجموع سعر العميل
+        'profit': calc.profitInitial,
+        'deliveryFee': calc.deliveryFee,
+        'baseDeliveryFee': calc.baseDeliveryFee,
+        'deliveryPaidByUser': calc.deliveryPaidFromProfit,
+        'fullTotal': calc.totalWaseet, // المبلغ الكامل للوسيط
+        'customerTotal': calc.totalCustomer, // المبلغ المدفوع من العميل
+        'finalProfit': calc.profitFinal,
+      };
+    }
+
+    // ⚠️ Fallback: استخدام البيانات المحلية (في حالة فشل السيرفر)
     final totalsData = widget.orderData['totals'];
     Map<String, int> totals = <String, int>{};
 
@@ -427,21 +514,12 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
 
     final subtotal = totals['subtotal'] ?? 0;
     final profit = totals['profit'] ?? 0;
-
-    // ✅ حساب المبلغ الإجمالي والربح حسب السلايدر
-    // كلما قل _deliveryFee، كلما دفع المستخدم أكثر من ربحه
     final provinceName = widget.orderData['province'] as String?;
-    final baseDeliveryFee = _getDeliveryFeeByProvince(provinceName); // السعر الأساسي للمحافظة
-    final deliveryPaidByUser = baseDeliveryFee - _deliveryFee; // المبلغ المدفوع من الربح
-
-    // 🎯 المبلغ الإجمالي الكامل (للوسيط) = subtotal + رسوم التوصيل الكاملة
+    final baseDeliveryFee = _getDeliveryFeeByProvince(provinceName);
+    final deliveryPaidByUser = baseDeliveryFee - _deliveryFee;
     final fullTotal = subtotal + baseDeliveryFee;
-
-    // 💰 المبلغ المدفوع من العميل (مخفض) = subtotal + رسوم التوصيل المخفضة
     final customerTotal = subtotal + _deliveryFee;
-
-    // 🔧 إصلاح حساب الربح النهائي - منع الأرقام السالبة
-    final finalProfit = math.max(0, profit - deliveryPaidByUser); // المستخدم يدفع من ربحه
+    final finalProfit = math.max(0, profit - deliveryPaidByUser);
 
     return {
       'subtotal': subtotal,
@@ -449,8 +527,8 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       'deliveryFee': _deliveryFee,
       'baseDeliveryFee': baseDeliveryFee,
       'deliveryPaidByUser': deliveryPaidByUser,
-      'fullTotal': fullTotal, // 🎯 المبلغ الكامل للوسيط
-      'customerTotal': customerTotal, // 💰 المبلغ المدفوع من العميل
+      'fullTotal': fullTotal,
+      'customerTotal': customerTotal,
       'finalProfit': finalProfit,
     };
   }
@@ -465,13 +543,10 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        // ✨ تصميم نظيف واحترافي
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white, // خلفية بيضاء نظيفة
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark
-              ? const Color(0xFFe6b31e).withValues(alpha: 0.2)
-              : Colors.grey.withValues(alpha: 0.15), // حد رمادي فاتح
+          color: isDark ? const Color(0xFFe6b31e).withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.15),
           width: 1.5,
         ),
         boxShadow: isDark
@@ -480,14 +555,36 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       ),
       child: Column(
         children: [
-          // العنوان
-          Text(
-            'ملخص الطلب',
-            style: GoogleFonts.cairo(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: isDark ? const Color(0xFFffd700) : const Color(0xFF1A1A1A),
-            ),
+          // العنوان مع مؤشر التحميل
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'ملخص الطلب',
+                style: GoogleFonts.cairo(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? const Color(0xFFffd700) : const Color(0xFF1A1A1A),
+                ),
+              ),
+              // 🧮 مؤشر تحميل عند الحساب من السيرفر
+              if (_isCalculating) ...[
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: isDark ? const Color(0xFFffd700) : Colors.blue,
+                  ),
+                ),
+              ],
+              // ✅ علامة من السيرفر
+              if (_serverCalculation != null && _serverCalculation!.success && !_isCalculating) ...[
+                const SizedBox(width: 10),
+                Icon(Icons.verified, size: 18, color: Colors.green[400]),
+              ],
+            ],
           ),
           const SizedBox(height: 20),
 
