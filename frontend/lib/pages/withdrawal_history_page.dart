@@ -11,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../providers/theme_provider.dart';
-import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 
 class WithdrawalHistoryPage extends StatefulWidget {
@@ -261,25 +260,21 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
         children: [
-          // زر الرجوع - متناسق مع صفحة الإحصائيات
+          // زر الرجوع - تصميم زجاجي ناعم
           GestureDetector(
             onTap: () => context.pop(),
             child: Container(
-              width: 40,
-              height: 40,
+              width: 45,
+              height: 45,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(15),
                 border: Border.all(
-                  color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                  color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.2),
                   width: 1,
                 ),
               ),
-              child: Icon(
-                FontAwesomeIcons.arrowRight,
-                color: isDark ? const Color(0xFFffd700) : Colors.black87,
-                size: 18,
-              ),
+              child: Icon(Icons.arrow_back_ios_new_rounded, color: isDark ? Colors.white : Colors.black87, size: 18),
             ),
           ),
 
@@ -290,7 +285,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
             child: Text(
               'سجل السحب',
               style: GoogleFonts.cairo(
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: isDark ? Colors.white : Colors.black87,
               ),
@@ -298,21 +293,31 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
             ),
           ),
 
-          const SizedBox(width: 55), // للتوازن مع زر الرجوع
+          const SizedBox(width: 60), // للتوازن
         ],
       ),
     );
   }
 
-  // بناء شريط البحث
+  // بناء شريط البحث - تصميم منحوت
   Widget _buildSearchBar(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
         decoration: BoxDecoration(
-          color: ThemeColors.cardBackground(isDark),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: ThemeColors.cardBorder(isDark), width: 1),
+          color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: TextField(
           controller: _searchController,
@@ -321,14 +326,14 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
               searchQuery = value;
             });
           },
-          style: GoogleFonts.cairo(color: ThemeColors.textColor(isDark), fontSize: 16),
+          style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87, fontSize: 15),
           decoration: InputDecoration(
-            hintText: 'البحث في طلبات السحب...',
-            hintStyle: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
+            hintText: 'ابحث عن عملية سحب...',
+            hintStyle: GoogleFonts.cairo(color: isDark ? Colors.grey[400] : Colors.grey[500], fontSize: 14),
             prefixIcon: Icon(
               FontAwesomeIcons.magnifyingGlass,
-              color: const Color(0xFFffd700).withValues(alpha: 0.7),
-              size: 18,
+              color: isDark ? Colors.grey[400] : Colors.grey[400],
+              size: 16,
             ),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -338,17 +343,17 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     );
   }
 
-  // بناء أزرار فلترة الحالات
+  // بناء أزرار فلترة الحالات - تصميم Pill
   Widget _buildStatusFilterButtons(bool isDark) {
     final filters = [
-      {'key': 'الكل', 'label': 'الكل', 'icon': FontAwesomeIcons.list},
-      {'key': 'pending', 'label': 'قيد المراجعة', 'icon': FontAwesomeIcons.clock},
-      {'key': 'completed', 'label': 'مكتمل', 'icon': FontAwesomeIcons.circleCheck},
-      {'key': 'cancelled', 'label': 'ملغي', 'icon': FontAwesomeIcons.ban},
+      {'key': 'الكل', 'label': 'الكل'},
+      {'key': 'pending', 'label': 'قيد المراجعة'},
+      {'key': 'completed', 'label': 'مكتمل'},
+      {'key': 'rejected', 'label': 'مرفوض'},
     ];
 
     return SizedBox(
-      height: 50,
+      height: 45,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -357,45 +362,39 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
           final filter = filters[index];
           final isSelected = selectedFilter == filter['key'];
 
+          // ألوان الفلتر المتناغمة
+          final activeColor = const Color(0xFFC5A059); // برونزي هادئ
+
           return Container(
-            margin: const EdgeInsets.only(right: 10),
+            margin: const EdgeInsets.only(left: 10),
             child: GestureDetector(
               onTap: () {
                 setState(() {
                   selectedFilter = filter['key'] as String;
                 });
               },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
-                  gradient: isSelected ? const LinearGradient(colors: [Color(0xFFffd700), Color(0xFFe6b31e)]) : null,
-                  color: isSelected ? null : ThemeColors.cardBackground(isDark),
-                  borderRadius: BorderRadius.circular(25),
+                  color: isSelected ? activeColor : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+                  borderRadius: BorderRadius.circular(30),
                   border: Border.all(
-                    color: isSelected ? const Color(0xFFffd700) : ThemeColors.cardBorder(isDark),
+                    color: isSelected
+                        ? activeColor
+                        : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.2)),
                     width: 1,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      filter['icon'] as IconData,
-                      size: 14,
-                      color: isSelected
-                          ? Colors.black
-                          : (isDark ? Colors.white.withValues(alpha: 0.8) : Colors.black87),
+                child: Center(
+                  child: Text(
+                    filter['label'] as String,
+                    style: GoogleFonts.cairo(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? Colors.white : (isDark ? Colors.grey[300] : Colors.grey[600]),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      filter['label'] as String,
-                      style: GoogleFonts.cairo(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected ? Colors.black : ThemeColors.textColor(isDark),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -409,7 +408,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   Widget _buildScrollableContent(bool isDark) {
     return RefreshIndicator(
       onRefresh: _refreshData,
-      color: const Color(0xFFffd700),
+      color: const Color(0xFFC5A059),
       backgroundColor: Colors.transparent,
       child: CustomScrollView(
         physics: const BouncingScrollPhysics(),
@@ -437,6 +436,9 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
 
           // قائمة طلبات السحب
           _buildWithdrawalSliverList(isDark),
+
+          // مساحة سفلية
+          SliverToBoxAdapter(child: const SizedBox(height: 80)),
         ],
       ),
     );
@@ -456,11 +458,11 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Color(0xFFffd700)),
-              SizedBox(height: 20),
+              CircularProgressIndicator(color: const Color(0xFFC5A059)),
+              const SizedBox(height: 20),
               Text(
-                'جاري تحميل طلبات السحب...',
-                style: GoogleFonts.cairo(color: Colors.black87, fontSize: 16, fontWeight: FontWeight.w500),
+                'جاري تحميل السجل...',
+                style: GoogleFonts.cairo(color: isDark ? Colors.grey[300] : Colors.grey[700], fontSize: 14),
               ),
             ],
           ),
@@ -489,16 +491,19 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(FontAwesomeIcons.fileInvoiceDollar, size: 80, color: const Color(0xFFFFD700).withValues(alpha: 0.4)),
+              Icon(
+                FontAwesomeIcons.fileInvoiceDollar,
+                size: 60,
+                color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.2),
+              ),
               const SizedBox(height: 20),
               Text(
-                withdrawalRequests.isEmpty ? 'لا توجد طلبات سحب' : 'لا توجد نتائج',
-                style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.w700, color: Colors.black87),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                withdrawalRequests.isEmpty ? 'لم تقم بأي طلبات سحب حتى الآن' : 'جرب تغيير معايير البحث أو الفلترة',
-                style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54),
+                withdrawalRequests.isEmpty ? 'لا توجد عمليات سحب' : 'لا توجد نتائج',
+                style: GoogleFonts.cairo(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
               ),
             ],
           ),
@@ -507,7 +512,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     }
 
     return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       sliver: SliverList(
         delegate: SliverChildBuilderDelegate((context, index) {
           return _buildWithdrawalCard(filteredRequests[index], isDark);
@@ -516,194 +521,238 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     );
   }
 
-  // تم إزالة دالة _buildWithdrawalList غير المستخدمة
-
-  // بناء بطاقة طلب السحب محسنة
+  // بناء بطاقة طلب السحب - Refined Professional Design
   Widget _buildWithdrawalCard(Map<String, dynamic> request, bool isDark) {
-    Color statusColor = _getStatusColor(request['status']);
+    final status = request['status']?.toString().toLowerCase() ?? '';
+
+    // ألوان الحالة
+    Color statusColor;
+    Color statusBgColor;
+    IconData statusIcon;
+
+    switch (status) {
+      case 'pending':
+        statusColor = const Color(0xFFD97706); // Amber 600 - واضح للانتظار
+        statusBgColor = const Color(0xFFFFFBEB); // Amber 50
+        statusIcon = FontAwesomeIcons.clock;
+        break;
+      case 'completed':
+        statusColor = const Color(0xFF059669); // Emerald 600 - واضح للنجاح
+        statusBgColor = const Color(0xFFECFDF5); // Emerald 50
+        statusIcon = FontAwesomeIcons.check;
+        break;
+      case 'rejected':
+      case 'cancelled':
+        statusColor = const Color(0xFFDC2626); // Red 600 - أحمر واضح للخطأ
+        statusBgColor = const Color(0xFFFEF2F2); // Red 50
+        statusIcon = FontAwesomeIcons.xmark;
+        break;
+      default:
+        statusColor = const Color(0xFF475569); // Slate 600
+        statusBgColor = const Color(0xFFF8FAFC); // Slate 50
+        statusIcon = FontAwesomeIcons.question;
+    }
+
+    // تعديل الألوان للوضع الداكن
+    if (isDark) {
+      statusBgColor = statusColor.withValues(alpha: 0.1);
+    }
 
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: ThemeColors.cardBackground(isDark),
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ThemeColors.cardBorder(isDark), width: 1),
-        boxShadow: isDark
-            ? [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, offset: const Offset(0, 8)),
-                BoxShadow(
-                  color: const Color(0xFFffd700).withValues(alpha: 0.1),
-                  blurRadius: 30,
-                  offset: const Offset(0, 0),
-                ),
-              ]
-            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // الصف الأول: الحالة والمبلغ
+            // الصف العلوي: الحالة والمبلغ
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // الحالة
+                // أيقونة الحالة (صغيرة وأنيقة)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.5), width: 1),
-                  ),
-                  child: Text(
-                    _getStatusText(request['status']),
-                    style: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w700, color: statusColor),
-                  ),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: statusBgColor, shape: BoxShape.circle),
+                  child: Icon(statusIcon, color: statusColor, size: 16),
                 ),
+                const SizedBox(width: 12),
 
-                // المبلغ مع فاصلة
-                Text(
-                  '${_formatAmount(request['amount'])} د.ع',
-                  style: GoogleFonts.cairo(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFFffd700),
-                    shadows: [
-                      Shadow(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                // نص الحالة والتاريخ
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getStatusText(status),
+                        style: GoogleFonts.cairo(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF1E293B),
+                        ),
+                      ),
+                      Text(
+                        _formatDateWithSeparator(request['request_date']),
+                        style: GoogleFonts.cairo(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[500]),
                       ),
                     ],
                   ),
                 ),
+
+                // المبلغ
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _formatAmount(request['amount']),
+                      style: GoogleFonts.cairo(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor, // لون الحالة للمبلغ
+                      ),
+                    ),
+                    Text(
+                      'IQD',
+                      style: GoogleFonts.cairo(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.grey[500] : Colors.grey[400],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
 
-            const SizedBox(height: 16),
+            // فاصل
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Divider(
+                height: 1,
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
+              ),
+            ),
 
-            // طريقة السحب
+            // معلومات البطاقة (بسيطة وواضحة)
             Row(
               children: [
                 Icon(
                   _getMethodIcon(request['withdrawal_method']),
-                  color: const Color(0xFFffd700).withValues(alpha: 0.8),
-                  size: 16,
+                  size: 14,
+                  color: isDark ? Colors.grey[400] : Colors.grey[500],
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'طريقة السحب: ${_getMethodText(request['withdrawal_method'])}',
+                  _getMethodText(request['withdrawal_method']),
                   style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: ThemeColors.textColor(isDark),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // رقم البطاقة
-            Row(
-              children: [
-                Icon(FontAwesomeIcons.hashtag, color: ThemeColors.secondaryIconColor(isDark), size: 14),
-                const SizedBox(width: 8),
-                Text(
-                  'رقم البطاقة: ${_extractCardNumber(request['account_details'])}',
-                  style: GoogleFonts.cairo(
-                    fontSize: 13,
+                    fontSize: 12,
+                    color: isDark ? Colors.grey[300] : Colors.grey[700],
                     fontWeight: FontWeight.w500,
-                    color: ThemeColors.secondaryTextColor(isDark),
                   ),
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // اسم حامل البطاقة
-            Row(
-              children: [
-                Icon(FontAwesomeIcons.user, color: ThemeColors.secondaryIconColor(isDark), size: 14),
-                const SizedBox(width: 8),
+                const Spacer(),
+                // اسم حامل البطاقة
                 Text(
-                  'اسم حامل البطاقة: ${_extractCardHolderName(request['account_details'])}',
+                  _extractCardHolderName(request['account_details']),
                   style: GoogleFonts.cairo(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: ThemeColors.secondaryTextColor(isDark),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 12),
-
-            // تاريخ الطلب
-            Row(
-              children: [
-                Icon(FontAwesomeIcons.calendar, color: ThemeColors.secondaryIconColor(isDark), size: 14),
                 const SizedBox(width: 8),
-                Text(
-                  'تاريخ الطلب: ${_formatDateWithSeparator(request['request_date'])}',
-                  style: GoogleFonts.cairo(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: ThemeColors.secondaryTextColor(isDark),
+                // رقم البطاقة
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ),
-              ],
-            ),
-
-            // تاريخ المعالجة (إذا كان موجوداً)
-            if (request['process_date'] != null) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(FontAwesomeIcons.check, color: Colors.green.withValues(alpha: 0.8), size: 14),
-                  const SizedBox(width: 8),
-                  Text(
-                    'تاريخ المعالجة: ${_formatDateWithSeparator(request['process_date'])}',
+                  child: Text(
+                    '•••• ${_extractLast4Digits(_extractCardNumber(request['account_details']))}',
                     style: GoogleFonts.cairo(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: ThemeColors.secondaryTextColor(isDark),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      letterSpacing: 1,
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
 
-  Color _getStatusColor(String? status) {
-    switch (status?.toLowerCase().trim()) {
-      case 'pending':
-        return const Color(0xFFffc107); // أصفر - قيد المراجعة
-      case 'approved':
-        return const Color(0xFF17a2b8); // أزرق - تمت الموافقة
-      case 'completed':
-        return const Color(0xFF28a745); // أخضر - تم التحويل
-      case 'rejected':
-        return const Color(0xFFdc3545); // أحمر - مرفوض
-      case 'cancelled':
-        return const Color(0xFFfd7e14); // برتقالي - ملغي
-      default:
-        return const Color(0xFF6c757d); // رمادي - غير محدد
-    }
+  // دالة مساعدة لاستخراج آخر 4 أرقام
+  String _extractLast4Digits(String cardNumber) {
+    if (cardNumber.length <= 4) return cardNumber;
+    return cardNumber.substring(cardNumber.length - 4);
   }
 
-  // ترجمة حالة الطلب للعربية
-  String _getStatusText(String? status) {
-    // طباعة الحالة للتشخيص
-    debugPrint('🔍 حالة الطلب الواردة: "$status"');
+  // استخراج رقم البطاقة من account_details
+  String _extractCardNumber(String? accountDetails) {
+    if (accountDetails == null || accountDetails.isEmpty) {
+      return '0000';
+    }
 
+    final parts = accountDetails.split(' - ');
+
+    if (parts.length >= 3) {
+      return parts[2].trim();
+    } else if (parts.length == 2) {
+      final secondPart = parts[1].trim();
+      if (RegExp(r'^\d+$').hasMatch(secondPart)) {
+        return secondPart;
+      }
+    }
+
+    final RegExp numberRegex = RegExp(r'\d{4,}');
+    final match = numberRegex.firstMatch(accountDetails);
+
+    if (match != null) {
+      return match.group(0) ?? '0000';
+    }
+
+    return '0000';
+  }
+
+  // استخراج اسم حامل البطاقة من account_details
+  String _extractCardHolderName(String? accountDetails) {
+    if (accountDetails == null || accountDetails.isEmpty) {
+      return 'غير محدد';
+    }
+
+    final parts = accountDetails.split(' - ');
+
+    if (parts.length >= 3) {
+      return parts[1].trim();
+    } else if (parts.length == 2) {
+      final secondPart = parts[1].trim();
+      if (!RegExp(r'^\d+$').hasMatch(secondPart)) {
+        return secondPart;
+      }
+    }
+
+    return 'غير محدد';
+  }
+
+  // ترجمة حالة الطلب للعربية (محدثة)
+  String _getStatusText(String? status) {
     switch (status?.toLowerCase().trim()) {
       case 'pending':
         return 'قيد المراجعة';
@@ -716,25 +765,20 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       case 'cancelled':
         return 'ملغي';
       default:
-        debugPrint('⚠️ حالة غير معروفة: "$status"');
-        return status?.toString() ?? 'غير محدد';
+        return 'غير محدد';
     }
   }
 
   // ترجمة طريقة السحب للعربية
   String _getMethodText(String? method) {
-    debugPrint('🔍 طريقة السحب الواردة: "$method"');
-
     if (method == null) return 'غير محدد';
 
-    // التحقق من النص المحفوظ
     if (method.contains('بطاقة كي كارد') || method.contains('كي كارد')) {
       return 'كي كارد';
     } else if (method.contains('زين كاش')) {
       return 'زين كاش';
     }
 
-    // التحقق من القيم القديمة
     switch (method.toLowerCase().trim()) {
       case 'mastercard':
       case 'ki_card':
@@ -743,7 +787,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       case 'zain_cash':
         return 'زين كاش';
       default:
-        return method; // عرض القيمة الفعلية إذا لم تكن معروفة
+        return method;
     }
   }
 
@@ -763,76 +807,6 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     }
 
     return FontAwesomeIcons.circleQuestion;
-  }
-
-  // استخراج رقم البطاقة من account_details
-  String _extractCardNumber(String? accountDetails) {
-    if (accountDetails == null || accountDetails.isEmpty) {
-      return 'غير محدد';
-    }
-
-    debugPrint('🔍 استخراج رقم البطاقة من: "$accountDetails"');
-
-    // تنسيق البيانات المحفوظة: "بطاقة كي كارد - اسم حامل البطاقة - رقم البطاقة"
-    final parts = accountDetails.split(' - ');
-
-    if (parts.length >= 3) {
-      // الجزء الثالث هو رقم البطاقة
-      final cardNumber = parts[2].trim();
-      debugPrint('✅ رقم البطاقة المستخرج: "$cardNumber"');
-      return cardNumber;
-    } else if (parts.length == 2) {
-      // إذا كان هناك جزءان فقط، نتحقق أيهما الرقم
-      final secondPart = parts[1].trim();
-      // إذا كان الجزء الثاني يحتوي على أرقام فقط، فهو رقم البطاقة
-      if (RegExp(r'^\d+$').hasMatch(secondPart)) {
-        debugPrint('✅ رقم البطاقة المستخرج: "$secondPart"');
-        return secondPart;
-      }
-    }
-
-    // البحث عن أي رقم في النص كحل أخير
-    final RegExp numberRegex = RegExp(r'\d{4,}');
-    final match = numberRegex.firstMatch(accountDetails);
-
-    if (match != null) {
-      final cardNumber = match.group(0) ?? 'غير محدد';
-      debugPrint('✅ رقم البطاقة المستخرج (بحث): "$cardNumber"');
-      return cardNumber;
-    }
-
-    debugPrint('❌ لم يتم العثور على رقم البطاقة');
-    return 'غير محدد';
-  }
-
-  // استخراج اسم حامل البطاقة من account_details
-  String _extractCardHolderName(String? accountDetails) {
-    if (accountDetails == null || accountDetails.isEmpty) {
-      return 'غير محدد';
-    }
-
-    debugPrint('🔍 استخراج اسم حامل البطاقة من: "$accountDetails"');
-
-    // تنسيق البيانات المحفوظة: "بطاقة كي كارد - اسم حامل البطاقة - رقم البطاقة"
-    final parts = accountDetails.split(' - ');
-
-    if (parts.length >= 3) {
-      // الجزء الثاني هو اسم حامل البطاقة
-      final cardHolderName = parts[1].trim();
-      debugPrint('✅ اسم حامل البطاقة المستخرج: "$cardHolderName"');
-      return cardHolderName;
-    } else if (parts.length == 2) {
-      // إذا كان هناك جزءان فقط، نتحقق أيهما الاسم
-      final secondPart = parts[1].trim();
-      // إذا كان الجزء الثاني لا يحتوي على أرقام فقط، فهو الاسم
-      if (!RegExp(r'^\d+$').hasMatch(secondPart)) {
-        debugPrint('✅ اسم حامل البطاقة المستخرج: "$secondPart"');
-        return secondPart;
-      }
-    }
-
-    debugPrint('❌ لم يتم العثور على اسم حامل البطاقة');
-    return 'غير محدد';
   }
 
   // تنسيق المبلغ مع فاصلة

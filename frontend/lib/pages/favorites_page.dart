@@ -1,16 +1,116 @@
-// صفحة المفضلة - Favorites Page
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import '../core/design_system.dart';
 import '../models/product.dart';
 import '../providers/theme_provider.dart';
 import '../services/favorites_service.dart';
+import '../services/cart_service.dart';
+import '../utils/font_helper.dart';
+import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
-// تم إزالة import cart_service غير المستخدم
 import '../widgets/pull_to_refresh_wrapper.dart';
+
+// 🧠 كاش بسيط لصور المنتجات داخل جلسة التطبيق (نسخة محلية)
+class _ProductImageCache {
+  static final Map<String, ImageProvider> _cache = {};
+
+  static ImageProvider get(String url) {
+    if (_cache.containsKey(url)) {
+      return _cache[url]!;
+    }
+
+    final provider = NetworkImage(url);
+    _cache[url] = provider;
+    return provider;
+  }
+}
+
+// 🔁 ويدجت ذكية لعرض صورة المنتج مع إعادة المحاولة التلقائية + الكاش (نسخة محلية)
+class _CachedAutoRetryProductImage extends StatefulWidget {
+  final String imageUrl;
+  final double height;
+  final bool isDark;
+
+  const _CachedAutoRetryProductImage({required this.imageUrl, required this.height, required this.isDark});
+
+  @override
+  State<_CachedAutoRetryProductImage> createState() => _CachedAutoRetryProductImageState();
+}
+
+class _CachedAutoRetryProductImageState extends State<_CachedAutoRetryProductImage> {
+  int _retryKey = 0;
+  Timer? _retryTimer;
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleRetry() {
+    if (!mounted) return;
+    if (_retryTimer != null && _retryTimer!.isActive) return;
+
+    _retryTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      setState(() {
+        _retryKey++;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageProvider = _ProductImageCache.get(widget.imageUrl);
+
+    return Image(
+      key: ValueKey('${widget.imageUrl}#$_retryKey'),
+      image: imageProvider,
+      fit: BoxFit.contain,
+      width: double.infinity,
+      height: widget.height,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppDesignSystem.goldColor),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        _scheduleRetry();
+        return Container(
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.image_not_supported_outlined,
+                  color: widget.isDark ? Colors.white24 : Colors.grey.shade300,
+                  size: 30,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
@@ -19,297 +119,350 @@ class FavoritesPage extends StatefulWidget {
   State<FavoritesPage> createState() => _FavoritesPageState();
 }
 
-class _FavoritesPageState extends State<FavoritesPage> with TickerProviderStateMixin {
+class _FavoritesPageState extends State<FavoritesPage> {
   final FavoritesService _favoritesService = FavoritesService.instance;
-  // تم إزالة _cartService غير المستخدم
-
+  final CartService _cartService = CartService(); // factory constructor
   List<Product> _displayedFavorites = [];
   String _searchQuery = '';
-  String _sortBy = 'name'; // name, price, recent
-  bool _isAscending = true;
-
-  late AnimationController _animationController;
-  late AnimationController _statsAnimationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _slideAnimation;
-  // تم إزالة _statsAnimation غير المستخدم
+  String _sortBy = 'date_desc'; // date_desc, date_asc, price_high, price_low
 
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
     _loadFavorites();
-  }
-
-  /// تحديث البيانات عند السحب للأسفل
-  Future<void> _refreshData() async {
-    debugPrint('🔄 تحديث بيانات صفحة المفضلة...');
-
-    // إعادة تحميل المفضلة
-    await _loadFavorites();
-
-    debugPrint('✅ تم تحديث بيانات صفحة المفضلة');
-  }
-
-  void _initializeAnimations() {
-    _animationController = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
-
-    _statsAnimationController = AnimationController(duration: const Duration(milliseconds: 1200), vsync: this);
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
-
-    _slideAnimation = Tween<double>(
-      begin: 50.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOutBack));
-
-    // تم إزالة تعيين _statsAnimation غير المستخدم
   }
 
   Future<void> _loadFavorites() async {
     await _favoritesService.loadFavorites();
     _updateDisplayedFavorites();
-    _animationController.forward();
-    _statsAnimationController.forward();
+  }
+
+  Future<void> _refreshData() async {
+    await _loadFavorites();
   }
 
   void _updateDisplayedFavorites() {
-    setState(() {
-      List<Product> favorites = _favoritesService.favorites;
+    List<Product> favorites = _favoritesService.favorites;
 
-      // فلترة المنتجات المتاحة فقط (الكمية > 0)
+    // تصفية حسب البحث
+    if (_searchQuery.isNotEmpty) {
       favorites = favorites.where((product) {
-        return product.availableQuantity > 0;
+        return product.name.toLowerCase().contains(_searchQuery.toLowerCase());
       }).toList();
+    }
 
-      // تطبيق البحث
-      if (_searchQuery.isNotEmpty) {
-        favorites = favorites.where((product) {
-          return product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-              product.description.toLowerCase().contains(_searchQuery.toLowerCase());
-        }).toList();
-      }
+    // ترتيب
+    switch (_sortBy) {
+      case 'date_desc':
+        // الافتراضي، الأحدث أولاً (بافتراض أن القائمة مرتبة زمنياً)
+        break;
+      case 'date_asc':
+        favorites = favorites.reversed.toList();
+        break;
+      case 'price_high':
+        favorites.sort((a, b) => b.wholesalePrice.compareTo(a.wholesalePrice));
+        break;
+      case 'price_low':
+        favorites.sort((a, b) => a.wholesalePrice.compareTo(b.wholesalePrice));
+        break;
+    }
 
-      // تطبيق الترتيب
-      switch (_sortBy) {
-        case 'name':
-          favorites = _favoritesService.getFavoritesSortedByName(ascending: _isAscending);
-          break;
-        case 'price':
-          favorites = _favoritesService.getFavoritesSortedByPrice(ascending: _isAscending);
-          break;
-        case 'recent':
-          favorites = _isAscending ? favorites.reversed.toList() : favorites;
-          break;
-      }
-
-      _displayedFavorites = favorites;
-    });
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    _statsAnimationController.dispose();
-    super.dispose();
+    if (mounted) {
+      setState(() {
+        _displayedFavorites = favorites;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+
+    // حساب عدد الأعمدة بناءً على عرض الشاشة (نفس منطق صفحة المنتجات)
+    final int crossAxisCount = screenWidth > 600 ? 3 : 2;
+    final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
+    final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
+    final mainAxisSpacing = screenWidth > 400 ? 20.0 : (screenWidth > 350 ? 18.0 : 16.0);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBody: true,
       body: AppBackground(
-        child: PullToRefreshWrapper(
-          onRefresh: _refreshData,
-          refreshMessage: 'تم تحديث المفضلة',
-          child: Column(
-            children: [
-              // الشريط العلوي ضمن المحتوى
-              const SizedBox(height: 25),
-              _buildHeader(isDark),
-              const SizedBox(height: 20),
-
-              // شريط البحث والفلترة
-              _buildSearchAndFilterBar(isDark),
-
-              // المحتوى الرئيسي
-              Expanded(
-                child: ListenableBuilder(
-                  listenable: _favoritesService,
-                  builder: (context, child) {
-                    return _displayedFavorites.isEmpty
-                        ? _buildEmptyState(isDark)
-                        : _buildFavoritesList(isTablet, isDark);
-                  },
-                ),
+        child: Stack(
+          children: [
+            // 🎨 الخلفية الموحدة للوضع النهاري
+            if (!isDark)
+              Container(
+                color: const Color(0xFFF5F5F7), // خلفية نهارية موحدة
               ),
-            ],
-          ),
+
+            // المحتوى الرئيسي
+            PullToRefreshWrapper(
+              onRefresh: _refreshData,
+              refreshMessage: 'تم تحديث المفضلة',
+              child: CustomScrollView(
+                slivers: [
+                  // مسافة للشريط العلوي
+                  const SliverToBoxAdapter(child: SizedBox(height: 25)),
+
+                  // العنوان
+                  SliverToBoxAdapter(child: _buildHeader(isDark)),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                  // شريط البحث والفلترة المطور
+                  SliverToBoxAdapter(child: _buildSearchAndFilterBar(isDark)),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+                  // قائمة المفضلات
+                  ListenableBuilder(
+                    listenable: _favoritesService,
+                    builder: (context, child) {
+                      if (_displayedFavorites.isEmpty) {
+                        return SliverFillRemaining(hasScrollBody: false, child: _buildEmptyState(isDark));
+                      }
+
+                      return SliverPadding(
+                        padding: EdgeInsets.symmetric(horizontal: horizontalMargin, vertical: 10),
+                        sliver: SliverGrid(
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossAxisCount,
+                            crossAxisSpacing: crossAxisSpacing,
+                            mainAxisSpacing: mainAxisSpacing,
+                            childAspectRatio: _calculateOptimalAspectRatio(context, crossAxisCount),
+                          ),
+                          delegate: SliverChildBuilderDelegate((context, index) {
+                            final product = _displayedFavorites[index];
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeOut,
+                              child: _buildProductCard(product, isDark),
+                            );
+                          }, childCount: _displayedFavorites.length),
+                        ),
+                      );
+                    },
+                  ),
+
+                  // مسافة سفلية للشريط السفلي
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-      bottomNavigationBar: _buildReorganizedBottomNavigationBar(),
     );
   }
 
-  // 🎨 الشريط العلوي
+  // 🧠 حساب النسبة المثالية للبطاقة (مطابق لصفحة المنتجات)
+  double _calculateOptimalAspectRatio(BuildContext context, int columns) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+
+    final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
+    final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
+
+    final availableWidth = screenWidth - (horizontalMargin * 2);
+    final totalSpacing = crossAxisSpacing * (columns - 1);
+    final cardWidth = (availableWidth - totalSpacing) / columns;
+
+    final cardHeight = _calculateCardHeight(screenWidth, cardWidth);
+
+    return cardWidth / cardHeight;
+  }
+
+  // ثوابت قياسات البطاقة
+  static const double _cardTopPadding = 22.0;
+  static const double _imageHeight = 200.0;
+  static const double _imageBottomSpacing = -5.0;
+  static const double _nameHeight = 27.0;
+  static const double _nameBottomSpacing = 0.0;
+  static const double _priceBarHeight = 40.0;
+  static const double _cardBottomPadding = 15.0;
+
+  double _calculateCardHeight(double screenWidth, double cardWidth) {
+    final double imageHeight = _getImageHeightForCard(cardWidth, screenWidth);
+    return _cardTopPadding +
+        imageHeight +
+        _imageBottomSpacing +
+        _nameHeight +
+        _nameBottomSpacing +
+        _priceBarHeight +
+        _cardBottomPadding;
+  }
+
+  double _getImageHeightForCard(double cardWidth, double screenWidth) {
+    double factor;
+    if (cardWidth < 160) {
+      factor = 1.15;
+    } else if (cardWidth < 190) {
+      factor = 1.05;
+    } else {
+      factor = 0.95;
+    }
+
+    if (screenWidth < 360) {
+      factor += 0.05;
+    } else if (screenWidth > 600) {
+      factor -= 0.05;
+    }
+
+    final double dynamicHeight = cardWidth * factor;
+    const double minHeight = _imageHeight * 0.9;
+    const double maxHeight = _imageHeight * 1.3;
+
+    return dynamicHeight.clamp(minHeight, maxHeight).toDouble();
+  }
+
   Widget _buildHeader(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // زر الرجوع
-          GestureDetector(
-            onTap: () => context.go('/products'),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2), width: 1),
-              ),
-              child: Icon(Icons.arrow_back_ios, color: isDark ? Colors.white : Colors.black, size: 18),
-            ),
-          ),
-
-          // العنوان
-          Text(
-            'مفضلتي',
-            style: GoogleFonts.cairo(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-          ),
-
-          // الأزرار
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // زر الإحصائيات
-              GestureDetector(
-                onTap: _showStatsDialog,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
-                  ),
-                  child: Icon(FontAwesomeIcons.chartLine, color: const Color(0xFFffd700), size: 18),
+              Text(
+                'المفضلة',
+                style: GoogleFonts.cairo(
+                  color: isDark ? Colors.white : Colors.black,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              if (_displayedFavorites.isNotEmpty) const SizedBox(width: 10),
-              // زر مسح الكل
-              if (_displayedFavorites.isNotEmpty)
-                GestureDetector(
-                  onTap: _showClearAllDialog,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFff2d55).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFff2d55).withValues(alpha: 0.3), width: 1),
-                    ),
-                    child: Icon(FontAwesomeIcons.trash, color: const Color(0xFFff2d55), size: 18),
-                  ),
-                ),
+              Text(
+                '${_favoritesService.favorites.length} منتجات مميزة',
+                style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.grey[600], fontSize: 14),
+              ),
             ],
           ),
+          if (_favoritesService.favorites.isNotEmpty)
+            GestureDetector(
+              onTap: () => _showClearConfirmation(context),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                ),
+                child: const Icon(FontAwesomeIcons.trashCan, color: Colors.red, size: 18),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildSearchAndFilterBar(bool isDark) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.3 : 0.4), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: (isDark ? Colors.black : Colors.grey).withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          // شريط البحث
-          TextField(
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-              });
-              _updateDisplayedFavorites();
-            },
-            style: GoogleFonts.cairo(color: Colors.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'ابحث في مفضلتك...',
-              hintStyle: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
-              prefixIcon: const Icon(FontAwesomeIcons.magnifyingGlass, color: Color(0xFFffd700), size: 16),
-              filled: true,
-              fillColor: const Color(0xFF1a1a2e).withValues(alpha: 0.5),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // شريط البحث بتصميم مبهر
+          Container(
+            height: 55,
+            decoration: BoxDecoration(
+              color: isDark ? null : const Color(0xFFF3F4F6),
+              gradient: isDark
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        AppDesignSystem.bottomNavColor.withValues(alpha: 0.85),
+                        AppDesignSystem.activeButtonColor.withValues(alpha: 0.9),
+                        AppDesignSystem.primaryBackground.withValues(alpha: 0.95),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
+                    )
+                  : null,
+              borderRadius: BorderRadius.circular(50),
+              border: Border.all(
+                color: isDark ? AppDesignSystem.goldColor.withValues(alpha: 0.4) : const Color(0xFFE5E7EB),
+                width: isDark ? 1.2 : 1.0,
+              ),
+              boxShadow: isDark
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                        spreadRadius: 0.5,
+                      ),
+                      BoxShadow(
+                        color: AppDesignSystem.goldColor.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 0),
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+            ),
+            child: TextField(
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+                _updateDisplayedFavorites();
+              },
+              style: GoogleFonts.cairo(
+                color: isDark ? AppDesignSystem.primaryTextColor : const Color(0xFF111827),
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                hintText: 'ابحث في مفضلتك...',
+                hintStyle: GoogleFonts.cairo(
+                  color: isDark ? AppDesignSystem.primaryTextColor.withValues(alpha: 0.6) : const Color(0xFF9CA3AF),
+                  fontSize: 14,
+                ),
+                prefixIcon: Container(
+                  padding: const EdgeInsets.all(14),
+                  child: Icon(
+                    Icons.search_rounded,
+                    color: isDark ? AppDesignSystem.goldColor.withValues(alpha: 0.9) : const Color(0xFFFFC727),
+                    size: AppDesignSystem.largeIconSize,
+                  ),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              ),
             ),
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 15),
 
-          // أزرار الترتيب
-          Row(
-            children: [
-              _buildSortButton('الاسم', 'name'),
-              const SizedBox(width: 8),
-              _buildSortButton('السعر', 'price'),
-              const SizedBox(width: 8),
-              _buildSortButton('الأحدث', 'recent'),
-              const Spacer(),
-              // زر تغيير اتجاه الترتيب
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _isAscending = !_isAscending;
-                  });
-                  _updateDisplayedFavorites();
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1),
-                  ),
-                  child: Icon(
-                    _isAscending ? FontAwesomeIcons.arrowUpAZ : FontAwesomeIcons.arrowDownZA,
-                    color: const Color(0xFFffd700),
-                    size: 14,
-                  ),
-                ),
-              ),
-            ],
+          // أزرار الفلترة
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildSortButton('الأحدث', 'date_desc', isDark),
+                const SizedBox(width: 8),
+                _buildSortButton('الأقدم', 'date_asc', isDark),
+                const SizedBox(width: 8),
+                _buildSortButton('الأعلى سعراً', 'price_high', isDark),
+                const SizedBox(width: 8),
+                _buildSortButton('الأقل سعراً', 'price_low', isDark),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSortButton(String title, String sortType) {
+  Widget _buildSortButton(String title, String sortType, bool isDark) {
     final isSelected = _sortBy == sortType;
 
     return GestureDetector(
@@ -319,20 +472,36 @@ class _FavoritesPageState extends State<FavoritesPage> with TickerProviderStateM
         });
         _updateDisplayedFavorites();
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          color: isSelected
+              ? const Color(0xFFffd700).withValues(alpha: 0.2)
+              : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? const Color(0xFFffd700) : const Color(0xFFffd700).withValues(alpha: 0.3),
+            color: isSelected
+                ? const Color(0xFFffd700)
+                : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.2)),
             width: 1,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFffd700).withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
         ),
         child: Text(
           title,
           style: GoogleFonts.cairo(
-            color: isSelected ? const Color(0xFFffd700) : Colors.white.withValues(alpha: 0.7),
+            color: isSelected
+                ? const Color(0xFFffd700)
+                : (isDark ? Colors.white.withValues(alpha: 0.7) : Colors.black.withValues(alpha: 0.7)),
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
@@ -341,505 +510,420 @@ class _FavoritesPageState extends State<FavoritesPage> with TickerProviderStateM
     );
   }
 
-  Widget _buildEmptyState(bool isDark) {
-    return AnimatedBuilder(
-      animation: _fadeAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _slideAnimation.value),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // أيقونة القلب المكسور
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          const Color(0xFFff2d55).withValues(alpha: 0.2),
-                          const Color(0xFFffd700).withValues(alpha: 0.1),
-                        ],
+  // بطاقة المنتج - مطابقة تماماً لصفحة المنتجات 🎨✨
+  Widget _buildProductCard(Product product, bool isDark) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return GestureDetector(
+      onTap: () {
+        context.go('/products/details/${product.id}');
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final cardWidth = constraints.maxWidth;
+            final double imageHeight = _getImageHeightForCard(cardWidth, screenWidth);
+
+            return Container(
+              margin: const EdgeInsets.only(right: 5, bottom: 0),
+              clipBehavior: Clip.none,
+              decoration: BoxDecoration(
+                color: isDark ? null : Colors.white,
+                gradient: isDark
+                    ? LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.06),
+                          Colors.white.withValues(alpha: 0.03),
+                          const Color(0xFF1A1F2E).withValues(alpha: 0.2),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      )
+                    : null,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.04),
+                  width: 1,
+                ),
+                boxShadow: isDark
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+              ),
+              child: Stack(
+                children: [
+                  // شريط عدد القطع
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppDesignSystem.goldColor.withValues(alpha: 0.9),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(16),
+                        ),
                       ),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 2),
-                    ),
-                    child: const Icon(FontAwesomeIcons.heartCrack, color: Color(0xFFff2d55), size: 50),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // النص الرئيسي
-                  Text(
-                    'مفضلتك فارغة!',
-                    style: GoogleFonts.cairo(
-                      color: isDark ? Colors.white : Colors.black,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.inventory_2_rounded, color: Colors.black, size: 12),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${product.availableFrom}-${product.availableTo}',
+                            style: GoogleFonts.cairo(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  // شريط التبليغات الذكي
+                  if (product.notificationTags.isNotEmpty)
+                    Positioned(right: 0, top: 0, child: _NotificationBarWidget(product: product)),
 
-                  // النص الفرعي
-                  Text(
-                    'ابدأ بإضافة المنتجات التي تعجبك\nلتجدها هنا بسهولة',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.cairo(
-                      color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.7),
-                      fontSize: 16,
-                      height: 1.5,
+                  // منطقة الصورة
+                  Positioned(
+                    left: 8,
+                    top: _cardTopPadding,
+                    right: 8,
+                    child: Container(
+                      height: imageHeight - 8,
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(20)),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              height: imageHeight,
+                              child: product.images.isNotEmpty
+                                  ? Container(
+                                      width: double.infinity,
+                                      height: imageHeight,
+                                      color: isDark ? Colors.transparent : Colors.white,
+                                      child: _CachedAutoRetryProductImage(
+                                        imageUrl: product.images.first,
+                                        height: imageHeight,
+                                        isDark: isDark,
+                                      ),
+                                    )
+                                  : Container(
+                                      height: imageHeight,
+                                      decoration: BoxDecoration(
+                                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Icon(
+                                        Icons.camera_alt_outlined,
+                                        color: isDark ? Colors.white60 : Colors.grey,
+                                        size: 50,
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // اسم المنتج
+                  Positioned(
+                    left: 6,
+                    right: 6,
+                    top: _cardTopPadding + imageHeight + _imageBottomSpacing,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isDark
+                              ? [
+                                  const Color(0xFF1A1F2E).withValues(alpha: 0.7),
+                                  const Color(0xFF0F1419).withValues(alpha: 0.4),
+                                ]
+                              : [Colors.white.withValues(alpha: 0.95), Colors.white.withValues(alpha: 0.9)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        product.name,
+                        style: FontHelper.cairo(
+                          color: ThemeColors.textColor(isDark),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+
+                  // السعر والأزرار
+                  Positioned(
+                    left: 5,
+                    right: 5,
+                    top: _cardTopPadding + imageHeight + _imageBottomSpacing + _nameHeight + _nameBottomSpacing,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isDark ? null : const Color(0xFFF3F4F6),
+                        gradient: isDark
+                            ? LinearGradient(
+                                colors: [Colors.black.withValues(alpha: 0.4), Colors.black.withValues(alpha: 0.2)],
+                              )
+                            : null,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE5E7EB),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // السعر
+                          Container(
+                            constraints: const BoxConstraints(maxWidth: 80),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.black.withValues(alpha: 0.6) : const Color(0xFFF1F1F1),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              _formatPrice(product.wholesalePrice),
+                              style: FontHelper.cairo(
+                                color: isDark ? Colors.white : Colors.black,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+
+                          const Spacer(),
+
+                          // الأزرار
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Transform.scale(scale: 0.85, child: _buildHeartButton(product, isDark)),
+                              Transform.scale(scale: 0.75, child: _buildAnimatedAddButton(product)),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 
-  Widget _buildFavoritesList(bool isTablet, bool isDark) {
-    return AnimatedBuilder(
-      animation: _fadeAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, _slideAnimation.value),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: PullToRefreshWrapper(
-              onRefresh: _refreshData,
-              refreshMessage: 'تم تحديث المفضلة',
-              child: GridView.builder(
-                padding: const EdgeInsets.all(16),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: isTablet ? 3 : 2,
-                  childAspectRatio: isTablet ? 0.75 : 0.7,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                ),
-                itemCount: _displayedFavorites.length,
-                itemBuilder: (context, index) {
-                  final product = _displayedFavorites[index];
-                  return _buildFavoriteCard(product, index);
-                },
+  Widget _buildHeartButton(Product product, bool isDark) {
+    // في صفحة المفضلات، المنتج دائماً مفضل، لذا الزر للحذف
+    return GestureDetector(
+      onTap: () async {
+        HapticFeedback.lightImpact();
+        await _favoritesService.toggleFavorite(product);
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'تم إزالة ${product.name} من المفضلة',
+                style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
               ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFavoriteCard(Product product, int index) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // حساب الأحجام بناءً على عرض البطاقة (نفس نظام صفحة المنتجات)
-        double cardWidth = constraints.maxWidth;
-        double cardHeight = constraints.maxHeight;
-
-        // نسبة الصورة تتكيف مع حجم البطاقة
-        double imageHeight = cardHeight * 0.58; // 58% من ارتفاع البطاقة للصورة
-
-        // أحجام النصوص والعناصر بناءً على عرض البطاقة
-        double titleFontSize;
-        double priceFontSize;
-        double padding;
-
-        if (cardWidth > 200) {
-          titleFontSize = 15;
-          priceFontSize = 14;
-          padding = 14;
-        } else if (cardWidth > 160) {
-          titleFontSize = 14;
-          priceFontSize = 13;
-          padding = 12;
-        } else if (cardWidth > 140) {
-          titleFontSize = 13;
-          priceFontSize = 12;
-          padding = 10;
-        } else {
-          titleFontSize = 12;
-          priceFontSize = 11;
-          padding = 8;
+          );
         }
-
-        return GestureDetector(
-          onTap: () => context.go('/products/details/${product.id}'),
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF16213e),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1.5),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // صورة المنتج الكبيرة - تملأ معظم البطاقة
-                _buildLargeProductImage(product, imageHeight),
-
-                // معلومات المنتج المضغوطة
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(padding, padding * 0.6, padding, padding * 0.3), // تقليل الحشو أكثر
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // اسم المنتج - متعدد الأسطر ومتجاوب
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            product.name,
-                            style: GoogleFonts.cairo(
-                              color: Colors.white,
-                              fontSize: titleFontSize,
-                              fontWeight: FontWeight.bold,
-                              height: 1.3, // زيادة المسافة بين الأسطر
-                            ),
-                            maxLines: 3, // السماح بثلاثة أسطر
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.start,
-                          ),
-                        ),
-
-                        SizedBox(height: padding * 1.2), // مسافة أكبر بين الاسم والسعر
-                        // سعر الجملة
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFffd700).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
-                          ),
-                          child: Text(
-                            'جملة: ${product.wholesalePrice.toStringAsFixed(0)} د.ع',
-                            style: GoogleFonts.cairo(
-                              color: const Color(0xFFffd700),
-                              fontSize: priceFontSize,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-
-                        SizedBox(height: padding * 0.5),
-
-                        // الأزرار السفلية - حذف من المفضلة وإضافة للسلة
-                        Row(
-                          children: [
-                            // زر حذف من المفضلة على اليمين
-                            GestureDetector(
-                              onTap: () => _removeFromFavorites(product),
-                              child: Container(
-                                width: cardWidth > 180 ? 32 : 28,
-                                height: cardWidth > 180 ? 32 : 28,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFff2d55).withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFff2d55), width: 1),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.2),
-                                      blurRadius: 3,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  FontAwesomeIcons.solidHeart,
-                                  color: const Color(0xFFff2d55),
-                                  size: cardWidth > 180 ? 14 : 12,
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(width: 8),
-
-                            // زر إضافة للسلة على اليسار
-                            Expanded(
-                              child: Container(
-                                height: cardWidth > 180 ? 32 : 28,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFffd700), Color(0xFFe6b31e)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      FontAwesomeIcons.cartPlus,
-                                      color: const Color(0xFF1a1a2e),
-                                      size: cardWidth > 180 ? 12 : 10,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'إضافة للسلة',
-                                      style: GoogleFonts.cairo(
-                                        color: const Color(0xFF1a1a2e),
-                                        fontSize: cardWidth > 180 ? 11 : 9,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
       },
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFF5252), Color(0xFFE91E63)]),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+          boxShadow: [
+            BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 15, offset: const Offset(0, 4)),
+            BoxShadow(color: Colors.red.withValues(alpha: 0.2), blurRadius: 25, offset: const Offset(0, 8)),
+          ],
+        ),
+        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 18),
+      ),
     );
   }
 
-  // بناء صورة المنتج الكبيرة التي تملأ الإطار
-  Widget _buildLargeProductImage(Product product, double imageHeight) {
-    return Container(
-      width: double.infinity,
-      height: imageHeight,
-      decoration: BoxDecoration(
-        color: const Color(0xFF1a1a2e),
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
-        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.2), width: 1),
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
-        child: Stack(
-          children: [
-            // صورة المنتج - تملأ الإطار بالكامل
-            Image.network(
-              product.images.isNotEmpty ? product.images.first : 'https://picsum.photos/400/400?random=1',
-              width: double.infinity,
-              height: double.infinity,
-              fit: BoxFit.cover, // تملأ الإطار مع الحفاظ على النسبة
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(8)),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(FontAwesomeIcons.image, color: Color(0xFFffd700), size: 40),
-                      const SizedBox(height: 12),
-                      Text(
-                        'لا توجد صورة',
-                        style: GoogleFonts.cairo(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  width: double.infinity,
-                  height: double.infinity,
-                  decoration: BoxDecoration(color: const Color(0xFF1a1a2e), borderRadius: BorderRadius.circular(8)),
-                  child: const Center(child: CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 3)),
-                );
-              },
-            ),
+  Widget _buildAnimatedAddButton(Product product) {
+    bool isInCart = _cartService.hasProduct(product.id);
 
-            // الكمية المتاحة في الزاوية العلوية اليسرى - مكبرة
-            Positioned(
-              top: 8,
-              left: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF28a745),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFffd700), width: 0.8),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 3, offset: const Offset(0, 1)),
-                  ],
+    return GestureDetector(
+      onTap: () async {
+        if (!isInCart) {
+          HapticFeedback.lightImpact();
+          await _cartService.addItem(
+            productId: product.id,
+            name: product.name,
+            image: product.images.isNotEmpty ? product.images.first : '',
+            minPrice: product.minPrice.toInt(),
+            maxPrice: product.maxPrice.toInt(),
+            customerPrice: 0,
+            wholesalePrice: product.wholesalePrice.toInt(),
+            quantity: 1,
+          );
+          setState(() {});
+        } else {
+          HapticFeedback.selectionClick();
+          _cartService.removeItem(product.id);
+          setState(() {});
+        }
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+        width: 40,
+        height: 36,
+        decoration: BoxDecoration(
+          gradient: isInCart
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF4CAF50), Color(0xFF45A049), Color(0xFF388E3C)],
+                )
+              : const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF6F757F), Color(0xFF4A5568), Color(0xFF2D3748)],
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(FontAwesomeIcons.boxesStacked, color: Colors.white, size: 9),
-                    const SizedBox(width: 3),
-                    Text(
-                      '${product.availableFrom} - ${product.availableTo}',
-                      style: GoogleFonts.cairo(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // إزالة منتج من المفضلة
-  Future<void> _removeFromFavorites(Product product) async {
-    final success = await _favoritesService.removeFromFavorites(product.id);
-    if (success) {
-      // تحديث القائمة المعروضة فوراً
-      setState(() {
-        _displayedFavorites.removeWhere((p) => p.id == product.id);
-      });
-      _showSnackBar('تم إزالة ${product.name} من المفضلة', isError: false);
-    }
-  }
-
-  // تم حذف _addToCart غير المستخدم
-
-  // عرض رسالة
-  void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message,
-          style: GoogleFonts.cairo(
-            color: Colors.white,
-            fontSize: 12, // تصغير حجم الخط
-            fontWeight: FontWeight.w600,
+          borderRadius: BorderRadius.circular(isInCart ? 18 : 12),
+          border: Border.all(
+            color: isInCart ? Colors.white.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.2),
+            width: 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: isInCart ? Colors.green.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3),
+              blurRadius: isInCart ? 12 : 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        backgroundColor: isError ? const Color(0xFFff2d55) : const Color(0xFF00ff88),
-        duration: const Duration(milliseconds: 1500), // تقليل مدة العرض
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), // تصغير الهوامش
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // تصغير الحشو
+        child: Center(
+          child: isInCart
+              ? const Icon(Icons.check_rounded, color: Colors.white, size: 22)
+              : const Icon(Icons.add_rounded, color: Colors.white, size: 20),
+        ),
       ),
     );
   }
 
-  // عرض حوار الإحصائيات
-  void _showStatsDialog() {
-    final stats = _favoritesService.getFavoritesStats();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1a1a2e),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
-        ),
-        title: Row(
-          children: [
-            const Icon(FontAwesomeIcons.chartLine, color: Color(0xFFffd700), size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'إحصائيات المفضلة',
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildStatItem('عدد المنتجات', '${stats['totalProducts']}'),
-            _buildStatItem('متوسط السعر', '${stats['averagePrice'].toStringAsFixed(0)} د.ع'),
-            _buildStatItem('أقل سعر', '${stats['minPrice'].toStringAsFixed(0)} د.ع'),
-            _buildStatItem('أعلى سعر', '${stats['maxPrice'].toStringAsFixed(0)} د.ع'),
-            _buildStatItem('القيمة الإجمالية', '${stats['totalValue'].toStringAsFixed(0)} د.ع'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'إغلاق',
-              style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)),
+          Container(
+            padding: const EdgeInsets.all(30),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1a1a2e).withValues(alpha: 0.5) : Colors.grey.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 2),
+            ),
+            child: const Icon(FontAwesomeIcons.heartCrack, color: Color(0xFFffd700), size: 60),
+          ),
+          const SizedBox(height: 20),
           Text(
-            value,
-            style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 14, fontWeight: FontWeight.bold),
+            'لا توجد منتجات مفضلة',
+            style: GoogleFonts.cairo(
+              color: isDark ? Colors.white : Colors.black,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'اضغط على القلب لإضافة منتجات هنا',
+            style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.grey[600], fontSize: 14),
+          ),
+          const SizedBox(height: 30),
+          ElevatedButton.icon(
+            onPressed: () => context.go('/products'),
+            icon: const Icon(FontAwesomeIcons.store, color: Colors.black, size: 18),
+            label: Text(
+              'تصفح المنتجات',
+              style: GoogleFonts.cairo(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFffd700),
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // عرض حوار مسح الكل
-  void _showClearAllDialog() {
+  void _showClearConfirmation(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: const Color(0xFFff2d55).withValues(alpha: 0.3), width: 1),
-        ),
-        title: Row(
-          children: [
-            const Icon(FontAwesomeIcons.triangleExclamation, color: Color(0xFFff2d55), size: 20),
-            const SizedBox(width: 8),
-            Text(
-              'تأكيد المسح',
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'تأكيد الحذف',
+          style: GoogleFonts.cairo(color: Colors.white, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
         ),
         content: Text(
-          'هل أنت متأكد من مسح جميع المنتجات من المفضلة؟\nلا يمكن التراجع عن هذا الإجراء.',
-          style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.8), fontSize: 14, height: 1.5),
+          'هل أنت متأكد من حذف جميع المنتجات من المفضلة؟',
+          style: GoogleFonts.cairo(color: Colors.white70),
+          textAlign: TextAlign.center,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('إلغاء', style: GoogleFonts.cairo(color: Colors.white.withValues(alpha: 0.7), fontSize: 14)),
+            child: Text('إلغاء', style: GoogleFonts.cairo(color: Colors.grey)),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               await _favoritesService.clearFavorites();
               _updateDisplayedFavorites();
-              _showSnackBar('تم مسح جميع المفضلة', isError: false);
             },
             child: Text(
-              'مسح الكل',
-              style: GoogleFonts.cairo(color: const Color(0xFFff2d55), fontSize: 14, fontWeight: FontWeight.bold),
+              'حذف الكل',
+              style: GoogleFonts.cairo(color: Colors.red, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -847,128 +931,78 @@ class _FavoritesPageState extends State<FavoritesPage> with TickerProviderStateM
     );
   }
 
-  // متغيرات الشريط السفلي
-  int currentPageIndex = -1; // المفضلة ليست في الشريط السفلي
-  bool isAdmin = false;
+  String _formatPrice(double price) {
+    return NumberFormat.currency(symbol: 'د.ع', decimalDigits: 0, locale: 'ar_IQ').format(price);
+  }
+}
 
-  // بناء شريط التنقل السفلي المعاد ترتيبه
-  Widget _buildReorganizedBottomNavigationBar() {
-    return Container(
-      margin: const EdgeInsets.only(left: 15, right: 15, bottom: 15),
-      height: 60, // تصغير الارتفاع
-      decoration: BoxDecoration(
-        color: const Color(0xFF16213e),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1.5),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 15, offset: const Offset(0, 8))],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // منتجاتي على اليمين
-          _buildAdvancedNavButton(
-            icon: FontAwesomeIcons.store,
-            label: 'منتجاتي',
-            index: 0,
-            isActive: currentPageIndex == 0,
-          ),
-          // الطلبات
-          _buildAdvancedNavButton(
-            icon: FontAwesomeIcons.bagShopping,
-            label: 'الطلبات',
-            index: 1,
-            isActive: currentPageIndex == 1,
-          ),
-          // الأرباح
-          _buildAdvancedNavButton(
-            icon: FontAwesomeIcons.chartLine,
-            label: 'الأرباح',
-            index: 2,
-            isActive: currentPageIndex == 2,
-          ),
-          // الحساب
-          _buildAdvancedNavButton(
-            icon: FontAwesomeIcons.user,
-            label: 'الحساب',
-            index: 3,
-            isActive: currentPageIndex == 3,
-          ),
-          // لوحة التحكم (تظهر فقط للمدير)
-          if (isAdmin)
-            _buildAdvancedNavButton(
-              icon: FontAwesomeIcons.userShield,
-              label: 'الإدارة',
-              index: 4,
-              isActive: currentPageIndex == 4,
-            ),
-        ],
-      ),
-    );
+class _NotificationBarWidget extends StatefulWidget {
+  final Product product;
+
+  const _NotificationBarWidget({required this.product});
+
+  @override
+  State<_NotificationBarWidget> createState() => _NotificationBarWidgetState();
+}
+
+class _NotificationBarWidgetState extends State<_NotificationBarWidget> {
+  int currentIndex = 0;
+  Timer? notificationTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    final tags = widget.product.notificationTags;
+    if (tags.length > 1) {
+      notificationTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+        if (mounted && tags.isNotEmpty) {
+          setState(() {
+            currentIndex = (currentIndex + 1) % tags.length;
+          });
+        }
+      });
+    }
   }
 
-  // بناء زر التنقل المتقدم
-  Widget _buildAdvancedNavButton({
-    required IconData icon,
-    required String label,
-    required int index,
-    required bool isActive,
-  }) {
-    return GestureDetector(
-      onTap: () => _onNavTap(index),
+  @override
+  void dispose() {
+    notificationTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tags = widget.product.notificationTags;
+    if (tags.isEmpty || currentIndex >= tags.length) {
+      return const SizedBox.shrink();
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 500),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12), // تصغير الحشو
-        child: Column(
+        key: ValueKey(tags[currentIndex]),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [const Color(0xFF6B73FF).withValues(alpha: 0.9), const Color(0xFF9D4EDD).withValues(alpha: 0.8)],
+          ),
+          borderRadius: const BorderRadius.only(topRight: Radius.circular(24), bottomLeft: Radius.circular(16)),
+          boxShadow: [
+            BoxShadow(color: const Color(0xFF6B73FF).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isActive ? const Color(0xFFffd700) : Colors.white.withValues(alpha: 0.6),
-              size: 20, // تصغير الأيقونة
-            ),
-            const SizedBox(height: 3), // تقليل المسافة
+            const Icon(Icons.campaign_rounded, color: Colors.white, size: 12),
+            const SizedBox(width: 4),
             Text(
-              label,
-              style: GoogleFonts.cairo(
-                fontSize: 11, // تصغير النص
-                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                color: isActive ? const Color(0xFFffd700) : Colors.white.withValues(alpha: 0.6),
-              ),
+              tags[currentIndex],
+              style: GoogleFonts.cairo(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
             ),
           ],
         ),
       ),
     );
-  }
-
-  // معالج النقر على أزرار التنقل
-  void _onNavTap(int index) {
-    setState(() {
-      currentPageIndex = index;
-    });
-
-    switch (index) {
-      case 0:
-        // منتجاتي
-        context.go('/products');
-        break;
-      case 1:
-        // الطلبات
-        context.go('/orders');
-        break;
-      case 2:
-        // الأرباح
-        context.go('/profits');
-        break;
-      case 3:
-        // الحساب
-        context.go('/account');
-        break;
-      case 4:
-        // لوحة التحكم الإدارية
-        if (isAdmin) {
-          context.go('/admin');
-        }
-        break;
-    }
   }
 }

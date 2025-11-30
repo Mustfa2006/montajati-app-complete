@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'providers/theme_provider.dart';
 
 import 'core/design_system.dart';
 import 'pages/advanced_admin_dashboard.dart';
@@ -91,42 +93,90 @@ class AppRouter {
             currentIndex = 0;
           }
 
+          final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
           return Scaffold(
             backgroundColor: Colors.transparent,
             extendBody: true,
             body: child,
-            bottomNavigationBar: CurvedNavigationBar(
-              index: currentIndex,
-              items: const <Widget>[
-                Icon(Icons.storefront_outlined, size: 28, color: Color(0xFFFFD700)), // المنتجات
-                Icon(Icons.receipt_long_outlined, size: 28, color: Color(0xFFFFD700)), // الطلبات
-                Icon(Icons.trending_up_outlined, size: 28, color: Color(0xFFFFD700)), // الأرباح
-                Icon(Icons.emoji_events_outlined, size: 28, color: Color(0xFFFFD700)), // المسابقات
-                Icon(Icons.person_outline, size: 28, color: Color(0xFFFFD700)), // الحساب
-              ],
-              color: AppDesignSystem.bottomNavColor,
-              buttonBackgroundColor: AppDesignSystem.activeButtonColor,
-              backgroundColor: Colors.transparent,
-              onTap: (index) {
-                switch (index) {
-                  case 0:
-                    context.go('/products');
-                    break;
-                  case 1:
-                    context.go('/orders');
-                    break;
-                  case 2:
-                    context.go('/profits');
-                    break;
-                  case 3:
-                    context.go('/competitions');
-                    break;
-                  case 4:
-                    context.go('/account');
-                    break;
-                }
-              },
-              letIndexChange: (index) => true,
+            bottomNavigationBar: SafeArea(
+              top: false,
+              child: CurvedNavigationBar(
+                index: currentIndex,
+                items: <Widget>[
+                  Icon(
+                    Icons.storefront_rounded,
+                    size: 28,
+                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                  ), // shop
+                  Icon(
+                    Icons.receipt_long_rounded,
+                    size: 28,
+                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                  ), // orders
+                  Icon(
+                    Icons.trending_up_rounded,
+                    size: 28,
+                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                  ), // profits
+                  Icon(
+                    Icons.emoji_events_rounded,
+                    size: 28,
+                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                  ), // competitions
+                  Icon(
+                    Icons.person_rounded,
+                    size: 28,
+                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                  ), // account
+                ],
+                color: isDark ? AppDesignSystem.bottomNavColor : Colors.white,
+                // ✨ تدرج لوني متناسق للوضعين
+                gradient: isDark
+                    ? LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color(0xFF2D3748), // رمادي مزرق غامق
+                          const Color(0xFF1A202C), // أغمق
+                          const Color(0xFF171923), // أسود تقريباً
+                        ],
+                        stops: const [0.0, 0.6, 1.0],
+                      )
+                    : LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white,
+                          const Color(0xFFF8F9FA), // رمادي فاتح جداً
+                          const Color(0xFFF1F5F9), // أغمق قليلاً للعمق
+                        ],
+                        stops: const [0.0, 0.7, 1.0],
+                      ),
+                buttonBackgroundColor: Colors.transparent, // الخلفية شفافة لأن الكرة لها تدرج خاص
+                // Leave the notch transparent so الخلفية تظهر من خلال القوس
+                backgroundColor: Colors.transparent,
+                onTap: (index) {
+                  switch (index) {
+                    case 0:
+                      context.go('/products');
+                      break;
+                    case 1:
+                      context.go('/orders');
+                      break;
+                    case 2:
+                      context.go('/profits');
+                      break;
+                    case 3:
+                      context.go('/competitions');
+                      break;
+                    case 4:
+                      context.go('/account');
+                      break;
+                  }
+                },
+                letIndexChange: (index) => true,
+              ),
             ),
           );
         },
@@ -187,6 +237,9 @@ class AppRouter {
 
           // صفحة الحساب الشخصي
           GoRoute(path: '/account', name: 'account', builder: (context, state) => const NewAccountPage()),
+
+          // صفحة المفضلة (تم نقلها هنا لتظهر الشريط السفلي)
+          GoRoute(path: '/favorites', name: 'favorites', builder: (context, state) => const FavoritesPage()),
         ],
       ),
 
@@ -223,19 +276,6 @@ class AppRouter {
         name: 'withdrawal-history',
         builder: (context, state) => const WithdrawalHistoryPage(),
       ),
-
-      // صفحة السلة
-      GoRoute(path: '/cart', name: 'cart', builder: (context, state) => const CartPage()),
-
-      // صفحة المفضلة
-      GoRoute(path: '/favorites', name: 'favorites', builder: (context, state) => const FavoritesPage()),
-
-      // لوحة التحكم الإدارية
-      GoRoute(path: '/admin', name: 'admin', builder: (context, state) => const AdvancedAdminDashboard()),
-
-      // صفحة إضافة منتج
-      GoRoute(path: '/add-product', name: 'add-product', builder: (context, state) => const SimpleAddProductPage()),
-
       // صفحة اختبار Storage
       GoRoute(path: '/storage-test', name: 'storage-test', builder: (context, state) => const StorageTestPage()),
 
@@ -267,6 +307,9 @@ class AppRouter {
         name: 'new-system-test',
         builder: (context, state) => const NewSystemTestPage(),
       ),
+
+      // صفحة لوحة التحكم الإدارية
+      GoRoute(path: '/admin', name: 'admin', builder: (context, state) => const AdvancedAdminDashboard()),
 
       // صفحة اختبار الإشعارات
     ],

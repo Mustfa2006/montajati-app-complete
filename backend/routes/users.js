@@ -93,6 +93,73 @@ router.get('/', async (req, res) => {
   }
 });
 
+
+// ===================================
+// POST /api/users/balance - جلب رصيد المستخدم (للسحب)
+// ===================================
+router.post('/balance', async (req, res) => {
+  try {
+    // الحصول على رقم الهاتف من الـ body (مثل بقية الـ endpoints)
+    const { phone } = req.body;
+
+    if (!phone || phone.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'رقم الهاتف مطلوب'
+      });
+    }
+
+    console.log(`💰 === جلب رصيد المستخدم من الـ API ===`);
+    console.log(`📱 رقم الهاتف: ${phone}`);
+
+    // جلب البيانات من قاعدة البيانات
+    const { data, error } = await supabase
+      .from('users')
+      .select('achieved_profits, expected_profits, name, phone')
+      .eq('phone', phone)
+      .maybeSingle();
+
+    if (error) {
+      console.error(`❌ خطأ في جلب رصيد المستخدم:`, error.message);
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في جلب الرصيد'
+      });
+    }
+
+    if (!data) {
+      return res.status(404).json({
+        success: false,
+        message: 'المستخدم غير موجود'
+      });
+    }
+
+    const achievedProfits = Number(data.achieved_profits) || 0;
+    const expectedProfits = Number(data.expected_profits) || 0;
+    const totalBalance = achievedProfits + expectedProfits;
+
+    console.log(`✅ الرصيد الكلي: ${totalBalance} (محقق: ${achievedProfits} + متوقع: ${expectedProfits})`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        achieved_profits: achievedProfits,
+        expected_profits: expectedProfits,
+        total_balance: totalBalance,
+        name: data.name || 'مستخدم',
+        phone: data.phone
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ خطأ في الخادم:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'خطأ في الخادم'
+    });
+  }
+});
+
 // الحصول على مستخدم محدد
 router.get('/:id', async (req, res) => {
   try {

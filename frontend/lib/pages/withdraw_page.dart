@@ -149,9 +149,25 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
 
       debugPrint('💰 === جلب رصيد المستخدم من الـ API ===');
 
-      // ✅ استخدام JWT فقط - السيرفر يحدد المستخدم من التوكن
+      // Get user phone from SharedPreferences
+      String? userPhone = _currentUserPhone;
+      if (userPhone == null || userPhone.isEmpty) {
+        userPhone = _prefs?.getString('current_user_phone');
+      }
+
+      if (userPhone == null || userPhone.isEmpty) {
+        throw Exception('رقم الهاتف غير موجود');
+      }
+
+      debugPrint('📱 رقم الهاتف: $userPhone');
+
+      // ✅ إرسال POST مع رقم الهاتف في الـ body
       final response = await http
-          .get(Uri.parse('${ApiConfig.usersUrl}/balance'), headers: ApiConfig.defaultHeaders)
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/balance'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({'phone': userPhone}),
+          )
           .timeout(ApiConfig.defaultTimeout);
 
       debugPrint('📡 استجابة الخادم: ${response.statusCode}');
@@ -162,18 +178,17 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
         debugPrint('📊 البيانات المستلمة: $jsonData');
 
         if (jsonData['success'] == true) {
-          final balance = (jsonData['balance'] as num?)?.toDouble() ?? 0.0;
-          final userId = jsonData['user_id'] ?? '';
-          final userName = jsonData['user_name'] ?? 'مستخدم';
-          final userPhone = jsonData['phone'] ?? '';
+          // Extract data from the new API structure
+          final data = jsonData['data'] ?? {};
+          final balance = (data['total_balance'] as num?)?.toDouble() ?? 0.0;
+          final userName = data['name'] ?? 'مستخدم';
+          final userPhone = data['phone'] ?? '';
 
           debugPrint('💰 الرصيد المستلم: $balance د.ع');
-          debugPrint('👤 معرف المستخدم: $userId');
           debugPrint('📝 اسم المستخدم: $userName');
 
           // حفظ بيانات المستخدم
           if (_prefs != null) {
-            await _prefs!.setString('current_user_id', userId);
             await _prefs!.setString('current_user_name', userName ?? 'مستخدم');
             await _prefs!.setString('current_user_phone', userPhone);
             _currentUserPhone = userPhone;
@@ -235,10 +250,25 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
         }
       }
 
-      // 🌐 جلب الرصيد الحقيقي من الـ API (استخدام JWT فقط - بدون إرسال phone)
+      // 🌐 جلب الرصيد الحقيقي من الـ API
       debugPrint('🌐 جلب الرصيد من السيرفر...');
+
+      // Get user phone
+      String? userPhone = _currentUserPhone;
+      if (userPhone == null || userPhone.isEmpty) {
+        userPhone = _prefs?.getString('current_user_phone');
+      }
+
+      if (userPhone == null || userPhone.isEmpty) {
+        throw Exception('رقم الهاتف غير موجود');
+      }
+
       final response = await http
-          .get(Uri.parse('${ApiConfig.usersUrl}/balance'), headers: ApiConfig.defaultHeaders)
+          .post(
+            Uri.parse('${ApiConfig.usersUrl}/balance'),
+            headers: ApiConfig.defaultHeaders,
+            body: jsonEncode({'phone': userPhone}),
+          )
           .timeout(ApiConfig.defaultTimeout);
 
       if (response.statusCode != 200) {
@@ -248,10 +278,11 @@ class _WithdrawPageState extends State<WithdrawPage> with WidgetsBindingObserver
       final jsonData = jsonDecode(response.body);
 
       if (jsonData['success'] != true) {
-        throw Exception(jsonData['error'] ?? 'خطأ في جلب الرصيد');
+        throw Exception(jsonData['error'] ?? jsonData['message'] ?? 'خطأ في جلب الرصيد');
       }
 
-      final actualBalance = (jsonData['balance'] as num?)?.toDouble() ?? 0.0;
+      final data = jsonData['data'] ?? {};
+      final actualBalance = (data['total_balance'] as num?)?.toDouble() ?? 0.0;
 
       debugPrint('   الرصيد الفعلي: $actualBalance د.ع');
 

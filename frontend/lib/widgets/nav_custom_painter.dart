@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 
-/// نفس منطق المكتبة الأصلية تمامًا (curved_navigation_bar)
-/// مع الحفاظ على لون الشريط القادم من [color]
+/// ???? ???? ????? ?????? ?????? (curved_navigation_bar)
+/// ???? ????? ?? ???????? ?????? ?????? [color]
 class NavCustomPainter extends CustomPainter {
   late double loc;
   late double s;
   Color color;
+  Gradient? gradient; // ✨ إضافة التدرج اللوني
   TextDirection textDirection;
 
-  NavCustomPainter(double startingLoc, int itemsLength, this.color, this.textDirection) {
+  NavCustomPainter(double startingLoc, int itemsLength, this.color, this.textDirection, {this.gradient}) {
     final span = 1.0 / itemsLength;
-    s = 0.2; // نفس قيمة المكتبة الأصلية
+    s = 0.2;
     final l = startingLoc + (span - s) / 2;
-    // محاذاة RTL / LTR كما في المكتبة الأصلية تمامًا
     loc = textDirection == TextDirection.rtl ? 0.8 - l : l;
   }
 
@@ -22,6 +22,12 @@ class NavCustomPainter extends CustomPainter {
       ..color = color
       ..style = PaintingStyle.fill;
 
+    // ✨ تطبيق التدرج اللوني إذا وجد
+    if (gradient != null) {
+      paint.shader = gradient!.createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    }
+
+    // ??? ?????? ?? ????????
     final path = Path()
       ..moveTo(0, 0)
       ..lineTo((loc - 0.1) * size.width, 0)
@@ -47,6 +53,38 @@ class NavCustomPainter extends CustomPainter {
       ..close();
 
     canvas.drawPath(path, paint);
+
+    // ✨ رسم خط ذهبي علوي "رهيب" يتبع القوس
+    final borderPaint = Paint()
+      ..color = const Color(0xFFFFD700)
+          .withValues(alpha: 0.5) // ذهبي خفيف وراقي
+      ..style = PaintingStyle.stroke
+      ..strokeWidth =
+          1.5 // سمك ناعم
+      ..strokeCap = StrokeCap.round; // حواف ناعمة
+
+    final borderPath = Path()
+      ..moveTo(0, 0)
+      ..lineTo((loc - 0.1) * size.width, 0)
+      ..cubicTo(
+        (loc + s * 0.20) * size.width,
+        size.height * 0.05,
+        loc * size.width,
+        size.height * 0.60,
+        (loc + s * 0.50) * size.width,
+        size.height * 0.60,
+      )
+      ..cubicTo(
+        (loc + s) * size.width,
+        size.height * 0.60,
+        (loc + s - s * 0.20) * size.width,
+        size.height * 0.05,
+        (loc + s + 0.1) * size.width,
+        0,
+      )
+      ..lineTo(size.width, 0);
+
+    canvas.drawPath(borderPath, borderPaint);
   }
 
   @override

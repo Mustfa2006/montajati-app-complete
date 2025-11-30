@@ -13,6 +13,7 @@ class CurvedNavigationBar extends StatefulWidget {
   final List<Widget> items;
   final int index;
   final Color color;
+  final Gradient? gradient; // ✨ إضافة التدرج اللوني
   final Color? buttonBackgroundColor;
   final Color backgroundColor;
   final ValueChanged<int>? onTap;
@@ -27,13 +28,14 @@ class CurvedNavigationBar extends StatefulWidget {
     required this.items,
     this.index = 0,
     this.color = Colors.white,
+    this.gradient, // ✨
     this.buttonBackgroundColor,
     this.backgroundColor = Colors.blueAccent,
     this.onTap,
     LetIndexPage? letIndexChange,
     this.animationCurve = Curves.easeOut,
     this.animationDuration = const Duration(milliseconds: 600),
-    this.height = 75.0,
+    this.height = 65.0, // 📏 تقليل الارتفاع الافتراضي قليلاً ليبدو أجمل
     this.maxWidth,
   }) : letIndexChange = letIndexChange ?? ((_) => true),
        assert(items.isNotEmpty),
@@ -71,7 +73,12 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTic
         if ((endingPos - _pos).abs() < (_startingPos - _pos).abs()) {
           _icon = widget.items[_endingIndex];
         }
-        _buttonHide = (1 - ((middle - _pos) / (_startingPos - middle)).abs()).abs();
+        final distance = (_startingPos - middle).abs();
+        if (distance < 0.0001) {
+          _buttonHide = 0; // 🛡️ حماية من القسمة على صفر
+        } else {
+          _buttonHide = (1 - ((middle - _pos) / distance).abs()).abs();
+        }
       });
     });
   }
@@ -125,7 +132,7 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTic
                       child: Center(
                         child: Transform.translate(
                           offset: Offset(0, -(1 - _buttonHide) * 80),
-                          child: _buildActiveBallSimple(),
+                          child: _buildActiveBall(), // ✨ استخدام الكرة المتطورة
                         ),
                       ),
                     ),
@@ -134,7 +141,13 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTic
                       right: 0,
                       bottom: 0 - (75.0 - widget.height),
                       child: CustomPaint(
-                        painter: NavCustomPainter(_pos, _length, widget.color, textDirection),
+                        painter: NavCustomPainter(
+                          _pos,
+                          _length,
+                          widget.color,
+                          textDirection,
+                          gradient: widget.gradient,
+                        ), // ✨ تمرير التدرج
                         child: Container(height: 75.0),
                       ),
                     ),
@@ -167,89 +180,63 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTic
     );
   }
 
-  // كرة الزر النشطة بنفس تصميم المكتبة الأصلية (دائرة بسيطة بنفس الألوان الحالية)
-  Widget _buildActiveBallSimple() {
-    return Material(
-      color: widget.buttonBackgroundColor ?? widget.color,
-      type: MaterialType.circle,
-      child: Padding(padding: const EdgeInsets.all(8.0), child: _icon),
-    );
-  }
-
-  // كرة الزر النشطة بنفس ألوان وتصميم النسخة الحالية مع أبعاد ثابتة قريبة من المثال
+  // كرة الزر النشطة بتصميم رهيب ومبهر ✨🔥
   Widget _buildActiveBall() {
-    const double ballSize = 55.0;
+    const double ballSize = 50.0; // 📏 تصغير الكرة لتكون أنيقة ومناسبة للهاتف
 
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 800),
       curve: Curves.elasticOut,
-      tween: Tween(begin: 0.9, end: 1.0),
+      tween: Tween(begin: 0.0, end: 1.0),
       builder: (context, scale, child) {
         return Transform.scale(
           scale: scale,
-          child: ClipOval(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 600),
-                curve: Curves.easeInOutCubic,
-                width: ballSize,
-                height: ballSize,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      const Color(0xFF363940).withValues(alpha: 0.8),
-                      const Color(0xFF2D3748),
-                      const Color(0xFF1A202C),
-                    ],
-                  ),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.9), width: 3.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
-                      spreadRadius: 2,
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      offset: const Offset(0, 0),
-                      spreadRadius: 1,
-                    ),
-                    BoxShadow(
-                      color: const Color(0xFFFFD700).withValues(alpha: 0.2),
-                      blurRadius: 30,
-                      offset: const Offset(0, 0),
-                      spreadRadius: 3,
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [const Color(0xFFFFD700).withValues(alpha: 0.1), Colors.transparent],
-                            stops: const [0.3, 1.0],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Center(
-                      child: IconTheme(
-                        data: const IconThemeData(color: Color(0xFFFFD700), size: 28.0),
-                        child: _icon,
-                      ),
-                    ),
-                  ],
-                ),
+          child: Container(
+            width: ballSize,
+            height: ballSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              // ✨ تدرج لوني فخم للكرة
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [const Color(0xFF2D3748), const Color(0xFF1A202C), const Color(0xFF000000)],
               ),
+              // ✨ إطار ذهبي أنيق (أقل سماكة قليلاً)
+              border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.8), width: 2.0),
+              // ✨ ظلال هادئة (توهج أقل)
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFFFFD700).withValues(alpha: 0.15), // تقليل الشفافية
+                  blurRadius: 10, // تقليل الانتشار
+                  spreadRadius: 0, // إزالة التمدد الزائد
+                  offset: const Offset(0, 0),
+                ),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // ✨ لمعة داخلية
+                Positioned(
+                  top: 5,
+                  left: 10,
+                  child: Container(
+                    width: 15,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                // الأيقونة
+                IconTheme(
+                  data: const IconThemeData(color: Color(0xFFFFD700), size: 30.0),
+                  child: _icon,
+                ),
+              ],
             ),
           ),
         );
@@ -262,13 +249,24 @@ class CurvedNavigationBarState extends State<CurvedNavigationBar> with SingleTic
   }
 
   void _buttonTap(int index) {
-    if (!widget.letIndexChange(index) || _animationController.isAnimating) {
+    // 🛡️ منع النقر على نفس القسم الحالي أو القسم الذي يتم الانتقال إليه حالياً
+    if (index == _endingIndex) {
+      return;
+    }
+
+    if (!widget.letIndexChange(index)) {
       return;
     }
     if (widget.onTap != null) {
       widget.onTap!(index);
     }
     final newPosition = index / _length;
+
+    // 🚀 إيقاف الحركة الحالية فوراً قبل بدء حركة جديدة (حل مشكلة النقرات السريعة)
+    if (_animationController.isAnimating) {
+      _animationController.stop(canceled: false);
+    }
+
     setState(() {
       _startingPos = _pos;
       _endingIndex = index;

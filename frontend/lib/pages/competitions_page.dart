@@ -9,6 +9,7 @@ import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 import '../models/competition.dart';
 import '../providers/competitions_provider.dart';
+import '../widgets/competition_card_skeleton.dart';
 
 String _fmtNumber(dynamic n) {
   if (n == null) return '0';
@@ -43,25 +44,26 @@ class _CompetitionsPageState extends State<CompetitionsPage> {
     final provider = context.watch<CompetitionsProvider>();
     final competitions = provider.competitions;
     final currentFilter = provider.currentFilter;
+    final isLoading = !provider.isLoaded;
 
     return AppBackground(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-            children: [
-              _buildHeader(isDark),
-              const SizedBox(height: 12),
-              _buildTabs(isDark, currentFilter, provider),
-              const SizedBox(height: 12),
-              if (competitions.isEmpty)
-                _buildEmptyState(isDark, currentFilter)
-              else
-                ...competitions.map((c) => _CompetitionCard(competition: c, isDark: isDark)),
-            ],
-          ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          children: [
+            _buildHeader(isDark),
+            const SizedBox(height: 12),
+            _buildTabs(isDark, currentFilter, provider),
+            const SizedBox(height: 12),
+            if (isLoading)
+              _buildLoadingState(isDark)
+            else if (competitions.isEmpty)
+              _buildEmptyState(isDark, currentFilter)
+            else
+              ...competitions.map((c) => _CompetitionCard(competition: c, isDark: isDark)),
+          ],
         ),
       ),
     );
@@ -199,6 +201,18 @@ class _CompetitionsPageState extends State<CompetitionsPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(bool isDark) {
+    return Column(
+      children: List.generate(
+        4,
+        (index) => Padding(
+          padding: EdgeInsets.only(bottom: index == 3 ? 0 : 12),
+          child: CompetitionCardSkeleton(isDark: isDark),
         ),
       ),
     );
