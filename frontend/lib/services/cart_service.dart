@@ -207,6 +207,53 @@ class CartService extends ChangeNotifier {
     }
   }
 
+  // ✅ إضافة منتج للسلة بشكل متزامن (فوري) - للاستجابة السريعة للواجهة
+  void addItemSync({
+    required String productId,
+    required String name,
+    required String image,
+    required int wholesalePrice,
+    required int minPrice,
+    required int maxPrice,
+    required int customerPrice,
+    int quantity = 1,
+    int priceStep = 250,
+    String? colorId,
+    String? colorName,
+    String? colorHex,
+  }) {
+    // البحث عن منتج موجود بنفس المعرف واللون
+    final existingItemIndex = _items.indexWhere((item) => item.productId == productId && item.colorId == colorId);
+
+    if (existingItemIndex >= 0) {
+      // إذا كان المنتج موجود، زيادة الكمية
+      _items[existingItemIndex] = _items[existingItemIndex].copyWith(
+        quantity: _items[existingItemIndex].quantity + quantity,
+        customerPrice: customerPrice,
+      );
+    } else {
+      // إضافة منتج جديد
+      _items.add(
+        CartItem(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          productId: productId,
+          name: name,
+          image: image,
+          wholesalePrice: wholesalePrice,
+          minPrice: minPrice,
+          maxPrice: maxPrice,
+          customerPrice: customerPrice,
+          priceStep: priceStep,
+          quantity: quantity,
+          colorId: colorId,
+          colorName: colorName,
+          colorHex: colorHex,
+        ),
+      );
+    }
+    notifyListeners();
+  }
+
   // تحديث كمية منتج (باستخدام item.id)
   void updateQuantity(String itemId, int newQuantity) {
     if (newQuantity <= 0) {
@@ -235,6 +282,12 @@ class CartService extends ChangeNotifier {
   // حذف منتج من السلة (باستخدام item.id)
   void removeItem(String itemId) {
     _items.removeWhere((item) => item.id == itemId);
+    notifyListeners();
+  }
+
+  // ✅ حذف منتج من السلة باستخدام productId
+  void removeByProductId(String productId) {
+    _items.removeWhere((item) => item.productId == productId);
     notifyListeners();
   }
 

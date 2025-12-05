@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -299,61 +300,77 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
     );
   }
 
-  // بناء شريط البحث - تصميم منحوت
+  // بناء شريط البحث - تصميم Glassmorphism
   Widget _buildSearchBar(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.1 : 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDark
+                    ? [Colors.white.withValues(alpha: 0.08), Colors.white.withValues(alpha: 0.03)]
+                    : [Colors.white.withValues(alpha: 0.9), Colors.white.withValues(alpha: 0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                  spreadRadius: -5,
+                ),
+              ],
             ),
-          ],
-        ),
-        child: TextField(
-          controller: _searchController,
-          onChanged: (value) {
-            setState(() {
-              searchQuery = value;
-            });
-          },
-          style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black87, fontSize: 15),
-          decoration: InputDecoration(
-            hintText: 'ابحث عن عملية سحب...',
-            hintStyle: GoogleFonts.cairo(color: isDark ? Colors.grey[400] : Colors.grey[500], fontSize: 14),
-            prefixIcon: Icon(
-              FontAwesomeIcons.magnifyingGlass,
-              color: isDark ? Colors.grey[400] : Colors.grey[400],
-              size: 16,
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value;
+                });
+              },
+              style: GoogleFonts.cairo(
+                color: isDark ? Colors.white : Colors.black87,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                hintText: 'ابحث عن عملية سحب...',
+                hintStyle: GoogleFonts.cairo(color: isDark ? Colors.grey[400] : Colors.grey[500], fontSize: 14),
+                prefixIcon: Container(
+                  padding: const EdgeInsets.all(12),
+                  child: Icon(FontAwesomeIcons.magnifyingGlass, color: const Color(0xFFFFC107), size: 18),
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              ),
             ),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
           ),
         ),
       ),
     );
   }
 
-  // بناء أزرار فلترة الحالات - تصميم Pill
+  // بناء أزرار فلترة الحالات - تصميم Premium Glassmorphism
   Widget _buildStatusFilterButtons(bool isDark) {
     final filters = [
-      {'key': 'الكل', 'label': 'الكل'},
-      {'key': 'pending', 'label': 'قيد المراجعة'},
-      {'key': 'completed', 'label': 'مكتمل'},
-      {'key': 'rejected', 'label': 'مرفوض'},
+      {'key': 'الكل', 'label': 'الكل', 'icon': FontAwesomeIcons.list},
+      {'key': 'pending', 'label': 'قيد المراجعة', 'icon': FontAwesomeIcons.clock},
+      {'key': 'completed', 'label': 'مكتمل', 'icon': FontAwesomeIcons.circleCheck},
+      {'key': 'rejected', 'label': 'مرفوض', 'icon': FontAwesomeIcons.circleXmark},
     ];
 
     return SizedBox(
-      height: 45,
+      height: 50,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -362,37 +379,68 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
           final filter = filters[index];
           final isSelected = selectedFilter == filter['key'];
 
-          // ألوان الفلتر المتناغمة
-          final activeColor = const Color(0xFFC5A059); // برونزي هادئ
-
           return Container(
-            margin: const EdgeInsets.only(left: 10),
+            margin: const EdgeInsets.only(left: 12),
             child: GestureDetector(
               onTap: () {
                 setState(() {
                   selectedFilter = filter['key'] as String;
                 });
               },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? activeColor : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(
-                    color: isSelected
-                        ? activeColor
-                        : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.2)),
-                    width: 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    filter['label'] as String,
-                    style: GoogleFonts.cairo(
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isSelected ? Colors.white : (isDark ? Colors.grey[300] : Colors.grey[600]),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: isSelected ? 8 : 4, sigmaY: isSelected ? 8 : 4),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? const LinearGradient(
+                              colors: [Color(0xFFFFD700), Color(0xFFFFC107)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : null,
+                      color: isSelected
+                          ? null
+                          : (isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white.withValues(alpha: 0.6)),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.white.withValues(alpha: 0.3)
+                            : (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.3)),
+                        width: isSelected ? 2 : 1,
+                      ),
+                      boxShadow: isSelected
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFFFFD700).withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ]
+                          : [],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          filter['icon'] as IconData,
+                          size: 14,
+                          color: isSelected ? Colors.black87 : (isDark ? Colors.grey[300] : Colors.grey[600]),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          filter['label'] as String,
+                          style: GoogleFonts.cairo(
+                            fontSize: 13,
+                            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                            color: isSelected ? Colors.black87 : (isDark ? Colors.grey[300] : Colors.grey[600]),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -558,150 +606,142 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
       statusBgColor = statusColor.withValues(alpha: 0.1);
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.4),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                blurRadius: 15,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // الصف العلوي: الحالة والمبلغ
-            Row(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               children: [
-                // أيقونة الحالة (صغيرة وأنيقة)
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: statusBgColor, shape: BoxShape.circle),
-                  child: Icon(statusIcon, color: statusColor, size: 16),
-                ),
-                const SizedBox(width: 12),
+                // الصف العلوي: الحالة والمبلغ
+                Row(
+                  children: [
+                    // أيقونة الحالة (صغيرة وأنيقة)
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: statusBgColor, shape: BoxShape.circle),
+                      child: Icon(statusIcon, color: statusColor, size: 16),
+                    ),
+                    const SizedBox(width: 12),
 
-                // نص الحالة والتاريخ
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _getStatusText(status),
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? Colors.white : const Color(0xFF1E293B),
+                    // نص الحالة والتاريخ
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            getStatusText(status),
+                            style: GoogleFonts.cairo(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                          Text(
+                            formatDateWithSeparator(request['request_date']),
+                            style: GoogleFonts.cairo(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[500]),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // المبلغ
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          formatAmount(request['amount']),
+                          style: GoogleFonts.cairo(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor, // لون الحالة للمبلغ
+                          ),
                         ),
-                      ),
-                      Text(
-                        _formatDateWithSeparator(request['request_date']),
-                        style: GoogleFonts.cairo(fontSize: 11, color: isDark ? Colors.grey[400] : Colors.grey[500]),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ],
+                ),
+
+                // فاصل
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Divider(
+                    height: 1,
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
                   ),
                 ),
 
-                // المبلغ
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                // معلومات البطاقة (بسيطة وواضحة)
+                Row(
                   children: [
+                    Icon(
+                      getMethodIcon(request['withdrawal_method']),
+                      size: 14,
+                      color: isDark ? Colors.grey[400] : Colors.grey[500],
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      _formatAmount(request['amount']),
+                      getMethodText(request['withdrawal_method']),
                       style: GoogleFonts.cairo(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor, // لون الحالة للمبلغ
+                        fontSize: 12,
+                        color: isDark ? Colors.grey[300] : Colors.grey[700],
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
+                    const Spacer(),
+                    // اسم حامل البطاقة
                     Text(
-                      'IQD',
+                      extractCardHolderName(request['account_details']),
                       style: GoogleFonts.cairo(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.grey[500] : Colors.grey[400],
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // رقم البطاقة
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        _extractCardNumber(request['account_details']),
+                        style: GoogleFonts.cairo(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ],
             ),
-
-            // فاصل
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Divider(
-                height: 1,
-                color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
-              ),
-            ),
-
-            // معلومات البطاقة (بسيطة وواضحة)
-            Row(
-              children: [
-                Icon(
-                  _getMethodIcon(request['withdrawal_method']),
-                  size: 14,
-                  color: isDark ? Colors.grey[400] : Colors.grey[500],
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _getMethodText(request['withdrawal_method']),
-                  style: GoogleFonts.cairo(
-                    fontSize: 12,
-                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Spacer(),
-                // اسم حامل البطاقة
-                Text(
-                  _extractCardHolderName(request['account_details']),
-                  style: GoogleFonts.cairo(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // رقم البطاقة
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '•••• ${_extractLast4Digits(_extractCardNumber(request['account_details']))}',
-                    style: GoogleFonts.cairo(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      letterSpacing: 1,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  // دالة مساعدة لاستخراج آخر 4 أرقام
-  String _extractLast4Digits(String cardNumber) {
-    if (cardNumber.length <= 4) return cardNumber;
-    return cardNumber.substring(cardNumber.length - 4);
   }
 
   // استخراج رقم البطاقة من account_details
@@ -732,7 +772,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   }
 
   // استخراج اسم حامل البطاقة من account_details
-  String _extractCardHolderName(String? accountDetails) {
+  String extractCardHolderName(String? accountDetails) {
     if (accountDetails == null || accountDetails.isEmpty) {
       return 'غير محدد';
     }
@@ -752,7 +792,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   }
 
   // ترجمة حالة الطلب للعربية (محدثة)
-  String _getStatusText(String? status) {
+  String getStatusText(String? status) {
     switch (status?.toLowerCase().trim()) {
       case 'pending':
         return 'قيد المراجعة';
@@ -770,7 +810,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   }
 
   // ترجمة طريقة السحب للعربية
-  String _getMethodText(String? method) {
+  String getMethodText(String? method) {
     if (method == null) return 'غير محدد';
 
     if (method.contains('بطاقة كي كارد') || method.contains('كي كارد')) {
@@ -792,7 +832,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   }
 
   // الحصول على أيقونة طريقة السحب
-  IconData _getMethodIcon(String? method) {
+  IconData getMethodIcon(String? method) {
     if (method == null) return FontAwesomeIcons.circleQuestion;
 
     if (method.contains('بطاقة كي كارد') ||
@@ -810,7 +850,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   }
 
   // تنسيق المبلغ مع فاصلة
-  String _formatAmount(dynamic amount) {
+  String formatAmount(dynamic amount) {
     if (amount == null) return '0';
 
     try {
@@ -824,7 +864,7 @@ class _WithdrawalHistoryPageState extends State<WithdrawalHistoryPage> {
   }
 
   // تنسيق التاريخ بتوقيت العراق مع فاصل
-  String _formatDateWithSeparator(String? dateString) {
+  String formatDateWithSeparator(String? dateString) {
     if (dateString == null) return 'غير محدد';
 
     try {

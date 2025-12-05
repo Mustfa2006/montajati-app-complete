@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -13,8 +14,10 @@ import '../config/api_config.dart';
 import '../core/design_system.dart';
 import '../models/product.dart';
 import '../providers/theme_provider.dart';
+import '../providers/user_provider.dart';
 import '../services/cart_service.dart';
 import '../services/favorites_service.dart';
+import '../services/products_cache_service.dart';
 import '../services/user_service.dart';
 import '../utils/font_helper.dart';
 import '../utils/theme_colors.dart';
@@ -22,86 +25,174 @@ import '../widgets/app_background.dart';
 import '../widgets/drawer_menu.dart';
 import '../widgets/sliding_drawer.dart';
 
-// 🧠 كاش بسيط لصور المنتجات داخل جلسة التطبيق
-class _ProductImageCache {
-  static final Map<String, ImageProvider> _cache = {};
-
-  static ImageProvider get(String url) {
-    if (_cache.containsKey(url)) {
-      return _cache[url]!;
-    }
-
-    final provider = NetworkImage(url);
-    _cache[url] = provider;
-    return provider;
-  }
-}
-
-// 🔁 ويدجت ذكية لعرض صورة المنتج مع إعادة المحاولة التلقائية + الكاش
-class _CachedAutoRetryProductImage extends StatefulWidget {
-  final String imageUrl;
-  final double height;
+// نقاط تقفز للتحميل
+class _BouncingDotsLoader extends StatefulWidget {
   final bool isDark;
+  final double size;
 
-  const _CachedAutoRetryProductImage({required this.imageUrl, required this.height, required this.isDark});
+  const _BouncingDotsLoader({required this.isDark, this.size = 8});
 
   @override
-  State<_CachedAutoRetryProductImage> createState() => _CachedAutoRetryProductImageState();
+  State<_BouncingDotsLoader> createState() => _BouncingDotsLoaderState();
 }
 
-class _CachedAutoRetryProductImageState extends State<_CachedAutoRetryProductImage> {
-  int _retryKey = 0;
-  Timer? _retryTimer;
+class _BouncingDotsLoaderState extends State<_BouncingDotsLoader> with TickerProviderStateMixin {
+  late List<AnimationController> _controllers;
+  late List<Animation<double>> _animations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = List.generate(3, (index) {
+      return AnimationController(duration: const Duration(milliseconds: 400), vsync: this);
+    });
+    _animations = _controllers.map((controller) {
+      return Tween<double>(begin: 0, end: -10).animate(CurvedAnimation(parent: controller, curve: Curves.easeInOut));
+    }).toList();
+    _startAnimation();
+  }
+
+  void _startAnimation() async {
+    while (mounted) {
+      for (int i = 0; i < 3; i++) {
+        if (!mounted) return;
+        _controllers[i].forward();
+        await Future.delayed(const Duration(milliseconds: 120));
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      for (int i = 0; i < 3; i++) {
+        if (!mounted) return;
+        _controllers[i].reverse();
+      }
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+  }
 
   @override
   void dispose() {
-    _retryTimer?.cancel();
+    for (var controller in _controllers) {
+      controller.dispose();
+    }
     super.dispose();
-  }
-
-  void _scheduleRetry() {
-    if (!mounted) return;
-    if (_retryTimer != null && _retryTimer!.isActive) return;
-
-    _retryTimer = Timer(const Duration(seconds: 5), () {
-      if (!mounted) return;
-      setState(() {
-        _retryKey++;
-      });
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final imageProvider = _ProductImageCache.get(widget.imageUrl);
+    final dotColor = widget.isDark ? AppDesignSystem.goldColor.withValues(alpha: 0.8) : AppDesignSystem.goldColor;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(3, (index) {
+        return AnimatedBuilder(
+          animation: _animations[index],
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, _animations[index].value),
+              child: Container(
+                margin: EdgeInsets.symmetric(horizontal: widget.size * 0.4),
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: dotColor.withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 1)],
+                ),
+              ),
+            );
+          },
+        );
+      }),
+    );
+  }
+}
 
-    return Image(
-      key: ValueKey('${widget.imageUrl}#$_retryKey'),
-      image: imageProvider,
-      fit: BoxFit.contain,
+// ويدجت صورة المنتج مع إعادة المحاولة
+class _SmartProductImage extends StatefulWidget {
+  final String imageUrl;
+  final double height;
+  final bool isDark;
+
+  const _SmartProductImage({required this.imageUrl, required this.height, required this.isDark});
+
+  @override
+  State<_SmartProductImage> createState() => _SmartProductImageState();
+}
+
+class _SmartProductImageState extends State<_SmartProductImage> {
+  static const int _maxRetries = 3;
+  int _retryCount = 0;
+  bool _hasFailed = false;
+
+  void _retry() {
+    if (!mounted || _retryCount >= _maxRetries) {
+      if (mounted) setState(() => _hasFailed = true);
+      return;
+    }
+    setState(() => _retryCount++);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasFailed) {
+      return Container(
+        height: widget.height,
+        color: widget.isDark ? Colors.white.withValues(alpha: 0.02) : Colors.grey.withValues(alpha: 0.05),
+        child: Center(
+          child: GestureDetector(
+            onTap: () => setState(() {
+              _retryCount = 0;
+              _hasFailed = false;
+            }),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.refresh_rounded, color: widget.isDark ? Colors.white38 : Colors.grey[400], size: 24),
+                const SizedBox(height: 4),
+                Text(
+                  'اضغط للتحديث',
+                  style: TextStyle(fontSize: 9, color: widget.isDark ? Colors.white38 : Colors.grey[400]),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return CachedNetworkImage(
+      imageUrl: widget.imageUrl,
+      cacheKey: widget.imageUrl,
+      fit: BoxFit.cover,
       width: double.infinity,
       height: widget.height,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppDesignSystem.goldColor),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) {
-        _scheduleRetry();
+      httpHeaders: const {'Connection': 'keep-alive'},
+      placeholder: (context, url) => Container(
+        height: widget.height,
+        color: widget.isDark ? Colors.white.withValues(alpha: 0.02) : Colors.grey.withValues(alpha: 0.05),
+        child: Center(child: _BouncingDotsLoader(isDark: widget.isDark)),
+      ),
+      errorWidget: (context, url, error) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) _retry();
+        });
         return Container(
           height: widget.height,
-          decoration: BoxDecoration(
-            color: widget.isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+          color: widget.isDark ? Colors.white.withValues(alpha: 0.02) : Colors.grey.withValues(alpha: 0.05),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _BouncingDotsLoader(isDark: widget.isDark, size: 6),
+              const SizedBox(height: 6),
+              Text(
+                'جاري المحاولة ${_retryCount + 1}/$_maxRetries',
+                style: TextStyle(fontSize: 8, color: widget.isDark ? Colors.white30 : Colors.grey[400]),
+              ),
+            ],
           ),
-          child: Icon(Icons.camera_alt_outlined, color: widget.isDark ? Colors.white60 : Colors.grey, size: 50),
         );
       },
+      fadeInDuration: const Duration(milliseconds: 300),
+      fadeOutDuration: const Duration(milliseconds: 100),
     );
   }
 }
@@ -113,16 +204,11 @@ class NewProductsPage extends StatefulWidget {
   State<NewProductsPage> createState() => _NewProductsPageState();
 }
 
-class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProviderStateMixin {
-  final CartService _cartService = CartService();
-  final FavoritesService _favoritesService = FavoritesService.instance;
+class _NewProductsPageState extends State<NewProductsPage> {
   final SlidingDrawerController _drawerController = SlidingDrawerController();
   List<Product> _products = [];
   bool _isLoadingProducts = false;
-
-  // بيانات المستخدم
-  String _firstName = 'صديقي';
-  String _phoneNumber = '+964 770 123 4567';
+  bool _hasError = false;
 
   // بيانات البانرات الإعلانية
   List<Map<String, dynamic>> _banners = [];
@@ -139,7 +225,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
   List<Product> _filteredProducts = [];
   Timer? _searchDebounceTimer;
 
-  // 📄 نظام Pagination
+  // نظام Pagination
   int _currentPage = 1;
   final int _itemsPerPage = 10;
   bool _isLoadingMore = false;
@@ -149,111 +235,55 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
   void initState() {
     super.initState();
     _loadProducts();
-    _initializeUserData();
     _loadBanners();
     _setupScrollListener();
     _loadFavorites();
   }
 
-  // 📄 إعداد listener للـ scroll لتحميل المزيد من المنتجات
+  // إعداد listener للـ scroll لتحميل المزيد من المنتجات
   void _setupScrollListener() {
     _scrollController.addListener(() {
       if (!mounted) return;
-
       try {
-        // التحقق من الوصول للنهاية
         if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 500) {
           if (!_isLoadingProducts && !_isLoadingMore && _hasMoreProducts) {
             _loadMoreProducts();
           }
         }
-      } catch (e) {
-        debugPrint('❌ خطأ في scroll listener: $e');
-      }
+      } catch (_) {}
     });
   }
 
   @override
   void dispose() {
     try {
-      // إلغاء جميع المؤقتات
       _bannerTimer?.cancel();
       _searchDebounceTimer?.cancel();
-
-      // تنظيف الـ controllers
       _bannerPageController.dispose();
       _searchController.dispose();
       _scrollController.dispose();
-    } catch (e) {
-      debugPrint('❌ خطأ في تنظيف الموارد: $e');
-    }
+    } catch (_) {}
     super.dispose();
   }
 
   // تحميل المفضلة
   Future<void> _loadFavorites() async {
     try {
-      await _favoritesService.loadFavorites();
-      if (mounted) {
-        setState(() {}); // تحديث الواجهة لإظهار حالة المفضلة
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في تحميل المفضلة: $e');
-    }
+      // استخدام Provider - لا حاجة لـ setState لأن FavoritesService هو ChangeNotifier
+      await context.read<FavoritesService>().loadFavorites();
+    } catch (_) {}
   }
 
-  // تهيئة بيانات المستخدم (تحميل من قاعدة البيانات مرة واحدة فقط)
-  Future<void> _initializeUserData() async {
-    try {
-      // التحقق من وجود بيانات محفوظة
-      final isDataSaved = await UserService.isUserDataSaved();
-
-      if (!isDataSaved) {
-        debugPrint('🔄 تحميل بيانات المستخدم من قاعدة البيانات...');
-        await UserService.loadAndSaveUserData();
-      } else {
-        debugPrint('✅ استخدام البيانات المحفوظة محلياً');
-      }
-
-      // جلب البيانات من التخزين المحلي
-      await _loadLocalUserData();
-    } catch (e) {
-      debugPrint('❌ خطأ في تهيئة بيانات المستخدم: $e');
-    }
-  }
-
-  // جلب البيانات من التخزين المحلي
-  Future<void> _loadLocalUserData() async {
-    try {
-      final firstName = await UserService.getFirstName();
-      final phoneNumber = await UserService.getPhoneNumber();
-
-      if (mounted) {
-        setState(() {
-          _firstName = firstName;
-          _phoneNumber = phoneNumber;
-        });
-      }
-    } catch (e) {
-      debugPrint('❌ خطأ في جلب البيانات المحلية: $e');
-    }
-  }
-
-  // تحميل البانرات الإعلانية عبر الباك إند
+  // تحميل البانرات الإعلانية
   Future<void> _loadBanners() async {
     if (!mounted) return;
-
-    setState(() {
-      _isLoadingBanners = true;
-    });
+    setState(() => _isLoadingBanners = true);
 
     try {
       final uri = Uri.parse('${ApiConfig.productsUrl}/banners');
       final response = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(ApiConfig.defaultTimeout);
 
       if (response.statusCode != 200) {
-        debugPrint('❌ فشل في تحميل البانرات: ${response.statusCode}');
-        debugPrint('📥 Response body: ${response.body}');
         if (mounted) {
           setState(() {
             _isLoadingBanners = false;
@@ -265,7 +295,6 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
 
       final jsonData = jsonDecode(response.body);
       if (jsonData['success'] != true) {
-        debugPrint('❌ فشل في تحميل البانرات: ${jsonData['error'] ?? 'خطأ غير معروف'}');
         if (mounted) {
           setState(() {
             _isLoadingBanners = false;
@@ -283,21 +312,13 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
           _banners = banners;
           _isLoadingBanners = false;
         });
-
-        // بدء التقليب التلقائي إذا كان هناك أكثر من بانر واحد
-        // تأخير قصير للتأكد من أن PageView تم بناؤه
         if (_banners.length > 1) {
           Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              _startAutoSlide();
-            }
+            if (mounted) _startAutoSlide();
           });
         }
       }
-
-      debugPrint('✅ تم تحميل ${_banners.length} بانر إعلاني');
-    } catch (e) {
-      debugPrint('❌ خطأ في تحميل البانرات: $e');
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isLoadingBanners = false;
@@ -315,15 +336,11 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
         timer.cancel();
         return;
       }
-
-      // التأكد من أن PageController متصل بـ PageView قبل محاولة التحريك
-      if (!_bannerPageController.hasClients) {
-        return;
-      }
+      if (!_bannerPageController.hasClients) return;
+      if (_bannerPageController.positions.isEmpty) return;
 
       final currentPage = _bannerPageController.page?.round() ?? 0;
       final nextPage = (currentPage + 1) % _banners.length;
-
       _bannerPageController.animateToPage(
         nextPage,
         duration: const Duration(milliseconds: 800),
@@ -332,27 +349,46 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     });
   }
 
-  // إيقاف التقليب التلقائي مؤقتاً عند التفاعل اليدوي
+  // إيقاف التقليب التلقائي مؤقتاً
   void _pauseAutoSlide() {
     _bannerTimer?.cancel();
-    // إعادة تشغيل التقليب بعد 3 ثواني من التوقف
     Timer(const Duration(seconds: 3), () {
-      if (mounted && _banners.length > 1) {
-        _startAutoSlide();
-      }
+      if (mounted && _banners.length > 1) _startAutoSlide();
     });
   }
 
-  // دالة لتنسيق الأرقام بالفواصل
+  // تنسيق الأرقام بالفواصل
   String _formatPrice(double price) {
     final formatter = NumberFormat('#,###');
     return formatter.format(price.toInt());
   }
 
-  // 📄 تحميل المنتجات الأولى (10 منتجات فقط)
+  // تحميل المنتجات مع نظام الكاش الذكي (Cache-First Strategy)
   Future<void> _loadProducts() async {
     if (!mounted) return;
 
+    // إعادة تعيين حالة الخطأ
+    setState(() => _hasError = false);
+
+    // محاولة تحميل من الكاش فوراً
+    final cachedProducts = await ProductsCacheService.getCachedProducts();
+
+    if (cachedProducts != null && cachedProducts.isNotEmpty) {
+      final availableProducts = cachedProducts.where((p) => p.availableQuantity > 0).toList();
+      if (mounted) {
+        setState(() {
+          _products = availableProducts;
+          _filteredProducts = List.from(availableProducts);
+          _isLoadingProducts = false;
+          _hasMoreProducts = true;
+          _currentPage = 1;
+        });
+      }
+      _refreshProductsInBackground();
+      return;
+    }
+
+    // إذا لا يوجد كاش، تحميل من السيرفر مع loading
     setState(() {
       _isLoadingProducts = true;
       _currentPage = 1;
@@ -361,20 +397,69 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
       _hasMoreProducts = true;
     });
 
+    await _fetchProductsFromServer();
+  }
+
+  // تحديث المنتجات في الخلفية
+  Future<void> _refreshProductsInBackground() async {
+    try {
+      final uri = Uri.parse(ApiConfig.productsUrl).replace(queryParameters: {'page': '1', 'limit': '$_itemsPerPage'});
+      final response = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        if (jsonData['success'] == true) {
+          final List<dynamic> data = jsonData['data']?['products'] ?? [];
+          final products = data.map<Product>((json) => Product.fromJson(json)).toList();
+          final availableProducts = products.where((p) => p.availableQuantity > 0).toList();
+          await ProductsCacheService.cacheProducts(products);
+
+          if (mounted && _hasDataChanged(availableProducts)) {
+            setState(() {
+              _products = availableProducts;
+              _filteredProducts = List.from(availableProducts);
+              _hasMoreProducts = products.length >= _itemsPerPage;
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // فحص هل تغيرت البيانات
+  bool _hasDataChanged(List<Product> newProducts) {
+    if (_products.length != newProducts.length) return true;
+    for (int i = 0; i < _products.length; i++) {
+      final oldP = _products[i];
+      final newP = newProducts[i];
+      if (oldP.id != newP.id ||
+          oldP.availableQuantity != newP.availableQuantity ||
+          oldP.wholesalePrice != newP.wholesalePrice ||
+          oldP.minPrice != newP.minPrice ||
+          oldP.maxPrice != newP.maxPrice ||
+          oldP.name != newP.name ||
+          oldP.images.length != newP.images.length ||
+          (oldP.images.isNotEmpty && newP.images.isNotEmpty && oldP.images.first != newP.images.first)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // تحميل المنتجات من السيرفر
+  Future<void> _fetchProductsFromServer() async {
     try {
       final uri = Uri.parse(
         ApiConfig.productsUrl,
       ).replace(queryParameters: {'page': '$_currentPage', 'limit': '$_itemsPerPage'});
-
       final response = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(ApiConfig.defaultTimeout);
 
       if (response.statusCode != 200) {
-        debugPrint('❌ فشل في تحميل المنتجات: ${response.statusCode}');
-        debugPrint('📥 Response body: ${response.body}');
         if (mounted) {
           setState(() {
             _isLoadingProducts = false;
             _hasMoreProducts = false;
+            _hasError = true;
           });
         }
         return;
@@ -382,11 +467,11 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
 
       final jsonData = jsonDecode(response.body);
       if (jsonData['success'] != true) {
-        debugPrint('❌ فشل في تحميل المنتجات: ${jsonData['error'] ?? 'خطأ غير معروف'}');
         if (mounted) {
           setState(() {
             _isLoadingProducts = false;
             _hasMoreProducts = false;
+            _hasError = true;
           });
         }
         return;
@@ -394,7 +479,8 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
 
       final List<dynamic> data = jsonData['data']?['products'] ?? [];
       final products = data.map<Product>((json) => Product.fromJson(json)).toList();
-      final availableProducts = products.where((product) => product.availableQuantity > 0).toList();
+      final availableProducts = products.where((p) => p.availableQuantity > 0).toList();
+      await ProductsCacheService.cacheProducts(products);
 
       if (mounted) {
         setState(() {
@@ -404,36 +490,30 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
           _hasMoreProducts = products.length >= _itemsPerPage;
         });
       }
-    } catch (e) {
-      debugPrint('❌ خطأ في تحميل المنتجات: $e');
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isLoadingProducts = false;
           _hasMoreProducts = false;
+          _hasError = true;
         });
       }
     }
   }
 
-  // 📄 تحميل المزيد من المنتجات
+  // تحميل المزيد من المنتجات
   Future<void> _loadMoreProducts() async {
     if (!mounted || _isLoadingProducts || _isLoadingMore || !_hasMoreProducts) return;
-
-    setState(() {
-      _isLoadingMore = true;
-    });
+    setState(() => _isLoadingMore = true);
 
     try {
       _currentPage++;
       final uri = Uri.parse(
         ApiConfig.productsUrl,
       ).replace(queryParameters: {'page': '$_currentPage', 'limit': '$_itemsPerPage'});
-
       final response = await http.get(uri, headers: ApiConfig.defaultHeaders).timeout(ApiConfig.defaultTimeout);
 
       if (response.statusCode != 200) {
-        debugPrint('❌ فشل في تحميل المزيد من المنتجات: ${response.statusCode}');
-        debugPrint('📥 Response body: ${response.body}');
         if (mounted) {
           setState(() {
             _isLoadingMore = false;
@@ -445,7 +525,6 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
 
       final jsonData = jsonDecode(response.body);
       if (jsonData['success'] != true) {
-        debugPrint('❌ فشل في تحميل المزيد من المنتجات: ${jsonData['error'] ?? 'خطأ غير معروف'}');
         if (mounted) {
           setState(() {
             _isLoadingMore = false;
@@ -462,13 +541,14 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
       if (mounted) {
         setState(() {
           _products.addAll(availableProducts);
-          _filteredProducts = List.from(_products);
           _isLoadingMore = false;
           _hasMoreProducts = newProducts.length >= _itemsPerPage;
         });
+        // إعادة تطبيق البحث الحالي
+        _searchProducts(_searchController.text);
+        ProductsCacheService.cacheProducts(_products);
       }
-    } catch (e) {
-      debugPrint('❌ خطأ في تحميل المزيد من المنتجات: $e');
+    } catch (_) {
       if (mounted) {
         setState(() {
           _isLoadingMore = false;
@@ -478,152 +558,205 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     }
   }
 
-  // 🔍 البحث البسيط في المنتجات
+  // البحث في المنتجات
   void _searchProducts(String query) {
     if (!mounted) return;
-
-    try {
-      _searchDebounceTimer?.cancel();
-      _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
-        if (!mounted) return;
-
-        List<Product> filtered;
-        if (query.isEmpty) {
-          filtered = List.from(_products);
-        } else {
-          final searchQuery = query.toLowerCase().trim();
-          filtered = _products.where((product) => product.name.toLowerCase().contains(searchQuery)).toList();
-        }
-
-        if (mounted) {
-          setState(() {
-            _filteredProducts = filtered;
-          });
-        }
-      });
-    } catch (e) {
-      debugPrint('❌ خطأ في البحث: $e');
-    }
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      List<Product> filtered = query.isEmpty
+          ? List.from(_products)
+          : _products.where((p) => p.name.toLowerCase().contains(query.toLowerCase().trim())).toList();
+      if (mounted) setState(() => _filteredProducts = filtered);
+    });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-
-    return SlidingDrawer(
-      controller: _drawerController,
-      menuWidthFactor: 0.68,
-      endScale: 0.85,
-      rotationDegrees: -3,
-      backgroundColor: isDark ? const Color(0xFF1a1a2e) : const Color(0xFF2c3e50),
-      shadowColor: const Color(0xFFffd700),
-      menu: DrawerMenu(
-        onClose: () {
-          _drawerController.toggle();
-        },
-      ),
-      child: Scaffold(
-        // 🎨 خلفية شفافة تماماً للوضع النهاري - لإظهار البطاقات بوضوح
-        backgroundColor: Colors.transparent,
-        extendBody: true,
-        body: AppBackground(
-          child: Stack(
-            children: [
-              // 🎨 الخلفية الموحدة للوضع النهاري (backgroundPage = #F5F5F7)
-              if (!isDark)
-                Container(
-                  color: const Color(0xFFF5F5F7), // خلفية نهارية موحدة ناعمة جداً
-                ),
-              // المحتوى الرئيسي باستخدام CustomScrollView + Slivers لأداء أفضل
-              CustomScrollView(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  const SliverToBoxAdapter(child: SizedBox(height: 25)),
-                  SliverToBoxAdapter(child: _buildHeader()),
-                  SliverToBoxAdapter(child: _buildMainBanner()),
-                  SliverToBoxAdapter(child: _buildSearchBar()),
-                  ..._buildProductsSlivers(context),
-                  const SliverToBoxAdapter(child: SizedBox(height: 160)),
-                ],
-              ),
-            ],
+  // زر الـ Header
+  Widget _buildHeaderButton({required IconData icon, required VoidCallback onTap, required bool isDark, int? badge}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08),
+            width: 1,
           ),
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: Icon(
+                icon,
+                color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black.withValues(alpha: 0.7),
+                size: 21,
+              ),
+            ),
+            if (badge != null && badge > 0)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFFFFD700).withValues(alpha: 0.4), blurRadius: 4, spreadRadius: 0),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      badge > 9 ? '9+' : badge.toString(),
+                      style: GoogleFonts.cairo(
+                        color: Colors.black,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return Selector<ThemeProvider, bool>(
+      selector: (_, provider) => provider.isDarkMode,
+      builder: (context, isDark, _) {
+        return SlidingDrawer(
+          controller: _drawerController,
+          menuWidthFactor: 0.68,
+          endScale: 0.85,
+          rotationDegrees: -3,
+          backgroundColor: isDark ? const Color(0xFF1a1a2e) : const Color(0xFF2c3e50),
+          shadowColor: const Color(0xFFffd700),
+          menu: DrawerMenu(onClose: () => _drawerController.toggle()),
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            extendBody: true,
+            body: AppBackground(
+              child: Stack(
+                children: [
+                  if (!isDark) Container(color: const Color(0xFFF5F5F7)),
+                  RefreshIndicator(
+                    onRefresh: _loadProducts,
+                    color: const Color(0xFFffd700),
+                    backgroundColor: isDark ? const Color(0xFF1a1a2e) : Colors.white,
+                    child: CustomScrollView(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                      slivers: [
+                        const SliverToBoxAdapter(child: SizedBox(height: 25)),
+                        SliverToBoxAdapter(child: _buildHeader(isDark)),
+                        SliverToBoxAdapter(child: _buildMainBanner(isDark)),
+                        SliverToBoxAdapter(child: _buildSearchBar(isDark)),
+                        ..._buildProductsSlivers(context, isDark),
+                        const SliverToBoxAdapter(child: SizedBox(height: 160)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   // بناء الشريط العلوي
-  Widget _buildHeader() {
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-    // الحصول على التحية المناسبة
+  Widget _buildHeader(bool isDark) {
     final greetingData = UserService.getGreeting();
     final greeting = greetingData['greeting']!;
     final emoji = greetingData['emoji']!;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12), // تقليل padding
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // الصف العلوي - التحية، العنوان، والأزرار
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
+          Stack(
             children: [
-              // التحية (اليسار)
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Consumer<UserProvider>(
+                      builder: (context, userProvider, _) => Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          TextSpan(
-                            text: '$greeting $_firstName ',
-                            style: GoogleFonts.cairo(
-                              color: ThemeColors.textColor(isDark),
-                              fontSize: 9, // تصغير من 11 إلى 9
-                              fontWeight: FontWeight.w600,
+                          RichText(
+                            maxLines: 1,
+                            overflow: TextOverflow.clip,
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '$greeting ${userProvider.firstName} ',
+                                  style: GoogleFonts.cairo(
+                                    color: ThemeColors.textColor(isDark),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                TextSpan(text: emoji, style: const TextStyle(fontSize: 12, fontFamily: null)),
+                              ],
                             ),
                           ),
-                          TextSpan(
-                            text: emoji,
-                            style: const TextStyle(
-                              fontSize: 11, // تصغير من 14 إلى 11
-                              fontFamily: null, // استخدام الخط الافتراضي للإيموجي
+                          const SizedBox(height: 2),
+                          Text(
+                            userProvider.phoneNumber,
+                            style: GoogleFonts.cairo(
+                              color: ThemeColors.secondaryTextColor(isDark),
+                              fontSize: 9,
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 2), // تقليل من 4 إلى 2
-                    // رقم الهاتف
-                    Text(
-                      _phoneNumber,
-                      style: GoogleFonts.cairo(
-                        color: ThemeColors.secondaryTextColor(isDark),
-                        fontSize: 7, // تصغير من 9 إلى 7
-                        fontWeight: FontWeight.w400,
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Consumer<CartService>(
+                        builder: (context, cart, _) => _buildHeaderButton(
+                          icon: Icons.shopping_bag_outlined,
+                          onTap: () => context.go('/cart'),
+                          isDark: isDark,
+                          badge: cart.itemCount > 0 ? cart.itemCount : null,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 10),
+                      _buildHeaderButton(
+                        icon: Icons.menu_rounded,
+                        onTap: () => _drawerController.toggle(),
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              // عنوان "منتجاتي" (الوسط)
-              Expanded(
-                flex: 3,
+              Positioned.fill(
                 child: Center(
                   child: ShaderMask(
-                    shaderCallback: (bounds) => LinearGradient(
-                      colors: [
-                        const Color(0xFFFFD700), // ذهبي فاتح
-                        const Color(0xFFFFA500), // برتقالي ذهبي
-                        const Color(0xFFB8860B), // ذهبي داكن
-                        const Color(0xFFDAA520), // ذهبي متوسط
-                      ],
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Color(0xFFFFD700), Color(0xFFFFA500), Color(0xFFB8860B), Color(0xFFDAA520)],
                       stops: [0.0, 0.3, 0.7, 1.0],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -640,52 +773,6 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                   ),
                 ),
               ),
-              // زر القائمة (اليمين)
-              Expanded(
-                flex: 2,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // زر القائمة الجانبية
-                    GestureDetector(
-                      onTap: () {
-                        _drawerController.toggle();
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              const Color(0xFFffd700).withValues(alpha: 0.9),
-                              const Color(0xFFffa500).withValues(alpha: 0.8),
-                              const Color(0xFFff8c00).withValues(alpha: 0.7),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.6), width: 1.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFFffd700).withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                              spreadRadius: 1,
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.2),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
         ],
@@ -694,9 +781,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
   }
 
   // بناء البانر الرئيسي
-  Widget _buildMainBanner() {
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-
+  Widget _buildMainBanner(bool isDark) {
     if (_isLoadingBanners) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
@@ -727,11 +812,9 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // مؤشر تحميل مخصص جميل
               Stack(
                 alignment: Alignment.center,
                 children: [
-                  // الدائرة الخارجية
                   SizedBox(
                     width: 60,
                     height: 60,
@@ -740,16 +823,14 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                       valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFffd700).withValues(alpha: 0.3)),
                     ),
                   ),
-                  // الدائرة الداخلية
-                  SizedBox(
+                  const SizedBox(
                     width: 40,
                     height: 40,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
                     ),
                   ),
-                  // أيقونة في المنتصف
                   Container(
                     width: 20,
                     height: 20,
@@ -769,7 +850,6 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                 ],
               ),
               const SizedBox(height: 16),
-              // نص التحميل
               Text(
                 'جاري تحميل ...',
                 style: GoogleFonts.cairo(
@@ -800,17 +880,14 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                     const Color(0xFF1A202C).withValues(alpha: 0.9),
                   ],
                 )
-              : LinearGradient(
+              : const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Colors.white, const Color(0xFFF8F8F8)],
-                  stops: const [0.0, 1.0],
+                  colors: [Colors.white, Color(0xFFF8F8F8)],
+                  stops: [0.0, 1.0],
                 ),
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.3), // إطار ذهبي أقوى
-            width: isDark ? 1.5 : 1.5,
-          ),
+          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.3), width: 1.5),
           boxShadow: isDark
               ? [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 15, offset: const Offset(0, 8))]
               : [
@@ -862,10 +939,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
             physics: const BouncingScrollPhysics(),
             pageSnapping: true,
             onPageChanged: (index) {
-              setState(() {
-                _currentBannerIndex = index;
-              });
-              // إيقاف التقليب التلقائي مؤقتاً عند السحب اليدوي
+              setState(() => _currentBannerIndex = index);
               _pauseAutoSlide();
             },
             itemBuilder: (context, index) {
@@ -874,10 +948,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.3), // إطار ذهبي أقوى
-                    width: isDark ? 1.5 : 1.5,
-                  ),
+                  border: Border.all(color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.3), width: 1.5),
                   boxShadow: isDark
                       ? [
                           BoxShadow(
@@ -899,94 +970,44 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                   borderRadius: BorderRadius.circular(18),
                   child: Stack(
                     children: [
-                      // صورة البانر بأفضل جودة مع كاش داخلي
                       Positioned.fill(
-                        child: Image(
-                          image: _ProductImageCache.get(banner['image_url'] ?? ''),
+                        child: CachedNetworkImage(
+                          imageUrl: banner['image_url'] ?? '',
                           fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: isDark ? null : Colors.white,
-                                gradient: isDark
-                                    ? LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          AppDesignSystem.primaryBackground,
-                                          const Color(0xFF2D3748).withValues(alpha: 0.8),
-                                          const Color(0xFF1A202C).withValues(alpha: 0.9),
-                                        ],
-                                      )
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: 50,
-                                      height: 50,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                        value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                  loadingProgress.expectedTotalBytes!
-                                            : null,
-                                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFffd700)),
-                                        backgroundColor: const Color(0xFFffd700).withValues(alpha: 0.2),
-                                      ),
-                                    ),
-                                    const Icon(Icons.image, color: Color(0xFFffd700), size: 20),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: isDark ? null : Colors.white,
-                                gradient: isDark
-                                    ? LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          AppDesignSystem.primaryBackground,
-                                          const Color(0xFF2D3748).withValues(alpha: 0.8),
-                                          const Color(0xFF1A202C).withValues(alpha: 0.9),
-                                        ],
-                                      )
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.withValues(alpha: 0.1),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 2),
-                                      ),
-                                      child: const Icon(Icons.error_outline, color: Colors.red, size: 30),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'خطأ في تحميل الصورة',
-                                      style: GoogleFonts.cairo(
-                                        color: Colors.red.withValues(alpha: 0.8),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+                          placeholder: (context, url) => Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? null : Colors.white,
+                              gradient: isDark
+                                  ? LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        AppDesignSystem.primaryBackground,
+                                        const Color(0xFF2D3748).withValues(alpha: 0.8),
+                                        const Color(0xFF1A202C).withValues(alpha: 0.9),
+                                      ],
+                                    )
+                                  : null,
+                            ),
+                            child: Center(child: _BouncingDotsLoader(isDark: isDark)),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? null : Colors.white,
+                              gradient: isDark
+                                  ? LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        AppDesignSystem.primaryBackground,
+                                        const Color(0xFF2D3748).withValues(alpha: 0.8),
+                                        const Color(0xFF1A202C).withValues(alpha: 0.9),
+                                      ],
+                                    )
+                                  : null,
+                            ),
+                            child: Center(child: _BouncingDotsLoader(isDark: isDark)),
+                          ),
                         ),
                       ),
                     ],
@@ -996,7 +1017,6 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
             },
           ),
         ),
-        // مؤشرات النقاط إذا كان هناك أكثر من بانر واحد
         if (_banners.length > 1)
           Container(
             padding: const EdgeInsets.only(bottom: 10),
@@ -1023,137 +1043,96 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     );
   }
 
-  // بناء شريط البحث الأصلي
-  Widget _buildSearchBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
-      child: _buildOriginalSearchBar(),
-    );
-  }
+  // شريط البحث
+  Widget _buildSearchBar(bool isDark) {
+    final Color bgColor = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7);
+    final Color iconColor = const Color(0xFF8E8E93);
+    final Color textColor = isDark ? Colors.white : Colors.black;
+    final Color hintColor = isDark ? const Color(0xFF636366) : const Color(0xFFA0A0A5);
 
-  // شريط البحث الأصلي - التصميم الكامل
-  Widget _buildOriginalSearchBar() {
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-
-    return Container(
-      height: 55,
-      decoration: BoxDecoration(
-        // 🎨 في الوضع الليلي يبقى التصميم الغني كما هو، في النهاري نستخدم سطح حيادي ناعم
-        color: isDark ? null : const Color(0xFFF3F4F6), // surfaceSubtle للبحث والفلاتر
-        gradient: isDark
-            ? LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppDesignSystem.bottomNavColor.withValues(alpha: 0.85),
-                  AppDesignSystem.activeButtonColor.withValues(alpha: 0.9),
-                  AppDesignSystem.primaryBackground.withValues(alpha: 0.95),
-                ],
-                stops: const [0.0, 0.5, 1.0],
-              )
-            : null,
-        borderRadius: BorderRadius.circular(50),
-        border: Border.all(
-          color: isDark
-              ? AppDesignSystem.goldColor.withValues(alpha: 0.4)
-              : const Color(0xFFE5E7EB), // borderSubtle في النهار
-          width: isDark ? 1.2 : 1.0,
-        ),
-        boxShadow: isDark
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                  spreadRadius: 0.5,
-                ),
-                BoxShadow(
-                  color: AppDesignSystem.goldColor.withValues(alpha: 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 0),
-                  spreadRadius: 1,
-                ),
-              ]
-            : [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 3))],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(50),
-        child: TextField(
-          controller: _searchController,
-          style: GoogleFonts.cairo(
-            color: isDark ? AppDesignSystem.primaryTextColor : const Color(0xFF111827), // textPrimary
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.right,
-          onTap: () {
-            // وضع المؤشر في النهاية عند النقر لتجنب تحديد النص
-            final text = _searchController.text;
-            _searchController.selection = TextSelection.collapsed(offset: text.length);
-          },
-          onChanged: (value) {
-            if (mounted) {
-              try {
-                _searchProducts(value);
-              } catch (e) {
-                debugPrint('❌ خطأ في البحث من الشريط الأصلي: $e');
-              }
-            }
-          },
-          decoration: InputDecoration(
-            hintText: 'ابحث عن المنتجات...',
-            hintStyle: GoogleFonts.cairo(
-              color: isDark
-                  ? AppDesignSystem.primaryTextColor.withValues(alpha: 0.6)
-                  : const Color(0xFF9CA3AF), // textMuted
-              fontSize: 14,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Container(
+        height: 44,
+        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Icon(Icons.search_rounded, color: iconColor, size: 20),
             ),
-            prefixIcon: Container(
-              padding: const EdgeInsets.all(14),
-              child: Icon(
-                Icons.search_rounded,
-                color: isDark
-                    ? AppDesignSystem.goldColor.withValues(alpha: 0.9)
-                    : const Color(0xFFFFC727), // brandPrimary
-                size: AppDesignSystem.largeIconSize,
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                style: GoogleFonts.cairo(color: textColor, fontSize: 15, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.right,
+                cursorColor: const Color(0xFFD4A853),
+                cursorWidth: 1.5,
+                onTap: () {
+                  _searchController.selection = TextSelection.collapsed(offset: _searchController.text.length);
+                },
+                onChanged: (value) {
+                  if (mounted) {
+                    setState(() {});
+                    _searchProducts(value);
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: 'ابحث عن منتج...',
+                  hintStyle: GoogleFonts.cairo(color: hintColor, fontSize: 15, fontWeight: FontWeight.w400),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  filled: false,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  isDense: true,
+                ),
               ),
             ),
-            suffixIcon: _searchController.text.isNotEmpty
-                ? GestureDetector(
-                    onTap: () {
-                      _searchController.clear();
-                      _searchProducts('');
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      child: Icon(
-                        Icons.clear_rounded,
-                        color: isDark ? AppDesignSystem.secondaryTextColor : const Color(0xFF6B7280), // textSecondary
-                        size: AppDesignSystem.mediumIconSize,
-                      ),
-                    ),
-                  )
-                : null,
-            border: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          ),
+            if (_searchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchController.clear();
+                  _searchProducts('');
+                  setState(() {});
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(left: 8, right: 12),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF48484A) : const Color(0xFFD1D1D6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.close_rounded, color: isDark ? Colors.white70 : const Color(0xFF636366), size: 14),
+                ),
+              )
+            else
+              const SizedBox(width: 12),
+          ],
         ),
       ),
     );
   }
 
-  // بناء شبكة المنتجات باستخدام Slivers لأداء أفضل
-  List<Widget> _buildProductsSlivers(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
-    final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
-    final mainAxisSpacing = screenWidth > 400 ? 20.0 : (screenWidth > 350 ? 18.0 : 16.0);
-    final int crossAxisCount = screenWidth > 600 ? 3 : 2;
+  // حساب عدد الأعمدة الذكي
+  int _getSmartColumnCount(double screenWidth) {
+    if (screenWidth <= 400) return 2;
+    if (screenWidth <= 600) return 2;
+    if (screenWidth <= 900) return 3;
+    if (screenWidth <= 1200) return 4;
+    if (screenWidth <= 1600) return 5;
+    return 6;
+  }
 
-    // 📦 عند التحميل الأول - عرض skeleton loaders داخل SliverGrid
+  // بناء شبكة المنتجات
+  List<Widget> _buildProductsSlivers(BuildContext context, bool isDark) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    final horizontalMargin = screenWidth > 600 ? 16.0 : (screenWidth > 400 ? 12.0 : 8.0);
+    final crossAxisSpacing = screenWidth > 600 ? 14.0 : (screenWidth > 400 ? 10.0 : 6.0);
+    final mainAxisSpacing = screenWidth > 600 ? 18.0 : (screenWidth > 400 ? 16.0 : 12.0);
+    final int crossAxisCount = _getSmartColumnCount(screenWidth);
+
     if (_isLoadingProducts && _filteredProducts.isEmpty) {
       return [
         SliverPadding(
@@ -1171,18 +1150,122 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
       ];
     }
 
-    if (_filteredProducts.isEmpty) {
+    // عرض رسالة الخطأ مع زر إعادة المحاولة
+    if (_hasError && _filteredProducts.isEmpty) {
       return [
         SliverToBoxAdapter(
           child: SizedBox(
-            height: 200,
+            height: 300,
             child: Center(
-              child: Text(
-                _searchController.text.isNotEmpty
-                    ? 'لا توجد نتائج للبحث "${_searchController.text}"'
-                    : 'لا توجد منتجات متاحة',
-                style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.grey, fontSize: 16),
-                textAlign: TextAlign.center,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.red.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.wifi_off_rounded, size: 48, color: isDark ? Colors.red[300] : Colors.red[400]),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'فشل الاتصال بالخادم',
+                    style: GoogleFonts.cairo(
+                      color: isDark ? Colors.white70 : Colors.grey[700],
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      'تحقق من اتصالك بالإنترنت وحاول مرة أخرى',
+                      style: GoogleFonts.cairo(color: isDark ? Colors.white38 : Colors.grey[500], fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton.icon(
+                    onPressed: _loadProducts,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: Text('إعادة المحاولة', style: GoogleFonts.cairo(fontSize: 14)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFffd700),
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ];
+    }
+
+    if (_filteredProducts.isEmpty) {
+      final isSearching = _searchController.text.isNotEmpty;
+      return [
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 280,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    isSearching ? Icons.search_off_rounded : Icons.inventory_2_outlined,
+                    size: 56,
+                    color: isDark ? Colors.white30 : Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    isSearching ? 'لا توجد نتائج للبحث' : 'لا توجد منتجات متاحة',
+                    style: GoogleFonts.cairo(
+                      color: isDark ? Colors.white70 : Colors.grey[600],
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      isSearching ? 'جرب البحث بكلمات أخرى أو تصفح جميع المنتجات' : 'سيتم إضافة منتجات جديدة قريباً',
+                      style: GoogleFonts.cairo(color: isDark ? Colors.white38 : Colors.grey[500], fontSize: 13),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (isSearching)
+                    TextButton.icon(
+                      onPressed: () {
+                        _searchController.clear();
+                        _searchProducts('');
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.clear, size: 18),
+                      label: Text('مسح البحث', style: GoogleFonts.cairo(fontSize: 14)),
+                      style: TextButton.styleFrom(foregroundColor: const Color(0xFFffd700)),
+                    )
+                  else
+                    ElevatedButton.icon(
+                      onPressed: _loadProducts,
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: Text('تحديث', style: GoogleFonts.cairo(fontSize: 14)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFffd700),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -1207,7 +1290,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
               key: ValueKey(product.id),
               duration: const Duration(milliseconds: 200),
               curve: Curves.easeOut,
-              child: _buildProductCard(product),
+              child: _buildProductCard(product, isDark),
             );
           }, childCount: _filteredProducts.length),
         ),
@@ -1222,17 +1305,16 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     ];
   }
 
-  // 📦 بناء skeleton loader
+  // بناء skeleton loader
   Widget _buildSkeletonLoader(bool isDark) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0xFFE5E7EB), // borderSubtle
+          color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.04),
           width: 1,
         ),
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-        gradient: isDark ? null : null,
+        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
         boxShadow: isDark
             ? []
             : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 3))],
@@ -1243,10 +1325,8 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
             flex: 3,
             child: Container(
               decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.grey.withValues(alpha: 0.08), // لون أفتح قليلاً
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+                color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF5F5F7),
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(17), topRight: Radius.circular(17)),
               ),
               child: Center(
                 child: CircularProgressIndicator(
@@ -1258,8 +1338,9 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
           ),
           Expanded(
             flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+            child: Container(
+              color: isDark ? Colors.transparent : Colors.white,
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1268,9 +1349,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                     height: 12,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.grey.withValues(alpha: 0.12), // لون أفتح قليلاً
+                      color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
@@ -1278,9 +1357,7 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                     height: 10,
                     width: 100,
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.grey.withValues(alpha: 0.12), // لون أفتح قليلاً
+                      color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(5),
                     ),
                   ),
@@ -1293,160 +1370,113 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
     );
   }
 
-  // 🧠 النظام الذكي القوي لحساب النسبة المثالية للبطاقة
-  // ✨ القياسات الثابتة للعناصر داخل البطاقة - لا تتغير أبداً
-  static const double _cardTopPadding = 22.0; // المسافة من الأعلى
-  static const double _imageHeight = 200.0; // ارتفاع الصورة ثابت
-  static const double _imageBottomSpacing = -5.0; // المسافة بين الصورة والاسم
-  static const double _nameHeight = 27.0; // ارتفاع شريط الاسم (padding + text)
-  static const double _nameBottomSpacing = 0.0; // المسافة بين الاسم والسعر
-  static const double _priceBarHeight = 40.0; // ارتفاع شريط السعر (vertical padding 3×2 + content 32 + border 1×2 = 40)
-  static const double _cardBottomPadding = 15.0; // المسافة من الأسفل (مسافة أكبر لمنع القطع)
+  // القياسات الثابتة للبطاقة
+  static const double _cardTopPadding = 0.0;
+  static const double _imageBottomSpacing = 3.0;
+  static const double _nameHeight = 24.0;
+  static const double _nameBottomSpacing = 2.0;
+  static const double _priceBarHeight = 38.0;
+  static const double _cardBottomPadding = 10.0;
+  static const double _fixedElementsHeight =
+      _imageBottomSpacing + _nameHeight + _nameBottomSpacing + _priceBarHeight + _cardBottomPadding;
 
-  // 🎯 حساب الارتفاع الكلي للبطاقة بذكاء - مجموع كل العناصر
-  //    باستخدام ارتفاع صورة يعتمد على عرض البطاقة نفسه (نظام مرن لكل الشاشات)
-  double _calculateCardHeight(double screenWidth, double cardWidth) {
-    final double imageHeight = _getImageHeightForCard(cardWidth, screenWidth);
-    return _cardTopPadding +
-        imageHeight +
-        _imageBottomSpacing +
-        _nameHeight +
-        _nameBottomSpacing +
-        _priceBarHeight +
-        _cardBottomPadding;
-  }
-
-  // 🧠 دالة مساعدة ذكية لحساب ارتفاع الصورة حسب عرض البطاقة وحجم الشاشة
-  //    - في الهواتف الصغيرة: نجعل الصورة أطول قليلاً لتملأ البطاقة بقوة
-  //    - في الهواتف المتوسطة والكبيرة: نحافظ على توازن جميل بين الصورة والباقي
-  double _getImageHeightForCard(double cardWidth, double screenWidth) {
-    // النسبة الأساسية بين عرض البطاقة وارتفاع الصورة
-    double factor;
-
-    if (cardWidth < 160) {
-      // بطاقات ضيقة جداً (هواتف صغيرة) ⇒ نكبر الصورة أكثر
-      factor = 1.15; // الصورة أعلى من العرض بقليل
-    } else if (cardWidth < 190) {
-      // بطاقات متوسطة (أغلب الهواتف العادية)
-      factor = 1.05;
+  // حساب ارتفاع الصورة الذكي
+  double _getSmartImageHeight(double cardWidth, double screenWidth) {
+    double heightToWidthRatio;
+    if (screenWidth <= 400) {
+      heightToWidthRatio = 1.15;
+    } else if (screenWidth <= 600) {
+      heightToWidthRatio = 1.10;
+    } else if (screenWidth <= 900) {
+      heightToWidthRatio = 1.05;
+    } else if (screenWidth <= 1200) {
+      heightToWidthRatio = 1.0;
     } else {
-      // بطاقات عريضة (هواتف كبيرة / شاشات واسعة)
-      factor = 0.95;
+      heightToWidthRatio = 0.95;
     }
-
-    // تعديل بسيط جداً حسب عرض الشاشة بالكامل
-    if (screenWidth < 360) {
-      // هواتف أصغر من المعتاد ⇒ تكبير إضافي بسيط للصورة
-      factor += 0.05;
-    } else if (screenWidth > 600) {
-      // شاشات كبيرة مع 3 أعمدة ⇒ نقلل الارتفاع قليلاً حتى لا تكون البطاقة طويلة جداً
-      factor -= 0.05;
-    }
-
-    final double dynamicHeight = cardWidth * factor;
-
-    // ضمان أن يبقى الارتفاع في مدى منطقي (قريب من القيمة الأساسية 200)
-    const double minHeight = _imageHeight * 0.9; // 180
-    const double maxHeight = _imageHeight * 1.3; // 260
-
-    return dynamicHeight.clamp(minHeight, maxHeight).toDouble();
+    final imageHeight = cardWidth * heightToWidthRatio;
+    return imageHeight.clamp(130.0, 300.0);
   }
 
-  // 🧠 حساب النسبة المثالية للبطاقة بناءً على حجم الشاشة
+  // حساب الارتفاع الكلي للبطاقة
+  double _calculateCardHeight(double screenWidth, double cardWidth) {
+    final imageHeight = _getSmartImageHeight(cardWidth, screenWidth);
+    return _cardTopPadding + imageHeight + _fixedElementsHeight;
+  }
+
+  // حساب النسبة المثالية للبطاقة
   double _calculateOptimalAspectRatio(BuildContext context, [int? columns]) {
     final mediaQuery = MediaQuery.of(context);
     final screenWidth = mediaQuery.size.width;
 
-    // 🎯 حساب المسافات والأعمدة
-    final horizontalMargin = screenWidth > 400 ? 16.0 : (screenWidth > 350 ? 14.0 : 12.0);
-    final crossAxisSpacing = screenWidth > 400 ? 12.0 : (screenWidth > 350 ? 10.0 : 8.0);
+    final horizontalMargin = screenWidth > 600 ? 16.0 : (screenWidth > 400 ? 12.0 : 8.0);
+    final crossAxisSpacing = screenWidth > 600 ? 14.0 : (screenWidth > 400 ? 10.0 : 6.0);
+    int actualColumns = columns ?? _getSmartColumnCount(screenWidth);
 
-    // 🧠 تحديد عدد الأعمدة
-    int actualColumns = columns ?? 2;
-
-    // 🎯 حساب عرض البطاقة الواحدة
     final availableWidth = screenWidth - (horizontalMargin * 2);
     final totalSpacing = crossAxisSpacing * (actualColumns - 1);
     final cardWidth = (availableWidth - totalSpacing) / actualColumns;
-
-    // 🎯 حساب ارتفاع البطاقة من النظام الذكي اعتماداً على عرض البطاقة الفعلي
     final cardHeight = _calculateCardHeight(screenWidth, cardWidth);
 
-    // 🎯 النسبة = العرض / الارتفاع
-    final aspectRatio = cardWidth / cardHeight;
-
-    return aspectRatio;
+    return cardWidth / cardHeight;
   }
 
-  // 🎯 بناء شريط التبليغات الذكي مع تأثير التقليب
+  // بناء شريط التبليغات الذكي
   Widget _buildSmartNotificationBar(Product product) {
-    // حماية إضافية من القيم الفارغة
-    if (product.notificationTags.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (product.notificationTags.isEmpty) return const SizedBox.shrink();
     return _NotificationBarWidget(product: product);
   }
 
-  // بناء بطاقة المنتج - تصميم ملفت ومبهر 🎨✨
-  Widget _buildProductCard(Product product) {
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-
+  // بناء بطاقة المنتج
+  Widget _buildProductCard(Product product, bool isDark) {
     return TweenAnimationBuilder<double>(
       duration: const Duration(milliseconds: 800),
       tween: Tween(begin: 0.0, end: 1.0),
       builder: (context, animationValue, child) {
-        // 📱 قياس الشاشة (نستخدمها مع عرض البطاقة لحساب ارتفاع الصورة بدقة)
         final screenWidth = MediaQuery.of(context).size.width;
 
         return Transform.translate(
-          offset: Offset(0, 20 * (1 - animationValue)), // 🌊 تأثير الانزلاق من الأسفل
+          offset: Offset(0, 20 * (1 - animationValue)),
           child: Transform.scale(
-            scale: 0.8 + (0.2 * animationValue), // 🎭 تأثير التكبير التدريجي
+            scale: 0.8 + (0.2 * animationValue),
             child: Opacity(
-              opacity: animationValue, // ✨ تأثير الظهور التدريجي
+              opacity: animationValue,
               child: GestureDetector(
-                onTap: () {
-                  context.go('/products/details/${product.id}');
-                },
+                onTap: () => context.go('/products/details/${product.id}'),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final cardWidth = constraints.maxWidth;
-                      final double imageHeight = _getImageHeightForCard(cardWidth, screenWidth);
+                      final double imageHeight = _getSmartImageHeight(cardWidth, screenWidth);
 
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
                         curve: Curves.easeInOut,
-                        // إزالة الأبعاد الثابتة لتتكيف مع النسبة الذكية
-                        margin: const EdgeInsets.only(right: 5, bottom: 0), // تقليل المسافة الجانبية
-                        clipBehavior: Clip.none, // عدم قطع المحتوى - لضمان ظهور شريط السعر كاملاً
+                        margin: const EdgeInsets.only(right: 5, bottom: 0),
+                        clipBehavior: Clip.none,
                         decoration: BoxDecoration(
-                          // 🎨 تصميم عالمي لبطاقة المنتج في الوضع النهاري
                           color: isDark ? null : Colors.white,
                           gradient: isDark
                               ? LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    Colors.white.withValues(alpha: 0.06), // شفاف أكثر
-                                    Colors.white.withValues(alpha: 0.03), // شفاف جداً
-                                    const Color(0xFF1A1F2E).withValues(alpha: 0.2), // يتناسق مع الخلفية
+                                    Colors.white.withValues(alpha: 0.06),
+                                    Colors.white.withValues(alpha: 0.03),
+                                    const Color(0xFF1A1F2E).withValues(alpha: 0.2),
                                   ],
-                                  stops: [0.0, 0.5, 1.0],
+                                  stops: const [0.0, 0.5, 1.0],
                                 )
                               : null,
                           borderRadius: BorderRadius.circular(18),
                           border: Border.all(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.12)
-                                : Colors.black.withValues(alpha: 0.04), // 🧱 Hairline Border عالمي
+                            color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.04),
                             width: 1,
                           ),
                           boxShadow: isDark
                               ? []
                               : [
-                                  // 🫧 Shadow خفي جداً يبرز البطاقة مثل Shein/AliExpress
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.06),
                                     blurRadius: 10,
@@ -1456,7 +1486,41 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                         ),
                         child: Stack(
                           children: [
-                            // شريط عدد القطع - تصميم بسيط وجميل في الزاوية
+                            // منطقة الصورة
+                            Positioned(
+                              left: 0,
+                              top: 0,
+                              right: 0,
+                              child: ClipRRect(
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(18),
+                                  topRight: Radius.circular(18),
+                                ),
+                                child: SizedBox(
+                                  height: imageHeight,
+                                  width: double.infinity,
+                                  child: product.images.isNotEmpty
+                                      ? Container(
+                                          color: isDark ? Colors.transparent : Colors.white,
+                                          child: _SmartProductImage(
+                                            imageUrl: product.images.first,
+                                            height: imageHeight,
+                                            isDark: isDark,
+                                          ),
+                                        )
+                                      : Container(
+                                          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+                                          child: Icon(
+                                            Icons.camera_alt_outlined,
+                                            color: isDark ? Colors.white60 : Colors.grey,
+                                            size: 50,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                            ),
+
+                            // شريط عدد القطع
                             Positioned(
                               left: 0,
                               top: 0,
@@ -1465,24 +1529,20 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                                 decoration: BoxDecoration(
                                   color: AppDesignSystem.goldColor.withValues(alpha: 0.9),
                                   borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(24),
-                                    bottomRight: Radius.circular(16),
+                                    topLeft: Radius.circular(17),
+                                    bottomRight: Radius.circular(12),
                                   ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
-                                      Icons.inventory_2_rounded,
-                                      color: Colors.black,
-                                      size: 12, // أصغر قليلاً
-                                    ),
-                                    const SizedBox(width: 4), // مسافة أصغر
+                                    const Icon(Icons.inventory_2_rounded, color: Colors.black, size: 12),
+                                    const SizedBox(width: 4),
                                     Text(
                                       '${product.availableFrom}-${product.availableTo}',
                                       style: GoogleFonts.cairo(
                                         color: Colors.black,
-                                        fontSize: 10, // أصغر قليلاً
+                                        fontSize: 10,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -1491,94 +1551,24 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                               ),
                             ),
 
-                            // 🎯 شريط التبليغات الذكي - يظهر فقط إذا كان هناك تبليغات
+                            // شريط التبليغات
                             if (product.notificationTags.isNotEmpty)
                               Positioned(right: 0, top: 0, child: _buildSmartNotificationBar(product)),
 
-                            // منطقة الصورة - القياس الأصلي مع مسافة مناسبة من الحواف
-                            Positioned(
-                              left: 8,
-                              top: _cardTopPadding,
-                              right: 8,
-                              child: Container(
-                                height: imageHeight - 8,
-                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(20)),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: Stack(
-                                    children: [
-                                      // منطقة الصورة موسعة لحد البطاقة
-                                      Positioned(
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        height: imageHeight, // 🎯 من الثوابت (متغيرة حسب حجم الشاشة)
-                                        child: product.images.isNotEmpty
-                                            ? Container(
-                                                width: double.infinity,
-                                                height: imageHeight,
-                                                color: isDark
-                                                    ? Colors.transparent
-                                                    : Colors.white, // 🎯 خلفية بيضاء للصور الشفافة في الوضع النهاري
-                                                child: _CachedAutoRetryProductImage(
-                                                  imageUrl: product.images.first,
-                                                  height: imageHeight,
-                                                  isDark: isDark,
-                                                ),
-                                              )
-                                            : Container(
-                                                height: imageHeight, // 🎯 من الثوابت (متغيّرة حسب حجم الشاشة)
-                                                decoration: BoxDecoration(
-                                                  color: isDark
-                                                      ? Colors.white.withValues(alpha: 0.05)
-                                                      : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-                                                  borderRadius: BorderRadius.circular(16),
-                                                ),
-                                                child: Icon(
-                                                  Icons.camera_alt_outlined,
-                                                  color: isDark
-                                                      ? Colors.white60
-                                                      : Colors.grey, // 🎯 لون واضح في الوضع النهاري
-                                                  size: 50,
-                                                ),
-                                              ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            // اسم المنتج أسفل الصورة مباشرة مع مسافة قليلة جداً
+                            // اسم المنتج
                             Positioned(
                               left: 6,
                               right: 6,
-                              top:
-                                  _cardTopPadding +
-                                  imageHeight +
-                                  _imageBottomSpacing, // 🎯 حساب ذكي من الثوابت (تأخذ تكبير الصورة في الهواتف الصغيرة)
+                              top: imageHeight + _imageBottomSpacing,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ), // تقليل padding العمودي
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: isDark
-                                        ? [
-                                            const Color(0xFF1A1F2E).withValues(alpha: 0.7), // متناسق مع الخلفية الليلية
-                                            const Color(0xFF0F1419).withValues(alpha: 0.4), // متناسق مع الخلفية الليلية
-                                          ]
-                                        : [
-                                            Colors.white.withValues(alpha: 0.95), // خلفية بيضاء في الوضع النهاري
-                                            Colors.white.withValues(alpha: 0.9), // خلفية بيضاء في الوضع النهاري
-                                          ],
-                                  ),
+                                  color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: isDark
-                                        ? Colors.white.withValues(alpha: 0.08)
-                                        : Colors.grey.withValues(alpha: 0.2), // حدود أوضح في الوضع النهاري
+                                        ? Colors.white.withValues(alpha: 0.12)
+                                        : Colors.black.withValues(alpha: 0.04),
                                     width: 1,
                                   ),
                                 ),
@@ -1586,94 +1576,68 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                                   product.name,
                                   style: FontHelper.cairo(
                                     color: ThemeColors.textColor(isDark),
-                                    fontSize: 12, // إرجاع الحجم الأصلي
+                                    fontSize: 12,
                                     fontWeight: FontWeight.w700,
-                                    height: 1.2, // إرجاع الارتفاع الأصلي
+                                    height: 1.2,
                                   ),
-                                  maxLines: 1, // سطر واحد فقط مع النقاط
-                                  overflow: TextOverflow.ellipsis, // تحويل إلى ...
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
                                 ),
                               ),
                             ),
 
-                            // السعر وزر القلب وزر الإضافة - أسفل اسم المنتج مباشرة
+                            // شريط السعر والأزرار
                             Positioned(
                               left: 5,
                               right: 5,
-                              top:
-                                  _cardTopPadding +
-                                  imageHeight +
-                                  _imageBottomSpacing +
-                                  _nameHeight +
-                                  _nameBottomSpacing, // 🎯 حساب ذكي من الثوابت (يتبع تكبير الصورة في الهواتف الصغيرة)
+                              top: imageHeight + _imageBottomSpacing + _nameHeight + _nameBottomSpacing,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ), // تقليل الـ padding العمودي لتقليل ارتفاع الشريط
+                                padding: const EdgeInsets.only(left: 8, right: 8, top: 2, bottom: 2),
                                 decoration: BoxDecoration(
-                                  // 🎨 شريط السعر كـ surfaceSubtle في النهار
-                                  color: isDark ? null : const Color(0xFFF3F4F6),
-                                  gradient: isDark
-                                      ? LinearGradient(
-                                          colors: [
-                                            Colors.black.withValues(alpha: 0.4),
-                                            Colors.black.withValues(alpha: 0.2),
-                                          ],
-                                        )
-                                      : null,
-                                  borderRadius: BorderRadius.circular(16),
+                                  color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF5F5F7),
+                                  borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
                                     color: isDark
-                                        ? Colors.white.withValues(alpha: 0.1)
-                                        : const Color(0xFFE5E7EB), // borderSubtle في النهار
+                                        ? Colors.white.withValues(alpha: 0.12)
+                                        : Colors.black.withValues(alpha: 0.04),
                                     width: 1,
                                   ),
                                 ),
                                 child: Row(
                                   children: [
-                                    // السعر على اليسار - عرض محدد لمنع الدفع
+                                    // السعر
                                     Container(
-                                      constraints: const BoxConstraints(maxWidth: 80), // عرض محدد
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      constraints: const BoxConstraints(maxWidth: 80),
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: isDark
-                                            ? Colors.black.withValues(alpha: 0.6)
-                                            : const Color(0xFFF1F1F1), // بطاقة السعر في الوضع النهاري
+                                        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.white,
                                         borderRadius: BorderRadius.circular(12),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.05),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 1),
-                                          ),
-                                        ],
+                                        border: Border.all(
+                                          color: isDark
+                                              ? Colors.white.withValues(alpha: 0.12)
+                                              : Colors.black.withValues(alpha: 0.04),
+                                          width: 1,
+                                        ),
                                       ),
                                       child: Text(
                                         _formatPrice(product.wholesalePrice),
                                         style: FontHelper.cairo(
                                           color: isDark ? Colors.white : Colors.black,
-                                          fontSize: 12, // أصغر قليلاً
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w700,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                         maxLines: 1,
                                       ),
                                     ),
-
-                                    // مساحة مرنة لدفع الأزرار لليمين
                                     const Spacer(),
-
-                                    // الأزرار في أقصى اليمين ملاصقين تماماً
+                                    // الأزرار
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        // زر القلب - أكبر قليلاً
-                                        Transform.scale(scale: 0.85, child: _buildHeartButton(product)),
-
-                                        // زر الإضافة ملاصق للقلب تماماً - أكبر قليلاً
-                                        Transform.scale(scale: 0.75, child: _buildAnimatedAddButton(product)),
+                                        Transform.scale(scale: 0.85, child: _buildHeartButton(product, isDark)),
+                                        Transform.scale(scale: 0.75, child: _buildAnimatedAddButton(product, isDark)),
                                       ],
                                     ),
                                   ],
@@ -1681,341 +1645,129 @@ class _NewProductsPageState extends State<NewProductsPage> with SingleTickerProv
                               ),
                             ),
                           ],
-                        ), // إغلاق Stack
-                      ); // إغلاق AnimatedContainer (return AnimatedContainer)
-                    }, // إغلاق LayoutBuilder.builder
-                  ), // إغلاق LayoutBuilder
-                ), // إغلاق ClipRRect
-              ), // إغلاق GestureDetector
-            ), // إغلاق Opacity
-          ), // إغلاق Transform.scale
-        ); // إغلاق Transform.translate
-      }, // إغلاق builder
-    ); // إغلاق TweenAnimationBuilder
-  }
-
-  // زر الإضافة المتحرك المحسن 🛒✨
-  Widget _buildAnimatedAddButton(Product product) {
-    // التحقق من وجود المنتج في السلة الحقيقية
-    bool isInCart = _cartService.hasProduct(product.id);
-
-    return GestureDetector(
-      onTap: () async {
-        if (!isInCart) {
-          // تأثير اهتزاز خفيف
-          HapticFeedback.lightImpact();
-
-          // إضافة إلى السلة
-          await _addToCart(product);
-
-          // تحديث الحالة
-          setState(() {});
-        } else {
-          // إزالة من السلة
-          HapticFeedback.selectionClick();
-          _cartService.removeItem(product.id);
-          setState(() {});
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-        width: 40, // عرض ثابت لا يتغير
-        height: 36,
-        decoration: BoxDecoration(
-          gradient: isInCart
-              ? const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF4CAF50), Color(0xFF45A049), Color(0xFF388E3C)],
-                )
-              : const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF6F757F), Color(0xFF4A5568), Color(0xFF2D3748)],
-                ),
-          borderRadius: BorderRadius.circular(isInCart ? 18 : 12),
-          border: Border.all(
-            color: isInCart ? Colors.white.withValues(alpha: 0.3) : Colors.white.withValues(alpha: 0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isInCart ? Colors.green.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3),
-              blurRadius: isInCart ? 12 : 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
-          children: [
-            // أنيميشن مستمر للحالة المضافة
-            if (isInCart)
-              Positioned.fill(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 1500),
-                  curve: Curves.easeInOut,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.1),
-                        Colors.transparent,
-                        Colors.white.withValues(alpha: 0.05),
-                      ],
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
-
-            // المحتوى الرئيسي
-            Center(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                transitionBuilder: (Widget child, Animation<double> animation) {
-                  return ScaleTransition(
-                    scale: animation,
-                    child: FadeTransition(opacity: animation, child: child),
-                  );
-                },
-                child: isInCart
-                    ? TweenAnimationBuilder<double>(
-                        key: const ValueKey('added'),
-                        duration: const Duration(milliseconds: 600),
-                        tween: Tween(begin: 0.0, end: 1.0),
-                        curve: Curves.elasticOut,
-                        builder: (context, value, child) {
-                          return Transform.scale(
-                            scale: value,
-                            child: const Icon(Icons.check_rounded, color: Colors.white, size: 22),
-                          );
-                        },
-                      )
-                    : const Icon(key: ValueKey('add'), Icons.add_rounded, color: Colors.white, size: 20),
-              ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  // زر القلب المتحرك الرهيب 💖 - محدث ليستخدم FavoritesService
-  Widget _buildHeartButton(Product product) {
-    // تتبع حالة الإعجاب من FavoritesService
-    bool isLiked = _favoritesService.isFavorite(product.id);
-    bool isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع من ThemeProvider
+  // زر الإضافة للسلة
+  Widget _buildAnimatedAddButton(Product product, bool isDark) {
+    final cart = context.watch<CartService>();
+    bool isInCart = cart.hasProduct(product.id);
 
     return GestureDetector(
-      onTap: () async {
-        try {
-          // تأثير اهتزاز فوري
-          HapticFeedback.lightImpact();
-
-          // تبديل حالة المفضلة
-          final success = await _favoritesService.toggleFavorite(product);
-
-          if (success && mounted) {
-            setState(() {}); // تحديث الواجهة
-
-            // إظهار رسالة تأكيد
-            final message = isLiked ? 'تم إزالة ${product.name} من المفضلة' : 'تم إضافة ${product.name} للمفضلة';
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  message,
-                  style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                backgroundColor: isLiked ? Colors.red : Colors.green,
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        } catch (e) {
-          debugPrint('❌ خطأ في تبديل المفضلة: $e');
+      onTap: () {
+        HapticFeedback.lightImpact();
+        if (!isInCart) {
+          cart.addItemSync(
+            productId: product.id,
+            name: product.name,
+            image: product.images.isNotEmpty ? product.images.first : '',
+            minPrice: product.minPrice.toInt(),
+            maxPrice: product.maxPrice.toInt(),
+            customerPrice: 0,
+            wholesalePrice: product.wholesalePrice.toInt(),
+            quantity: 1,
+          );
+        } else {
+          cart.removeByProductId(product.id);
         }
       },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.elasticOut,
-        width: 32,
-        height: 32,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          gradient: isLiked
-              ? const LinearGradient(colors: [Color(0xFFFF6B6B), Color(0xFFFF5252), Color(0xFFE91E63)])
-              : (isDark
-                    ? LinearGradient(
-                        colors: [Colors.white.withValues(alpha: 0.1), Colors.white.withValues(alpha: 0.05)],
-                      )
-                    : LinearGradient(colors: [Colors.white, Colors.grey.shade50])), // 🎯 خلفية بيضاء في الوضع النهاري
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isLiked
-                ? Colors.white.withValues(alpha: 0.3)
-                : (isDark
-                      ? Colors.white.withValues(alpha: 0.2)
-                      : Colors.grey.withValues(alpha: 0.4)), // 🎯 إطار رمادي واضح في الوضع النهاري
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: isLiked
-                  ? Colors.red.withValues(alpha: 0.4)
-                  : (isDark
-                        ? Colors.black.withValues(alpha: 0.2)
-                        : Colors.grey.withValues(alpha: 0.3)), // 🎯 ظل رمادي في الوضع النهاري
-              blurRadius: isLiked ? 15 : 8,
-              offset: const Offset(0, 4),
-            ),
-            if (isLiked)
-              BoxShadow(color: Colors.red.withValues(alpha: 0.2), blurRadius: 25, offset: const Offset(0, 8)),
-          ],
+          color: isInCart
+              ? const Color(0xFF22C55E)
+              : (isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.06)),
+          shape: BoxShape.circle,
         ),
-        child: AnimatedScale(
-          scale: isLiked ? 1.1 : 1.0,
-          duration: const Duration(milliseconds: 200),
-          child: Icon(
-            isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            color: isLiked
-                ? Colors.white
-                : (isDark ? Colors.white70 : Colors.grey.shade600), // 🎯 لون رمادي واضح في الوضع النهاري
-            size: isLiked ? 18 : 16,
-          ),
+        child: Icon(
+          isInCart ? Icons.check_rounded : Icons.add_rounded,
+          color: isInCart ? Colors.white : (isDark ? Colors.white70 : Colors.black54),
+          size: 20,
         ),
       ),
     );
   }
 
-  // إضافة منتج إلى السلة
-  Future<void> _addToCart(Product product) async {
-    try {
-      await _cartService.addItem(
-        productId: product.id,
-        name: product.name,
-        image: product.images.isNotEmpty ? product.images.first : '',
-        minPrice: product.minPrice.toInt(),
-        maxPrice: product.maxPrice.toInt(),
-        customerPrice: 0, // سعر فارغ عند الإضافة من بطاقة المنتج
-        wholesalePrice: product.wholesalePrice.toInt(),
-        quantity: 1,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم إضافة ${product.name} إلى السلة',
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+  // زر القلب - يستخدم Consumer لتجنب إعادة بناء الصفحة كاملة
+  Widget _buildHeartButton(Product product, bool isDark) {
+    return Consumer<FavoritesService>(
+      builder: (context, favoritesService, _) {
+        bool isLiked = favoritesService.isFavorite(product.id);
+
+        return GestureDetector(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            favoritesService.toggleFavoriteSync(product);
+            // لا حاجة لـ setState - Consumer يعيد البناء تلقائياً
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: isLiked
+                  ? const Color(0xFFEF4444)
+                  : (isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.06)),
+              shape: BoxShape.circle,
             ),
-            backgroundColor: const Color(0xFF28a745),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(20),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Icon(
+              isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+              color: isLiked ? Colors.white : (isDark ? Colors.white70 : Colors.black54),
+              size: 17,
+            ),
           ),
         );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'خطأ في إضافة المنتج: $e',
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-            backgroundColor: const Color(0xFFdc3545),
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.all(20),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
-      }
-    }
+      },
+    );
   }
 }
 
-class _NotificationBarWidget extends StatefulWidget {
+// ويدجت شريط التبليغات - بدون Timer
+class _NotificationBarWidget extends StatelessWidget {
   final Product product;
 
   const _NotificationBarWidget({required this.product});
 
   @override
-  State<_NotificationBarWidget> createState() => _NotificationBarWidgetState();
-}
-
-class _NotificationBarWidgetState extends State<_NotificationBarWidget> {
-  int currentIndex = 0;
-  Timer? notificationTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    // بدء التقليب التلقائي إذا كان هناك أكثر من تبليغ واحد
-    final tags = widget.product.notificationTags;
-    if (tags.length > 1) {
-      notificationTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-        if (mounted && tags.isNotEmpty) {
-          setState(() {
-            currentIndex = (currentIndex + 1) % tags.length;
-          });
-        }
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    notificationTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // 🎯 حماية مضاعفة من القيم الفارغة
-    final tags = widget.product.notificationTags;
-    if (tags.isEmpty || currentIndex >= tags.length) {
-      return const SizedBox.shrink();
-    }
+    final tags = product.notificationTags;
+    if (tags.isEmpty) return const SizedBox.shrink();
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      child: Container(
-        key: ValueKey(tags[currentIndex]), // مفتاح فريد لكل تبليغ
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFF6B73FF).withValues(alpha: 0.9), // بنفسجي متناسق
-              const Color(0xFF9D4EDD).withValues(alpha: 0.8), // بنفسجي فاتح
-            ],
-          ),
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(24), // يتبع زاوية البطاقة
-            bottomLeft: Radius.circular(16),
-          ),
-          boxShadow: [
-            BoxShadow(color: const Color(0xFF6B73FF).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2)),
-          ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [const Color(0xFF6B73FF).withValues(alpha: 0.9), const Color(0xFF9D4EDD).withValues(alpha: 0.8)],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.campaign_rounded, // أيقونة التبليغ
-              color: Colors.white,
-              size: 12,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              tags[currentIndex],
-              style: GoogleFonts.cairo(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
+        borderRadius: const BorderRadius.only(topRight: Radius.circular(17), bottomLeft: Radius.circular(12)),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF6B73FF).withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.campaign_rounded, color: Colors.white, size: 12),
+          const SizedBox(width: 4),
+          Text(
+            tags.first,
+            style: GoogleFonts.cairo(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700),
+          ),
+        ],
       ),
     );
   }

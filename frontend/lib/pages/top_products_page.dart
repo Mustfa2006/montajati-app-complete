@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -15,7 +16,11 @@ import '../utils/theme_colors.dart';
 import '../widgets/app_background.dart';
 
 class TopProductsPage extends StatefulWidget {
-  const TopProductsPage({super.key});
+  final bool isInsideTabView;
+  final int? currentTabIndex;
+  final Function(int)? onTabChanged;
+
+  const TopProductsPage({super.key, this.isInsideTabView = false, this.currentTabIndex, this.onTabChanged});
 
   @override
   State<TopProductsPage> createState() => _TopProductsPageState();
@@ -39,13 +44,10 @@ class _TopProductsPageState extends State<TopProductsPage> {
         });
       }
 
-      debugPrint('🏆 === بدء جلب المنتجات الأكثر مبيعاً ===');
-
       final prefs = await SharedPreferences.getInstance();
       final currentUserPhone = prefs.getString('current_user_phone');
 
       if (currentUserPhone == null || currentUserPhone.isEmpty) {
-        debugPrint('⚠️ لا يوجد رقم مستخدم محفوظ');
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -54,9 +56,6 @@ class _TopProductsPageState extends State<TopProductsPage> {
         }
         return;
       }
-
-      debugPrint('📱 رقم المستخدم: $currentUserPhone');
-      debugPrint('🌐 URL: ${ApiConfig.usersUrl}/top-products');
 
       // 🚀 استخدام الباك اند بدلاً من الاتصال المباشر بقاعدة البيانات
       final response = await http
@@ -67,11 +66,7 @@ class _TopProductsPageState extends State<TopProductsPage> {
           )
           .timeout(ApiConfig.defaultTimeout);
 
-      debugPrint('📡 استجابة الخادم: ${response.statusCode}');
-
       if (response.statusCode != 200) {
-        debugPrint('❌ فشل في جلب المنتجات: ${response.statusCode}');
-        debugPrint('📥 Response body: ${response.body}');
         if (mounted) {
           setState(() {
             _isLoading = false;
@@ -81,13 +76,9 @@ class _TopProductsPageState extends State<TopProductsPage> {
         return;
       }
 
-      debugPrint('✅ استجابة ناجحة من الخادم');
-
       final jsonData = jsonDecode(response.body);
-      debugPrint('📥 Response: $jsonData');
 
       if (jsonData['success'] != true) {
-        debugPrint('⚠️ فشل الطلب: ${jsonData['error'] ?? 'خطأ غير معروف'}');
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -95,7 +86,6 @@ class _TopProductsPageState extends State<TopProductsPage> {
       }
 
       if (jsonData['data'] == null) {
-        debugPrint('⚠️ لا توجد منتجات');
         if (mounted) {
           setState(() => _isLoading = false);
         }
@@ -103,10 +93,8 @@ class _TopProductsPageState extends State<TopProductsPage> {
       }
 
       final List<dynamic> data = jsonData['data'] ?? [];
-      debugPrint('📦 عدد المنتجات المسترجعة: ${data.length}');
 
       if (data.isEmpty) {
-        debugPrint('⚠️ لا توجد منتجات - القائمة فارغة');
         if (mounted) {
           setState(() {
             _topProducts = [];
@@ -119,7 +107,6 @@ class _TopProductsPageState extends State<TopProductsPage> {
       // تحويل النتائج إلى قائمة
       final List<Map<String, dynamic>> products = [];
       for (var item in data) {
-        debugPrint('📦 معالجة منتج: ${item['product_name']}');
         products.add({
           'product_id': item['product_id'],
           'product_name': item['product_name'],
@@ -132,17 +119,13 @@ class _TopProductsPageState extends State<TopProductsPage> {
         });
       }
 
-      debugPrint('✅ تم جلب ${products.length} منتج بنجاح');
-
       if (mounted) {
         setState(() {
           _topProducts = products;
           _isLoading = false;
         });
       }
-    } catch (e, stackTrace) {
-      debugPrint('❌ خطأ في جلب المنتجات الأكثر مبيعاً: $e');
-      debugPrint('Stack trace: $stackTrace');
+    } catch (e) {
       setState(() {
         _isLoading = false;
       });
@@ -152,47 +135,214 @@ class _TopProductsPageState extends State<TopProductsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    return AppBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: const SizedBox(height: 25)),
-            SliverToBoxAdapter(child: _buildHeader(isDark)),
-            SliverToBoxAdapter(child: const SizedBox(height: 20)),
 
-            if (_isLoading)
-              SliverFillRemaining(
-                child: Center(
-                  child: BouncingBallsLoader(color: isDark ? const Color(0xFFffd700) : Colors.black87, size: 16.0),
+    final content = Scaffold(
+      backgroundColor: Colors.transparent,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // العنوان والـ tabs - دائماً موجودة في البداية
+          if (widget.isInsideTabView) ...[
+            const SliverToBoxAdapter(child: SizedBox(height: 25)),
+            // زر الرجوع والعنوان
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    // زر الرجوع
+                    GestureDetector(
+                      onTap: () => context.go('/profits'),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                            width: 1,
+                          ),
+                        ),
+                        child: Icon(
+                          FontAwesomeIcons.arrowRight,
+                          color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 15),
+                    // العنوان
+                    Expanded(
+                      child: Text(
+                        'الإحصائيات',
+                        style: GoogleFonts.cairo(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: ThemeColors.textColor(isDark),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(width: 55), // موازنة المساحة مع زر الرجوع
+                  ],
                 ),
-              )
-            else if (_topProducts.isEmpty)
-              SliverFillRemaining(
-                child: Center(
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 15)),
+            // الـ tabs
+            SliverToBoxAdapter(child: buildInlineTabButtons(isDark)),
+            const SliverToBoxAdapter(child: SizedBox(height: 20)),
+          ],
+
+          // الهيدر - فقط عندما لا تكون داخل TabView
+          if (!widget.isInsideTabView) ...[
+            SliverToBoxAdapter(child: const SizedBox(height: 25)),
+            SliverToBoxAdapter(child: buildHeader(isDark)),
+            SliverToBoxAdapter(child: const SizedBox(height: 20)),
+          ],
+
+          if (_isLoading)
+            SliverFillRemaining(
+              child: Center(
+                child: BouncingBallsLoader(color: isDark ? const Color(0xFFffd700) : Colors.black87, size: 16.0),
+              ),
+            )
+          else if (_topProducts.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Text(
+                  'لا توجد منتجات',
+                  style: GoogleFonts.cairo(fontSize: 18, color: ThemeColors.textColor(isDark)),
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final product = _topProducts[index];
+                return buildProductCard(product, index, isDark);
+              }, childCount: _topProducts.length),
+            ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 50)),
+        ],
+      ),
+    );
+
+    // إذا كانت داخل TabView، لا تستخدم AppBackground
+    if (widget.isInsideTabView) {
+      return content;
+    }
+
+    // إذا لم تكن داخل TabView، استخدم AppBackground
+    return AppBackground(child: content);
+  }
+
+  // أزرار التبويب للاستخدام داخل PageView
+  Widget buildInlineTabButtons(bool isDark) {
+    final currentIndex = widget.currentTabIndex ?? 1;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: buildTabButton(
+              label: 'الإحصائيات',
+              icon: FontAwesomeIcons.chartLine,
+              isActive: currentIndex == 0,
+              isDark: isDark,
+              onTap: () {
+                widget.onTabChanged?.call(0);
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: buildTabButton(
+              label: 'أكثر المنتجات',
+              icon: FontAwesomeIcons.trophy,
+              isActive: currentIndex == 1,
+              isDark: isDark,
+              onTap: () {
+                widget.onTabChanged?.call(1);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget buildTabButton({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: isActive ? 12 : 8, sigmaY: isActive ? 12 : 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? (isDark
+                        ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                        : const Color(0xFFFFD700).withValues(alpha: 0.2))
+                  : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white.withValues(alpha: 0.6)),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isActive
+                    ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+                width: isActive ? 1.5 : 1,
+              ),
+              boxShadow: [
+                if (isActive)
+                  BoxShadow(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isActive ? const Color(0xFFFFA000) : (isDark ? Colors.white70 : Colors.grey[600]),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
                   child: Text(
-                    'لا توجد منتجات',
-                    style: GoogleFonts.cairo(fontSize: 18, color: ThemeColors.textColor(isDark)),
+                    label,
+                    style: GoogleFonts.cairo(
+                      fontSize: 13,
+                      fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                      color: isActive
+                          ? (isDark ? Colors.white : const Color(0xFF1a1a2e))
+                          : (isDark ? Colors.white70 : Colors.grey[600]),
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final product = _topProducts[index];
-                  return _buildProductCard(product, index, isDark);
-                }, childCount: _topProducts.length),
-              ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 50)),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader(bool isDark) {
+  Widget buildHeader(bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Row(
@@ -231,7 +381,7 @@ class _TopProductsPageState extends State<TopProductsPage> {
     );
   }
 
-  Widget _buildProductCard(Map<String, dynamic> product, int index, bool isDark) {
+  Widget buildProductCard(Map<String, dynamic> product, int index, bool isDark) {
     final productName = product['product_name'] ?? 'منتج غير معروف';
     final productImage = product['product_image'];
     final totalOrders = product['total_orders'] ?? 0;
@@ -331,7 +481,7 @@ class _TopProductsPageState extends State<TopProductsPage> {
             children: [
               // عدد الطلبات
               Expanded(
-                child: _buildStatBox(
+                child: buildStatBox(
                   label: 'عدد الطلبات',
                   value: totalOrders.toString(),
                   color: const Color(0xFFffd700),
@@ -341,7 +491,7 @@ class _TopProductsPageState extends State<TopProductsPage> {
               const SizedBox(width: 10),
               // الواصل
               Expanded(
-                child: _buildStatBox(
+                child: buildStatBox(
                   label: 'الواصل',
                   value: deliveredOrders.toString(),
                   color: Colors.green,
@@ -355,7 +505,7 @@ class _TopProductsPageState extends State<TopProductsPage> {
             children: [
               // الملغي
               Expanded(
-                child: _buildStatBox(
+                child: buildStatBox(
                   label: 'ملغي',
                   value: cancelledOrders.toString(),
                   color: Colors.red,
@@ -365,9 +515,9 @@ class _TopProductsPageState extends State<TopProductsPage> {
               const SizedBox(width: 10),
               // الربح الإجمالي
               Expanded(
-                child: _buildStatBox(
+                child: buildStatBox(
                   label: 'الربح',
-                  value: '${_formatNumber(totalProfit)} د.ع',
+                  value: '${formatNumber(totalProfit)} د.ع',
                   color: const Color(0xFF4CAF50),
                   isDark: isDark,
                 ),
@@ -380,12 +530,12 @@ class _TopProductsPageState extends State<TopProductsPage> {
   }
 
   // دالة لتنسيق الأرقام بفواصل
-  String _formatNumber(double number) {
+  String formatNumber(double number) {
     final formatter = NumberFormat('#,###', 'en_US');
     return formatter.format(number.round());
   }
 
-  Widget _buildStatBox({required String label, required String value, required Color color, required bool isDark}) {
+  Widget buildStatBox({required String label, required String value, required Color color, required bool isDark}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -419,18 +569,18 @@ class BouncingBallsLoader extends StatefulWidget {
 }
 
 class _BouncingBallsLoaderState extends State<BouncingBallsLoader> with TickerProviderStateMixin {
-  late List<AnimationController> _controllers;
-  late List<Animation<double>> _animations;
+  late List<AnimationController> controllers;
+  late List<Animation<double>> animations;
 
   @override
   void initState() {
     super.initState();
-    _controllers = List.generate(
+    controllers = List.generate(
       3,
       (index) => AnimationController(vsync: this, duration: const Duration(milliseconds: 600)),
     );
 
-    _animations = _controllers.map((controller) {
+    animations = controllers.map((controller) {
       return Tween<double>(
         begin: 0.0,
         end: -10.0, // تقليل الارتفاع إلى 50% فقط
@@ -438,10 +588,10 @@ class _BouncingBallsLoaderState extends State<BouncingBallsLoader> with TickerPr
     }).toList();
 
     // تشغيل الأنيميشن بتأخير متتالي
-    for (int i = 0; i < _controllers.length; i++) {
+    for (int i = 0; i < controllers.length; i++) {
       Future.delayed(Duration(milliseconds: i * 150), () {
         if (mounted) {
-          _controllers[i].repeat(reverse: true);
+          controllers[i].repeat(reverse: true);
         }
       });
     }
@@ -449,7 +599,7 @@ class _BouncingBallsLoaderState extends State<BouncingBallsLoader> with TickerPr
 
   @override
   void dispose() {
-    for (var controller in _controllers) {
+    for (var controller in controllers) {
       controller.dispose();
     }
     super.dispose();
@@ -461,10 +611,10 @@ class _BouncingBallsLoaderState extends State<BouncingBallsLoader> with TickerPr
       mainAxisSize: MainAxisSize.min,
       children: List.generate(3, (index) {
         return AnimatedBuilder(
-          animation: _animations[index],
+          animation: animations[index],
           builder: (context, child) {
             return Transform.translate(
-              offset: Offset(0, _animations[index].value),
+              offset: Offset(0, animations[index].value),
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 width: widget.size,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -71,7 +72,11 @@ class _TimeHelper {
 }
 
 class StatisticsPage extends StatefulWidget {
-  const StatisticsPage({super.key});
+  final bool isInsideTabView;
+  final int? currentTabIndex;
+  final Function(int)? onTabChanged;
+
+  const StatisticsPage({super.key, this.isInsideTabView = false, this.currentTabIndex, this.onTabChanged});
 
   @override
   State<StatisticsPage> createState() => _StatisticsPageState();
@@ -921,90 +926,300 @@ class _StatisticsPageState extends State<StatisticsPage> {
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    return AppBackground(
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: RefreshIndicator(
-          onRefresh: () async {
-            // 🚀 استخدام الدالة الموحدة مع forceRefresh لتجاهل الكاش
-            await _loadAllStatistics(forceRefresh: true);
-          },
-          color: const Color(0xFFffd700),
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              // الشريط العلوي
+    final content = Scaffold(
+      backgroundColor: Colors.transparent,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // 🚀 استخدام الدالة الموحدة مع forceRefresh لتجاهل الكاش
+          await _loadAllStatistics(forceRefresh: true);
+        },
+        color: const Color(0xFFffd700),
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(),
+          slivers: [
+            // العنوان والـ tabs - دائماً موجودة في البداية
+            if (widget.isInsideTabView) ...[
+              const SliverToBoxAdapter(child: SizedBox(height: 25)),
+              // زر الرجوع والعنوان
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      // زر الرجوع
+                      GestureDetector(
+                        onTap: () => context.go('/profits'),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                              width: 1,
+                            ),
+                          ),
+                          child: Icon(
+                            FontAwesomeIcons.arrowRight,
+                            color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      // العنوان
+                      Expanded(
+                        child: Text(
+                          'الإحصائيات',
+                          style: GoogleFonts.cairo(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF1a1a2e),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(width: 55), // موازنة المساحة مع زر الرجوع
+                    ],
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 15)),
+              // الـ tabs
+              SliverToBoxAdapter(child: _buildInlineTabButtons(isDark)),
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            ],
+
+            // الشريط العلوي - فقط عندما لا تكون داخل TabView
+            if (!widget.isInsideTabView) ...[
               SliverToBoxAdapter(child: const SizedBox(height: 25)),
               SliverToBoxAdapter(child: _buildHeader(isDark)),
-              SliverToBoxAdapter(child: const SizedBox(height: 20)),
-
-              // مربع الأرباح
-              SliverToBoxAdapter(child: _buildProfitsCard(isDark)),
-              SliverToBoxAdapter(child: const SizedBox(height: 20)),
-
-              // اختيار التاريخ
-              SliverToBoxAdapter(child: _buildDateRangeSelector(isDark)),
-              SliverToBoxAdapter(child: const SizedBox(height: 20)),
-
-              // الخريطة التفاعلية
-              SliverToBoxAdapter(child: _buildInteractiveMap(isDark)),
-              SliverToBoxAdapter(child: const SizedBox(height: 20)),
-
-              // مربع الطلبات حسب أيام الأسبوع
-              SliverToBoxAdapter(child: _buildWeekdayOrdersCard(isDark)),
-              SliverToBoxAdapter(child: const SizedBox(height: 20)),
-
-              // زر أكثر المنتجات مبيعاً
-              SliverToBoxAdapter(child: _buildTopProductsButton()),
-              SliverToBoxAdapter(child: const SizedBox(height: 50)),
+              SliverToBoxAdapter(child: const SizedBox(height: 15)),
+              SliverToBoxAdapter(child: _buildTabButtons(isDark)),
             ],
-          ),
+
+            // مربع الأرباح
+            SliverToBoxAdapter(child: _buildProfitsCard(isDark)),
+            SliverToBoxAdapter(child: const SizedBox(height: 20)),
+
+            // اختيار التاريخ
+            SliverToBoxAdapter(child: _buildDateRangeSelector(isDark)),
+            SliverToBoxAdapter(child: const SizedBox(height: 20)),
+
+            // الخريطة التفاعلية
+            SliverToBoxAdapter(child: _buildInteractiveMap(isDark)),
+            SliverToBoxAdapter(child: const SizedBox(height: 20)),
+
+            // مربع الطلبات حسب أيام الأسبوع
+            SliverToBoxAdapter(child: _buildWeekdayOrdersCard(isDark)),
+            SliverToBoxAdapter(child: const SizedBox(height: 20)),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          ],
         ),
       ),
     );
+
+    // إذا كانت داخل TabView، لا تستخدم AppBackground
+    if (widget.isInsideTabView) {
+      return content;
+    }
+
+    // إذا لم تكن داخل TabView، استخدم AppBackground
+    return AppBackground(child: content);
   }
 
   // بناء الشريط العلوي
   Widget _buildHeader(bool isDark) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       child: Row(
         children: [
-          // زر الرجوع - يرجع إلى صفحة الأرباح
-          GestureDetector(
-            onTap: () => context.go('/profits'),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
-                  width: 1,
+          // زر رجوع ناعم وأنيق
+          Material(
+            color: isDark ? const Color(0xFF2d2d44) : Colors.white,
+            elevation: 0,
+            borderRadius: BorderRadius.circular(15),
+            child: InkWell(
+              onTap: () => context.go('/profits'),
+              borderRadius: BorderRadius.circular(15),
+              child: Container(
+                width: 45,
+                height: 45,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
                 ),
-              ),
-              child: Icon(
-                FontAwesomeIcons.arrowRight,
-                color: isDark ? const Color(0xFFffd700) : Colors.black87,
-                size: 18,
+                alignment: Alignment.center,
+                child: Icon(
+                  FontAwesomeIcons.chevronRight,
+                  color: isDark ? Colors.white : const Color(0xFF1a1a2e),
+                  size: 18,
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 15),
+          const SizedBox(width: 20),
+          // العنوان بسيط وواضح
           Expanded(
             child: Text(
               'الإحصائيات',
               style: GoogleFonts.cairo(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+                color: isDark ? Colors.white : const Color(0xFF1a1a2e),
+                height: 1.2,
               ),
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(width: 55), // للتوازن
+          const SizedBox(width: 65), // موازنة المساحة مع زر الرجوع
         ],
+      ),
+    );
+  }
+
+  // أزرار التبويب
+  Widget _buildTabButtons(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildTabButton(
+              label: 'الإحصائيات',
+              icon: FontAwesomeIcons.chartLine,
+              isActive: true,
+              isDark: isDark,
+              onTap: () {
+                // already on this page
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildTabButton(
+              label: 'أكثر المنتجات',
+              icon: FontAwesomeIcons.trophy,
+              isActive: false,
+              isDark: isDark,
+              onTap: () {
+                context.push('/top-products');
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // أزرار التبويب للاستخدام داخل PageView
+  Widget _buildInlineTabButtons(bool isDark) {
+    final currentIndex = widget.currentTabIndex ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildTabButton(
+              label: 'الإحصائيات',
+              icon: FontAwesomeIcons.chartLine,
+              isActive: currentIndex == 0,
+              isDark: isDark,
+              onTap: () {
+                widget.onTabChanged?.call(0);
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildTabButton(
+              label: 'أكثر المنتجات',
+              icon: FontAwesomeIcons.trophy,
+              isActive: currentIndex == 1,
+              isDark: isDark,
+              onTap: () {
+                widget.onTabChanged?.call(1);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // زر تبويب واحد
+  Widget _buildTabButton({
+    required String label,
+    required IconData icon,
+    required bool isActive,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: isActive ? 12 : 8, sigmaY: isActive ? 12 : 8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? (isDark
+                        ? const Color(0xFFFFD700).withValues(alpha: 0.15)
+                        : const Color(0xFFFFD700).withValues(alpha: 0.2))
+                  : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.white.withValues(alpha: 0.6)),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isActive
+                    ? const Color(0xFFFFD700).withValues(alpha: 0.3)
+                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.05)),
+                width: isActive ? 1.5 : 1,
+              ),
+              boxShadow: [
+                if (isActive)
+                  BoxShadow(
+                    color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: isActive ? const Color(0xFFFFA000) : (isDark ? Colors.white70 : Colors.grey[600]),
+                ),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: GoogleFonts.cairo(
+                      fontSize: 13,
+                      fontWeight: isActive ? FontWeight.bold : FontWeight.w600,
+                      color: isActive
+                          ? (isDark ? Colors.white : const Color(0xFF1a1a2e))
+                          : (isDark ? Colors.white70 : Colors.grey[600]),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1012,108 +1227,139 @@ class _StatisticsPageState extends State<StatisticsPage> {
   // مربع الأرباح
   Widget _buildProfitsCard(bool isDark) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.4), width: 1.5),
-      ),
-      child: Row(
-        children: [
-          // أيقونة الدولار
-          Container(
-            padding: const EdgeInsets.all(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.transparent,
-              borderRadius: BorderRadius.circular(15),
-              border: isDark ? null : Border.all(color: Colors.black87, width: 1),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                  spreadRadius: 0,
+                ),
+              ],
             ),
-            child: FaIcon(
-              FontAwesomeIcons.dollarSign,
-              color: isDark ? const Color(0xFFffd700) : Colors.black87,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 20),
-          // النص
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                Text(
-                  'إجمالي الأرباح المحققة',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white.withValues(alpha: 0.7) : Colors.black.withValues(alpha: 0.6),
+                // خلفية زخرفية ناعمة - طبقة 1
+                Positioned(
+                  right: -20,
+                  top: -20,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          const Color(0xFFFFD700).withValues(alpha: isDark ? 0.08 : 0.12),
+                          Colors.transparent,
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                // 🚀 عرض مؤشر تحميل أو البيانات
-                _isLoadingProfits
-                    ? SizedBox(
-                        height: 24,
-                        child: Row(
+                // المحتوى الرئيسي
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      // أيقونة مصغرة
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFD700).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(FontAwesomeIcons.coins, color: Color(0xFFFFA000), size: 20),
+                      ),
+                      const SizedBox(width: 16),
+                      // النصوص
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
-                          children: List.generate(
-                            3,
-                            (index) => Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 2),
-                              child: _BouncingBall(
-                                delay: Duration(milliseconds: index * 150),
-                                color: const Color(0xFFffd700),
-                                size: 6,
-                                maxHeight: 18, // حد أقصى للارتفاع (لا يتجاوز النص)
+                          children: [
+                            Text(
+                              'إجمالي الأرباح',
+                              style: GoogleFonts.cairo(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white70 : Colors.grey[700],
+                                height: 1.0,
                               ),
                             ),
-                          ),
-                        ),
-                      )
-                    : Text(
-                        '${_realizedProfits.toStringAsFixed(0)} د.ع',
-                        style: GoogleFonts.cairo(
-                          fontSize: 22, // تصغير من 28 إلى 22
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFFffd700),
-                          height: 1.0,
+                            const SizedBox(height: 6),
+                            _isLoadingProfits
+                                ? SizedBox(
+                                    height: 26,
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: isDark ? Colors.white : const Color(0xFF1a1a2e),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : TweenAnimationBuilder<double>(
+                                    duration: const Duration(milliseconds: 800),
+                                    tween: Tween(begin: 0, end: _realizedProfits),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, value, child) {
+                                      return Text(
+                                        '${value.toStringAsFixed(0)} د.ع',
+                                        style: GoogleFonts.cairo(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? Colors.white : const Color(0xFF1a1a2e),
+                                          height: 1.0,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ],
                         ),
                       ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
   // واجهة اختيار التاريخ
   Widget _buildDateRangeSelector(bool isDark) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      child: Row(
         children: [
-          // 🗑️ تم حذف كلمة "المدة" والأيقونة حسب طلب المستخدم
-          Row(
-            children: [
-              Expanded(
-                child: _buildDateButton(label: 'من', date: _selectedFromDate, onTap: _selectFromDate, isDark: isDark),
-              ),
-              const SizedBox(width: 15),
-              Expanded(
-                child: _buildDateButton(label: 'إلى', date: _selectedToDate, onTap: _selectToDate, isDark: isDark),
-              ),
-            ],
+          Expanded(
+            child: _buildDateButton(label: 'من', date: _selectedFromDate, onTap: _selectFromDate, isDark: isDark),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildDateButton(label: 'إلى', date: _selectedToDate, onTap: _selectToDate, isDark: isDark),
           ),
         ],
       ),
@@ -1127,37 +1373,66 @@ class _StatisticsPageState extends State<StatisticsPage> {
     required VoidCallback onTap,
     required bool isDark,
   }) {
-    // تحويل التاريخ من UTC إلى توقيت بغداد للعرض
     final displayDate = date?.add(const Duration(hours: 3));
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.1) : Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3), width: 1),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.cairo(fontSize: 12, color: const Color(0xFFffd700), fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              displayDate != null
-                  ? '${displayDate.year}-${displayDate.month.toString().padLeft(2, '0')}-${displayDate.day.toString().padLeft(2, '0')}'
-                  : 'اختر التاريخ',
-              style: GoogleFonts.cairo(
-                fontSize: 14,
-                color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
-                fontWeight: FontWeight.w500,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.white.withValues(alpha: 0.5),
+                width: 1.5,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-          ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      FontAwesomeIcons.calendar,
+                      size: 12,
+                      color: isDark ? const Color(0xFFFFD700) : Colors.grey[600],
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: GoogleFonts.cairo(
+                        fontSize: 12,
+                        color: isDark ? Colors.white70 : Colors.grey[600],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  displayDate != null
+                      ? '${displayDate.year}-${displayDate.month.toString().padLeft(2, '0')}-${displayDate.day.toString().padLeft(2, '0')}'
+                      : 'اختر التاريخ',
+                  style: GoogleFonts.cairo(
+                    fontSize: 14,
+                    color: isDark ? Colors.white : const Color(0xFF1a1a2e),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1185,33 +1460,14 @@ class _StatisticsPageState extends State<StatisticsPage> {
 
     debugPrint('🗺️ Building map with province orders: $_provinceOrders');
 
-    // 🚀 حساب ارتفاع الخريطة بناءً على عرض الشاشة (responsive)
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = MediaQuery.of(context).size.width;
-        final screenHeight = MediaQuery.of(context).size.height;
 
-        // حساب ارتفاع ذكي بناءً على حجم الشاشة
-        double mapHeight;
-        if (screenWidth < 360) {
-          // هواتف صغيرة جداً
-          mapHeight = screenHeight * 0.5;
-        } else if (screenWidth < 400) {
-          // هواتف صغيرة
-          mapHeight = screenHeight * 0.55;
-        } else if (screenWidth < 600) {
-          // هواتف متوسطة
-          mapHeight = screenHeight * 0.6;
-        } else {
-          // أجهزة لوحية وكبيرة
-          mapHeight = screenHeight * 0.65;
-        }
-
-        // التأكد من أن الارتفاع ليس كبيراً جداً أو صغيراً جداً
-        mapHeight = mapHeight.clamp(350.0, 700.0);
+        // القياسات الحقيقية للخريطة العراقية (aspect ratio)
+        final mapHeight = screenWidth * 1.2; // نسبة 1:1 تقريباً
 
         return GestureDetector(
-          // 🎯 إخفاء مربع الملاحظة عند النقر خارج الخريطة
           onTap: () {
             if (_selectedProvince != null && mounted) {
               setState(() {
@@ -1220,19 +1476,27 @@ class _StatisticsPageState extends State<StatisticsPage> {
             }
           },
           child: Container(
-            height: mapHeight,
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            child: IraqMapWidget(
-              geoJsonData: _geoJsonData!,
-              provinceOrders: _provinceOrders,
-              selectedProvince: _selectedProvince,
-              onProvinceSelected: (provinceName, center) {
-                if (mounted) {
-                  setState(() {
-                    _selectedProvince = provinceName;
-                  });
-                }
-              },
+            height: mapHeight, // حجم طبيعي 100%
+            margin: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Transform.scale(
+              scale: 1.2, // 100% - حجم طبيعي!
+              child: Container(
+                height: mapHeight,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: IraqMapWidget(
+                  geoJsonData: _geoJsonData!,
+                  provinceOrders: _provinceOrders,
+                  selectedProvince: _selectedProvince,
+                  onProvinceSelected: (provinceName, center) {
+                    if (mounted) {
+                      setState(() {
+                        _selectedProvince = provinceName;
+                      });
+                    }
+                  },
+                ),
+              ),
             ),
           ),
         );
@@ -1267,145 +1531,161 @@ class _StatisticsPageState extends State<StatisticsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // العنوان مع الأزرار
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  border: isDark ? null : Border.all(color: Colors.black87, width: 1),
-                ),
-                child: FaIcon(
-                  FontAwesomeIcons.calendarWeek,
-                  color: isDark ? const Color(0xFFffd700) : Colors.black87,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'الطلبات حسب أيام الأسبوع',
-                      style: GoogleFonts.cairo(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
+              // الصف الأول: الأيقونة والعنوان
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: isDark ? null : Border.all(color: Colors.black87, width: 1),
                     ),
-                    const SizedBox(height: 4),
-                    // 🚀 عرض كرات تحميل أو عنوان الأسبوع
-                    _isLoading
-                        ? SizedBox(
-                            height: 14,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: List.generate(
-                                3,
-                                (index) => Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                                  child: _BouncingBall(
-                                    delay: Duration(milliseconds: index * 150),
-                                    color: const Color(0xFFffd700),
-                                    size: 4,
-                                    maxHeight: 10,
+                    child: FaIcon(
+                      FontAwesomeIcons.calendarWeek,
+                      color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                      size: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'الطلبات حسب أيام الأسبوع',
+                          style: GoogleFonts.cairo(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        // 🚀 عرض كرات تحميل أو عنوان الأسبوع
+                        _isLoading
+                            ? SizedBox(
+                                height: 12,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: List.generate(
+                                    3,
+                                    (index) => Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                                      child: _BouncingBall(
+                                        delay: Duration(milliseconds: index * 150),
+                                        color: const Color(0xFFffd700),
+                                        size: 4,
+                                        maxHeight: 10,
+                                      ),
+                                    ),
                                   ),
                                 ),
+                              )
+                            : Text(
+                                weekTitle,
+                                style: GoogleFonts.cairo(
+                                  fontSize: 12,
+                                  color: const Color(0xFFffd700),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              // الصف الثاني: أزرار التنقل
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // زر الأسبوع الماضي
+                  if (_weekOffset > -4)
+                    GestureDetector(
+                      onTap: () async {
+                        setState(() {
+                          _weekOffset--;
+                        });
+                        await _loadAllStatistics(forceRefresh: true);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            FaIcon(
+                              FontAwesomeIcons.arrowLeft,
+                              color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'السابق',
+                              style: GoogleFonts.cairo(
+                                fontSize: 12,
+                                color: isDark ? const Color(0xFFffd700) : Colors.black87,
                               ),
                             ),
-                          )
-                        : Text(
-                            weekTitle,
-                            style: GoogleFonts.cairo(
-                              fontSize: 14,
-                              color: const Color(0xFFffd700),
-                              fontWeight: FontWeight.w600,
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  // زر الأسبوع التالي
+                  if (_weekOffset < 0)
+                    GestureDetector(
+                      onTap: () async {
+                        setState(() {
+                          _weekOffset++;
+                        });
+                        await _loadAllStatistics(forceRefresh: true);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              'التالي',
+                              style: GoogleFonts.cairo(
+                                fontSize: 12,
+                                color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                              ),
                             ),
-                          ),
-                  ],
-                ),
+                            const SizedBox(width: 6),
+                            FaIcon(
+                              FontAwesomeIcons.arrowRight,
+                              color: isDark ? const Color(0xFFffd700) : Colors.black87,
+                              size: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              // زر الأسبوع الماضي
-              if (_weekOffset > -4)
-                GestureDetector(
-                  onTap: () async {
-                    setState(() {
-                      _weekOffset--;
-                    });
-                    // 🚀 استخدام الدالة الموحدة بدلاً من _loadWeekdayOrders
-                    await _loadAllStatistics(forceRefresh: true);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        FaIcon(
-                          FontAwesomeIcons.arrowLeft,
-                          color: isDark ? const Color(0xFFffd700) : Colors.black87,
-                          size: 12,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'السابق',
-                          style: GoogleFonts.cairo(
-                            fontSize: 12,
-                            color: isDark ? const Color(0xFFffd700) : Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              const SizedBox(width: 8),
-              // زر الأسبوع التالي (إذا لم نكن في الأسبوع الحالي)
-              if (_weekOffset < 0)
-                GestureDetector(
-                  onTap: () async {
-                    setState(() {
-                      _weekOffset++;
-                    });
-                    // 🚀 استخدام الدالة الموحدة بدلاً من _loadWeekdayOrders
-                    await _loadAllStatistics(forceRefresh: true);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.2) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFFffd700).withValues(alpha: 0.3) : Colors.black87,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(
-                          'التالي',
-                          style: GoogleFonts.cairo(
-                            fontSize: 12,
-                            color: isDark ? const Color(0xFFffd700) : Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        FaIcon(
-                          FontAwesomeIcons.arrowRight,
-                          color: isDark ? const Color(0xFFffd700) : Colors.black87,
-                          size: 12,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
             ],
           ),
           const SizedBox(height: 20),
@@ -1421,17 +1701,22 @@ class _StatisticsPageState extends State<StatisticsPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        entry.key,
-                        style: GoogleFonts.cairo(
-                          fontSize: 14,
-                          color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                      Flexible(
+                        child: Text(
+                          entry.key,
+                          style: GoogleFonts.cairo(
+                            fontSize: 13,
+                            color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       // 🚀 عرض كرات تحميل أو العداد
                       _isLoading
                           ? SizedBox(
-                              height: 14,
+                              height: 12,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: List.generate(
@@ -1451,10 +1736,12 @@ class _StatisticsPageState extends State<StatisticsPage> {
                           : Text(
                               '${entry.value} طلب',
                               style: GoogleFonts.cairo(
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 color: const Color(0xFFffd700),
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                     ],
                   ),
@@ -1481,37 +1768,49 @@ class _StatisticsPageState extends State<StatisticsPage> {
 
   // زر أكثر المنتجات مبيعاً
   Widget _buildTopProductsButton() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () {
         context.push('/top-products');
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20),
-        padding: const EdgeInsets.all(20),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFffd700), Color(0xFFffa000)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: isDark ? const Color(0xFF2d2d44) : Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFFffd700).withValues(alpha: 0.3),
+              color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
           ],
+          border: Border.all(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+          ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const FaIcon(FontAwesomeIcons.trophy, color: Color(0xFF1a1a2e), size: 24),
-            const SizedBox(width: 15),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const FaIcon(FontAwesomeIcons.trophy, color: Color(0xFFFFA000), size: 20),
+            ),
+            const SizedBox(width: 16),
             Text(
               'أكثر المنتجات مبيعاً',
-              style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: const Color(0xFF1a1a2e)),
+              style: GoogleFonts.cairo(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : const Color(0xFF1a1a2e),
+              ),
             ),
+            const Spacer(),
+            Icon(FontAwesomeIcons.chevronLeft, color: isDark ? Colors.white54 : Colors.grey[400], size: 16),
           ],
         ),
       ),

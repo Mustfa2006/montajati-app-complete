@@ -1,5 +1,4 @@
 // تطبيق منتجاتي - نظام إدارة الدروب شيبنگ
-import 'utils/app_logger.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +11,9 @@ import 'config/supabase_config.dart';
 import 'l10n/app_localizations.dart';
 import 'providers/order_status_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/user_provider.dart';
+import 'providers/products_provider.dart';
+import 'providers/banners_provider.dart';
 import 'router.dart';
 import 'providers/competitions_provider.dart';
 
@@ -19,6 +21,8 @@ import 'services/fcm_service.dart';
 import 'services/global_orders_cache.dart';
 import 'services/lazy_loading_service.dart';
 import 'services/location_cache_service.dart';
+import 'services/favorites_service.dart';
+import 'services/cart_service.dart';
 import 'widgets/immersive_wrapper.dart';
 
 void main() async {
@@ -85,6 +89,14 @@ void main() async {
           ChangeNotifierProvider(create: (_) => OrderStatusProvider()),
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => CompetitionsProvider()..load()),
+          // خدمات السلة والمفضلة (Singleton with ChangeNotifier)
+          ChangeNotifierProvider.value(value: FavoritesService.instance),
+          ChangeNotifierProvider.value(value: CartService()),
+          // مزود بيانات المستخدم
+          ChangeNotifierProvider.value(value: UserProvider.instance..initialize()),
+          // مزودات الصفحة الرئيسية
+          ChangeNotifierProvider(create: (_) => ProductsProvider()),
+          ChangeNotifierProvider(create: (_) => BannersProvider()),
         ],
         child: const MontajatiApp(),
       ),

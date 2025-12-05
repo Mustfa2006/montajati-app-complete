@@ -126,10 +126,6 @@ class _IraqMapWidgetState extends State<IraqMapWidget> {
     if (widget.provinceOrders.isNotEmpty) {
       _maxOrders = widget.provinceOrders.values.reduce(math.max);
       if (_maxOrders == 0) _maxOrders = 1;
-      debugPrint('🔢 Max Orders Calculated: $_maxOrders');
-      debugPrint('📊 Province Orders: ${widget.provinceOrders}');
-    } else {
-      debugPrint('⚠️ Province Orders is empty!');
     }
   }
 
@@ -145,11 +141,9 @@ class _IraqMapWidgetState extends State<IraqMapWidget> {
         if (provinceNameAr.isNotEmpty) {
           final center = _calculateGeometryCenter(geometry);
           _provinceCenters[provinceNameAr] = center;
-          debugPrint('📍 Center for $provinceNameAr: $center');
         }
       }
     }
-    debugPrint('📊 Total centers calculated: ${_provinceCenters.length}');
   }
 
   Offset _calculateGeometryCenter(Map<String, dynamic> geometry) {
@@ -197,9 +191,6 @@ class _IraqMapWidgetState extends State<IraqMapWidget> {
     // الحصول على ارتفاع الشاشة
     final screenHeight = MediaQuery.of(context).size.height;
     final mapHeight = screenHeight * 0.7; // 70% من ارتفاع الشاشة
-
-    debugPrint('🗺️ Map Height: $mapHeight');
-    debugPrint('📊 Province Orders: ${widget.provinceOrders}');
 
     return SizedBox(
       height: mapHeight,
@@ -250,18 +241,13 @@ class _IraqMapWidgetState extends State<IraqMapWidget> {
   }
 
   void _handleTap(Offset position, Size size) {
-    debugPrint('🖱️ Tap at: $position, Size: $size');
-    debugPrint('📍 Province paths count: ${_provincePaths.length}');
-
     for (var entry in _provincePaths.entries) {
       if (entry.value.contains(position)) {
-        debugPrint('✅ Found province: ${entry.key}');
         final center = _provinceCenters[entry.key] ?? Offset.zero;
         widget.onProvinceSelected(entry.key, center);
         return;
       }
     }
-    debugPrint('❌ No province found at this position');
   }
 
   void _handleHover(Offset position, Size size) {
@@ -289,7 +275,7 @@ class _IraqMapWidgetState extends State<IraqMapWidget> {
         return Transform.scale(
           scale: value,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -297,9 +283,9 @@ class _IraqMapWidgetState extends State<IraqMapWidget> {
                   const Color(0xFFffa500).withValues(alpha: 0.95),
                 ],
               ),
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(12),
               boxShadow: [
-                BoxShadow(color: const Color(0xFFffd700).withValues(alpha: 0.3), blurRadius: 15, spreadRadius: 2),
+                BoxShadow(color: const Color(0xFFffd700).withValues(alpha: 0.3), blurRadius: 12, spreadRadius: 1),
               ],
             ),
             child: Column(
@@ -308,16 +294,16 @@ class _IraqMapWidgetState extends State<IraqMapWidget> {
               children: [
                 Text(
                   widget.selectedProvince!,
-                  style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+                  style: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(Icons.shopping_bag, color: Colors.black87, size: 16),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.shopping_bag, color: Colors.black87, size: 14),
+                    const SizedBox(width: 6),
                     Text(
                       '$orders طلب',
-                      style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black87),
+                      style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87),
                     ),
                   ],
                 ),
@@ -381,15 +367,12 @@ class IraqMapPainter extends CustomPainter {
       final provinceNameAr = provinceNamesMap[provinceNameEn] ?? provinceNameEn;
 
       if (provinceNameAr.isEmpty) {
-        debugPrint('⚠️ Empty province name for: $properties');
         continue;
       }
 
       final orders = provinceOrders[provinceNameAr] ?? 0;
       final isSelected = provinceNameAr == selectedProvince;
       final isHovered = provinceNameAr == hoveredProvince;
-
-      debugPrint('🎨 Drawing: $provinceNameAr (EN: $provinceNameEn) - Orders: $orders');
 
       _drawGeometry(
         canvas,
@@ -405,8 +388,6 @@ class IraqMapPainter extends CustomPainter {
         provinceNameAr,
       );
     }
-
-    debugPrint('🗺️ Total provinces drawn: ${provincePaths.length}');
   }
 
   void _updateBounds(Map<String, dynamic> geometry, Function(double lon, double lat) callback) {
@@ -478,7 +459,6 @@ class IraqMapPainter extends CustomPainter {
     // حفظ المسار للتفاعل
     if (provincePath != null) {
       provincePaths[provinceName] = provincePath;
-      debugPrint('✅ Saved path for: $provinceName');
     }
 
     // رسم عدد الطلبات - حتى لو كان 0
@@ -490,9 +470,6 @@ class IraqMapPainter extends CustomPainter {
       screenPoint = _adjustNumberPosition(screenPoint, provinceName, size);
 
       _drawOrderCount(canvas, screenPoint, orders, isSelected);
-      debugPrint('🔢 Drawing number $orders at $screenPoint for $provinceName');
-    } else {
-      debugPrint('⚠️ No center found for: $provinceName');
     }
   }
 

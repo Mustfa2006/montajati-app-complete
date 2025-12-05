@@ -1,22 +1,17 @@
 // router.dart - نظام التنقل لتطبيق منتجاتي
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'providers/theme_provider.dart';
-
 import 'core/design_system.dart';
 import 'pages/advanced_admin_dashboard.dart';
-
 import 'pages/cart_page.dart';
 import 'pages/competitions_page.dart';
 import 'pages/edit_order_page.dart';
 import 'pages/favorites_page.dart';
 import 'pages/login_page.dart';
 import 'pages/modern_product_details_page.dart';
-import 'pages/new_account_page.dart';
-import 'pages/new_products_page.dart';
-// import 'pages/protected_system_test_page.dart'; // تم حذف الصفحة
+import 'ui/pages/new_products/new_products_page.dart';
 import 'pages/new_system_test_page.dart';
 import 'pages/order_summary_page.dart';
 import 'pages/orders_page.dart';
@@ -25,10 +20,10 @@ import 'pages/register_page.dart';
 import 'pages/scheduled_orders_main_page.dart';
 import 'pages/simple_add_product_page.dart';
 import 'pages/statistics_page.dart';
+import 'pages/statistics_with_tabs_page.dart';
 import 'pages/storage_test_page.dart';
 import 'pages/top_products_page.dart';
 import 'pages/user_order_details_page.dart';
-// استيراد الصفحات
 import 'pages/welcome_page.dart';
 import 'pages/withdraw_page.dart';
 import 'pages/withdrawal_history_page.dart';
@@ -87,8 +82,6 @@ class AppRouter {
             currentIndex = 2; // الأرباح
           } else if (location.startsWith('/competitions')) {
             currentIndex = 3; // المسابقات
-          } else if (location.startsWith('/account')) {
-            currentIndex = 4; // الحساب
           } else {
             currentIndex = 0;
           }
@@ -99,84 +92,73 @@ class AppRouter {
             backgroundColor: Colors.transparent,
             extendBody: true,
             body: child,
-            bottomNavigationBar: SafeArea(
-              top: false,
-              child: CurvedNavigationBar(
-                index: currentIndex,
-                items: <Widget>[
-                  Icon(
-                    Icons.storefront_rounded,
-                    size: 28,
-                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
-                  ), // shop
-                  Icon(
-                    Icons.receipt_long_rounded,
-                    size: 28,
-                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
-                  ), // orders
-                  Icon(
-                    Icons.trending_up_rounded,
-                    size: 28,
-                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
-                  ), // profits
-                  Icon(
-                    Icons.emoji_events_rounded,
-                    size: 28,
-                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
-                  ), // competitions
-                  Icon(
-                    Icons.person_rounded,
-                    size: 28,
-                    color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
-                  ), // account
-                ],
-                color: isDark ? AppDesignSystem.bottomNavColor : Colors.white,
-                // ✨ تدرج لوني متناسق للوضعين
-                gradient: isDark
-                    ? LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          const Color(0xFF2D3748), // رمادي مزرق غامق
-                          const Color(0xFF1A202C), // أغمق
-                          const Color(0xFF171923), // أسود تقريباً
-                        ],
-                        stops: const [0.0, 0.6, 1.0],
-                      )
-                    : LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.white,
-                          const Color(0xFFF8F9FA), // رمادي فاتح جداً
-                          const Color(0xFFF1F5F9), // أغمق قليلاً للعمق
-                        ],
-                        stops: const [0.0, 0.7, 1.0],
-                      ),
-                buttonBackgroundColor: Colors.transparent, // الخلفية شفافة لأن الكرة لها تدرج خاص
-                // Leave the notch transparent so الخلفية تظهر من خلال القوس
-                backgroundColor: Colors.transparent,
-                onTap: (index) {
-                  switch (index) {
-                    case 0:
-                      context.go('/products');
-                      break;
-                    case 1:
-                      context.go('/orders');
-                      break;
-                    case 2:
-                      context.go('/profits');
-                      break;
-                    case 3:
-                      context.go('/competitions');
-                      break;
-                    case 4:
-                      context.go('/account');
-                      break;
-                  }
-                },
-                letIndexChange: (index) => true,
-              ),
+            bottomNavigationBar: CurvedNavigationBar(
+              index: currentIndex,
+              items: <Widget>[
+                Icon(
+                  Icons.storefront_rounded,
+                  size: 28,
+                  color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                ), // shop
+                Icon(
+                  Icons.receipt_long_rounded,
+                  size: 28,
+                  color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                ), // orders
+                Icon(
+                  Icons.trending_up_rounded,
+                  size: 28,
+                  color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                ), // profits
+                Icon(
+                  Icons.emoji_events_rounded,
+                  size: 28,
+                  color: isDark ? const Color(0xFFFFD700) : const Color(0xFFF59E0B),
+                ), // competitions
+              ],
+              color: isDark ? AppDesignSystem.bottomNavColor : Colors.white,
+              // ✨ تدرج لوني متناسق للوضعين
+              gradient: isDark
+                  ? LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        const Color(0xFF2D3748), // رمادي مزرق غامق
+                        const Color(0xFF1A202C), // أغمق
+                        const Color(0xFF171923), // أسود تقريباً
+                      ],
+                      stops: const [0.0, 0.6, 1.0],
+                    )
+                  : LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white,
+                        const Color(0xFFF8F9FA), // رمادي فاتح جداً
+                        const Color(0xFFF1F5F9), // أغمق قليلاً للعمق
+                      ],
+                      stops: const [0.0, 0.7, 1.0],
+                    ),
+              buttonBackgroundColor: Colors.transparent, // الخلفية شفافة لأن الكرة لها تدرج خاص
+              // Leave the notch transparent so الخلفية تظهر من خلال القوس
+              backgroundColor: Colors.transparent,
+              onTap: (index) {
+                switch (index) {
+                  case 0:
+                    context.go('/products');
+                    break;
+                  case 1:
+                    context.go('/orders');
+                    break;
+                  case 2:
+                    context.go('/profits');
+                    break;
+                  case 3:
+                    context.go('/competitions');
+                    break;
+                }
+              },
+              letIndexChange: (index) => true,
             ),
           );
         },
@@ -235,9 +217,6 @@ class AppRouter {
           // صفحة الأرباح
           GoRoute(path: '/profits', name: 'profits', builder: (context, state) => const ProfitsPage()),
 
-          // صفحة الحساب الشخصي
-          GoRoute(path: '/account', name: 'account', builder: (context, state) => const NewAccountPage()),
-
           // صفحة المفضلة (تم نقلها هنا لتظهر الشريط السفلي)
           GoRoute(path: '/favorites', name: 'favorites', builder: (context, state) => const FavoritesPage()),
         ],
@@ -261,8 +240,8 @@ class AppRouter {
         ],
       ),
 
-      // صفحة الإحصائيات
-      GoRoute(path: '/statistics', name: 'statistics', builder: (context, state) => const StatisticsPage()),
+      // صفحة الإحصائيات (مع tabs للإحصائيات وأكثر المنتجات)
+      GoRoute(path: '/statistics', name: 'statistics', builder: (context, state) => const StatisticsWithTabsPage()),
 
       // صفحة أكثر المنتجات مبيعاً
       GoRoute(path: '/top-products', name: 'top-products', builder: (context, state) => const TopProductsPage()),
@@ -367,10 +346,6 @@ class NavigationHelper {
 
   static void goToWithdraw(BuildContext context) {
     context.go('/withdraw');
-  }
-
-  static void goToAccount(BuildContext context) {
-    context.go('/account');
   }
 
   static void goToCart(BuildContext context) {

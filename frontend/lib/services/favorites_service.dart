@@ -30,9 +30,7 @@ class FavoritesService extends ChangeNotifier {
 
       if (favoritesJson != null) {
         final List<dynamic> favoritesList = json.decode(favoritesJson);
-        _favorites = favoritesList
-            .map((item) => Product.fromJson(item))
-            .toList();
+        _favorites = favoritesList.map((item) => Product.fromJson(item)).toList();
         debugPrint('✅ تم تحميل ${_favorites.length} منتج من المفضلة');
 
         // إزالة المنتجات التي نفدت من المخزون تلقائياً
@@ -70,9 +68,7 @@ class FavoritesService extends ChangeNotifier {
   Future<void> _saveFavorites() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final favoritesJson = json.encode(
-        _favorites.map((product) => product.toJson()).toList(),
-      );
+      final favoritesJson = json.encode(_favorites.map((product) => product.toJson()).toList());
       await prefs.setString(_favoritesKey, favoritesJson);
       debugPrint('💾 تم حفظ ${_favorites.length} منتج في المفضلة');
     } catch (e) {
@@ -123,6 +119,20 @@ class FavoritesService extends ChangeNotifier {
     } else {
       return await addToFavorites(product);
     }
+  }
+
+  // ✅ التبديل المتزامن (فوري) - للاستجابة السريعة للواجهة
+  void toggleFavoriteSync(Product product) {
+    if (isFavorite(product.id)) {
+      // إزالة من المفضلة فوراً
+      _favorites.removeWhere((p) => p.id == product.id);
+    } else {
+      // إضافة للمفضلة فوراً
+      _favorites.add(product);
+    }
+    notifyListeners();
+    // حفظ التغييرات في الخلفية
+    _saveFavorites();
   }
 
   // التحقق من وجود المنتج في المفضلة
@@ -184,13 +194,7 @@ class FavoritesService extends ChangeNotifier {
   // الحصول على إحصائيات المفضلة
   Map<String, dynamic> getFavoritesStats() {
     if (_favorites.isEmpty) {
-      return {
-        'totalProducts': 0,
-        'averagePrice': 0.0,
-        'minPrice': 0.0,
-        'maxPrice': 0.0,
-        'totalValue': 0.0,
-      };
+      return {'totalProducts': 0, 'averagePrice': 0.0, 'minPrice': 0.0, 'maxPrice': 0.0, 'totalValue': 0.0};
     }
 
     final prices = _favorites.map((p) => p.wholesalePrice).toList();

@@ -5,6 +5,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const router = express.Router();
 
 // ✅ الحصول على المنتجات مع Pagination من Supabase عبر الباك إند فقط
+// 🎯 الترتيب: حسب display_order (الأصغر أولاً) - نظام ذكي للترتيب
 router.get('/', async (req, res) => {
   try {
     // قراءة page & limit مع قيم افتراضية وحد أقصى
@@ -15,10 +16,14 @@ router.get('/', async (req, res) => {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
+    // 🎯 نظام الترتيب الذكي:
+    // 1. أولاً حسب display_order (1 = أول منتج، 2 = ثاني، 1000 = آخر)
+    // 2. ثانياً حسب تاريخ الإنشاء (الأحدث أولاً) للمنتجات بنفس الترتيب
     const { data, error } = await supabaseAdmin
       .from('products')
       .select('*')
       .eq('is_active', true)
+      .order('display_order', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: false })
       .range(from, to);
 
