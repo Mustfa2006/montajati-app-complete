@@ -14,7 +14,8 @@ import '../../models/product.dart';
 class ProductsCacheService {
   static const String _cacheKey = 'products_cache';
   static const String _cacheVersionKey = 'products_cache_version';
-  static const String _currentVersion = '1.0.0';
+  // 🎯 زيادة الإصدار لمسح الكاش القديم الذي لا يحترم display_order
+  static const String _currentVersion = '2.0.0'; // تم تغييره من 1.0.0
 
   // كاش في الذاكرة للوصول السريع جداً
   static List<Product>? _memoryCache;
@@ -104,4 +105,3 @@ class ProductsCacheService {
     return cached != null && cached.isNotEmpty;
   }
 }
-

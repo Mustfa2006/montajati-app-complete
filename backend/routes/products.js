@@ -5,7 +5,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const router = express.Router();
 
 // ✅ الحصول على المنتجات مع Pagination من Supabase عبر الباك إند فقط
-// 🎯 الترتيب: حسب display_order (الأصغر أولاً) - نظام ذكي للترتيب
+// 🎯 الترتيب الذكي: حسب display_order (الأصغر أولاً = 1, 2, 3... → 1000 = آخراً)
 router.get('/', async (req, res) => {
   try {
     // قراءة page & limit مع قيم افتراضية وحد أقصى
@@ -13,19 +13,14 @@ router.get('/', async (req, res) => {
     const rawLimit = parseInt(req.query.limit, 10) || 10;
     const limit = Math.min(Math.max(rawLimit, 1), 50); // لا نسمح بأكثر من 50 دفعة واحدة
 
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-
-    // 🎯 نظام الترتيب الذكي:
-    // 1. أولاً حسب display_order (1 = أول منتج، 2 = ثاني، 1000 = آخر)
-    // 2. ثانياً حسب تاريخ الإنشاء (الأحدث أولاً) للمنتجات بنفس الترتيب
+    // 🎯 نظام الترتيب الذكي الجديد:
+    // 1. نجلب كل المنتجات النشطة
+    // 2. نرتبها يدوياً حسب display_order (1 أولاً، 1000 آخراً)
+    // 3. نطبق pagination بعد الترتيب
     const { data, error } = await supabaseAdmin
       .from('products')
       .select('*')
-      .eq('is_active', true)
-      .order('display_order', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: false })
-      .range(from, to);
+      .eq('is_active', true);
 
     if (error) {
       console.error('❌ خطأ في جلب المنتجات من Supabase:', error);
@@ -36,17 +31,52 @@ router.get('/', async (req, res) => {
       });
     }
 
-    const products = data || [];
+    // 🎯 ترتيب ذكي يدوي - مضمون 100%
+    const allProducts = data || [];
+    allProducts.sort((a, b) => {
+      // الترتيب الأساسي: display_order (الأصغر أولاً)
+      const orderA = a.display_order ?? 999999;
+      const orderB = b.display_order ?? 999999;
+
+      if (orderA !== orderB) {
+        return orderA - orderB; // 1, 2, 3... 1000
+      }
+
+      // الترتيب الثانوي: created_at (الأحدث أولاً)
+      const dateA = new Date(a.created_at || 0);
+      const dateB = new Date(b.created_at || 0);
+      return dateB - dateA;
+    });
+
+    // تطبيق pagination بعد الترتيب
+    const from = (page - 1) * limit;
+    const to = from + limit;
+    const paginatedProducts = allProducts.slice(from, to);
+
+    // Debug log للتحقق من الترتيب
+    console.log(`📦 صفحة ${page}: ${paginatedProducts.length} منتج (من ${allProducts.length} إجمالي)`);
+    paginatedProducts.slice(0, 3).forEach((p, i) => {
+      console.log(`  ${i + 1}. ${p.name} - display_order: ${p.display_order}`);
+    });
+
+    if (error) {
+      console.error('❌ خطأ في جلب المنتجات من Supabase:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'خطأ في جلب المنتجات من قاعدة البيانات',
+        error: error.message,
+      });
+    }
 
     return res.status(200).json({
       success: true,
       data: {
-        products,
+        products: paginatedProducts,
         pagination: {
           page,
           limit,
-          // مبدئياً نستخدم منطق بسيط لمعرفة هل هناك المزيد (نفس منطق الفرونت تقريباً)
-          hasMore: products.length >= limit,
+          total: allProducts.length,
+          hasMore: to < allProducts.length,
         },
       },
     });

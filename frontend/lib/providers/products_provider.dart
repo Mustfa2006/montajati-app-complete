@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
 import '../models/product.dart';
-import '../services/repository/products_repository.dart';
+import '../services/api/products_api.dart';
+import '../services/local/products_cache_service.dart';
 
-/// مزود المنتجات - يدير حالة المنتجات بالكامل
+/// مزود المنتجات - مطابق 100% لمنطق الصفحة القديمة
+/// 🎯 الترتيب يأتي من السيرفر حسب display_order (1 = أول منتج، 2 = ثاني، ...)
+/// 🎯 لا نرتب يدوياً أبداً - فقط addAll() للمنتجات الجديدة
 class ProductsProvider extends ChangeNotifier {
-  final ProductsRepository _repository;
+  final ProductsApi _api;
 
-  // الحالة
+  // الحالة - مطابقة تماماً للملف القديم
   List<Product> _products = [];
   List<Product> _filteredProducts = [];
   bool _isLoading = false;
@@ -19,7 +22,7 @@ class ProductsProvider extends ChangeNotifier {
 
   static const int _itemsPerPage = 10;
 
-  ProductsProvider({ProductsRepository? repository}) : _repository = repository ?? ProductsRepository();
+  ProductsProvider({ProductsApi? api}) : _api = api ?? ProductsApi();
 
   // Getters
   List<Product> get products => _filteredProducts;
@@ -32,80 +35,133 @@ class ProductsProvider extends ChangeNotifier {
   bool get isEmpty => _products.isEmpty && !_isLoading;
   String get searchQuery => _searchQuery;
 
-  /// تحميل المنتجات (الصفحة الأولى)
+  /// تحميل المنتجات (الصفحة الأولى) - مطابق لـ _loadProducts() في الملف القديم
   Future<void> loadProducts({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
-    _isLoading = true;
+    // إعادة تعيين حالة الخطأ
     _hasError = false;
     _errorMessage = '';
+
+    // إذا طلب التحديث الإجباري، امسح الكاش أولاً
+    if (forceRefresh) {
+      await ProductsCacheService.clearCache();
+    }
+
+    // محاولة تحميل من الكاش فوراً (Cache-First Strategy)
+    final cachedProducts = await ProductsCacheService.getCachedProducts();
+    if (cachedProducts != null && cachedProducts.isNotEmpty && !forceRefresh) {
+      final availableProducts = cachedProducts.where((p) => p.availableQuantity > 0).toList();
+      _products = availableProducts;
+      _filteredProducts = List.from(availableProducts);
+      _isLoading = false;
+      _hasMore = true;
+      _currentPage = 1;
+      notifyListeners();
+
+      // تحديث في الخلفية
+      _refreshInBackground();
+      return;
+    }
+
+    // إذا لا يوجد كاش، تحميل من السيرفر مع loading
+    _isLoading = true;
     _currentPage = 1;
+    _products = [];
+    _filteredProducts = [];
+    _hasMore = true;
     notifyListeners();
 
+    await _fetchFromServer();
+  }
+
+  /// تحميل من السيرفر - مطابق لـ _fetchProductsFromServer() في الملف القديم
+  Future<void> _fetchFromServer() async {
     try {
-      final result = await _repository.getProducts(page: 1, limit: _itemsPerPage, forceRefresh: forceRefresh);
+      debugPrint('📦 جلب المنتجات من السيرفر - صفحة $_currentPage');
+      final products = await _api.fetchProducts(page: _currentPage, limit: _itemsPerPage);
 
-      _products = result.products;
-      // ✅ ترتيب المنتجات حسب displayOrder
-      _products.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      // طباعة ترتيب المنتجات للتأكد
+      debugPrint('📋 ترتيب المنتجات من السيرفر:');
+      for (int i = 0; i < products.length && i < 5; i++) {
+        debugPrint('  ${i + 1}. ${products[i].name} - displayOrder: ${products[i].displayOrder}');
+      }
 
-      _hasMore = result.hasMore;
+      final availableProducts = products.where((p) => p.availableQuantity > 0).toList();
+
+      // حفظ في الكاش
+      await ProductsCacheService.cacheProducts(products);
+
+      _products = availableProducts;
+      _filteredProducts = List.from(availableProducts);
+      _isLoading = false;
+      _hasMore = products.length >= _itemsPerPage;
       _applySearch();
 
-      // إذا جاء من الكاش، حدث في الخلفية
-      if (result.fromCache && !forceRefresh) {
-        _refreshInBackground();
-      }
+      debugPrint('✅ تم تحميل ${availableProducts.length} منتج متاح');
     } catch (e) {
+      _isLoading = false;
+      _hasMore = false;
       _hasError = true;
       _errorMessage = e.toString();
       debugPrint('❌ خطأ في تحميل المنتجات: $e');
     }
 
-    _isLoading = false;
     notifyListeners();
   }
 
-  /// تحميل المزيد من المنتجات
+  /// تحميل المزيد من المنتجات - مطابق لـ _loadMoreProducts() في الملف القديم
   Future<void> loadMore() async {
-    if (_isLoadingMore || !_hasMore || _isLoading) return;
+    if (_isLoading || _isLoadingMore || !_hasMore) return;
 
     _isLoadingMore = true;
     notifyListeners();
 
     try {
       _currentPage++;
-      final result = await _repository.getProducts(page: _currentPage, limit: _itemsPerPage);
+      debugPrint('📦 تحميل المزيد - صفحة $_currentPage');
+      final products = await _api.fetchProducts(page: _currentPage, limit: _itemsPerPage);
 
-      // إضافة المنتجات الجديدة فقط (تجنب التكرار)
-      for (final product in result.products) {
-        if (!_products.any((p) => p.id == product.id)) {
-          _products.add(product);
-        }
+      // طباعة ترتيب المنتجات الجديدة
+      debugPrint('📋 المنتجات الجديدة من صفحة $_currentPage:');
+      for (int i = 0; i < products.length && i < 5; i++) {
+        debugPrint('  ${i + 1}. ${products[i].name} - displayOrder: ${products[i].displayOrder}');
       }
 
-      // ✅ إعادة ترتيب كل المنتجات حسب displayOrder
-      _products.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+      final availableProducts = products.where((p) => p.availableQuantity > 0).toList();
 
-      _hasMore = result.hasMore;
-      _applySearch(); // إعادة تطبيق البحث على المنتجات الجديدة
+      // ✅ إضافة المنتجات الجديدة بالترتيب كما تأتي من السيرفر
+      // لا نرتب يدوياً - فقط نضيف للنهاية مثل الملف القديم
+      _products.addAll(availableProducts);
+
+      _isLoadingMore = false;
+      _hasMore = products.length >= _itemsPerPage;
+
+      // إعادة تطبيق البحث الحالي
+      _applySearch();
+
+      // حفظ كل المنتجات في الكاش (مثل الملف القديم سطر 549)
+      await ProductsCacheService.cacheProducts(_products);
+
+      debugPrint('✅ تم إضافة ${availableProducts.length} منتج - المجموع: ${_products.length}');
     } catch (e) {
       _currentPage--; // التراجع عن الصفحة
+      _isLoadingMore = false;
+      _hasMore = false;
       debugPrint('❌ خطأ في تحميل المزيد: $e');
     }
 
-    _isLoadingMore = false;
     notifyListeners();
   }
 
-  /// البحث في المنتجات
+  /// البحث في المنتجات - مطابق لـ _searchProducts() في الملف القديم
   void search(String query) {
     _searchQuery = query;
     _applySearch();
     notifyListeners();
   }
 
-  /// تطبيق البحث على المنتجات مع الحفاظ على الترتيب
+  /// تطبيق البحث على المنتجات (بدون تغيير الترتيب)
   void _applySearch() {
     if (_searchQuery.trim().isEmpty) {
       _filteredProducts = List.from(_products);
@@ -113,22 +169,31 @@ class ProductsProvider extends ChangeNotifier {
       final lowerQuery = _searchQuery.toLowerCase().trim();
       _filteredProducts = _products.where((p) => p.name.toLowerCase().contains(lowerQuery)).toList();
     }
-    // ✅ الحفاظ على الترتيب حسب displayOrder
-    _filteredProducts.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+    // ✅ لا نرتب - الترتيب يأتي من السيرفر
   }
 
-  /// تحديث في الخلفية
+  /// تحديث في الخلفية - مطابق لـ _refreshProductsInBackground() في الملف القديم
   Future<void> _refreshInBackground() async {
-    final result = await _repository.refreshInBackground(limit: _itemsPerPage);
-    if (result != null && _hasDataChanged(result.products)) {
-      _products = result.products;
-      _hasMore = result.hasMore;
-      _applySearch();
-      notifyListeners();
+    try {
+      final products = await _api.fetchProducts(page: 1, limit: _itemsPerPage);
+      final availableProducts = products.where((p) => p.availableQuantity > 0).toList();
+
+      // حفظ في الكاش
+      await ProductsCacheService.cacheProducts(products);
+
+      // تحديث فقط إذا تغيرت البيانات
+      if (_hasDataChanged(availableProducts)) {
+        _products = availableProducts;
+        _filteredProducts = List.from(availableProducts);
+        _hasMore = products.length >= _itemsPerPage;
+        notifyListeners();
+      }
+    } catch (_) {
+      // فشل التحديث الصامت - لا مشكلة
     }
   }
 
-  /// فحص هل تغيرت البيانات
+  /// فحص هل تغيرت البيانات - مطابق لـ _hasDataChanged() في الملف القديم
   bool _hasDataChanged(List<Product> newProducts) {
     if (_products.length != newProducts.length) return true;
     for (int i = 0; i < _products.length; i++) {
@@ -139,7 +204,9 @@ class ProductsProvider extends ChangeNotifier {
           oldP.wholesalePrice != newP.wholesalePrice ||
           oldP.minPrice != newP.minPrice ||
           oldP.maxPrice != newP.maxPrice ||
-          oldP.name != newP.name) {
+          oldP.name != newP.name ||
+          oldP.images.length != newP.images.length ||
+          (oldP.images.isNotEmpty && newP.images.isNotEmpty && oldP.images.first != newP.images.first)) {
         return true;
       }
     }
