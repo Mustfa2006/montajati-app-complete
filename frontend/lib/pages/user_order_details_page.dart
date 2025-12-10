@@ -366,101 +366,104 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    return Scaffold(
-      body: AppBackground(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(top: 20, left: 10, right: 10, bottom: 20),
-          child: Column(
-            children: [
-              // شريط علوي متحرك مع المحتوى
-              Container(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Row(
-                  children: [
-                    // زر الرجوع - تحريكه لليسار قليلاً
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8), // ✅ إزاحة لليسار
-                      child: GestureDetector(
-                        onTap: () => context.go('/orders'),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFFffd700).withValues(alpha: 0.2)
-                                : Colors.black.withValues(alpha: 0.1), // ✅ خلفية سوداء في النهاري
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
+    return PopScope(
+      canPop: true, // السماح بالرجوع
+      child: Scaffold(
+        body: AppBackground(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 20, left: 10, right: 10, bottom: 20),
+            child: Column(
+              children: [
+                // شريط علوي متحرك مع المحتوى
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Row(
+                    children: [
+                      // زر الرجوع - تحريكه لليسار قليلاً
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8), // ✅ إزاحة لليسار
+                        child: GestureDetector(
+                          onTap: () => context.go('/orders'),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
                               color: isDark
-                                  ? const Color(0xFFffd700).withValues(alpha: 0.3)
-                                  : Colors.black.withValues(alpha: 0.2), // ✅ حدود سوداء في النهاري
-                              width: 1,
+                                  ? const Color(0xFFffd700).withValues(alpha: 0.2)
+                                  : Colors.black.withValues(alpha: 0.1), // ✅ خلفية سوداء في النهاري
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFFffd700).withValues(alpha: 0.3)
+                                    : Colors.black.withValues(alpha: 0.2), // ✅ حدود سوداء في النهاري
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              FontAwesomeIcons.arrowLeft, // ✅ السهم يشير لليسار في الوضع العربي
+                              color: isDark ? const Color(0xFFffd700) : Colors.black,
+                              size: 18,
                             ),
                           ),
-                          child: Icon(
-                            FontAwesomeIcons.arrowLeft, // ✅ السهم يشير لليسار في الوضع العربي
-                            color: isDark ? const Color(0xFFffd700) : Colors.black,
-                            size: 18,
+                        ),
+                      ),
+                      // العنوان في الوسط بالضبط
+                      Expanded(
+                        child: Center(
+                          child: Text(
+                            'تفاصيل الطلب',
+                            style: GoogleFonts.cairo(
+                              color: ThemeColors.textColor(isDark),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    // العنوان في الوسط بالضبط
-                    Expanded(
-                      child: Center(
-                        child: Text(
-                          'تفاصيل الطلب',
-                          style: GoogleFonts.cairo(
-                            color: ThemeColors.textColor(isDark),
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                      // أزرار التعديل والحذف (للطلبات النشطة فقط)
+                      if (_order != null && _isOrderActive()) ...[
+                        // زر التعديل
+                        GestureDetector(
+                          onTap: _editOrder,
+                          child: Container(
+                            width: 35,
+                            height: 35,
+                            margin: const EdgeInsets.only(left: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.blue.withValues(alpha: 0.3), width: 1),
+                            ),
+                            child: const Icon(FontAwesomeIcons.penToSquare, color: Colors.blue, size: 16),
                           ),
                         ),
-                      ),
-                    ),
-                    // أزرار التعديل والحذف (للطلبات النشطة فقط)
-                    if (_order != null && _isOrderActive()) ...[
-                      // زر التعديل
-                      GestureDetector(
-                        onTap: _editOrder,
-                        child: Container(
-                          width: 35,
-                          height: 35,
-                          margin: const EdgeInsets.only(left: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.blue.withValues(alpha: 0.3), width: 1),
+                        // زر الحذف
+                        GestureDetector(
+                          onTap: _deleteOrder,
+                          child: Container(
+                            width: 35,
+                            height: 35,
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
+                            ),
+                            child: const Icon(FontAwesomeIcons.trash, color: Colors.red, size: 16),
                           ),
-                          child: const Icon(FontAwesomeIcons.penToSquare, color: Colors.blue, size: 16),
                         ),
-                      ),
-                      // زر الحذف
-                      GestureDetector(
-                        onTap: _deleteOrder,
-                        child: Container(
-                          width: 35,
-                          height: 35,
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
-                          ),
-                          child: const Icon(FontAwesomeIcons.trash, color: Colors.red, size: 16),
-                        ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              // المحتوى
-              if (_isLoading)
-                _buildLoadingState()
-              else if (_error != null)
-                _buildErrorState()
-              else
-                _buildOrderContent(isDark),
-            ],
+                // المحتوى
+                if (_isLoading)
+                  _buildLoadingState()
+                else if (_error != null)
+                  _buildErrorState()
+                else
+                  _buildOrderContent(isDark),
+              ],
+            ),
           ),
         ),
       ),

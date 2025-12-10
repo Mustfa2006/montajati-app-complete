@@ -24,7 +24,11 @@ class NewProductsPage extends StatefulWidget {
 
 class _NewProductsPageState extends State<NewProductsPage> {
   final SlidingDrawerController _drawerController = SlidingDrawerController();
+  // 🎯 PageStorageKey للحفاظ على موقع التمرير عند الرجوع
   final ScrollController _scrollController = ScrollController();
+
+  // 🔑 مفتاح فريد لحفظ موقع التمرير
+  static const _scrollKey = PageStorageKey<String>('products_scroll_position');
 
   @override
   void initState() {
@@ -98,6 +102,7 @@ class _NewProductsPageState extends State<NewProductsPage> {
                     color: const Color(0xFFffd700),
                     backgroundColor: isDark ? const Color(0xFF1a1a2e) : Colors.white,
                     child: CustomScrollView(
+                      key: _scrollKey, // 🔑 مفتاح لحفظ موقع التمرير
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
                       slivers: [

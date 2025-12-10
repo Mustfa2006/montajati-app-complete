@@ -367,7 +367,7 @@ class FCMService {
 
       // استخدام GoRouter للتنقل
       if (context.mounted) {
-        context.go('/orders/details/$orderId');
+        context.push('/orders/details/$orderId');
         debugPrint('✅ تم التنقل إلى صفحة الطلب بنجاح: $orderId');
       }
     } catch (e) {

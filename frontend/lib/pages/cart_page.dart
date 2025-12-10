@@ -1,7 +1,6 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,10 +8,10 @@ import 'package:provider/provider.dart';
 
 import '../providers/theme_provider.dart';
 import '../services/cart_service.dart';
-import '../services/inventory_service.dart';
 import '../services/scheduled_orders_service.dart';
 import '../utils/number_formatter.dart';
 import '../widgets/app_background.dart';
+import '../widgets/cart_item_card.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
 import 'customer_info_page.dart';
 
@@ -45,9 +44,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
     _headerController.forward();
     _startCartIconAnimation();
-
-    // تشغيل التحويل التلقائي للطلبات المجدولة عند فتح الصفحة
-    _runAutoConversion();
   }
 
   /// تحديث البيانات عند السحب للأسفل
@@ -106,38 +102,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     return _priceControllers[item.id]!;
   }
 
-  // ✅ دالة التحقق الذكية من صحة السعر
-  Map<String, dynamic> _validatePrice(int price, CartItem item) {
-    // إذا كان السعر 0 (فارغ)
-    if (price == 0) {
-      return {
-        'isValid': false,
-        'error': 'لم يتم تحديد السعر',
-        'errorType': 'empty', // empty, belowMin, aboveMax, invalidStep
-      };
-    }
-
-    // التحقق من أن السعر أقل من الحد الأدنى
-    if (price < item.minPrice) {
-      return {'isValid': false, 'error': 'السعر أقل من الحد الأدنى', 'errorType': 'belowMin'};
-    }
-
-    // التحقق من أن السعر أعلى من الحد الأقصى
-    if (price > item.maxPrice) {
-      return {'isValid': false, 'error': 'السعر أعلى من الحد الأقصى', 'errorType': 'aboveMax'};
-    }
-
-    // التحقق من أن السعر يتبع خطوات محددة
-    // الصيغة: price = minPrice + (n * priceStep) حيث n = 0, 1, 2, 3...
-    final difference = price - item.minPrice;
-    if (difference % item.priceStep != 0) {
-      return {'isValid': false, 'error': 'السعر غير صحيح', 'errorType': 'invalidStep'};
-    }
-
-    // السعر صحيح تماماً
-    return {'isValid': true, 'error': '', 'errorType': 'none'};
-  }
-
   // حساب المجاميع (بدون رسوم توصيل - تُحسب في ملخص الطلب)
   Map<String, int> _calculateTotals() {
     return _cartService.calculateTotals(
@@ -146,61 +110,51 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // 🎨 تحويل كود اللون السادس عشري إلى Color
-  Color _parseColor(String hexColor) {
-    try {
-      String hex = hexColor.replaceAll('#', '');
-      if (hex.length == 6) {
-        return Color(int.parse('FF$hex', radix: 16));
-      }
-      return Colors.grey;
-    } catch (e) {
-      return Colors.grey;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBody: true,
-      body: AppBackground(
-        child: ListenableBuilder(
-          listenable: _cartService,
-          builder: (context, child) {
-            final totals = _calculateTotals();
+    return PopScope(
+      canPop: true, // السماح بالرجوع من صفحة السلة
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBody: true,
+        body: AppBackground(
+          child: ListenableBuilder(
+            listenable: _cartService,
+            builder: (context, child) {
+              final totals = _calculateTotals();
 
-            return Column(
-              children: [
-                // الشريط العلوي
-                const SizedBox(height: 25),
-                _buildHeader(isDark),
-                const SizedBox(height: 20),
+              return Column(
+                children: [
+                  // الشريط العلوي
+                  const SizedBox(height: 25),
+                  _buildHeader(isDark),
+                  const SizedBox(height: 20),
 
-                // المحتوى الرئيسي
-                Expanded(
-                  child: _cartService.items.isEmpty
-                      ? _buildEmptyCart(isDark)
-                      : Stack(
-                          children: [
-                            // محتوى السلة القابل للتمرير
-                            SingleChildScrollView(
-                              child: Padding(
-                                padding: const EdgeInsets.only(bottom: 200),
-                                child: _buildCartContent(totals, isDark),
+                  // المحتوى الرئيسي
+                  Expanded(
+                    child: _cartService.items.isEmpty
+                        ? _buildEmptyCart(isDark)
+                        : Stack(
+                            children: [
+                              // محتوى السلة القابل للتمرير
+                              SingleChildScrollView(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(bottom: 200),
+                                  child: _buildCartContent(totals, isDark),
+                                ),
                               ),
-                            ),
 
-                            // القسم السفلي الثابت
-                            Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomSection(totals, isDark)),
-                          ],
-                        ),
-                ),
-              ],
-            );
-          },
+                              // القسم السفلي الثابت
+                              Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomSection(totals, isDark)),
+                            ],
+                          ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -362,417 +316,18 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // 🏷️ بطاقة منتج في السلة
+  // 🏷️ بطاقة منتج في السلة - تستخدم الويدجت الجديد
   Widget _buildCartItem(CartItem item, bool isDark) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 15),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, // 🎯 شفافة في الليلي، بيضاء في النهاري
-        border: Border.all(
-          color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.3 : 0.5),
-          width: isDark ? 1.5 : 2,
-        ),
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: isDark
-            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))]
-            : [BoxShadow(color: Colors.grey.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0, 4))],
-      ),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // الجزء العلوي - الصورة والمعلومات الأساسية
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // صورة المنتج
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFe9ecef), width: 1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          item.image,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: const Color(0xFF6c757d),
-                              child: const Icon(FontAwesomeIcons.image, color: Colors.white, size: 18),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(width: 10),
-
-                    // معلومات المنتج
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // اسم المنتج
-                          Text(
-                            item.name,
-                            style: GoogleFonts.cairo(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: isDark ? Colors.white : Colors.black, // 🎯 متكيف
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          // 🎨 عرض اللون إذا كان موجوداً
-                          if (item.colorName != null && item.colorHex != null)
-                            Row(
-                              children: [
-                                // دائرة اللون
-                                Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: _parseColor(item.colorHex!),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                // اسم اللون
-                                Text(
-                                  item.colorName!,
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFFffd700),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                          const SizedBox(height: 6),
-
-                          // سعر الجملة - صغير ومتناسق
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFdc3545).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFdc3545).withValues(alpha: 0.3), width: 1),
-                            ),
-                            child: Text(
-                              'جملة: ${_cartService.formatPrice(item.wholesalePrice)}',
-                              style: GoogleFonts.cairo(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFFdc3545),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // الجزء السفلي - التحكم في السعر والكمية
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.15),
-                      width: 1.5,
-                    ),
-                    boxShadow: isDark
-                        ? []
-                        : [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 6,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                  ),
-                  child: Row(
-                    children: [
-                      // تعديل سعر الزبون - أصغر وأنظف
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            // ✅ نص الخطأ فوق الشريط (إن وجد)
-                            Builder(
-                              builder: (context) {
-                                final validation = _validatePrice(item.customerPrice, item);
-                                return validation['isValid']
-                                    ? const SizedBox.shrink()
-                                    : Padding(
-                                        padding: const EdgeInsets.only(bottom: 3),
-                                        child: Text(
-                                          validation['error'] ?? '',
-                                          style: GoogleFonts.cairo(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            color: const Color(0xFFdc3545),
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      );
-                              },
-                            ),
-                            Container(
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.08)
-                                    : Colors.grey.withValues(alpha: 0.05),
-                                border: Border.all(
-                                  color: _validatePrice(item.customerPrice, item)['isValid']
-                                      ? Colors.green.withValues(alpha: 0.5)
-                                      : Colors.red.withValues(alpha: 0.5),
-                                  width: 1.5,
-                                ),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: TextFormField(
-                                controller: _getOrCreateController(item),
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                textAlign: TextAlign.center,
-                                textAlignVertical: TextAlignVertical.center,
-                                style: GoogleFonts.cairo(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: isDark ? Colors.white : Colors.black,
-                                  height: 1.0,
-                                ),
-                                decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  errorBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 2),
-                                  isDense: true,
-                                  hintText: 'السعر',
-                                  hintStyle: GoogleFonts.cairo(
-                                    fontSize: 11,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                onChanged: (value) {
-                                  if (value.isEmpty) {
-                                    _cartService.updatePrice(item.id, 0);
-                                    setState(() {});
-                                    return;
-                                  }
-
-                                  final newPrice = int.tryParse(value);
-                                  if (newPrice != null) {
-                                    _cartService.updatePrice(item.id, newPrice);
-                                    setState(() {});
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            // ✅ الحد الأدنى والأقصى تحت السعر
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                // الحد الأدنى
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(color: Colors.green.withValues(alpha: 0.3), width: 1),
-                                  ),
-                                  child: Text(
-                                    'أدنى: ${_cartService.formatPrice(item.minPrice)}',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.green[700],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                // الحد الأقصى
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(color: Colors.red.withValues(alpha: 0.3), width: 1),
-                                  ),
-                                  child: Text(
-                                    'أقصى: ${_cartService.formatPrice(item.maxPrice)}',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.red[700],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(width: 10),
-
-                      // ✅ الكمية في أقصى اليسار (عمودي: + ثم العدد ثم -)
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // زر زيادة (+) في الأعلى
-                          GestureDetector(
-                            onTap: () {
-                              if (item.quantity >= 10) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('الحد الأقصى 10 قطع', style: GoogleFonts.cairo(fontSize: 12)),
-                                    backgroundColor: const Color(0xFFdc3545),
-                                    duration: const Duration(seconds: 1),
-                                  ),
-                                );
-                                return;
-                              }
-
-                              _cartService.updateQuantity(item.id, item.quantity + 1);
-
-                              InventoryService.checkAvailability(
-                                productId: item.productId,
-                                requestedQuantity: item.quantity + 1,
-                                colorId: item.colorId,
-                              ).then((availabilityCheck) {
-                                if (!availabilityCheck['success'] || !availabilityCheck['is_available']) {
-                                  _cartService.updateQuantity(item.id, item.quantity);
-                                  final maxAvailable = availabilityCheck['max_available'] ?? 0;
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          maxAvailable <= 0 ? '❌ نفذ المخزون' : '⚠️ متوفر $maxAvailable قطعة فقط',
-                                          style: GoogleFonts.cairo(fontWeight: FontWeight.w600, color: Colors.white),
-                                        ),
-                                        backgroundColor: maxAvailable <= 0
-                                            ? const Color(0xFFdc3545)
-                                            : const Color(0xFFff8c00),
-                                        duration: const Duration(seconds: 2),
-                                      ),
-                                    );
-                                  }
-                                }
-                              });
-                            },
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Colors.green.withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(FontAwesomeIcons.plus, color: Colors.white, size: 10),
-                            ),
-                          ),
-
-                          const SizedBox(height: 5),
-
-                          // عرض الكمية في الوسط
-                          Container(
-                            width: 32,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.08),
-                              border: Border.all(color: const Color(0xFF007bff).withValues(alpha: 0.6), width: 1.5),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${item.quantity}',
-                                style: GoogleFonts.cairo(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: isDark ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 5),
-
-                          // زر تقليل (-) في الأسفل
-                          GestureDetector(
-                            onTap: () {
-                              if (item.quantity > 1) {
-                                _cartService.updateQuantity(item.id, item.quantity - 1);
-                              }
-                            },
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(FontAwesomeIcons.minus, color: Colors.white, size: 10),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // زر حذف المنتج
-          Positioned(
-            top: 6,
-            left: 6,
-            child: GestureDetector(
-              onTap: () => _cartService.removeItem(item.id), // 🎯 استخدام item.id بدلاً من productId
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(color: const Color(0xFFdc3545), borderRadius: BorderRadius.circular(9)),
-                child: const Icon(FontAwesomeIcons.xmark, color: Colors.white, size: 8),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return CartItemCard(
+      item: item,
+      isDark: isDark,
+      cartService: _cartService,
+      priceController: _getOrCreateController(item),
+      onStateChanged: () => setState(() {}),
+      onDelete: () {
+        _cartService.removeItem(item.id);
+        setState(() {});
+      },
     );
   }
 
@@ -970,59 +525,75 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     if (hasInvalidPrices) {
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF1a1a2e),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-            side: const BorderSide(color: Color(0xFFdc3545), width: 2),
-          ),
-          title: Row(
-            children: [
-              const Icon(FontAwesomeIcons.triangleExclamation, color: Color(0xFFdc3545), size: 24),
-              const SizedBox(width: 10),
-              Text(
-                'أسعار غير صحيحة',
-                style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'يرجى تصحيح الأسعار التالية قبل جدولة الطلب:',
-                style: GoogleFonts.cairo(fontSize: 14, color: Colors.white70),
-              ),
-              const SizedBox(height: 15),
-              ...invalidProducts.map(
-                (product) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(FontAwesomeIcons.circleXmark, color: Color(0xFFdc3545), size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(product, style: GoogleFonts.cairo(fontSize: 13, color: Colors.white)),
+        builder: (context) => Dialog(
+          backgroundColor: Colors.transparent,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5), // 🎯 مضبب 5 درجات
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  // 🎯 خلفية شفافة
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFdc3545).withValues(alpha: 0.5), width: 1.5),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 🎯 العنوان
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(FontAwesomeIcons.triangleExclamation, color: Color(0xFFdc3545), size: 22),
+                        const SizedBox(width: 10),
+                        Text(
+                          'أسعار غير صحيحة',
+                          style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // 🎯 المحتوى
+                    Text(
+                      'يرجى تصحيح الأسعار التالية قبل إتمام الطلب:',
+                      style: GoogleFonts.cairo(fontSize: 12, color: Colors.white70),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    ...invalidProducts.map(
+                      (product) => Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(FontAwesomeIcons.circleXmark, color: Color(0xFFdc3545), size: 14),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(product, style: GoogleFonts.cairo(fontSize: 11, color: Colors.white)),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 16),
+                    // 🎯 الزر
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFdc3545),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: Text('حسناً', style: GoogleFonts.cairo(fontWeight: FontWeight.w600)),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFdc3545),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: Text('حسناً', style: GoogleFonts.cairo(fontWeight: FontWeight.w600)),
             ),
-          ],
+          ),
         ),
       );
       return; // إيقاف تنفيذ باقي الدالة
@@ -1368,72 +939,88 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // عرض نافذة تحذير للأسعار غير الصحيحة
+  // عرض نافذة تحذير للأسعار غير الصحيحة - شفاف مضبب
   void showPriceValidationDialog(List<String> invalidProducts) {
-    // ✅ الحصول على حالة الوضع (نهاري/ليلي)
     final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-
-    // ✅ تحديد الألوان بناءً على الوضع
-    final backgroundColor = isDark ? const Color(0xFF1a1a2e) : Colors.white; // أسود في الليل، أبيض في النهار
-    final titleColor = isDark ? Colors.white : Colors.black; // أبيض في الليل، أسود في النهار
-    final contentColor = isDark ? Colors.white70 : Colors.black87; // أبيض شفاف في الليل، أسود في النهار
-    final itemColor = isDark ? Colors.white : Colors.black; // أبيض في الليل، أسود في النهار
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: backgroundColor, // ✅ خلفية متكيفة
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-          side: const BorderSide(color: Color(0xFFdc3545), width: 2), // ✅ إطار أحمر ثابت
-        ),
-        title: Row(
-          children: [
-            const Icon(FontAwesomeIcons.triangleExclamation, color: Color(0xFFdc3545), size: 24),
-            const SizedBox(width: 10),
-            Text(
-              'أسعار غير صحيحة',
-              style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.w700, color: titleColor), // ✅ لون متكيف
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'يرجى تصحيح الأسعار التالية قبل إتمام الطلب:',
-              style: GoogleFonts.cairo(fontSize: 14, color: contentColor), // ✅ لون متكيف
-            ),
-            const SizedBox(height: 15),
-            ...invalidProducts.map(
-              (product) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(FontAwesomeIcons.circleXmark, color: Color(0xFFdc3545), size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(product, style: GoogleFonts.cairo(fontSize: 13, color: itemColor)), // ✅ لون متكيف
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5), // 🎯 مضبب 5 درجات
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                // 🎯 خلفية شفافة
+                color: Colors.white.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFFdc3545).withValues(alpha: 0.5), width: 1.5),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 🎯 العنوان
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(FontAwesomeIcons.triangleExclamation, color: Color(0xFFdc3545), size: 22),
+                      const SizedBox(width: 10),
+                      Text(
+                        'أسعار غير صحيحة',
+                        style: GoogleFonts.cairo(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // 🎯 المحتوى
+                  Text(
+                    'يرجى تصحيح الأسعار التالية قبل إتمام الطلب:',
+                    style: GoogleFonts.cairo(fontSize: 12, color: isDark ? Colors.white70 : Colors.black54),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  ...invalidProducts.map(
+                    (product) => Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(FontAwesomeIcons.circleXmark, color: Color(0xFFdc3545), size: 14),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              product,
+                              style: GoogleFonts.cairo(fontSize: 11, color: isDark ? Colors.white : Colors.black),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  // 🎯 الزر
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFdc3545),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text('حسناً', style: GoogleFonts.cairo(fontWeight: FontWeight.w600)),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFdc3545),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: Text('حسناً', style: GoogleFonts.cairo(fontWeight: FontWeight.w600)),
           ),
-        ],
+        ),
       ),
     );
   }

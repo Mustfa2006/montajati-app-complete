@@ -1,12 +1,13 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../providers/products_provider.dart';
-import '../../../../core/design_system.dart';
 
-/// شريط البحث في المنتجات
+/// شريط البحث - نفس تصميم صفحة سجل السحب بالضبط
 class ProductsSearchBar extends StatefulWidget {
   final bool isDark;
 
@@ -38,71 +39,62 @@ class _ProductsSearchBarState extends State<ProductsSearchBar> {
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark
-              ? const Color(0xFFFFD700).withValues(alpha: 0.2)
-              : Colors.grey.withValues(alpha: 0.15),
-          width: 1.2,
-        ),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDark
+                    ? [Colors.white.withValues(alpha: 0.08), Colors.white.withValues(alpha: 0.03)]
+                    : [Colors.white.withValues(alpha: 0.9), Colors.white.withValues(alpha: 0.7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(25),
+              border: Border.all(
+                color: isDark ? Colors.white.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.5),
+                width: 1.5,
+              ),
+            ),
+            child: TextField(
+              controller: _controller,
+              onChanged: (value) {
+                setState(() {});
+                _onSearchChanged(value);
+              },
+              style: GoogleFonts.cairo(
+                color: isDark ? Colors.white : Colors.black87,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+              decoration: InputDecoration(
+                hintText: 'ابحث عن منتج...',
+                hintStyle: GoogleFonts.cairo(color: isDark ? Colors.grey[400] : Colors.grey[500], fontSize: 14),
+                prefixIcon: Container(
+                  padding: const EdgeInsets.all(12),
+                  child: const Icon(FontAwesomeIcons.magnifyingGlass, color: Color(0xFFFFC107), size: 18),
                 ),
-              ],
-      ),
-      child: TextField(
-        controller: _controller,
-        onChanged: _onSearchChanged,
-        textAlign: TextAlign.right,
-        style: GoogleFonts.cairo(
-          fontSize: 13,
-          color: isDark ? Colors.white.withValues(alpha: 0.9) : Colors.black87,
-          height: 1.3,
-        ),
-        decoration: InputDecoration(
-          hintText: 'ابحث عن منتج...',
-          hintStyle: GoogleFonts.cairo(
-            color: isDark ? Colors.white.withValues(alpha: 0.4) : Colors.grey,
-            fontSize: 12,
-            height: 1.3,
-          ),
-          prefixIcon: Padding(
-            padding: const EdgeInsets.only(left: 8, right: 12),
-            child: Icon(
-              Icons.search_rounded,
-              color: isDark
-                  ? const Color(0xFFFFD700).withValues(alpha: 0.7)
-                  : AppDesignSystem.goldColor.withValues(alpha: 0.6),
-              size: 22,
+                suffixIcon: _controller.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(FontAwesomeIcons.xmark, color: Color(0xFFFFC107), size: 16),
+                        onPressed: () {
+                          _controller.clear();
+                          context.read<ProductsProvider>().clearSearch();
+                          setState(() {});
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              ),
             ),
           ),
-          suffixIcon: _controller.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(
-                    Icons.close_rounded,
-                    color: isDark ? Colors.white54 : Colors.grey,
-                    size: 20,
-                  ),
-                  onPressed: () {
-                    _controller.clear();
-                    context.read<ProductsProvider>().clearSearch();
-                  },
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
   }
 }
-

@@ -366,7 +366,7 @@ class _CompetitionCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () {
         if (competition.productId != null && competition.productId!.isNotEmpty) {
-          context.go('/products/details/${competition.productId}');
+          context.push('/products/details/${competition.productId}');
         }
       },
       child: Container(

@@ -1920,7 +1920,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
   // عرض تفاصيل الطلب
   void _showOrderDetails(Order order) {
-    context.go('/orders/details/${order.id}');
+    context.push('/orders/details/${order.id}');
   }
 
   // تعديل الطلب (للطلبات النشطة والمجدولة)

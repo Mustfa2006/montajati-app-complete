@@ -260,15 +260,18 @@ class _EditOrderPageState extends State<EditOrderPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: AppBackground(
-        child: SafeArea(
-          child: _isLoading
-              ? _buildEnhancedLoadingState()
-              : _error != null
-              ? _buildEnhancedErrorState()
-              : _buildEnhancedEditForm(),
+    return PopScope(
+      canPop: true, // السماح بالرجوع من صفحة التعديل
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: AppBackground(
+          child: SafeArea(
+            child: _isLoading
+                ? _buildEnhancedLoadingState()
+                : _error != null
+                ? _buildEnhancedErrorState()
+                : _buildEnhancedEditForm(),
+          ),
         ),
       ),
     );

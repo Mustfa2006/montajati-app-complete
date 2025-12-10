@@ -516,7 +516,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
     return GestureDetector(
       onTap: () {
-        context.go('/products/details/${product.id}');
+        context.push('/products/details/${product.id}');
       },
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),

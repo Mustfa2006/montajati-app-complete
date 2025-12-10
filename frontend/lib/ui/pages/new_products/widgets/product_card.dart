@@ -95,7 +95,7 @@ class ProductCard extends StatelessWidget {
             child: Opacity(
               opacity: animationValue,
               child: GestureDetector(
-                onTap: () => context.go('/products/details/${product.id}'),
+                onTap: () => context.push('/products/details/${product.id}'),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(18),
                   child: LayoutBuilder(

@@ -1,9 +1,9 @@
 // 🎨 صفحة تفاصيل المنتج الأنيقة والمرتبة
 // Elegant Product Details Page with Beautiful Design
 
+import 'dart:async';
 import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,9 +12,9 @@ import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart'; // 🎯 إضافة Provider
 import 'package:saver_gallery/saver_gallery.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // 🎯 إضافة SharedPreferences
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:universal_html/html.dart' as html;
-import 'package:url_launcher/url_launcher.dart'; // 🎯 إضافة url_launcher
 
 import '../core/design_system.dart';
 import '../models/product.dart';
@@ -24,7 +24,16 @@ import '../services/cart_service.dart'; // 🎯 إضافة CartService
 import '../services/favorites_service.dart';
 import '../services/smart_colors_service.dart'; // 🎯 إضافة SmartColorsService
 import '../utils/number_formatter.dart';
+import '../widgets/app_background.dart'; // 🎯 إضافة الخلفية الرئيسية
+import '../widgets/product_details_skeleton.dart'; // 🎯 إضافة Skeleton Loading
 import 'cart_page.dart'; // 🎯 إضافة صفحة السلة
+
+// 🎯 Widgets المستخرجة للهيكل النظيف
+import 'product_details/add_to_cart_button.dart';
+import 'product_details/color_quantity_bar.dart';
+import 'product_details/description_section.dart';
+import 'product_details/price_section.dart';
+import 'product_details/product_image_gallery.dart';
 
 class ModernProductDetailsPage extends StatefulWidget {
   final String productId;
@@ -58,8 +67,9 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
   bool _isPriceValid = false;
   String? _selectedColorId; // 🎯 تغيير من String إلى String? لتخزين معرف اللون
   int _selectedQuantity = 1;
+  static const int _maxQuantity = 10; // 🔒 الحد الأقصى للكمية
+  static const int _minQuantity = 1; // 🔒 الحد الأدنى للكمية
   bool _isFavorite = false;
-  bool _isDescriptionExpanded = false;
 
   bool _showActionBalls = false; // حالة إظهار الكرات المنبثقة
   // مفاتيح قياس مواضع الكرات
@@ -81,7 +91,40 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
     _loadProductData();
     _loadFavorites();
     _loadProductColors(); // 🎯 جلب الألوان من قاعدة البيانات
+    _loadPinnedPrices(); // 🎯 تحميل الأسعار المثبتة
     _selectedColorId = 'none'; // 🎯 اختيار "لا شيء" افتراضياً
+  }
+
+  // 📌 تحميل الأسعار المثبتة من التخزين المحلي
+  Future<void> _loadPinnedPrices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'pinned_prices_${widget.productId}';
+      final savedPrices = prefs.getStringList(key);
+
+      if (savedPrices != null && mounted) {
+        setState(() {
+          _pinnedPrices.clear();
+          _pinnedPrices.addAll(savedPrices.map((e) => double.tryParse(e) ?? 0).where((p) => p > 0));
+        });
+        debugPrint('✅ تم تحميل ${_pinnedPrices.length} سعر مثبت للمنتج ${widget.productId}');
+      }
+    } catch (e) {
+      debugPrint('❌ خطأ في تحميل الأسعار المثبتة: $e');
+    }
+  }
+
+  // 📌 حفظ الأسعار المثبتة في التخزين المحلي
+  Future<void> _savePinnedPrices() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'pinned_prices_${widget.productId}';
+      final priceStrings = _pinnedPrices.map((p) => p.toString()).toList();
+      await prefs.setStringList(key, priceStrings);
+      debugPrint('✅ تم حفظ ${_pinnedPrices.length} سعر مثبت للمنتج ${widget.productId}');
+    } catch (e) {
+      debugPrint('❌ خطأ في حفظ الأسعار المثبتة: $e');
+    }
   }
 
   // 🎨 جلب ألوان المنتج من قاعدة البيانات
@@ -175,26 +218,74 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
     });
   }
 
-  // 📌 تثبيت السعر
-  void _pinPrice() {
+  // 📌 تثبيت السعر وحفظه في التخزين المحلي
+  Future<void> _pinPrice() async {
     if (_isPriceValid && !_pinnedPrices.contains(_customerPrice)) {
       setState(() {
         _pinnedPrices.add(_customerPrice);
       });
 
+      // 🎯 حفظ الأسعار في التخزين المحلي - انتظار الحفظ
+      await _savePinnedPrices();
+
       HapticFeedback.mediumImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '📌 تم تثبيت السعر: ${NumberFormatter.formatCurrency(_customerPrice)}',
-            style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '📌 تم تثبيت السعر: ${NumberFormatter.formatCurrency(_customerPrice)}',
+              style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: const Color(0xFFD4AF37),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
           ),
-          backgroundColor: const Color(0xFFD4AF37),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
+        );
+      }
+    }
+  }
+
+  // 📌 حذف سعر مثبت
+  void _removePinnedPrice(double price) {
+    setState(() {
+      _pinnedPrices.remove(price);
+    });
+    // 🎯 حفظ التغييرات في التخزين المحلي
+    _savePinnedPrices();
+
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '🗑️ تم حذف السعر: ${NumberFormatter.formatCurrency(price)}',
+          style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
         ),
-      );
+        backgroundColor: Colors.red.shade400,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // 🔢 زيادة الكمية
+  void _incrementQuantity() {
+    if (_selectedQuantity < _maxQuantity) {
+      setState(() => _selectedQuantity++);
+      HapticFeedback.selectionClick();
+    } else {
+      HapticFeedback.heavyImpact();
+    }
+  }
+
+  // 🔢 إنقاص الكمية
+  void _decrementQuantity() {
+    if (_selectedQuantity > _minQuantity) {
+      setState(() => _selectedQuantity--);
+      HapticFeedback.selectionClick();
+    } else {
+      HapticFeedback.heavyImpact();
     }
   }
 
@@ -303,237 +394,91 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع من ThemeProvider
 
+    // 🦴 عرض Skeleton Loading أثناء التحميل
     if (_isLoading) {
-      return Scaffold(
-        backgroundColor: isDark ? AppDesignSystem.primaryBackground : Colors.white, // 🎯 خلفية متكيفة
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(color: AppDesignSystem.goldColor),
-              const SizedBox(height: 20),
-              Text(
-                'جاري تحميل المنتج...',
-                style: GoogleFonts.cairo(
-                  color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-                  fontSize: 16,
-                ),
-              ),
-            ],
+      return PopScope(
+        canPop: true, // السماح بالرجوع أثناء التحميل
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          extendBody: true,
+          body: AppBackground(
+            child: SafeArea(bottom: false, child: ProductDetailsSkeleton(isDark: isDark)),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: isDark ? Colors.black : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-      extendBody: true, // إزالة الشريط الأسود
-      body: Stack(
-        children: [
-          // المحتوى الرئيسي
-          SafeArea(
-            bottom: false, // إزالة SafeArea من الأسفل
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 80), // 🎯 مساحة للزر الثابت
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10), // تقليل المسافة العلوية
-                    // منطقة الصورة الأنيقة
-                    _buildElegantImageSection(),
+    return PopScope(
+      canPop: true, // السماح بالرجوع من صفحة التفاصيل
+      child: Scaffold(
+        backgroundColor: Colors.transparent, // 🎯 شفاف لإظهار الخلفية الرئيسية
+        extendBody: true,
+        body: AppBackground(
+          child: Stack(
+            children: [
+              // 🎨 خلفية الوضع النهاري
+              if (!isDark) Container(color: const Color(0xFFF5F5F7)),
 
-                    // فاصل بسيط بدون كرة
-                    const SizedBox(height: 10),
-
-                    // تفاصيل المنتج في container أنيق (بدون مسافة)
-                    _buildProductDetailsCard(),
-
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // 🛒 زر إضافة للسلة الثابت في الأسفل - خارج المحتوى
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: SafeArea(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 12),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      (isDark ? Colors.black : Colors.white).withValues(alpha: 0.0),
-                      (isDark ? Colors.black : Colors.white).withValues(alpha: 0.95),
-                      (isDark ? Colors.black : Colors.white),
-                    ],
-                  ),
-                ),
-                child: _buildAddToCartButton(),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 🎨 منطقة الصورة النظيفة بدون مربع
-  Widget _buildElegantImageSection() {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
-    final images = _getImagesList();
-
-    return Container(
-      height: 320, // تكبير الصورة قليلاً
-      color: Colors.transparent,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // الصورة الرئيسية - نظيفة وبسيطة
-          Center(
-            child: SizedBox(
-              width: 300,
-              height: 300,
-              child: PageView.builder(
-                controller: _imagePageController,
-                onPageChanged: (index) {
-                  setState(() => _currentImageIndex = index);
-                  HapticFeedback.selectionClick();
-                },
-                itemCount: images.length,
-                itemBuilder: (context, index) {
-                  return Stack(
-                    children: [
-                      // ظل بسيط أسفل المنتج
-                      Positioned(
-                        bottom: 60,
-                        left: 60,
-                        right: 60,
-                        child: Container(
-                          height: 20,
-                          decoration: BoxDecoration(
-                            gradient: RadialGradient(
-                              colors: [
-                                Colors.black.withValues(alpha: 0.3),
-                                Colors.black.withValues(alpha: 0.1),
-                                Colors.transparent,
-                              ],
-                              stops: [0.0, 0.6, 1.0],
-                            ),
-                            borderRadius: BorderRadius.circular(100),
-                          ),
+              // المحتوى الرئيسي
+              SafeArea(
+                bottom: false, // إزالة SafeArea من الأسفل
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 80), // 🎯 مساحة للزر الثابت
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10), // تقليل المسافة العلوية
+                        // منطقة الصورة الأنيقة - استخدام Widget المستخرج
+                        ProductImageGallery(
+                          images: _getImagesList(),
+                          currentIndex: _currentImageIndex,
+                          pageController: _imagePageController,
+                          onPageChanged: (index) {
+                            setState(() => _currentImageIndex = index);
+                          },
                         ),
-                      ),
 
-                      // الصورة النظيفة
-                      Center(
-                        child: SizedBox(
-                          width: 500,
-                          height: 500,
-                          child: CachedNetworkImage(
-                            imageUrl: images[index],
-                            fit: BoxFit.contain,
-                            placeholder: (context, url) => Center(
-                              child: CircularProgressIndicator(color: const Color(0xFFD4AF37), strokeWidth: 2),
-                            ),
-                            errorWidget: (context, url, error) => Center(
-                              child: Icon(
-                                Icons.image_not_supported,
-                                color: Colors.white.withValues(alpha: 0.3),
-                                size: 40,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
+                        // فاصل بسيط بدون كرة
+                        const SizedBox(height: 10),
 
-          // مؤشر الصور البسيط
-          if (images.length > 1)
-            Positioned(
-              bottom: 10,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  images.length,
-                  (index) => GestureDetector(
-                    onTap: () {
-                      _imagePageController.animateToPage(
-                        index,
-                        duration: const Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: _currentImageIndex == index ? 20 : 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: _currentImageIndex == index
-                            ? const Color(0xFFD4AF37)
-                            : Colors.white.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
+                        // تفاصيل المنتج في container أنيق (بدون مسافة)
+                        _buildProductDetailsCard(),
+
+                        const SizedBox(height: 20),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ),
 
-          // زر الرجوع في الأعلى على اليمين
-          Positioned(
-            top: 10,
-            right: 16,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 2),
+              // 🛒 زر إضافة للسلة الثابت في الأسفل - بدون تدرج
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 12),
+                    // 🎯 استخدام AddToCartButton Widget المستخرج
+                    child: AddToCartButton(
+                      isPriceValid: _isPriceValid,
+                      customerPrice: _customerPrice,
+                      selectedQuantity: _selectedQuantity,
+                      onPressed: _addToCart,
                     ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.arrow_back_ios_new,
-                  color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-                  size: 18,
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  // 🎯 الكرة العائمة - استجابة كاملة 100% بدون تداخل
+  //  الكرة العائمة - استجابة كاملة 100% بدون تداخل
 
   // 🎨 العرض البصري للكرة فقط (بدون منطق النقر)
   Widget _buildActionBallVisual(IconData icon, {Key? widgetKey}) {
@@ -963,18 +908,59 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
 
                   const SizedBox(height: 16),
 
-                  // شريط الألوان والكمية المدمج
-                  _buildColorAndQuantityBar(),
+                  // شريط الألوان والكمية المدمج - 🎯 استخدام ColorQuantityBar Widget المستخرج
+                  ColorQuantityBar(
+                    colors: _productColors,
+                    selectedColorId: _selectedColorId,
+                    selectedQuantity: _selectedQuantity,
+                    maxQuantity: _maxQuantity,
+                    minQuantity: _minQuantity,
+                    onColorSelected: (colorId) {
+                      setState(() => _selectedColorId = colorId);
+                    },
+                    onIncrement: _incrementQuantity,
+                    onDecrement: _decrementQuantity,
+                  ),
 
                   const SizedBox(height: 28),
 
-                  // السعر
-                  _buildPriceDisplay(),
+                  // السعر - 🎯 استخدام PriceSection Widget المستخرج
+                  PriceSection(
+                    minPrice: _productData?['min_price']?.toDouble() ?? 0,
+                    maxPrice: _productData?['max_price']?.toDouble() ?? 0,
+                    wholesalePrice: _productData?['wholesale_price']?.toDouble() ?? 0,
+                    customerPrice: _customerPrice,
+                    isPriceValid: _isPriceValid,
+                    pinnedPrices: _pinnedPrices,
+                    priceController: _priceController,
+                    onPriceChanged: (value) {
+                      setState(() {
+                        _customerPrice = double.tryParse(value) ?? 0;
+                        _validatePrice();
+                      });
+                    },
+                    onPinPrice: _isPriceValid ? _pinPrice : null,
+                    onPinnedPriceTap: (price) {
+                      setState(() {
+                        _customerPrice = price;
+                        _priceController.text = price.toInt().toString();
+                        _validatePrice();
+                      });
+                      HapticFeedback.selectionClick();
+                    },
+                    onPinnedPriceLongPress: (price) {
+                      // للاستخدام المستقبلي - حذف السعر المثبت
+                      _removePinnedPrice(price);
+                    },
+                  ),
 
                   const SizedBox(height: 24),
 
-                  // الوصف
-                  _buildDescription(),
+                  // الوصف - 🎯 استخدام DescriptionSection Widget المستخرج
+                  DescriptionSection(
+                    description: _productData?['description'] ?? 'وصف المنتج هنا...',
+                    onCopy: _copyDescription,
+                  ),
 
                   const SizedBox(height: 24),
 
@@ -1175,774 +1161,11 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
     return [];
   }
 
-  // 🎨🔢 شريط الألوان والكمية المدمج - متناسق مع الخلفية الخرافية
-  Widget _buildColorAndQuantityBar() {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
-            blurRadius: 8,
-            spreadRadius: 0,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // قسم الألوان
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.palette, color: const Color(0xFFD4AF37), size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      'اللون',
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 32,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: [
-                      // 🎯 خيار "لا شيء" كأول خيار
-                      GestureDetector(
-                        onTap: () {
-                          setState(() => _selectedColorId = 'none');
-                          HapticFeedback.selectionClick();
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _selectedColorId == 'none'
-                                  ? const Color(0xFFD4AF37)
-                                  : Colors.grey.withValues(alpha: 0.5),
-                              width: _selectedColorId == 'none' ? 2.5 : 1.5,
-                            ),
-                            boxShadow: !isDark
-                                ? [BoxShadow(color: Colors.grey.withValues(alpha: 0.3), blurRadius: 4, spreadRadius: 0)]
-                                : null,
-                          ),
-                          child: Stack(
-                            children: [
-                              // دائرة حمراء في الوسط
-                              Center(
-                                child: Container(
-                                  width: 20,
-                                  height: 20,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.red, width: 2),
-                                  ),
-                                ),
-                              ),
-                              // خط أحمر قطري
-                              Center(
-                                child: Transform.rotate(
-                                  angle: -0.785398, // -45 degrees
-                                  child: Container(width: 20, height: 2, color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      // 🎨 الألوان من قاعدة البيانات
-                      ..._productColors.map((colorData) {
-                        final isSelected = _selectedColorId == colorData.id;
-                        final color = colorData.flutterColor;
-
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() => _selectedColorId = colorData.id);
-                            HapticFeedback.selectionClick();
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected
-                                    ? const Color(0xFFD4AF37)
-                                    : (color == Colors.white
-                                          ? Colors.grey.withValues(alpha: 0.5)
-                                          : Colors.white.withValues(alpha: 0.2)),
-                                width: isSelected ? 2.5 : 1.5,
-                              ),
-                              boxShadow: color == Colors.white && !isDark
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.grey.withValues(alpha: 0.3),
-                                        blurRadius: 4,
-                                        spreadRadius: 0,
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: isSelected ? Icon(Icons.check, color: colorData.textColor, size: 16) : null,
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // خط فاصل رفيع
-          Container(
-            width: 1,
-            height: 60,
-            color: Colors.white.withValues(alpha: 0.2),
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-
-          // قسم الكمية
-          Expanded(
-            flex: 1,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.inventory_2, color: const Color(0xFFD4AF37), size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      'الكمية',
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // 🎯 زر النقصان - سريع الاستجابة
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          if (_selectedQuantity > 1) {
-                            setState(() => _selectedQuantity--);
-                            HapticFeedback.selectionClick();
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: _selectedQuantity > 1
-                                ? const Color(0xFFFFD700).withValues(alpha: 0.15)
-                                : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1)),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
-                          ),
-                          child: Icon(
-                            Icons.remove,
-                            color: _selectedQuantity > 1
-                                ? (isDark ? Colors.white : Colors.black)
-                                : (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.5)),
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 40,
-                      child: Text(
-                        '$_selectedQuantity',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.cairo(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFFD4AF37),
-                        ),
-                      ),
-                    ),
-                    // 🎯 زر الزيادة - سريع الاستجابة
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          if (_selectedQuantity < 10) {
-                            setState(() => _selectedQuantity++);
-                            HapticFeedback.selectionClick();
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: _selectedQuantity < 10
-                                ? const Color(0xFFFFD700).withValues(alpha: 0.15)
-                                : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1)),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
-                          ),
-                          child: Icon(
-                            Icons.add,
-                            color: _selectedQuantity < 10
-                                ? (isDark ? Colors.white : Colors.black)
-                                : (isDark ? Colors.white.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.5)),
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 💰 عرض السعر الأنيق مع إمكانية التعديل
-  Widget _buildPriceDisplay() {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
-    final minPrice = _productData?['min_price']?.toDouble() ?? 0;
-    final maxPrice = _productData?['max_price']?.toDouble() ?? 0;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // نطاق الأسعار المسموح - متناسق مع الخلفية الخرافية
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.2)
-                    : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
-                blurRadius: 8,
-                spreadRadius: 0,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // سعر الجملة في الأعلى
-              Row(
-                children: [
-                  Icon(Icons.inventory_2, color: const Color(0xFF4CAF50), size: 16),
-                  const SizedBox(width: 8),
-                  Text(
-                    'سعر الجملة: ',
-                    style: GoogleFonts.cairo(
-                      fontSize: 14,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.7)
-                          : Colors.black.withValues(alpha: 0.7), // 🎯 لون متكيف
-                    ),
-                  ),
-                  Text(
-                    NumberFormatter.formatCurrency((_productData?['wholesale_price'] ?? 0).toDouble()),
-                    style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFF4CAF50)),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  // الحد الأدنى
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFD700).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.arrow_downward, color: const Color(0xFFFFD700), size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                'الحد الأدنى',
-                                style: GoogleFonts.cairo(
-                                  fontSize: 12,
-                                  color: const Color(0xFFFFD700),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            NumberFormatter.formatCurrency(minPrice),
-                            style: GoogleFonts.cairo(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  // الحد الأعلى
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF4A90E2).withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF4A90E2).withValues(alpha: 0.3), width: 1),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.arrow_upward, color: const Color(0xFF4A90E2), size: 16),
-                              const SizedBox(width: 4),
-                              Text(
-                                'الحد الأعلى',
-                                style: GoogleFonts.cairo(
-                                  fontSize: 12,
-                                  color: const Color(0xFF4A90E2),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            NumberFormatter.formatCurrency(maxPrice),
-                            style: GoogleFonts.cairo(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
-        Text(
-          'سعر البيع للزبون',
-          style: GoogleFonts.cairo(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // حقل إدخال السعر مع زر التثبيت
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.05)
-                      : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _customerPrice == 0
-                        ? const Color(0xFFFFD700).withValues(alpha: 0.3) // 🎯 ذهبي خفيف
-                        : _isPriceValid
-                        ? const Color(0xFF4CAF50)
-                        : const Color(0xFFE53E3E),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isDark
-                          ? Colors.black.withValues(alpha: 0.2)
-                          : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TextField(
-                  controller: _priceController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: GoogleFonts.cairo(
-                    color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'أدخل سعر البيع',
-                    hintStyle: GoogleFonts.cairo(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.5)
-                          : Colors.grey.withValues(alpha: 0.6), // 🎯 لون متكيف
-                      fontSize: 16,
-                    ),
-                    prefixIcon: Icon(Icons.attach_money, color: const Color(0xFFD4AF37), size: 20),
-                    suffixText: 'د.ع',
-                    suffixStyle: GoogleFonts.cairo(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.7)
-                          : Colors.black.withValues(alpha: 0.7), // 🎯 لون متكيف
-                      fontSize: 14,
-                    ),
-                    border: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(16),
-                  ),
-                  onChanged: (value) {
-                    final price = double.tryParse(value) ?? 0;
-                    setState(() {
-                      _customerPrice = price;
-                      _validatePrice();
-                    });
-                  },
-                ),
-              ),
-            ),
-
-            const SizedBox(width: 12),
-
-            // زر تثبيت السعر
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: _isPriceValid
-                    ? const Color(0xFFFFD700)
-                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white), // 🎯 خلفية بيضاء في الوضع النهاري
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isDark
-                        ? Colors.black.withValues(alpha: 0.2)
-                        : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
-                    blurRadius: 8,
-                    spreadRadius: 0,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: _isPriceValid ? _pinPrice : null,
-                  child: Center(
-                    child: Icon(
-                      Icons.push_pin,
-                      color: _isPriceValid
-                          ? Colors.black
-                          : (isDark
-                                ? Colors.white.withValues(alpha: 0.3)
-                                : Colors.grey.withValues(alpha: 0.5)), // 🎯 لون متكيف
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        // مؤشر صحة السعر
-        if (!_isPriceValid && _customerPrice > 0)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'السعر يجب أن يكون بين ${NumberFormatter.formatCurrency(_productData!['min_price'])} و ${NumberFormatter.formatCurrency(_productData!['max_price'])}',
-              style: GoogleFonts.cairo(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w500),
-            ),
-          ),
-
-        const SizedBox(height: 16),
-
-        // عرض الأسعار المثبتة
-        if (_pinnedPrices.isNotEmpty) ...[
-          Text(
-            'الأسعار المثبتة',
-            style: GoogleFonts.cairo(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.8),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _pinnedPrices.map((price) {
-              return GestureDetector(
-                onTap: () {
-                  // استخدام السعر المثبت
-                  setState(() {
-                    _customerPrice = price;
-                    _priceController.text = price.toStringAsFixed(0);
-                    _validatePrice();
-                  });
-                  HapticFeedback.selectionClick();
-                },
-                onLongPress: () {
-                  // حذف السعر المثبت
-                  setState(() {
-                    _pinnedPrices.remove(price);
-                  });
-                  HapticFeedback.heavyImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('🗑️ تم حذف السعر المثبت', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
-                      backgroundColor: Colors.orange,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _customerPrice == price
-                        ? const Color(0xFFFFD700).withValues(alpha: 0.2)
-                        : const Color(0xFF4A90E2).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _customerPrice == price
-                          ? const Color(0xFFFFD700)
-                          : const Color(0xFF4A90E2).withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.push_pin,
-                        color: _customerPrice == price ? const Color(0xFFD4AF37) : Colors.white.withValues(alpha: 0.7),
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        NumberFormatter.formatCurrency(price),
-                        style: GoogleFonts.cairo(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: _customerPrice == price ? const Color(0xFFD4AF37) : Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        // الربح المتوقع - مربع صغير
-        if (_isPriceValid && _customerPrice > 0)
-          Container(
-            margin: const EdgeInsets.only(top: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E7B3A).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.3), width: 1),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.trending_up, color: const Color(0xFF4CAF50), size: 14),
-                const SizedBox(width: 6),
-                Text(
-                  'ربح: ${NumberFormatter.formatCurrency((_customerPrice - (_productData!['wholesale_price'] ?? 0)) * _selectedQuantity)}',
-                  style: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF4CAF50)),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  // 🛒 زر إضافة للسلة الأنيق
-  Widget _buildAddToCartButton() {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
-    final isEnabled = _isPriceValid && _customerPrice > 0;
-
-    return Container(
-      width: double.infinity,
-      height: 48, // 🎯 حجم أصغر
-      decoration: BoxDecoration(
-        color: isEnabled
-            ? const Color(0xFFFFD700)
-            : (isDark
-                  ? const Color(0xFF4A90E2).withValues(alpha: 0.3)
-                  : Colors.white), // 🎯 خلفية بيضاء في الوضع النهاري
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.2)
-                : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
-            blurRadius: 8,
-            spreadRadius: 0,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: isEnabled
-              ? () {
-                  HapticFeedback.heavyImpact();
-                  _addToCart();
-                }
-              : null,
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.shopping_cart_outlined,
-                  color: isEnabled
-                      ? Colors.black
-                      : (isDark
-                            ? Colors.white.withValues(alpha: 0.5)
-                            : Colors.grey.withValues(alpha: 0.6)), // 🎯 لون متكيف
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  isEnabled ? 'إضافة للسلة' : 'أدخل سعر صحيح',
-                  style: GoogleFonts.cairo(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isEnabled
-                        ? Colors.black
-                        : (isDark
-                              ? Colors.white.withValues(alpha: 0.5)
-                              : Colors.grey.withValues(alpha: 0.6)), // 🎯 لون متكيف
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 🔗 استخراج الروابط من النص مع تسمية تلقائية ذكية
-  List<Map<String, String>> _extractLinks(String text) {
-    final List<Map<String, String>> links = [];
-    final RegExp urlPattern = RegExp(r'(https?://[^\s]+)', caseSensitive: false);
-
-    final matches = urlPattern.allMatches(text);
-    int linkCounter = 1;
-
-    for (final match in matches) {
-      final url = match.group(0)!;
-
-      // تسمية تلقائية: "رابط الفيديو الأول"، "رابط الفيديو الثاني"، إلخ
-      String label;
-      if (linkCounter == 1) {
-        label = 'رابط الفيديو الأول';
-      } else if (linkCounter == 2) {
-        label = 'رابط الفيديو الثاني';
-      } else if (linkCounter == 3) {
-        label = 'رابط الفيديو الثالث';
-      } else if (linkCounter == 4) {
-        label = 'رابط الفيديو الرابع';
-      } else if (linkCounter == 5) {
-        label = 'رابط الفيديو الخامس';
-      } else {
-        label = 'رابط الفيديو $linkCounter';
-      }
-
-      links.add({'url': url, 'label': label});
-      linkCounter++;
-    }
-
-    return links;
-  }
-
   // 🔗 إزالة الروابط من النص لإظهار الوصف نظيفاً
   String _removeLinksFromText(String text) {
     final RegExp urlPattern = RegExp(r'(https?://[^\s]+)', caseSensitive: false);
 
     // إزالة الروابط والسطر الذي يحتوي عليها
-    String cleanText = text;
     final lines = text.split('\n');
     final cleanLines = <String>[];
 
@@ -1953,354 +1176,6 @@ class _ModernProductDetailsPageState extends State<ModernProductDetailsPage> wit
       }
     }
 
-    cleanText = cleanLines.join('\n').trim();
-
-    return cleanText;
-  }
-
-  // 🔗 فتح الرابط
-  Future<void> _openUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('لا يمكن فتح الرابط', style: GoogleFonts.cairo()),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  // 📝 الوصف المنعزل مع انيميشن
-  Widget _buildDescription() {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode; // 🎯 تحديد الوضع
-    final originalDescription = _productData?['description'] ?? 'وصف المنتج هنا...';
-    final links = _extractLinks(originalDescription); // 🎯 استخراج الروابط
-    final description = _removeLinksFromText(originalDescription); // 🎯 إزالة الروابط من النص
-    final shortDescription = description.length > 80 ? '${description.substring(0, 80)}...' : description;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2A2A2A) : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.1)
-              : Colors.grey.withValues(alpha: 0.3), // 🎯 حدود رمادية في الوضع النهاري
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          // رأس الوصف مع زر التوسيع وزر النسخ
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _isDescriptionExpanded = !_isDescriptionExpanded;
-              });
-              HapticFeedback.selectionClick();
-            },
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Icon(Icons.description, color: const Color(0xFFD4AF37), size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'الوصف',
-                      style: GoogleFonts.cairo(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white : Colors.black, // 🎯 لون متكيف
-                      ),
-                    ),
-                  ),
-                  // زر النسخ
-                  GestureDetector(
-                    onTap: () => _copyDescription(),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.white, // 🎯 خلفية بيضاء في الوضع النهاري
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: const Color(0xFFFFD700).withValues(alpha: 0.3), // 🎯 حدود ذهبية خفيفة
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: isDark
-                                ? Colors.black.withValues(alpha: 0.2)
-                                : Colors.grey.withValues(alpha: 0.2), // 🎯 ظل أوضح في الوضع النهاري
-                            blurRadius: 8,
-                            spreadRadius: 0,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Icon(Icons.copy, color: const Color(0xFFD4AF37), size: 16),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // زر التوسيع
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.05)
-                          : Colors.grey.withValues(alpha: 0.1), // 🎯 خلفية خفيفة
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.2)
-                            : Colors.grey.withValues(alpha: 0.3), // 🎯 حدود واضحة
-                        width: 1,
-                      ),
-                    ),
-                    child: AnimatedRotation(
-                      turns: _isDescriptionExpanded ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 300),
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.7)
-                            : Colors.black.withValues(alpha: 0.7), // 🎯 لون متكيف
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // محتوى الوصف مع انيميشن
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            height: _isDescriptionExpanded ? null : 0,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 300),
-              opacity: _isDescriptionExpanded ? 1.0 : 0.0,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // الروابط في الأعلى
-                    if (links.isNotEmpty) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : const Color(0xFFFFF9E6), // 🎯 خلفية صفراء خفيفة
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.link, color: const Color(0xFFD4AF37), size: 16),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'الروابط',
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.white : Colors.black,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            ...links.map(
-                              (link) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
-                                child: GestureDetector(
-                                  onTap: () => _openUrl(link['url']!),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFD700).withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: const Color(0xFFFFD700).withValues(alpha: 0.4),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.open_in_new, color: const Color(0xFFD4AF37), size: 14),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            link['label']!,
-                                            style: GoogleFonts.cairo(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w500,
-                                              color: isDark ? Colors.white : Colors.black,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    // نص الوصف
-                    Text(
-                      description,
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.8)
-                            : Colors.black.withValues(alpha: 0.8), // 🎯 لون متكيف
-                        height: 1.6,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // معاينة الروابط فقط عندما يكون مطوياً - قابل للنقر
-          if (!_isDescriptionExpanded && links.isNotEmpty)
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isDescriptionExpanded = true;
-                });
-                HapticFeedback.selectionClick();
-              },
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : const Color(0xFFFFF9E6), // 🎯 خلفية صفراء خفيفة
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.3), width: 1),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.link, color: const Color(0xFFD4AF37), size: 16),
-                          const SizedBox(width: 6),
-                          Text(
-                            'الروابط',
-                            style: GoogleFonts.cairo(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : Colors.black,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${links.length} ${links.length == 1 ? 'رابط' : 'روابط'}',
-                            style: GoogleFonts.cairo(
-                              fontSize: 12,
-                              color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ...links
-                          .take(2)
-                          .map(
-                            (link) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: GestureDetector(
-                                onTap: () => _openUrl(link['url']!),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFD700).withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFFFFD700).withValues(alpha: 0.4), width: 1),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.open_in_new, color: const Color(0xFFD4AF37), size: 14),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          link['label']!,
-                                          style: GoogleFonts.cairo(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w500,
-                                            color: isDark ? Colors.white : Colors.black,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      if (links.length > 2)
-                        Text(
-                          '... و ${links.length - 2} ${links.length - 2 == 1 ? 'رابط آخر' : 'روابط أخرى'}',
-                          style: GoogleFonts.cairo(
-                            fontSize: 12,
-                            color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          // معاينة الوصف عندما يكون مطوياً ولا توجد روابط
-          if (!_isDescriptionExpanded && links.isEmpty)
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isDescriptionExpanded = true;
-                });
-                HapticFeedback.selectionClick();
-              },
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Text(
-                  shortDescription,
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.6)
-                        : Colors.black.withValues(alpha: 0.6), // 🎯 لون متكيف
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+    return cleanLines.join('\n').trim();
   }
 }
