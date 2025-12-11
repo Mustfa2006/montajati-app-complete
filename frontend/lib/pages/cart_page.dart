@@ -2,17 +2,19 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/theme_provider.dart';
 import '../services/cart_service.dart';
 import '../services/scheduled_orders_service.dart';
-import '../utils/number_formatter.dart';
 import '../widgets/app_background.dart';
 import '../widgets/cart_item_card.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
+import 'cart/cart_dialogs.dart' as cart_dialogs;
+import 'cart/cart_header.dart';
+import 'cart/cart_empty_state.dart';
+import 'cart/cart_bottom_section.dart';
 import 'customer_info_page.dart';
 
 class CartPage extends StatefulWidget {
@@ -127,15 +129,18 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
 
               return Column(
                 children: [
-                  // الشريط العلوي
+                  // الشريط العلوي - ويدجت مستقل
                   const SizedBox(height: 25),
-                  _buildHeader(isDark),
+                  CartHeader(
+                    isDark: isDark,
+                    onClearCart: () => cart_dialogs.showClearCartDialog(context, _cartService, () => setState(() {})),
+                  ),
                   const SizedBox(height: 20),
 
                   // المحتوى الرئيسي
                   Expanded(
                     child: _cartService.items.isEmpty
-                        ? _buildEmptyCart(isDark)
+                        ? CartEmptyState(isDark: isDark) // ويدجت مستقل
                         : Stack(
                             children: [
                               // محتوى السلة القابل للتمرير
@@ -146,8 +151,18 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
                                 ),
                               ),
 
-                              // القسم السفلي الثابت
-                              Positioned(bottom: 0, left: 0, right: 0, child: _buildBottomSection(totals, isDark)),
+                              // القسم السفلي الثابت - ويدجت مستقل
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: CartBottomSection(
+                                  totals: totals,
+                                  isDark: isDark,
+                                  onCompleteOrder: () => completeOrder(totals),
+                                  onScheduleOrder: () => _showScheduleDialog(totals),
+                                ),
+                              ),
                             ],
                           ),
                   ),
@@ -160,111 +175,7 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
     );
   }
 
-  // 🎨 الشريط العلوي ضمن المحتوى
-  Widget _buildHeader(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // زر الرجوع
-          GestureDetector(
-            onTap: () => context.go('/products'),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: (isDark ? Colors.white : Colors.black).withValues(alpha: 0.2), width: 1),
-              ),
-              child: Icon(FontAwesomeIcons.arrowRight, color: isDark ? Colors.white : Colors.black, size: 18),
-            ),
-          ),
-
-          // العنوان
-          Text(
-            'السلة',
-            style: GoogleFonts.cairo(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black,
-            ),
-          ),
-
-          // زر مسح السلة
-          GestureDetector(
-            onTap: () => _showClearCartDialog(isDark),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFFff2d55).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFff2d55).withValues(alpha: 0.3), width: 1),
-              ),
-              child: const Icon(FontAwesomeIcons.trash, color: Color(0xFFff2d55), size: 18),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // حالة السلة الفارغة
-  Widget _buildEmptyCart(bool isDark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            FontAwesomeIcons.cartShopping,
-            size: 80,
-            color: isDark ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'سلتك فارغة',
-            style: GoogleFonts.cairo(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white.withValues(alpha: 0.7) : Colors.black.withValues(alpha: 0.7),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'ابدأ بإضافة منتجات إلى سلتك',
-            style: GoogleFonts.cairo(
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
-              color: isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.5),
-            ),
-          ),
-          const SizedBox(height: 30),
-          ElevatedButton(
-            onPressed: () => context.go('/products'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFffd700),
-              foregroundColor: Colors.black,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(FontAwesomeIcons.bagShopping, size: 16),
-                const SizedBox(width: 10),
-                Text('تصفح المنتجات', style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // محتوى السلة
+  // 📦 محتوى السلة
   Widget _buildCartContent(Map<String, int> totals, bool isDark) {
     return PullToRefreshWrapper(
       onRefresh: _refreshData,
@@ -275,43 +186,9 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
           children: [
             // منتجات السلة
             ..._cartService.items.map((item) => _buildCartItem(item, isDark)),
-
-            const SizedBox(height: 20), // مساحة صغيرة للقسم السفلي الثابت
+            const SizedBox(height: 20),
           ],
         ),
-      ),
-    );
-  }
-
-  // مسح السلة
-  void _showClearCartDialog(bool isDark) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF1a1a2e) : Colors.white,
-        title: Text(
-          'مسح السلة',
-          style: GoogleFonts.cairo(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.w700),
-        ),
-        content: Text(
-          'هل أنت متأكد من مسح جميع المنتجات من السلة؟',
-          style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.black87),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('إلغاء', style: GoogleFonts.cairo(color: isDark ? Colors.white70 : Colors.black54)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              _cartService.clearCart();
-              Navigator.pop(context);
-              setState(() {});
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFdc3545)),
-            child: Text('مسح', style: GoogleFonts.cairo(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
@@ -328,176 +205,6 @@ class _CartPageState extends State<CartPage> with TickerProviderStateMixin {
         _cartService.removeItem(item.id);
         setState(() {});
       },
-    );
-  }
-
-  // 📊 القسم السفلي الثابت (المجموع والأزرار) - مع تقويس من الأعلى
-  Widget _buildBottomSection(Map<String, int> totals, bool isDark) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          decoration: BoxDecoration(
-            color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.white,
-            border: Border(
-              top: BorderSide(color: const Color(0xFFffd700).withValues(alpha: isDark ? 0.4 : 0.5), width: 2),
-            ),
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // ✅ المجموع والربح بتصميم بسيط وأنيق
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // المجموع
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'المجموع',
-                            style: GoogleFonts.cairo(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'الربح',
-                            style: GoogleFonts.cairo(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // الأرقام
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            NumberFormatter.formatCurrency(totals['total'] ?? 0),
-                            style: GoogleFonts.cairo(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFFffd700),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            NumberFormatter.formatCurrency(totals['profit'] ?? 0),
-                            style: GoogleFonts.cairo(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF28a745),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // الأزرار
-                  Row(
-                    children: [
-                      // زر إتمام الطلب
-                      Expanded(
-                        flex: 3,
-                        child: GestureDetector(
-                          onTap: () => completeOrder(totals),
-                          child: Container(
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.green.withValues(alpha: 0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(FontAwesomeIcons.check, color: Colors.white, size: 14),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'إتمام الطلب',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 10),
-
-                      // زر جدولة الطلب
-                      Expanded(
-                        flex: 2,
-                        child: GestureDetector(
-                          onTap: () => _showScheduleDialog(totals),
-                          child: Container(
-                            height: 44,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFffd700),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(FontAwesomeIcons.calendar, color: Colors.black, size: 13),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    'جدولة',
-                                    style: GoogleFonts.cairo(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 

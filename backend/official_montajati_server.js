@@ -481,6 +481,15 @@ class OfficialMontajatiServer {
       console.warn('⚠️ تحذير في تحميل مسارات الدعم:', error.message);
     }
 
+    // 📍 مسارات المواقع (المحافظات والمدن)
+    try {
+      const locationsRoutes = require('./routes/locations');
+      this.app.use('/api/locations', locationsRoutes);
+      console.log('✅ تم تحميل مسارات المواقع (المحافظات والمدن)');
+    } catch (error) {
+      console.warn('⚠️ تحذير في تحميل مسارات المواقع:', error.message);
+    }
+
     // مسارات مراقبة المخزون
     this.setupInventoryRoutes();
 
