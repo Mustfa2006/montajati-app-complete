@@ -1602,7 +1602,7 @@ router.post('/', async (req, res) => {
 
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, name, image, wholesale_price, quantity, min_quantity')
+      .select('id, name, wholesale_price, quantity, min_quantity') // ✅ إزالة image - العمود غير موجود
       .in('id', productIds);
 
     if (productsError || !products) {
@@ -1668,7 +1668,7 @@ router.post('/', async (req, res) => {
       processedItems.push({
         product_id: product.id,
         product_name: product.name,
-        product_image: product.image || '',
+        product_image: '', // ✅ العمود image غير موجود في جدول products
         wholesale_price: wholesalePrice,
         customer_price: customerPrice,
         quantity: quantity,
