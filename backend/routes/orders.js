@@ -1602,7 +1602,7 @@ router.post('/', async (req, res) => {
 
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, name, wholesale_price, quantity, min_quantity') // ✅ إزالة image - العمود غير موجود
+      .select('*') // ✅ جلب كل الأعمدة لتجنب أخطاء الأعمدة غير الموجودة
       .in('id', productIds);
 
     if (productsError || !products) {
@@ -1638,9 +1638,10 @@ router.post('/', async (req, res) => {
 
       const quantity = parseInt(item.quantity) || 1;
 
-      // ✅ التحقق من المخزون
-      if (product.quantity < quantity) {
-        stockErrors.push(`المنتج "${product.name}" غير متوفر بالكمية المطلوبة (المتاح: ${product.quantity})`);
+      // ✅ التحقق من المخزون (يدعم أسماء أعمدة مختلفة)
+      const availableStock = product.stock_quantity ?? product.quantity ?? null;
+      if (availableStock !== null && availableStock < quantity) {
+        stockErrors.push(`المنتج "${product.name}" غير متوفر بالكمية المطلوبة (المتاح: ${availableStock})`);
         continue;
       }
 
@@ -1849,13 +1850,23 @@ router.post('/', async (req, res) => {
     for (const item of processedItems) {
       const product = productMap[item.product_id];
       if (product) {
-        const newQuantity = product.quantity - item.quantity;
-        await supabase
-          .from('products')
-          .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
-          .eq('id', item.product_id);
+        // ✅ دعم أسماء أعمدة مختلفة للمخزون
+        const stockColumn = product.stock_quantity !== undefined ? 'stock_quantity' :
+          product.quantity !== undefined ? 'quantity' : null;
 
-        logger.info(`   📦 ${item.product_name}: ${product.quantity} → ${newQuantity}`);
+        if (stockColumn) {
+          const currentStock = product[stockColumn] || 0;
+          const newQuantity = currentStock - item.quantity;
+
+          await supabase
+            .from('products')
+            .update({ [stockColumn]: newQuantity, updated_at: new Date().toISOString() })
+            .eq('id', item.product_id);
+
+          logger.info(`   📦 ${item.product_name}: ${currentStock} → ${newQuantity}`);
+        } else {
+          logger.info(`   ⚠️ ${item.product_name}: لا يوجد عمود مخزون - تم تخطي التحديث`);
+        }
       }
     }
 
