@@ -15,7 +15,7 @@ import 'cart/cart_dialogs.dart' as cart_dialogs;
 import 'cart/cart_header.dart';
 import 'cart/cart_empty_state.dart';
 import 'cart/cart_bottom_section.dart';
-import 'customer_info_page.dart';
+import 'customer_info/customer_info_page.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui'; // ✅ For ImageFilter
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -21,6 +22,7 @@ import '../widgets/app_background.dart';
 import '../widgets/error_animation_widget.dart';
 import '../widgets/pull_to_refresh_wrapper.dart';
 import '../widgets/success_animation_widget.dart';
+import '../widgets/premium_slide_to_submit.dart';
 
 class OrderSummaryPage extends StatefulWidget {
   final Map<String, dynamic> orderData;
@@ -218,21 +220,28 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
           refreshMessage: 'تم تحديث ملخص الطلب',
           child: Column(
             children: [
-              // الشريط العلوي ضمن المحتوى
-              const SizedBox(height: 25),
-              _buildHeader(isDark),
-              const SizedBox(height: 20),
-
-              // المحتوى
+              // المحتوى القابل للتمرير
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.zero, // تصفير الهوامش للتحكم الداخلي
                   child: Column(
                     children: [
-                      _buildDeliveryFeeSlider(isDark),
+                      const SizedBox(height: 25), // مساحة علوية
+                      _buildHeader(isDark), // ✅ الشريط العلوي أصبح هنا (يتحرك مع الصفحة)
                       const SizedBox(height: 20),
-                      _buildOrderSummary(isDark),
-                      const SizedBox(height: 100), // مساحة للزر الثابت
+
+                      // باقي المحتوى مع هوامش جانبية
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          children: [
+                            _buildDeliveryFeeSlider(isDark),
+                            const SizedBox(height: 20),
+                            _buildOrderSummary(isDark),
+                            const SizedBox(height: 100), // مساحة للزر الثابت
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -684,75 +693,34 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
   }
 
   Widget _buildBottomButton(bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.transparent : Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.15),
-            width: 1.5,
-          ),
-        ),
-      ),
-      child: SafeArea(
-        // ✅ زر تأكيد الطلب فخم وبارز
-        child: GestureDetector(
-          onTap: _isProcessing
-              ? null
-              : _orderConfirmed
-              ? _navigateToProducts
-              : _confirmOrder,
-          child: Container(
-            width: double.infinity,
-            height: 52,
-            decoration: BoxDecoration(
-              color: _isProcessing ? Colors.grey.withValues(alpha: 0.5) : const Color(0xFFffd700),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: _isProcessing
-                  ? []
-                  : [
-                      BoxShadow(
-                        color: const Color(0xFFffd700).withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-            ),
-            child: Center(
-              child: _isProcessing
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(color: Colors.black54, strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: Text(
-                            _processingStatus.isNotEmpty
-                                ? (_currentAttempt > 1
-                                      ? '$_processingStatus (المحاولة $_currentAttempt)'
-                                      : _processingStatus)
-                                : 'جاري إرسال الطلب...',
-                            style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black54),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      _orderConfirmed ? 'تم تأكيد طلبك بالفعل ❤️' : 'تأكيد الطلب',
-                      style: GoogleFonts.cairo(
-                        fontSize: _orderConfirmed ? 15 : 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black,
-                        letterSpacing: 0.3,
+    // ✅ إزالة الـ Container الخارجي بالكامل - فقط شريط السحب
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 16), // هامش بسيط من الأسفل فقط
+        child: Center(
+          child: SizedBox(
+            width: 250,
+            child: _orderConfirmed
+                ? Container(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'تم تأكيد طلبك بنجاح ❤️',
+                        style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.green),
                       ),
                     ),
-            ),
+                  )
+                : SlideToSubmitWidget(
+                    text: "اسحب لتأكيد الطلب",
+                    isEnabled: !_isProcessing,
+                    isSubmitting: _isProcessing,
+                    onSubmit: _confirmOrder,
+                  ),
           ),
         ),
       ),
@@ -920,55 +888,74 @@ class _OrderSummaryPageState extends State<OrderSummaryPage> {
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.7),
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(FontAwesomeIcons.circleExclamation, color: Color(0xFFdc3545), size: 60),
-            const SizedBox(height: 16),
-            Text(
-              'فشل إنشاء الطلب',
-              style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              userMessage,
-              style: GoogleFonts.cairo(fontSize: 14, color: Colors.black54),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      _confirmOrder(); // إعادة المحاولة
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFffd700),
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text('إعادة المحاولة', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent, // ✅ شفاف بالكامل
+        elevation: 0,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5), // ✅ ضبابية 5 درجات
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A).withValues(alpha: 0.85), // ✅ أسود شفاف
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.1)), // إطار خفيف
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5)],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(FontAwesomeIcons.circleExclamation, color: Color(0xFFdc3545), size: 55),
+                  const SizedBox(height: 16),
+                  Text(
+                    'فشل إنشاء الطلب',
+                    style: GoogleFonts.cairo(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.black54,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: Text('إلغاء', style: GoogleFonts.cairo()),
+                  const SizedBox(height: 8),
+                  Text(
+                    userMessage,
+                    style: GoogleFonts.cairo(fontSize: 14, color: Colors.white70),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _confirmOrder(); // إعادة المحاولة
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFffd700),
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text('إعادة المحاولة', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text('إلغاء', style: GoogleFonts.cairo(color: Colors.white70)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         ),
       ),
     );

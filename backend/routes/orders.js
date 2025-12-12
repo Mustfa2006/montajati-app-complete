@@ -1554,11 +1554,14 @@ router.post('/', async (req, res) => {
     // ═══════════════════════════════════════════
     // 1️⃣ التحقق من البيانات الأساسية المطلوبة
     // ═══════════════════════════════════════════
+    // ✅ تحويل القيم إلى نصوص لتجنب أخطاء .trim() على أنواع أخرى
+    const safeStr = (val) => (val != null ? String(val).trim() : '');
+
     const validationErrors = [];
-    if (!customer_name?.trim()) validationErrors.push('اسم العميل مطلوب');
-    if (!primary_phone?.trim()) validationErrors.push('رقم الهاتف مطلوب');
-    if (!user_phone?.trim()) validationErrors.push('رقم هاتف التاجر مطلوب');
-    if (!province?.trim()) validationErrors.push('المحافظة مطلوبة');
+    if (!safeStr(customer_name)) validationErrors.push('اسم العميل مطلوب');
+    if (!safeStr(primary_phone)) validationErrors.push('رقم الهاتف مطلوب');
+    if (!safeStr(user_phone)) validationErrors.push('رقم هاتف التاجر مطلوب');
+    if (!safeStr(province)) validationErrors.push('المحافظة مطلوبة');
     if (!items || !Array.isArray(items) || items.length === 0) {
       validationErrors.push('يجب إضافة منتج واحد على الأقل');
     }
@@ -1769,14 +1772,14 @@ router.post('/', async (req, res) => {
     const finalOrderData = {
       id: orderId,
       order_number: orderNumber,
-      customer_name: customer_name.trim(),
-      primary_phone: primary_phone.trim(),
-      secondary_phone: secondary_phone?.trim() || null,
-      province: province,
-      city: city || province,
-      customer_address: customer_address || `${province} - ${city || ''}`,
+      customer_name: safeStr(customer_name),
+      primary_phone: safeStr(primary_phone),
+      secondary_phone: safeStr(secondary_phone) || null,
+      province: safeStr(province),
+      city: safeStr(city) || safeStr(province),
+      customer_address: safeStr(customer_address) || `${safeStr(province)} - ${safeStr(city) || ''}`,
       customer_notes: customer_notes || null,
-      user_phone: user_phone,
+      user_phone: safeStr(user_phone),
       user_id: user_id || null,
       // ✅ القيم المحسوبة في السيرفر (لا نثق بـ Flutter)
       subtotal: calculatedSubtotal,

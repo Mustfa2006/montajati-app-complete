@@ -3,6 +3,7 @@
 ///
 /// هذه الخدمة تتصل بالباك اند لجلب المحافظات والمدن
 /// بدلاً من الاتصال المباشر بـ Supabase
+library;
 
 import 'dart:async';
 import 'dart:convert';
@@ -10,50 +11,13 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../models/province.dart';
+import '../models/city.dart';
 
-/// 🏛️ نموذج المحافظة
-class Province {
-  final String id;
-  final String name;
-  final String externalId;
-
-  Province({required this.id, required this.name, required this.externalId});
-
-  factory Province.fromJson(Map<String, dynamic> json) {
-    return Province(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      externalId: json['externalId']?.toString() ?? '',
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {'id': id, 'name': name, 'external_id': externalId};
-  }
-}
-
-/// 🏙️ نموذج المدينة
-class City {
-  final String id;
-  final String name;
-  final String externalId;
-  final String provinceId;
-
-  City({required this.id, required this.name, required this.externalId, required this.provinceId});
-
-  factory City.fromJson(Map<String, dynamic> json) {
-    return City(
-      id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      externalId: json['externalId']?.toString() ?? '',
-      provinceId: json['provinceId']?.toString() ?? '',
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {'id': id, 'name': name, 'external_id': externalId, 'province_id': provinceId};
-  }
-}
+// تم نقل Province و City إلى ملفات منفصلة:
+// lib/models/province.dart
+// lib/models/city.dart
+// يتم استيرادها أعلاه
 
 /// 📍 خدمة API للمواقع
 class LocationApiService {
@@ -178,7 +142,7 @@ class LocationApiService {
   }
 
   /// 🔍 البحث في المواقع
-  static Future<Map<String, List<dynamic>>> search(String query, {String? type, String? provinceId}) async {
+  static Future<LocationSearchResult> search(String query, {String? type, String? provinceId}) async {
     try {
       debugPrint('📍 [LocationAPI] البحث عن: $query');
 
@@ -194,7 +158,13 @@ class LocationApiService {
         final data = json.decode(response.body);
 
         if (data['success'] == true && data['data'] != null) {
-          return {'provinces': data['data']['provinces'] ?? [], 'cities': data['data']['cities'] ?? []};
+          final provincesData = data['data']['provinces'] as List? ?? [];
+          final citiesData = data['data']['cities'] as List? ?? [];
+
+          return LocationSearchResult(
+            provinces: provincesData.map((p) => Province.fromJson(p)).toList(),
+            cities: citiesData.map((c) => City.fromJson(c)).toList(),
+          );
         }
       }
 
@@ -204,4 +174,12 @@ class LocationApiService {
       rethrow;
     }
   }
+}
+
+/// 🔍 نتيجة البحث في المواقع
+class LocationSearchResult {
+  final List<Province> provinces;
+  final List<City> cities;
+
+  const LocationSearchResult({required this.provinces, required this.cities});
 }
