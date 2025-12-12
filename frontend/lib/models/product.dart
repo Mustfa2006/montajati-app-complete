@@ -35,6 +35,32 @@ class Product {
     }
   }
 
+  // 🖼️ دالة مساعدة آمنة لتحويل الصور من JSON
+  // تدعم كلا الحقلين: images (قائمة) و image_url (نص مفرد)
+  static List<String> _parseImages(Map<String, dynamic> json) {
+    try {
+      // 1. أولاً: تحقق من حقل images (القائمة)
+      if (json['images'] != null && json['images'] is List && (json['images'] as List).isNotEmpty) {
+        return List<String>.from(json['images']);
+      }
+
+      // 2. ثانياً: تحقق من حقل image_url (نص مفرد - للتوافق مع المنتجات القديمة)
+      if (json['image_url'] != null && json['image_url'].toString().isNotEmpty) {
+        return [json['image_url'].toString()];
+      }
+
+      // 3. ثالثاً: تحقق من حقل product_image (اسم بديل محتمل)
+      if (json['product_image'] != null && json['product_image'].toString().isNotEmpty) {
+        return [json['product_image'].toString()];
+      }
+
+      return <String>[];
+    } catch (e) {
+      debugPrint('خطأ في تحويل الصور: $e');
+      return <String>[];
+    }
+  }
+
   final String name;
   final String description;
   final double wholesalePrice;
@@ -80,7 +106,8 @@ class Product {
       wholesalePrice: (json['wholesale_price'] ?? 0).toDouble(),
       minPrice: (json['min_price'] ?? 0).toDouble(),
       maxPrice: (json['max_price'] ?? 0).toDouble(),
-      images: json['images'] != null ? List<String>.from(json['images']) : [],
+      // ✅ دعم كلا الحقلين: images (قائمة) و image_url (نص مفرد)
+      images: _parseImages(json),
       minQuantity: json['min_quantity'] ?? 0,
       maxQuantity: json['max_quantity'] ?? 0,
       availableFrom: json['available_from'] ?? 90,

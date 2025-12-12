@@ -1669,7 +1669,7 @@ router.post('/', async (req, res) => {
       processedItems.push({
         product_id: product.id,
         product_name: product.name,
-        product_image: '', // ✅ العمود image غير موجود في جدول products
+        product_image: product.image_url || (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : ''),
         wholesale_price: wholesalePrice,
         customer_price: customerPrice,
         quantity: quantity,
