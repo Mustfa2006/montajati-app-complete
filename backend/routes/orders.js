@@ -1533,6 +1533,13 @@ router.post('/', async (req, res) => {
   logger.info('🔐 ══════════════════════════════════════════');
   logger.info('🔐 بدء إنشاء طلب آمن (Server-Side Calculations)');
 
+  // ✅ تسجيل مفصل لمحتوى الطلب للتشخيص
+  logger.info('📥 ═══ بيانات الطلب الواردة ═══');
+  logger.info(`📥 Content-Type: ${req.get('Content-Type')}`);
+  logger.info(`📥 Body type: ${typeof req.body}`);
+  logger.info(`📥 Body keys: ${req.body ? Object.keys(req.body).join(', ') : 'NO BODY'}`);
+  logger.info(`📥 Body (first 500 chars): ${JSON.stringify(req.body).substring(0, 500)}`);
+
   try {
     const {
       items,                    // [{product_id, quantity, customer_price}]
@@ -1885,12 +1892,21 @@ router.post('/', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ خطأ حرج في إنشاء الطلب:', error.message);
-    logger.error('Stack:', error.stack);
+    // ✅ تسجيل مفصل جداً للخطأ
+    logger.error('❌ ═══════════════════════════════════════════════');
+    logger.error('❌ خطأ حرج في إنشاء الطلب!');
+    logger.error(`❌ Error type: ${error.constructor.name}`);
+    logger.error(`❌ Error message: ${error.message}`);
+    logger.error(`❌ Error code: ${error.code || 'N/A'}`);
+    logger.error('❌ Stack trace:');
+    logger.error(error.stack);
+    logger.error('❌ ═══════════════════════════════════════════════');
+
     return res.status(500).json({
       success: false,
       error: 'حدث خطأ غير متوقع',
-      details: error.message
+      details: error.message,
+      errorType: error.constructor.name
     });
   }
 });
