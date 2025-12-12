@@ -389,6 +389,144 @@ router.get('/waseet-sync-status', async (req, res) => {
 });
 
 // ===================================
+// 🕒 مسارات الطلبات المجدولة (يجب أن تكون قبل /:id)
+// ===================================
+
+// GET /api/orders/scheduled/:id - جلب تفاصيل طلب مجدول (Secure & DTO)
+router.get('/scheduled/:id', verifyAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id; // 🔐 ID المستخدم من التوكن
+
+    // 1️⃣ جلب الطلب مع التحقق من المالك
+    const { data: order, error } = await supabase
+      .from('scheduled_orders')
+      .select('*, scheduled_order_items(*)')
+      .eq('id', id)
+      .single();
+
+    if (error || !order) {
+      return res.status(404).json({ success: false, error: 'الطلب غير موجود' });
+    }
+
+    // 🔐 2️⃣ التحقق الصارم من الملكية
+    if (order.user_id !== userId) {
+      logger.warn(`⛔ محاولة وصول غير مصرح لطلب مجدول: User ${userId} -> Order ${id}`);
+      return res.status(403).json({ success: false, error: 'ليس لديك صلاحية للوصول لهذا الطلب' });
+    }
+
+    // 3️⃣ تجهيز DTO (Data Transfer Object)
+    const orderDetails = {
+      id: order.id,
+      isScheduled: true,
+      status: order.status,
+      scheduledDate: order.scheduled_date,
+      customer: {
+        name: order.customer_name,
+        phone: order.customer_phone,
+        alternatePhone: order.customer_alternate_phone,
+      },
+      location: {
+        province: order.customer_province || order.province, // نفضل customer_province إذا وجد
+        city: order.customer_city || order.city,
+      },
+      notes: order.customer_notes,
+      items: order.scheduled_order_items.map(item => ({
+        id: item.id,
+        productId: item.product_id,
+        name: item.product_name,
+        imageUrl: item.image_url,
+        quantity: item.quantity,
+        price: item.price,
+        cost: item.cost_price,
+        profit: item.profit,
+        supplierId: item.supplier_id
+      })),
+      financial: {
+        total: order.total,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        shipping: order.shipping_fee,
+        profit: order.profit
+      },
+      dates: {
+        created: order.created_at,
+        updated: order.updated_at
+      }
+    };
+
+    return apiSuccess(res, orderDetails);
+
+  } catch (error) {
+    return apiError(res, 'جلب تفاصيل الطلب المجدول', error);
+  }
+});
+
+// PUT /api/orders/scheduled/:id - تحديث طلب مجدول (Secure & Validated)
+router.put('/scheduled/:id', verifyAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const body = req.body;
+
+    // 1️⃣ التحقق من البيانات (Validation)
+    const errors = [];
+    if (!body.customerName?.trim()) errors.push('اسم العميل مطلوب');
+    if (!body.primaryPhone?.trim()) errors.push('رقم الهاتف مطلوب');
+    if (!body.province?.trim()) errors.push('المحافظة مطلوبة');
+    if (!body.city?.trim()) errors.push('المدينة مطلوبة');
+    if (!body.scheduledDate) errors.push('تاريخ الجدولة مطلوب');
+
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, error: errors.join(', ') });
+    }
+
+    // 2️⃣ التحقق من الملكية والحالة
+    const { data: order, error: fetchError } = await supabase
+      .from('scheduled_orders')
+      .select('user_id, status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !order) {
+      return res.status(404).json({ success: false, error: 'الطلب غير موجود' });
+    }
+
+    if (order.user_id !== userId) {
+      logger.warn(`⛔ محاولة تعديل غير مصرح لطلب مجدول: User ${userId} -> Order ${id}`);
+      return res.status(403).json({ success: false, error: 'ليس لديك صلاحية لتعديل هذا الطلب' });
+    }
+
+    // 3️⃣ التحديث الآمن (whitelist fields only)
+    const updateData = {
+      customer_name: body.customerName.trim(),
+      customer_phone: body.primaryPhone.trim(),
+      customer_alternate_phone: body.secondaryPhone?.trim() || null,
+      province: body.province.trim(),
+      city: body.city.trim(),
+      customer_province: body.province.trim(),
+      customer_city: body.city.trim(),
+      customer_notes: body.notes?.trim() || null,
+      scheduled_date: body.scheduledDate,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: updateError } = await supabase
+      .from('scheduled_orders')
+      .update(updateData)
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    logger.info(`✅ تم تحديث الطلب المجدول: ${id} بواسطة User: ${userId}`);
+    return apiSuccess(res, null, 'تمت حفظ التغييرات بنجاح');
+
+  } catch (error) {
+    return apiError(res, 'تحديث الطلب المجدول', error);
+  }
+});
+
+// ===================================
 // GET /api/orders/user/:userPhone - جلب طلبات المستخدم بـ Pagination
 // ===================================
 router.get('/user/:userPhone', async (req, res) => {
@@ -2377,11 +2515,158 @@ router.post('/create-test-order', async (req, res) => {
 // GET /api/orders/:id - جلب طلب محدد مع العناصر (عادي أو مجدول)
 // ⚠️ يجب أن يكون هذا المسار في النهاية لتجنب التعارض مع المسارات الأخرى
 // ===================================
+// ===================================
+// GET /api/orders/:id - جلب طلب محدد مع العناصر (عادي)
+// ⚠️ يجب أن يكون هذا المسار في النهاية لتجنب التعارض مع المسارات الأخرى
+// ===================================
+router.get('/:id', verifyAuth, async (req, res) => {
+  const stepId = Math.random().toString(36).substring(7); // تتبع الطلب
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    console.log(`[${stepId}] 📥 جلب تفاصيل الطلب: ${id} للمستخدم: ${userId}`);
+
+    // 1️⃣ جلب الطلب مع العناصر
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', id)
+      .single();
+
+    if (error || !order) {
+      console.error(`[${stepId}] ❌ الطلب غير موجود: ${id}`);
+      return res.status(404).json({ success: false, error: 'الطلب غير موجود' });
+    }
+
+    // 🔐 2️⃣ التحقق الصارم من الملكية
+    if (order.user_id !== userId) {
+      logger.warn(`⛔ [${stepId}] محاولة وصول غير مصرح: User ${userId} -> Order ${id}`);
+      return res.status(403).json({ success: false, error: 'ليس لديك صلاحية للوصول لهذا الطلب' });
+    }
+
+    // 3️⃣ تجهيز DTO (Data Transfer Object)
+    const orderDetails = {
+      id: order.id,
+      isScheduled: false,
+      status: order.status,
+      customer: {
+        name: order.customer_name,
+        phone: order.primary_phone,
+        alternatePhone: order.secondary_phone,
+      },
+      location: {
+        province: order.province,
+        city: order.city,
+      },
+      notes: order.customer_notes || order.notes,
+      items: order.order_items.map(item => ({
+        id: item.id,
+        productId: item.product_id,
+        name: item.product_name,
+        imageUrl: item.image_url,
+        quantity: item.quantity,
+        price: item.price,
+        profit: item.profit,
+        supplierId: item.supplier_id
+      })),
+      financial: {
+        total: order.total,
+        subtotal: order.subtotal,
+        discount: order.discount,
+        shipping: order.shipping_fee,
+        profit: order.profit,
+        profitAmount: order.profit_amount
+      },
+      waseet: {
+        id: order.waseet_order_id,
+        status: order.waseet_status
+      },
+      dates: {
+        created: order.created_at,
+        updated: order.updated_at
+      }
+    };
+
+    console.log(`[${stepId}] ✅ تم جلب تفاصيل الطلب بنجاح`);
+    return apiSuccess(res, orderDetails);
+
+  } catch (error) {
+    console.error(`[${stepId}] ❌ خطأ في جلب تفاصيل الطلب:`, error);
+    return apiError(res, 'جلب تفاصيل الطلب', error);
+  }
+});
+
+// ===================================
+// PUT /api/orders/:id - تحديث طلب عادي (Secure & Validated)
+// ===================================
+router.put('/:id', verifyAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const body = req.body;
+
+    // 1️⃣ التحقق من البيانات (Validation)
+    const errors = [];
+    if (!body.customerName?.trim()) errors.push('اسم العميل مطلوب');
+    if (!body.primaryPhone?.trim()) errors.push('رقم الهاتف مطلوب');
+    if (!body.province?.trim()) errors.push('المحافظة مطلوبة');
+    if (!body.city?.trim()) errors.push('المدينة مطلوبة');
+
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, error: errors.join(', ') });
+    }
+
+    // 2️⃣ التحقق من الملكية والحالة
+    const { data: order, error: fetchError } = await supabase
+      .from('orders')
+      .select('user_id, status')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !order) {
+      return res.status(404).json({ success: false, error: 'الطلب غير موجود' });
+    }
+
+    if (order.user_id !== userId) {
+      logger.warn(`⛔ محاولة تعديل غير مصرح: User ${userId} -> Order ${id}`);
+      return res.status(403).json({ success: false, error: 'ليس لديك صلاحية لتعديل هذا الطلب' });
+    }
+
+    // 3️⃣ التحديث الآمن
+    const updateData = {
+      customer_name: body.customerName.trim(),
+      primary_phone: body.primaryPhone.trim(),
+      secondary_phone: body.secondaryPhone?.trim() || null,
+      province: body.province.trim(),
+      city: body.city.trim(),
+      customer_notes: body.notes?.trim() || null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    logger.info(`✅ تم تحديث الطلب: ${id} بواسطة User: ${userId}`);
+    return apiSuccess(res, null, 'تمت حفظ التغييرات بنجاح');
+
+  } catch (error) {
+    return apiError(res, 'تحديث الطلب', error);
+  }
+});
+
+// 🗑️ الكود القديم تم استبداله أعلاه
+/*
 router.get('/:id', async (req, res) => {
   const stepId = Math.random().toString(36).substring(7); // تتبع الطلب
   try {
     const { id } = req.params;
     console.log(`[${stepId}] 📥 جلب تفاصيل الطلب: ${id}`);
+
 
     if (!id || id === 'null' || id === 'undefined') {
       console.error(`[${stepId}] ❌ معرف الطلب غير صالح: ${id}`);
@@ -2464,6 +2749,7 @@ router.get('/:id', async (req, res) => {
     });
   }
 });
+*/
 
 // ===================================
 // 1️⃣ POST /api/orders/waseet-sync/:action - مسار موحد للتحكم بمزامنة الوسيط

@@ -400,7 +400,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
                               ),
                             ),
                             child: Icon(
-                              FontAwesomeIcons.arrowLeft, // ✅ السهم يشير لليسار في الوضع العربي
+                              FontAwesomeIcons.arrowRight, // ✅ تم عكس اتجاه السهم بطلب المستخدم
                               color: isDark ? const Color(0xFFffd700) : Colors.black,
                               size: 18,
                             ),
@@ -546,62 +546,58 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
     IconData statusIcon = OrderStatusHelper.getStatusIcon(actualStatus);
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       decoration: BoxDecoration(
-        // خلفية بيضاء في الوضع النهاري، شفافة في الوضع الليلي
         color: isDark ? Colors.transparent : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: statusColor.withValues(alpha: 0.6), width: 2),
-        // توهج داخلي فقط في الوضع الليلي
         gradient: isDark
             ? RadialGradient(
                 center: Alignment.center,
-                radius: 1.2,
-                colors: [statusColor.withValues(alpha: 0.08), statusColor.withValues(alpha: 0.03), Colors.transparent],
-                stops: const [0.0, 0.6, 1.0],
+                radius: 2.0,
+                colors: [statusColor.withValues(alpha: 0.15), Colors.transparent],
               )
             : null,
-        // ظل مناسب للوضع
         boxShadow: isDark
-            ? [
-                BoxShadow(
-                  color: statusColor.withValues(alpha: 0.2),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                  spreadRadius: 0,
-                ),
-              ]
+            ? [BoxShadow(color: statusColor.withValues(alpha: 0.15), blurRadius: 10, offset: const Offset(0, 2))]
             : [BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(12),
+              color: statusColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: FaIcon(statusIcon, color: statusColor, size: 24),
+            child: FaIcon(statusIcon, color: statusColor, size: 20),
           ),
           const SizedBox(width: 15),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
                 Text(
-                  'حالة الطلب',
-                  style: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
+                  'حالة الطلب: ',
+                  style: GoogleFonts.cairo(
+                    color: ThemeColors.secondaryTextColor(isDark),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                Text(
-                  statusText,
-                  style: GoogleFonts.cairo(color: statusColor, fontSize: 18, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    statusText,
+                    style: GoogleFonts.cairo(
+                      color: statusColor,
+                      fontSize: 15, // تقليل الحجم قليلاً كما طلب المستخدم
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
-          ),
-          Text(
-            _formatDate(_order!.createdAt),
-            style: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 12),
           ),
         ],
       ),
@@ -679,7 +675,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         children: [
           Row(
             children: [
-              const FaIcon(FontAwesomeIcons.user, color: Color(0xFFffd700), size: 20),
+              const FaIcon(FontAwesomeIcons.user, color: Color(0xFFffd700), size: 18),
               const SizedBox(width: 10),
               Text(
                 'معلومات العميل',
@@ -688,6 +684,9 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
             ],
           ),
           const SizedBox(height: 15),
+          // ✅ تم نقل تاريخ الطلب هنا
+          _buildInfoRow('تاريخ الطلب', _formatDate(_order!.createdAt), isDark),
+          const Divider(height: 20, color: Colors.grey, thickness: 0.2),
           _buildInfoRow('اسم الزبون', _order!.customerName, isDark, showCopyButton: true),
           _buildInfoRow('رقم الزبون', _order!.primaryPhone, isDark, showCopyButton: true),
           // ✅ إخفاء الرقم البديل إذا كان فارغاً أو null
@@ -708,7 +707,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110,
+            width: 75, // ✅ تقليل العرض لتقليل الفراغ
             child: Text(
               '$label:',
               style: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
@@ -763,7 +762,7 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 110,
+            width: 75,
             child: Text(
               'ملاحظات:',
               style: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 14),
@@ -861,99 +860,121 @@ class _UserOrderDetailsPageState extends State<UserOrderDetailsPage> {
   }
 
   Widget _buildOrderItem(order_item_model.OrderItem item, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        children: [
-          // صورة المنتج
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey.withValues(alpha: 0.2),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.2),
             ),
-            child: _hasValidImage(item)
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      item.image,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(child: CircularProgressIndicator(color: Color(0xFFffd700), strokeWidth: 2));
-                      },
-                      errorBuilder: (context, error, stackTrace) {
-                        debugPrint('❌ خطأ في تحميل صورة المنتج: $error');
-                        debugPrint('🔗 رابط الصورة: ${item.image}');
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Colors.grey.withValues(alpha: 0.3),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.image_not_supported, color: Colors.grey, size: 20),
-                              Text('لا توجد صورة', style: TextStyle(color: Colors.grey, fontSize: 8)),
-                            ],
-                          ),
-                        );
-                      },
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // صورة المنتج
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.1),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1), width: 1),
+                ),
+                child: _hasValidImage(item)
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          item.image,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Icon(Icons.image_not_supported, color: Colors.grey.withValues(alpha: 0.5), size: 24),
+                        ),
+                      )
+                    : Icon(FontAwesomeIcons.box, color: Colors.grey.withValues(alpha: 0.5), size: 24),
+              ),
+              const SizedBox(width: 12),
+
+              // تفاصيل المنتج
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // اسم المنتج
+                    Text(
+                      item.name,
+                      style: GoogleFonts.cairo(
+                        color: ThemeColors.textColor(isDark),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  )
-                : Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    const SizedBox(height: 8),
+
+                    // السعر والكمية
+                    Row(
                       children: [
-                        Icon(Icons.image, color: Colors.grey, size: 20),
-                        Text('لا توجد صورة', style: TextStyle(color: Colors.grey, fontSize: 8)),
+                        // السعر
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFffd700).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFffd700).withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            '${NumberFormat('#,###').format(_getItemPrice(item))} د.ع',
+                            style: GoogleFonts.cairo(
+                              color: const Color(0xFFffd700),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        // الكمية
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                          ),
+                          child: Text(
+                            'x${item.quantity}',
+                            style: GoogleFonts.cairo(color: Colors.blue, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-          ),
-          const SizedBox(width: 15),
-          // تفاصيل المنتج
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.name,
-                  style: GoogleFonts.cairo(
-                    color: ThemeColors.textColor(isDark),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+                    const SizedBox(height: 5),
+
+                    // الربح (تم نقله هنا تحت السعر)
+                    Row(
+                      children: [
+                        const Icon(FontAwesomeIcons.arrowTrendUp, color: Colors.green, size: 10),
+                        const SizedBox(width: 4),
+                        Text(
+                          'ربح: ${NumberFormat('#,###').format(_getItemProfit(item))} د.ع',
+                          style: GoogleFonts.cairo(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  'الكمية: ${item.quantity}',
-                  style: GoogleFonts.cairo(color: ThemeColors.secondaryTextColor(isDark), fontSize: 12),
-                ),
-                Text(
-                  'السعر: ${NumberFormat('#,###').format(_getItemPrice(item))} د.ع',
-                  style: GoogleFonts.cairo(color: const Color(0xFFffd700), fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          // الربح الحقيقي للمنتج
-          Text(
-            'ربح: ${NumberFormat('#,###').format(_getItemProfit(item))} د.ع',
-            style: GoogleFonts.cairo(color: Colors.green, fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-        ],
+        ),
       ),
     );
   }

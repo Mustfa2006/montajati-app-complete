@@ -138,7 +138,8 @@ class AppRouter {
         name: 'edit-order',
         builder: (context, state) {
           final orderId = state.pathParameters['orderId']!;
-          return EditOrderPage(orderId: orderId);
+          final isScheduled = state.uri.queryParameters['scheduled'] == 'true';
+          return EditOrderPage(orderId: orderId, isScheduled: isScheduled);
         },
       ),
 
