@@ -2378,13 +2378,21 @@ router.post('/create-test-order', async (req, res) => {
 // ⚠️ يجب أن يكون هذا المسار في النهاية لتجنب التعارض مع المسارات الأخرى
 // ===================================
 router.get('/:id', async (req, res) => {
+  const stepId = Math.random().toString(36).substring(7); // تتبع الطلب
   try {
     const { id } = req.params;
+    console.log(`[${stepId}] 📥 جلب تفاصيل الطلب: ${id}`);
+
+    if (!id || id === 'null' || id === 'undefined') {
+      console.error(`[${stepId}] ❌ معرف الطلب غير صالح: ${id}`);
+      return res.status(400).json({ success: false, error: 'معرف الطلب غير صالح' });
+    }
 
     // ✅ محاولة جلب الطلب العادي أولاً
+    // نستخدم * لتجنب مشاكل أسماء الأعمدة المتغيرة
     let { data: orderData, error: orderError } = await supabase
       .from('orders')
-      .select('id, order_number, status, customer_name, customer_phone, user_phone, total, subtotal, discount, taxes, shipping_fee, profit, profit_amount, waseet_order_id, waseet_status, waseet_data, created_at, updated_at')
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -2392,15 +2400,16 @@ router.get('/:id', async (req, res) => {
 
     // إذا لم يوجد، جرب الطلبات المجدولة
     if (orderError) {
+      console.log(`[${stepId}] ⚠️ لم يتم العثور في orders (أو خطأ): ${orderError.message}. محاولة scheduled_orders...`);
 
       const { data: scheduledData, error: scheduledError } = await supabase
         .from('scheduled_orders')
-        .select('id, customer_name, customer_phone, user_phone, scheduled_date, status, total, notes, created_at, updated_at')
+        .select('*')
         .eq('id', id)
         .single();
 
       if (scheduledError) {
-        console.error('❌ خطأ في جلب الطلب:', scheduledError);
+        console.error(`[${stepId}] ❌ خطأ/لم يوجد في scheduled_orders:`, scheduledError.message);
         return res.status(404).json({
           success: false,
           error: 'الطلب غير موجود'
@@ -2409,18 +2418,27 @@ router.get('/:id', async (req, res) => {
 
       orderData = scheduledData;
       isScheduledOrder = true;
+      console.log(`[${stepId}] ✅ وجد في scheduled_orders`);
+    } else {
+      console.log(`[${stepId}] ✅ وجد في orders`);
     }
 
     // ✅ جلب عناصر الطلب
     const itemsTableName = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
+    const itemsForeignKey = isScheduledOrder ? 'scheduled_order_id' : 'order_id';
+
+    console.log(`[${stepId}] 🔄 جلب العناصر من ${itemsTableName}...`);
+
     const { data: itemsData, error: itemsError } = await supabase
       .from(itemsTableName)
-      .select('id, order_id, scheduled_order_id, product_id, product_name, product_image, quantity, price, total_price, notes, created_at')
-      .eq(isScheduledOrder ? 'scheduled_order_id' : 'order_id', id);
+      .select('*')
+      .eq(itemsForeignKey, id);
 
     if (itemsError) {
-      console.error('⚠️ تحذير: خطأ في جلب عناصر الطلب:', itemsError);
+      console.error(`[${stepId}] ⚠️ تحذير: خطأ في جلب عناصر الطلب:`, itemsError);
       // لا نرجع خطأ، فقط نرسل الطلب بدون عناصر
+    } else {
+      console.log(`[${stepId}] ✅ تم جلب ${itemsData?.length || 0} عنصر`);
     }
 
     // ✅ دمج البيانات
@@ -2436,8 +2454,10 @@ router.get('/:id', async (req, res) => {
       isScheduledOrder: isScheduledOrder
     });
 
+    console.log(`[${stepId}] 📤 تم إرسال الرد بنجاح`);
+
   } catch (error) {
-    console.error('❌ خطأ في API جلب الطلب:', error);
+    console.error(`[${stepId}] ❌ خطأ في API جلب الطلب:`, error);
     res.status(500).json({
       success: false,
       error: error.message
