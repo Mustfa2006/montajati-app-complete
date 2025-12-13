@@ -27,7 +27,7 @@ class OrderDetails {
 
   factory OrderDetails.fromJson(Map<String, dynamic> json) {
     return OrderDetails(
-      id: json['id'],
+      id: json['id'].toString(),
       isScheduled: json['isScheduled'] ?? false,
       status: json['status'],
       scheduledDate: json['scheduledDate'] != null ? DateTime.parse(json['scheduledDate']) : null,
@@ -50,7 +50,11 @@ class CustomerInfo {
   CustomerInfo({required this.name, required this.phone, this.alternatePhone});
 
   factory CustomerInfo.fromJson(Map<String, dynamic> json) {
-    return CustomerInfo(name: json['name'], phone: json['phone'], alternatePhone: json['alternatePhone']);
+    return CustomerInfo(
+      name: json['name'].toString(),
+      phone: json['phone'].toString(),
+      alternatePhone: json['alternatePhone']?.toString(),
+    );
   }
 }
 
@@ -86,9 +90,9 @@ class OrderItemDetail {
 
   factory OrderItemDetail.fromJson(Map<String, dynamic> json) {
     return OrderItemDetail(
-      id: json['id'],
-      productId: json['productId'],
-      name: json['name'],
+      id: json['id'].toString(),
+      productId: json['productId'].toString(),
+      name: json['name'].toString(),
       imageUrl: json['imageUrl'],
       quantity: (json['quantity'] as num).toInt(),
       price: (json['price'] as num).toDouble(),
@@ -130,7 +134,7 @@ class WaseetInfo {
   WaseetInfo({this.id, this.status});
 
   factory WaseetInfo.fromJson(Map<String, dynamic> json) {
-    return WaseetInfo(id: json['id'], status: json['status']);
+    return WaseetInfo(id: json['id']?.toString(), status: json['status']);
   }
 }
 
