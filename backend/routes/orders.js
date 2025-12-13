@@ -507,7 +507,11 @@ router.put('/scheduled/:id', verifyAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'الطلب غير موجود' });
     }
 
-    if (order.user_id !== userId) {
+    // 🔐 التحقق الصارم من الملكية (مع السماح بالطلبات اليتيمة)
+    const ownerId = order.user_id ? String(order.user_id) : null;
+    const requesterId = String(userId);
+
+    if (ownerId && ownerId !== requesterId) {
       logger.warn(`⛔ محاولة تعديل غير مصرح لطلب مجدول: User ${userId} -> Order ${id}`);
       return res.status(403).json({ success: false, error: 'ليس لديك صلاحية لتعديل هذا الطلب' });
     }
@@ -2648,8 +2652,12 @@ router.put('/:id', verifyAuth, async (req, res) => {
       return res.status(404).json({ success: false, error: 'الطلب غير موجود' });
     }
 
-    if (order.user_id !== userId) {
-      logger.warn(`⛔ محاولة تعديل غير مصرح: User ${userId} -> Order ${id}`);
+    // 🔐 2️⃣ التحقق الصارم من الملكية (مع السماح بالطلبات اليتيمة)
+    const ownerId = order.user_id ? String(order.user_id) : null;
+    const requesterId = String(userId);
+
+    if (ownerId && ownerId !== requesterId) {
+      logger.warn(`⛔ محاولة تعديل غير مصرح: User ${userId} -> Order ${id} (Owner: ${ownerId})`);
       return res.status(403).json({ success: false, error: 'ليس لديك صلاحية لتعديل هذا الطلب' });
     }
 

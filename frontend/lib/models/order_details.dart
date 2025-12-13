@@ -29,11 +29,11 @@ class OrderDetails {
     return OrderDetails(
       id: json['id'].toString(),
       isScheduled: json['isScheduled'] ?? false,
-      status: json['status'],
+      status: json['status']?.toString() ?? 'unknown',
       scheduledDate: json['scheduledDate'] != null ? DateTime.parse(json['scheduledDate']) : null,
       customer: CustomerInfo.fromJson(json['customer']),
       location: LocationInfo.fromJson(json['location']),
-      notes: json['notes'],
+      notes: json['notes']?.toString(),
       items: (json['items'] as List).map((i) => OrderItemDetail.fromJson(i)).toList(),
       financial: FinancialInfo.fromJson(json['financial']),
       waseet: json['waseet'] != null ? WaseetInfo.fromJson(json['waseet']) : null,
@@ -65,7 +65,7 @@ class LocationInfo {
   LocationInfo({required this.province, required this.city});
 
   factory LocationInfo.fromJson(Map<String, dynamic> json) {
-    return LocationInfo(province: json['province'] ?? '', city: json['city'] ?? '');
+    return LocationInfo(province: json['province']?.toString() ?? '', city: json['city']?.toString() ?? '');
   }
 }
 
@@ -94,9 +94,9 @@ class OrderItemDetail {
       productId: json['productId'].toString(),
       name: json['name'].toString(),
       imageUrl: json['imageUrl'],
-      quantity: (json['quantity'] as num).toInt(),
-      price: (json['price'] as num).toDouble(),
-      profit: (json['profit'] as num).toDouble(),
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      profit: (json['profit'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -118,11 +118,11 @@ class FinancialInfo {
 
   factory FinancialInfo.fromJson(Map<String, dynamic> json) {
     return FinancialInfo(
-      total: (json['total'] as num).toDouble(),
-      subtotal: (json['subtotal'] as num).toDouble(),
-      discount: (json['discount'] as num).toDouble(),
-      shipping: (json['shipping'] as num).toDouble(),
-      profit: (json['profit'] as num).toDouble(),
+      total: (json['total'] as num?)?.toDouble() ?? 0.0,
+      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+      discount: (json['discount'] as num?)?.toDouble() ?? 0.0,
+      shipping: (json['shipping'] as num?)?.toDouble() ?? 0.0,
+      profit: (json['profit'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -134,7 +134,7 @@ class WaseetInfo {
   WaseetInfo({this.id, this.status});
 
   factory WaseetInfo.fromJson(Map<String, dynamic> json) {
-    return WaseetInfo(id: json['id']?.toString(), status: json['status']);
+    return WaseetInfo(id: json['id']?.toString(), status: json['status']?.toString());
   }
 }
 

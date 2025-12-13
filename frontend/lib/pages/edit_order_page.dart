@@ -17,6 +17,7 @@ import 'edit_order/widgets/schedule_field.dart';
 import 'edit_order/widgets/save_button.dart';
 import 'edit_order/modals/province_modal.dart';
 import 'edit_order/modals/city_modal.dart';
+import '../widgets/app_background.dart';
 
 class EditOrderPage extends StatelessWidget {
   final String orderId;
@@ -96,10 +97,7 @@ class _EditOrderViewState extends State<_EditOrderView> {
           });
         }
 
-        return Scaffold(
-          backgroundColor: Provider.of<ThemeProvider>(context).isDarkMode ? const Color(0xFF1a1a2e) : Colors.white,
-          body: SafeArea(child: _buildBody(context, provider)),
-        );
+        return AppBackground(child: SafeArea(child: _buildBody(context, provider)));
       },
     );
   }
