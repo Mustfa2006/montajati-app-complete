@@ -77,6 +77,17 @@ async function verifyAuth(req, res, next) {
       return res.status(401).json({ success: false, error: 'غير مصرح بالوصول' });
     }
 
+    // 1️⃣ Custom Token Check (Legacy/Manual Auth)
+    if (token.startsWith('token_')) {
+      const parts = token.split('_');
+      if (parts.length >= 2) {
+        const userId = parts[1];
+        req.user = { id: userId, aud: 'authenticated', role: 'authenticated' };
+        return next();
+      }
+    }
+
+    // 2️⃣ Supabase Native Auth
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data || !data.user) {
       return res.status(401).json({ success: false, error: 'رمز الدخول غير صالح' });

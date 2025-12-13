@@ -4,16 +4,32 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/api_config.dart';
 import '../models/order_details.dart';
+import 'real_auth_service.dart';
 
 class OrderApiService {
   static const String _ordersEndpoint = '/api/orders';
 
-  // 📝 Helper to get Auth Headers
-  static Map<String, String> get _authHeaders {
-    final token = Supabase.instance.client.auth.currentSession?.accessToken;
+  // 📝 Helper to get Auth Headers safely with Logging
+  static Future<Map<String, String>> _getAuthHeaders() async {
+    debugPrint('🔐 [AuthCheck] Starting check...');
+
+    // 1. Try Custom Auth Service (Primary)
+    var token = await AuthService.getToken();
+    debugPrint('🔐 [AuthCheck] Custom Token: ${token != null ? "Found" : "NULL"}');
+
+    // 2. If null, try Supabase Session (Fallback)
     if (token == null) {
+      final session = Supabase.instance.client.auth.currentSession;
+      token = session?.accessToken;
+      debugPrint('🔐 [AuthCheck] Supabase Token: ${token != null ? "Found" : "NULL"}');
+    }
+
+    if (token == null) {
+      debugPrint('❌ [AuthCheck] Token is NULL. User is NOT logged in.');
       throw Exception('المستخدم غير مسجل الدخول');
     }
+
+    debugPrint('✅ [AuthCheck] Token found. Proceeding.');
     return {...ApiConfig.defaultHeaders, 'Authorization': 'Bearer $token'};
   }
 
@@ -23,7 +39,8 @@ class OrderApiService {
       debugPrint('⏳ [OrderAPI] Get Scheduled Order: $id');
       final url = Uri.parse('${ApiConfig.baseUrl}$_ordersEndpoint/scheduled/$id');
 
-      final response = await http.get(url, headers: _authHeaders);
+      final headers = await _getAuthHeaders();
+      final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -45,7 +62,8 @@ class OrderApiService {
       debugPrint('⏳ [OrderAPI] Get Order: $id');
       final url = Uri.parse('${ApiConfig.baseUrl}$_ordersEndpoint/$id');
 
-      final response = await http.get(url, headers: _authHeaders);
+      final headers = await _getAuthHeaders();
+      final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -67,7 +85,8 @@ class OrderApiService {
       debugPrint('⏳ [OrderAPI] Update Scheduled Order: $id');
       final url = Uri.parse('${ApiConfig.baseUrl}$_ordersEndpoint/scheduled/$id');
 
-      final response = await http.put(url, headers: _authHeaders, body: json.encode(updateData));
+      final headers = await _getAuthHeaders();
+      final response = await http.put(url, headers: headers, body: json.encode(updateData));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -90,7 +109,8 @@ class OrderApiService {
       debugPrint('⏳ [OrderAPI] Update Order: $id');
       final url = Uri.parse('${ApiConfig.baseUrl}$_ordersEndpoint/$id');
 
-      final response = await http.put(url, headers: _authHeaders, body: json.encode(updateData));
+      final headers = await _getAuthHeaders();
+      final response = await http.put(url, headers: headers, body: json.encode(updateData));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

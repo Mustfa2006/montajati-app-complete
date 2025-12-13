@@ -77,8 +77,12 @@ void main() async {
     debugPrint('===============================================');
   }
 
-  // ⚡ بدء تحميل جميع الخدمات في الخلفية فوراً (بدون انتظار)
-  _initializeAllServicesInBackground();
+  // ⚡ بدء تحميل جميع الخدمات
+  // ننتظر Supabase فقط لأنه ضروري للمصادقة وتفادي مشاكل Session
+  await _initializeSupabase();
+
+  // باقي الخدمات في الخلفية
+  _initializeOtherServicesInBackground();
 
   // تشغيل التطبيق مع معالجة الأخطاء
   try {
@@ -130,17 +134,13 @@ void main() async {
   }
 }
 
-// ⚡ دالة تهيئة جميع الخدمات في الخلفية (بدون انتظار)
-void _initializeAllServicesInBackground() {
-  // تشغيل في الخلفية فوراً بدون انتظار
+// ⚡ تهيئة باقي الخدمات في الخلفية (بدون انتظار)
+void _initializeOtherServicesInBackground() {
   Future.microtask(() async {
     try {
-      // تحميل الخدمات الأساسية بالتوازي لتقليل وقت البدء
-      await Future.wait([_initializeSupabase(), _initializeOtherServices()], eagerError: false);
+      await _initializeOtherServices();
     } catch (e) {
-      // نطبع فقط الأخطاء الضرورية
       debugPrint('❌ خطأ في تحميل الخدمات في الخلفية: $e');
-      // لا نوقف التطبيق حتى لو فشلت الخدمات
     }
   });
 }
