@@ -61,11 +61,13 @@ function apiSuccess(res, data = null, message = 'تم بنجاح') {
 }
 
 // 🔑 التحقق من الهوية
+// 🔑 التحقق من الهوية (Debug Version)
 async function verifyAuth(req, res, next) {
   try {
     const hdr = req.headers || {};
     const authHeader = hdr.authorization || hdr.Authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const stepId = Math.random().toString(36).substring(7);
 
     // سماح داخلي اختياري عبر مفتاح داخلي
     const internalKey = hdr['x-internal-key'] || hdr['X-Internal-Key'];
@@ -74,7 +76,8 @@ async function verifyAuth(req, res, next) {
     }
 
     if (!token) {
-      return res.status(401).json({ success: false, error: 'غير مصرح بالوصول' });
+      logger.warn(`⛔ [${stepId}] Auth Failed: Token Missing. Header: ${authHeader}`);
+      return res.status(401).json({ success: false, error: 'غير مصرح بالوصول - التوكن مفقود' });
     }
 
     // 1️⃣ Custom Token Check (Legacy/Manual Auth)
@@ -83,13 +86,19 @@ async function verifyAuth(req, res, next) {
       if (parts.length >= 2) {
         const userId = parts[1];
         req.user = { id: userId, aud: 'authenticated', role: 'authenticated' };
+        logger.info(`✅ [${stepId}] Custom Auth Success: ${userId}`);
         return next();
+      } else {
+        logger.warn(`⚠️ [${stepId}] Custom Token Invalid Format: ${token}`);
       }
+    } else {
+      logger.info(`ℹ️ [${stepId}] Checking Supabase Auth... (Token len: ${token.length})`);
     }
 
     // 2️⃣ Supabase Native Auth
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data || !data.user) {
+      logger.error(`⛔ [${stepId}] Supabase Auth Failed: ${error?.message || 'No User Data'}`);
       return res.status(401).json({ success: false, error: 'رمز الدخول غير صالح' });
     }
 
@@ -97,7 +106,7 @@ async function verifyAuth(req, res, next) {
     return next();
   } catch (e) {
     logger.error('Auth error', e.message);
-    return res.status(401).json({ success: false, error: 'غير مصرح بالوصول' });
+    return res.status(401).json({ success: false, error: 'غير مصرح بالوصول - خطأ داخلي' });
   }
 }
 
