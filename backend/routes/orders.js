@@ -2599,8 +2599,12 @@ router.get('/:id', verifyAuth, async (req, res) => {
         name: item.product_name,
         imageUrl: item.image_url,
         quantity: item.quantity,
-        price: item.price,
-        profit: item.profit,
+        // 🛡️ Robust Price Mapping: Try 'price' then 'customer_price'
+        price: Number(item.price || item.customer_price || 0),
+        // 🛡️ Robust Cost Mapping: Try 'wholesale_price' then 'cost'
+        cost: Number(item.wholesale_price || item.cost || 0),
+        // 🛡️ Robust Profit Mapping
+        profit: Number(item.profit || item.profit_amount || 0),
         supplierId: item.supplier_id
       })),
       financial: {

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/order.dart';
 import '../models/order_item.dart' as order_item_model;
+import 'real_auth_service.dart';
 
 /// ✅ خدمة جلب تفاصيل الطلب من Backend API
 /// لا تستدعي قاعدة البيانات مباشرة - آمن وموثوق
@@ -18,8 +19,17 @@ class OrderDetailsService {
 
       final url = Uri.parse('$baseUrl/api/orders/$orderId');
 
+      final token = await AuthService.getToken();
+      final headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
+
+      debugPrint('📨 [OrderDetails] Headers: $headers');
+
       final response = await http
-          .get(url, headers: {'Content-Type': 'application/json', 'Accept': 'application/json'})
+          .get(url, headers: headers)
           .timeout(const Duration(seconds: 30), onTimeout: () => throw Exception('انتهت مهلة الاتصال'));
 
       if (response.statusCode == 200) {
@@ -27,58 +37,60 @@ class OrderDetailsService {
 
         if (jsonData['success'] == true && jsonData['data'] != null) {
           final orderData = jsonData['data'];
-          final isScheduledOrder = jsonData['isScheduledOrder'] ?? false;
+          // Backend returns 'isScheduled' (boolean), logic below handles casting safely
+          final isScheduledOrder = orderData['isScheduled'] == true;
 
           debugPrint('✅ تم جلب الطلب بنجاح');
 
-          // ✅ تحويل عناصر الطلب (حسب نوع الطلب)
-          final itemsKey = isScheduledOrder ? 'scheduled_order_items' : 'order_items';
+          // ✅ 1. استخراج البيانات من الكائنات المتداخلة (Backend DTO)
+          final customer = orderData['customer'] ?? {};
+          final location = orderData['location'] ?? {};
+          final financial = orderData['financial'] ?? {};
+          final dates = orderData['dates'] ?? {};
+
+          // ✅ 2. تحويل العناصر (Items)
+          // Backend returns 'items' array directly in DTO
+          final rawItems = orderData['items'] as List?;
           final orderItems =
-              (orderData[itemsKey] as List?)
+              rawItems
                   ?.map(
                     (item) => order_item_model.OrderItem(
                       id: item['id']?.toString() ?? '',
-                      productId: item['product_id'] ?? '',
-                      name: item['product_name'] ?? '',
-                      image: item['product_image'] ?? '',
-                      wholesalePrice:
-                          double.tryParse(item['wholesale_price']?.toString() ?? item['price']?.toString() ?? '0') ??
-                          0.0,
-                      customerPrice:
-                          double.tryParse(item['customer_price']?.toString() ?? item['price']?.toString() ?? '0') ??
-                          0.0,
-                      quantity: item['quantity'] ?? 1,
+                      productId: item['productId']?.toString() ?? '',
+                      name: item['name']?.toString() ?? '',
+                      image: item['imageUrl']?.toString() ?? '',
+                      wholesalePrice: double.tryParse(item['cost']?.toString() ?? '0') ?? 0.0,
+                      customerPrice: double.tryParse(item['price']?.toString() ?? '0') ?? 0.0,
+                      quantity: int.tryParse(item['quantity']?.toString() ?? '1') ?? 1,
                     ),
                   )
                   .toList() ??
               [];
 
-          // ✅ تحويل البيانات إلى Order model
-          final totalAmount =
-              int.tryParse(orderData['total_amount']?.toString() ?? orderData['total']?.toString() ?? '0') ?? 0;
-          final subtotalAmount =
-              int.tryParse(orderData['total_amount']?.toString() ?? orderData['subtotal']?.toString() ?? '0') ?? 0;
+          // ✅ 3. تحويل البيانات المالية
+          final totalAmount = num.tryParse(financial['total']?.toString() ?? '0') ?? 0;
+          final subtotalAmount = num.tryParse(financial['subtotal']?.toString() ?? '0') ?? 0;
           final profitAmount =
-              int.tryParse(orderData['profit_amount']?.toString() ?? orderData['total_profit']?.toString() ?? '0') ?? 0;
+              num.tryParse(financial['profitAmount']?.toString() ?? financial['profit']?.toString() ?? '0') ?? 0;
 
+          // ✅ 4. بناء الكائن
           final order = Order(
-            id: orderData['id'] ?? '',
-            customerName: orderData['customer_name'] ?? '',
-            primaryPhone: isScheduledOrder ? (orderData['customer_phone'] ?? '') : (orderData['primary_phone'] ?? ''),
-            secondaryPhone: isScheduledOrder
-                ? (orderData['customer_alternate_phone'] ?? '')
-                : (orderData['secondary_phone'] ?? ''),
-            province: isScheduledOrder ? (orderData['customer_province'] ?? '') : (orderData['province'] ?? ''),
-            city: isScheduledOrder ? (orderData['customer_city'] ?? '') : (orderData['city'] ?? ''),
-            total: totalAmount,
-            subtotal: subtotalAmount,
-            totalCost: totalAmount,
-            totalProfit: profitAmount,
-            rawStatus: orderData['status'] ?? 'active',
-            notes: orderData['customer_notes'] ?? orderData['notes'] ?? '',
-            createdAt: DateTime.tryParse(orderData['created_at'] ?? '') ?? DateTime.now(),
+            id: orderData['id']?.toString() ?? '',
+            customerName: customer['name']?.toString() ?? '',
+            primaryPhone: customer['phone']?.toString() ?? '',
+            secondaryPhone: customer['alternatePhone']?.toString() ?? '',
+            province: location['province']?.toString() ?? '',
+            city: location['city']?.toString() ?? '',
+            total: totalAmount.toInt(), // Model expects int
+            subtotal: subtotalAmount.toInt(),
+            totalCost: totalAmount.toInt(), // Fallback if no cost field
+            totalProfit: profitAmount.toInt(),
+            rawStatus: orderData['status']?.toString() ?? 'active',
+            notes: orderData['notes']?.toString() ?? '',
+            createdAt: DateTime.tryParse(dates['created']?.toString() ?? '') ?? DateTime.now(),
             items: orderItems,
-            status: _parseOrderStatus(orderData['status'] ?? 'pending'),
+            status: _parseOrderStatus(orderData['status']?.toString() ?? 'pending'),
+            scheduledDate: isScheduledOrder ? DateTime.tryParse(orderData['scheduledDate']?.toString() ?? '') : null,
           );
 
           return order;
