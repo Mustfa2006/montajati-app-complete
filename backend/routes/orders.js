@@ -66,14 +66,8 @@ async function verifyAuth(req, res, next) {
   try {
     const hdr = req.headers || {};
     const authHeader = hdr.authorization || hdr.Authorization || '';
-    let token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     const stepId = Math.random().toString(36).substring(7);
-
-    // 🛡️ Fallback: Check custom header if standard auth failed
-    if (!token && (hdr['x-auth-token'] || hdr['X-Auth-Token'])) {
-      token = hdr['x-auth-token'] || hdr['X-Auth-Token'];
-      logger.info(`ℹ️ [${stepId}] Auth: Found token in x-auth-token header`);
-    }
 
     // سماح داخلي اختياري عبر مفتاح داخلي
     const internalKey = hdr['x-internal-key'] || hdr['X-Internal-Key'];
