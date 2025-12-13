@@ -422,10 +422,10 @@ router.get('/scheduled/:id', verifyAuth, async (req, res) => {
 
     // 🔐 2️⃣ التحقق الصارم من الملكية
     // 🔐 2️⃣ التحقق الصارم من الملكية
-    const ownerId = String(order.user_id);
+    const ownerId = order.user_id ? String(order.user_id) : null;
     const requesterId = String(userId);
 
-    if (ownerId !== requesterId) {
+    if (ownerId && ownerId !== requesterId) {
       logger.warn(`⛔ [Scheduled] محاولة وصول غير مصرح:\n   Requester: ${requesterId}\n   Owner: ${ownerId}`);
       return res.status(403).json({ success: false, error: 'ليس لديك صلاحية للوصول لهذا الطلب' });
     }
@@ -2556,11 +2556,12 @@ router.get('/:id', verifyAuth, async (req, res) => {
 
     // 🔐 2️⃣ التحقق الصارم من الملكية
     // Safe String Comparison
-    const ownerId = String(order.user_id);
+    const ownerId = order.user_id ? String(order.user_id) : null;
     const requesterId = String(userId);
 
-    if (ownerId !== requesterId) {
-      logger.warn(`⛔ [${stepId}] محاولة وصول غير مصرح:\n   Requester: ${requesterId} (Type: ${typeof userId})\n   Owner: ${ownerId} (Type: ${typeof order.user_id})`);
+    // ✅ السماح بالوصول إذا كان الطلب بدون مالك (null) أو المالك هو المستخدم الحالي
+    if (ownerId && ownerId !== requesterId) {
+      logger.warn(`⛔ [${stepId}] محاولة وصول غير مصرح:\n   Requester: ${requesterId}\n   Owner: ${ownerId}`);
       return res.status(403).json({ success: false, error: 'ليس لديك صلاحية للوصول لهذا الطلب' });
     }
 
