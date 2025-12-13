@@ -63,9 +63,9 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin',
-    'Access-Control-Allow-Origin'
+    'Access-Control-Allow-Origin', 'x-auth-token' // 🛡️ Custom Auth Header
   ],
-  exposedHeaders: ['Content-Length', 'Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Length', 'Content-Type', 'Authorization', 'x-auth-token'],
   optionsSuccessStatus: 200
 };
 

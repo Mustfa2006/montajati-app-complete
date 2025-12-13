@@ -33,7 +33,11 @@ class OrderApiService {
     }
 
     debugPrint('✅ [AuthCheck] Token found. Proceeding.');
-    return {...ApiConfig.defaultHeaders, 'Authorization': 'Bearer $token'};
+    return {
+      ...ApiConfig.defaultHeaders,
+      'Authorization': 'Bearer $token',
+      'x-auth-token': token, // 🛡️ Redundant header specific for our backend
+    };
   }
 
   // 📥 Get Scheduled Order
