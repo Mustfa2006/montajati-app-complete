@@ -15,17 +15,20 @@ class OrderApiService {
 
     // 1. Try Custom Auth Service (Primary)
     var token = await AuthService.getToken();
-    debugPrint('🔐 [AuthCheck] Custom Token: ${token != null ? "Found" : "NULL"}');
+    if (token != null && token.trim().isEmpty) token = null; // 🛡️ Treat empty string as null
+
+    debugPrint('🔐 [AuthCheck] Custom Token: ${token != null ? "Found (${token.substring(0, 5)}...)" : "NULL"}');
 
     // 2. If null, try Supabase Session (Fallback)
     if (token == null) {
       final session = Supabase.instance.client.auth.currentSession;
       token = session?.accessToken;
+      if (token != null && token.trim().isEmpty) token = null; // 🛡️ Safety check
       debugPrint('🔐 [AuthCheck] Supabase Token: ${token != null ? "Found" : "NULL"}');
     }
 
-    if (token == null) {
-      debugPrint('❌ [AuthCheck] Token is NULL. User is NOT logged in.');
+    if (token == null || token.trim().isEmpty) {
+      debugPrint('❌ [AuthCheck] Token is NULL or Empty. User is NOT logged in.');
       throw Exception('المستخدم غير مسجل الدخول');
     }
 
@@ -63,6 +66,7 @@ class OrderApiService {
       final url = Uri.parse('${ApiConfig.baseUrl}$_ordersEndpoint/$id');
 
       final headers = await _getAuthHeaders();
+      debugPrint('📨 [OrderAPI] Headers: $headers');
       final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {

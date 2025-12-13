@@ -154,6 +154,7 @@ class OfficialMontajatiServer {
       const ip = req.ip || req.connection.remoteAddress;
 
       console.log(`📡 ${timestamp} - ${method} ${url} - ${ip}`);
+      console.log(`📨 Headers: ${JSON.stringify(req.headers)}`); // Debug Headers
 
       // إضافة معرف فريد للطلب
       req.requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

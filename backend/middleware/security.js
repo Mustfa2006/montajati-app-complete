@@ -19,6 +19,7 @@ const corsOptions = {
       'http://127.0.0.1:3001',
       'http://localhost:3002',
       'http://127.0.0.1:3002',
+      'http://localhost:8080', // Flutter Web Dev
       'https://muntgati.netlify.app',
       'https://montajati-web.vercel.app',
       'https://montajati-web-git-main.vercel.app',
@@ -193,7 +194,7 @@ const logSuspiciousActivity = (req, res, next) => {
   ];
 
   const checkString = JSON.stringify(req.query) + JSON.stringify(req.body);
-  
+
   for (const pattern of suspiciousPatterns) {
     if (pattern.test(checkString)) {
       console.warn(`🚨 نشاط مشبوه من IP: ${req.ip}, Pattern: ${pattern}, Data: ${checkString.substring(0, 200)}`);
